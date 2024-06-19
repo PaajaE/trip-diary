@@ -1,52 +1,62 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Route, Routes, Navigate, Link } from 'react-router-dom';
-import { supabase } from './supabaseClient';  // Ensure correct import path
-import Register from './components/Register';
-import Login from './components/Login';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import SignIn from './components/SignIn';
+import SignUp from './components/SignUp';
+import TripList from './components/TripList';
+import { supabase } from './supabaseClient';  // Make sure the path is correct
+import { User } from '@supabase/supabase-js';
+import ProtectedRoute from './components/ProtectedRoute';
 import CreateTrip from './components/CreateTrip';
-import AddSpeciesObservation from './components/AddSpeciesObservation';
 
-const App: React.FC = (): JSX.Element => {
-  / Initialize user from the current session
-  const [user, setUser] = useState(supabase.auth.session()?.user || null);
+const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for auth changes
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);  // Update user state based on session info
+    const checkUser = async () => {
+      setLoading(true);
+      const { data, error } = await supabase.auth.getUser();
+      if (!error && data.user) {
+        setUser(data.user);
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
+
+    checkUser();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(async () => {
+      const { data } = await supabase.auth.getUser();
+      setUser(data.user);
     });
 
-    // Clean up the subscription when the component unmounts
     return () => {
-      authListener.unsubscribe();
+      authListener.subscription.unsubscribe();
     };
   }, []);
+
+  if (loading) {
+    return <div>Loading...</div>; // Show a loading indicator until the user is fetched
+  }
 
   return (
     <Router>
       <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center">
-        <nav className="mb-8">
-          <Link to="/register" className="text-blue-500 hover:underline mr-4">Register</Link>
-          <Link to="/login" className="text-blue-500 hover:underline mr-4">Login</Link>
-          {user && (
-            <>
-              <Link to="/create-trip" className="text-blue-500 hover:underline mr-4">Create Trip</Link>
-              <Link to="/add-observation" className="text-blue-500 hover:underline">Add Observation</Link>
-            </>
-          )}
-        </nav>
-        <Routes>
-          <Route path="/register" element={<Register />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/create-trip" element={user ? <CreateTrip /> : <Navigate to="/login" />} />
-          <Route path="/add-observation/:tripId" element={user ? <AddSpeciesObservation /> : <Navigate to="/login" />} />
-          <Route path="*" element={
-            <div className="text-center">
-              <h1 className="text-3xl font-bold mb-4">Welcome to Trip Map Diary</h1>
-              <p>Select an option above to get started.</p>
-            </div>
-          } />
-        </Routes>
+        {!user ? (
+          <Routes>
+            <Route path="/signin" element={<SignIn />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="*" element={<Navigate to="/signin" replace />} />
+          </Routes>
+        ) : (
+          <Routes>
+            <Route path="/trips/add" element={<CreateTrip />} />  // Assuming CreateTrip is the component for adding trips
+            <Route path="/trips" element={<ProtectedRoute user={user}><TripList userId={user.id} /></ProtectedRoute>} />
+            <Route path="/trips" element={<TripList userId={user.id} />} />
+            <Route path="*" element={<Navigate to="/trips" replace />} />
+          </Routes>
+        )}
       </div>
     </Router>
   );
