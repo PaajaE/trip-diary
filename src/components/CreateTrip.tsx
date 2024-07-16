@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { createTrip } from '../functions/createTrip';
 import { supabase } from '../supabaseClient';
+import { Session } from '@supabase/supabase-js';
+import { formatGeographyPoint } from '../utils/map';
 
 /**
  * Component for creating new trips.
@@ -13,29 +15,14 @@ import { supabase } from '../supabaseClient';
  *   <CreateTrip />
  * )
  */
-const CreateTrip: React.FC = (): JSX.Element => {
+const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [gpxFile, setGpxFile] = useState<File | null>(null);
+  const [gpsReference, setGpsReference] = useState<string>('');
   const [tags, setTags] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [userId, setUserId] = useState<string | null>(null);
-
-  /**
-   * Fetches the current user from Supabase to ensure the user is logged in.
-   * This effect runs once on component mount.
-   */
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setUserId(user.id);
-      }
-    };
-
-    fetchUser();
-  }, []);
 
   /**
  * Handles uploading a GPX file to Supabase Storage and returns the file URL.
@@ -76,7 +63,7 @@ const CreateTrip: React.FC = (): JSX.Element => {
    */
   const handleCreateTrip = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
-    if (!userId) {
+    if (!session.user.id) {
       setError('You need to be logged in to create a trip.');
       return;
     }
@@ -95,15 +82,16 @@ const CreateTrip: React.FC = (): JSX.Element => {
       }
     }
 
-    const tripData = { title, description, gpx_file: gpxUrl };
+    const tripData = { title, description, gps_reference: formatGeographyPoint(gpsReference), gpx_file: gpxUrl };
     const tagsArray = tags.split(',').map(tag => tag.trim());
 
     try {
-      const data = await createTrip(tripData, userId, tagsArray);
+      const data = await createTrip(tripData, session.user.id, tagsArray);
       console.log({ data })
       setMessage('Trip created successfully!');
       setTitle('');
       setDescription('');
+      setGpsReference('');
       setGpxFile(null);
       setTags('');
     } catch (error: unknown) {
@@ -139,6 +127,17 @@ const CreateTrip: React.FC = (): JSX.Element => {
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div className="mb-4">
+            <label className="block text-gray-700 mb-2" htmlFor="gpsReference">GPS reference</label>
+            <input
+              type="text"
+              id="gpsReference"
+              value={gpsReference}
+              onChange={(e) => setGpsReference(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
               required
             />

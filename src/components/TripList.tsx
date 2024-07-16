@@ -3,24 +3,27 @@ import { useNavigate } from 'react-router-dom'; // Import from react-router-dom 
 import { supabase } from '../supabaseClient';
 import TripCard from './TripCard';
 import { Tables } from '../types/supabase';  // Adjust path as necessary
+import { type Session } from '@supabase/supabase-js'
 
 type Trip = Tables<'trips'>;
 
 /**
  * Component to display a list of trips for a given user.
  */
-const TripList: React.FC<{ userId: string }> = ({ userId }) => {
+const TripList: React.FC<{ session: Session }> = ({ session }) => {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate(); // Use navigate for routing
+
+  console.log({ session })
 
   useEffect(() => {
     const fetchTrips = async () => {
       const { data, error } = await supabase
         .from('trips')
         .select('*')
-        .eq('user_id', userId);
+        .eq('user_id', session.user.id);
 
       if (error) {
         console.error('Error fetching trips:', error);
@@ -33,7 +36,7 @@ const TripList: React.FC<{ userId: string }> = ({ userId }) => {
     };
 
     fetchTrips();
-  }, [userId]);
+  }, [session]);
 
   if (loading) return <div className="text-center">Loading...</div>;
   if (error) return <div className="text-center text-red-500">Error: {error}</div>;
@@ -47,14 +50,23 @@ const TripList: React.FC<{ userId: string }> = ({ userId }) => {
       ) : (
         <div className="text-center mt-10">
           <p className="text-lg text-gray-600">No trips found. Start adding your adventures!</p>
-          <button
-            onClick={() => navigate('/trips/add')}
-            className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          >
-            Add New Trip
-          </button>
         </div>
+
       )}
+      <div className="text-center mt-10">
+        <button
+          onClick={() => navigate('/trips/add')}
+          className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Add New Trip
+        </button>
+        <button
+          onClick={() => navigate('/map')}
+          className="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        >
+          Map
+        </button>
+      </div>
     </div>
   );
 };

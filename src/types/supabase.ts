@@ -229,7 +229,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_trips: {
+        Args: {
+          user_id: string
+        }
+        Returns: {
+          id: number
+          title: string
+          lat: number
+          long: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

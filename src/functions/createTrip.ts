@@ -1,5 +1,5 @@
 import { supabase } from '../supabaseClient';
-import { PostgrestResponse } from '@supabase/supabase-js';
+import { PostgrestSingleResponse } from '@supabase/supabase-js';
 
 /**
  * TripData type definition.
@@ -9,7 +9,7 @@ interface TripData {
   title: string;
   description: string;
   gpx_file: string | null;
-  gps_reference?: [number, number];
+  gps_reference?: string;
   user_id: string;
 }
 
@@ -33,29 +33,31 @@ export const createTrip = async (
   userId: string,
   tags: string[]
 ): Promise<TripData> => {
-  const { data, error }: PostgrestResponse<TripData> = await supabase
+  const { data, error }: PostgrestSingleResponse<TripData> = await supabase
     .from('trips')
     .insert([{ ...tripData, user_id: userId }])
-    .select()
-    .single();
+    .select().single();
 
   console.log({ data })
 
   if (error || !data) throw new Error(error?.message || 'Failed to create trip');
 
-  const tripId = data[0].id;
+  const tripId = data.id;
+  console.log({tripId})
 
   if (tags && tags.length > 0) {
     const tagPromises = tags.map(async (tag) => {
-      const { data: tagData, error: tagError }: PostgrestResponse<TagData> = await supabase
+      const { data: tagData, error: tagError }: PostgrestSingleResponse<TagData> = await supabase
         .from('tags')
         .upsert([{ name: tag }], { onConflict: 'name' })
         .select()
-        .single();
+        .single()
 
       if (tagError || !tagData) throw new Error(tagError?.message || 'Failed to create tag');
 
-      const tagId = tagData[0].id;
+      console.log({ tagData })
+
+      const tagId = tagData.id;
 
       await supabase
         .from('trip_tags')
@@ -64,5 +66,5 @@ export const createTrip = async (
     await Promise.all(tagPromises);
   }
 
-  return data[0];
+  return data;
 };
