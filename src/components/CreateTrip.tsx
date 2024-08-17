@@ -3,19 +3,11 @@ import { createTrip } from '../functions/createTrip';
 import { supabase } from '../supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { formatGeographyPoint } from '../utils/map';
+import UploadPhotos from './photos/PhotoUpload'; // Import the UploadPhotos component
+import { Photo } from '../types/photos';
+import uploadPhotos from '../functions/uploadPhotos';
 
-/**
- * Component for creating new trips.
- * Allows users to input trip details, upload a GPX file, and add tags related to the trip.
- * It also handles user authentication state to ensure that trips are associated with a logged-in user.
- *
- * @component
- * @example
- * return (
- *   <CreateTrip />
- * )
- */
-const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
+const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
   const [title, setTitle] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [gpxFile, setGpxFile] = useState<File | null>(null);
@@ -23,6 +15,7 @@ const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
   const [tags, setTags] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [isUploadPhotosOpen, setIsUploadPhotosOpen] = useState<boolean>(false); // State to control photo upload modal
 
   /**
  * Handles uploading a GPX file to Supabase Storage and returns the file URL.
@@ -53,6 +46,23 @@ const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
 
     throw new Error('Failed to upload GPX file: No data returned');
   };
+
+  async function handlePhotoUpload(photos: Photo[]) {
+    setIsUploadPhotosOpen(false);
+
+    console.log(session.user.id)
+    if (!session.user.id) {
+      setError('You need to be logged in to create a trip.');
+      return;
+    }
+
+    try {
+      const urls = await uploadPhotos(photos, session.user.id);
+      console.log('Uploaded photo URLs:', urls);
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+    }
+  }
 
 
   /**
@@ -161,6 +171,15 @@ const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
             />
           </div>
+          <div className="mb-4">
+            <button
+              type="button"
+              className="w-full bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600 transition duration-200 mb-4"
+              onClick={() => setIsUploadPhotosOpen(true)}
+            >
+              Upload Photos
+            </button>
+          </div>
           <button
             type="submit"
             className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-200"
@@ -169,6 +188,14 @@ const CreateTrip: React.FC<{session: Session}> = ({session}): JSX.Element => {
           </button>
         </form>
       </div>
+
+      {/* Render the UploadPhotos component conditionally */}
+      {isUploadPhotosOpen && (
+        <UploadPhotos
+          onClose={() => setIsUploadPhotosOpen(false)}
+          onSave={handlePhotoUpload}
+        />
+      )}
     </div>
   );
 };
