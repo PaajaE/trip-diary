@@ -41,3 +41,28 @@ async function uploadPhotos(photos: Photo[], userId: string): Promise<string[]> 
 }
 
 export default uploadPhotos
+
+/**
+ * Uploads a single photo and returns the URL.
+ * @param {Photo} photo - The photo object to upload.
+ * @param {string} userId - The user's ID.
+ * @returns {Promise<string>} The URL of the uploaded photo.
+ */
+export async function uploadSinglePhoto(photo: Photo, userId: string): Promise<string> {
+  const fileName = `${userId}/${photo.id}-${photo.file.name}`;
+  const { data, error } = await supabase.storage
+    .from('trip-photos')
+    .upload(fileName, photo.file);
+
+  if (error) {
+    throw new Error(`Failed to upload photo: ${photo.file.name} - ${error.message}`);
+  }
+
+  console.log({ data })
+
+  const { publicUrl } = supabase.storage
+    .from('trip-photos')
+    .getPublicUrl(fileName).data;
+
+  return publicUrl;
+}

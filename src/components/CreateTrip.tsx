@@ -4,8 +4,8 @@ import { supabase } from '../supabaseClient';
 import { Session } from '@supabase/supabase-js';
 import { formatGeographyPoint } from '../utils/map';
 import UploadPhotos from './photos/PhotoUpload'; // Import the UploadPhotos component
-import { Photo } from '../types/photos';
-import uploadPhotos from '../functions/uploadPhotos';
+import { Photo, PhotosData } from '../types/photos';
+import { uploadSinglePhoto } from '../functions/uploadPhotos';
 
 const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
   const [title, setTitle] = useState<string>('');
@@ -15,14 +15,12 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
   const [tags, setTags] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [isUploadPhotosOpen, setIsUploadPhotosOpen] = useState<boolean>(false); // State to control photo upload modal
+  const [isUploadPhotosOpen, setIsUploadPhotosOpen] = useState<boolean>(false);
+  // const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([]);
+  const [isUploadingPhotos, setIsUploadingPhotos] = useState<boolean>(false); // Track photo upload status
+  const [photosUploaded, setPhotosUploaded] = useState<boolean>(false); // Track if photos have been uploaded
+  const [uploadedPhotosData, setUploadedPhotosData] = useState<PhotosData[]>([]); // Track if photos have been uploaded
 
-  /**
- * Handles uploading a GPX file to Supabase Storage and returns the file URL.
- * @param {File} file - The GPX file to upload.
- * @returns {Promise<string>} The URL of the uploaded file.
- * @throws {Error} If the upload fails.
- */
   const handleFileUpload = async (file: File): Promise<string> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random()}.${fileExt}`;
@@ -32,16 +30,15 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       throw new Error('Failed to upload GPX file: ' + error.message);
     }
 
-    // Assuming the file was uploaded successfully, retrieve the public URL.
     if (data) {
       const { data: urlData } = supabase.storage.from('gpx-files').getPublicUrl(data.path);
-      const { publicUrl } = urlData
+      const { publicUrl } = urlData;
 
       if (!publicUrl) {
         throw new Error('Failed to get public URL for the uploaded file.');
       }
 
-      return publicUrl; // Returns the public URL directly
+      return publicUrl;
     }
 
     throw new Error('Failed to upload GPX file: No data returned');
@@ -49,28 +46,41 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
 
   async function handlePhotoUpload(photos: Photo[]) {
     setIsUploadPhotosOpen(false);
+    setIsUploadingPhotos(true); // Start showing the loading indicator
+    setPhotosUploaded(false); // Reset the photo upload state
 
-    console.log(session.user.id)
     if (!session.user.id) {
       setError('You need to be logged in to create a trip.');
       return;
     }
 
     try {
-      const urls = await uploadPhotos(photos, session.user.id);
-      console.log('Uploaded photo URLs:', urls);
+      const uploadPromises = photos.map(async (photo) => {
+        const url = await uploadSinglePhoto(photo, session.user.id);
+        let gps_reference;
+
+        // If GPS coordinates are available, format them as a point type
+        if (photo.gps?.latitude && photo.gps?.longitude) {
+          gps_reference = `POINT(${photo.gps.longitude} ${photo.gps.latitude})`
+        }
+
+        return { url, gps_reference };
+      });
+
+      const uploadedPhotos = await Promise.all(uploadPromises);
+
+      // Store the uploaded photo data (including URLs and GPS references)
+      // setUploadedPhotoUrls(uploadedPhotos.map((photo) => photo.url));
+      setUploadedPhotosData(uploadedPhotos); // Save full photo data for later use in the createTrip function
+      setPhotosUploaded(true);
     } catch (error) {
       console.error('Photo upload failed:', error);
+      setError('Failed to upload photos.');
+    } finally {
+      setIsUploadingPhotos(false); // Stop the loading indicator
     }
   }
 
-
-  /**
-   * Handles form submission for creating a new trip.
-   * Uploads the GPX file, if available, and creates a new trip record with the specified details.
-   *
-   * @param {React.FormEvent} e - The event object for the form submission.
-   */
   const handleCreateTrip = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
     if (!session.user.id) {
@@ -96,14 +106,17 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
     const tagsArray = tags.split(',').map(tag => tag.trim());
 
     try {
-      const data = await createTrip(tripData, session.user.id, tagsArray);
-      console.log({ data })
+      const data = await createTrip(tripData, session.user.id, tagsArray, uploadedPhotosData);
+      console.log({ data });
       setMessage('Trip created successfully!');
       setTitle('');
       setDescription('');
       setGpsReference('');
       setGpxFile(null);
       setTags('');
+      // setUploadedPhotoUrls([]);
+      setPhotosUploaded(false); // Reset the photo upload state after creating the trip
+      setUploadedPhotosData([]);
     } catch (error: unknown) {
       if (error instanceof Error) {
         setError('Error creating trip: ' + error.message);
@@ -180,16 +193,21 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
               Upload Photos
             </button>
           </div>
+          {/* Show loading indicator if photos are being uploaded */}
+          {isUploadingPhotos && <div className="text-blue-500 text-center mb-4">Uploading photos...</div>}
+          {/* Disable the Create Trip button until photos are uploaded */}
           <button
             type="submit"
-            className="w-full bg-blue-500 text-white py-2 rounded-lg hover:bg-blue-600 transition duration-200"
+            className={`w-full py-2 rounded-lg transition duration-200 ${
+              photosUploaded ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+            }`}
+            disabled={!photosUploaded}
           >
             Create Trip
           </button>
         </form>
       </div>
 
-      {/* Render the UploadPhotos component conditionally */}
       {isUploadPhotosOpen && (
         <UploadPhotos
           onClose={() => setIsUploadPhotosOpen(false)}

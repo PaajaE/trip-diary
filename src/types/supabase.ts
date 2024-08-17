@@ -51,7 +51,7 @@ export type Database = {
       photos: {
         Row: {
           created_at: string | null
-          gps_location: unknown | null
+          gps_reference: unknown | null
           id: number
           trip_id: number | null
           url: string
@@ -59,7 +59,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
-          gps_location?: unknown | null
+          gps_reference?: unknown | null
           id?: number
           trip_id?: number | null
           url: string
@@ -67,7 +67,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
-          gps_location?: unknown | null
+          gps_reference?: unknown | null
           id?: number
           trip_id?: number | null
           url?: string

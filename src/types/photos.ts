@@ -11,3 +11,8 @@ export interface Photo {
   name?: string;
   note?: string;
 }
+
+export interface PhotosData {
+  gps_reference?: string;
+  url: string;
+}
