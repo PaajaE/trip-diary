@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css'
 import { useState, useEffect } from 'react'
 import { supabase } from './supabaseClient'
-import SignIn from './components/SignIn'
-import SignUp from './components/SignUp'
+import SupabaseLogin from './components/SupabaseLogin'
+// import SignUp from './components/SignUp'
 import TripList from './components/TripList'
 import Map from './components/Map'
 
@@ -17,21 +17,23 @@ function App() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session)
-    })
-
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session)
-    })
-  }, [])
+      setSession(session);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <Router>
     <div className="min-h-screen bg-gray-100 flex flex-col justify-center items-center">
       {!session ? (
         <Routes>
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route path="/signin" element={<SupabaseLogin />} />
+          {/* <Route path="/signup" element={<SignUp />} /> */}
           <Route path="*" element={<Navigate to="/signin" replace />} />
         </Routes>
       ) : (
