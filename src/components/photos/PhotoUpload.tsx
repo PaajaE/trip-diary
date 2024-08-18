@@ -1,4 +1,3 @@
-// components/PhotoUpload.tsx
 import React, { useState } from "react";
 import exifr from "exifr";
 import { v4 as uuidv4 } from "uuid";
@@ -7,6 +6,7 @@ import PencilIcon from "../icons/PencilIcon";
 import TrashIcon from "../icons/TrashIcon";
 import UploadIcon from "../icons/UploadIcon";
 import CloseIcon from "../icons/CloseIcon";
+import StarIcon from "../icons/StarIcon";
 import { Photo } from "../../types/photos";
 
 interface PhotoUploadProps {
@@ -14,22 +14,6 @@ interface PhotoUploadProps {
   onSave: (photos: Photo[]) => void;
 }
 
-/**
- * A component for uploading and managing photos.
- * Allows users to upload, edit, and delete photos, and to confirm the upload.
- *
- * @component
- * @example
- * const handleSave = (photos: Photo[]) => {
- *   console.log("Uploaded photos:", photos);
- * };
- * const handleClose = () => {
- *   console.log("Close upload modal");
- * };
- * return (
- *   <PhotoUpload onClose={handleClose} onSave={handleSave} />
- * )
- */
 const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [isEditing, setIsEditing] = useState<boolean>(false);
@@ -39,11 +23,9 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
     const files = Array.from(event.target.files || []);
     const newPhotos: Photo[] = [];
 
-    console.log({ files })
-
     for await (const file of files) {
       const preview = URL.createObjectURL(file);
-      const photo: Photo = { id: uuidv4(), file, preview };
+      const photo: Photo = { id: uuidv4(), file, preview, isCoverPhoto: false };
       await extractMetadata(photo);
       newPhotos.push(photo);
     }
@@ -52,26 +34,31 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
   };
 
   const extractMetadata = async (photo: Photo) => {
-    const output = await exifr.parse(photo.preview, ['DateTimeOriginal', 'GPSLatitude', 'GPSLongitude'])
-    console.log({ output })
-
-    const dateTaken = output.DateTimeOriginal
-    const gpsLatitude = output.GPSLatitude
-    const gpsLongitude = output.GPSLongitude
-
-    if (gpsLatitude && gpsLongitude) {
-      photo.gps = {
-        latitude: gpsLatitude[0] + gpsLatitude[1] / 60 + gpsLatitude[2] / 3600,
-        longitude: gpsLongitude[0] + gpsLongitude[1] / 60 + gpsLongitude[2] / 3600,
-      };
-    }
-
-
-    if (dateTaken) {
-      photo.date = dateTaken;
-    }
-
     console.log({ photo })
+    const output = await exifr.parse(photo.preview, [
+      "DateTimeOriginal",
+      "GPSLatitude",
+      "GPSLongitude",
+    ]);
+
+    if (output) {
+      const dateTaken = output.DateTimeOriginal;
+      const gpsLatitude = output.GPSLatitude;
+      const gpsLongitude = output.GPSLongitude;
+
+      if (gpsLatitude && gpsLongitude) {
+        photo.gps = {
+          latitude:
+            gpsLatitude[0] + gpsLatitude[1] / 60 + gpsLatitude[2] / 3600,
+          longitude:
+            gpsLongitude[0] + gpsLongitude[1] / 60 + gpsLongitude[2] / 3600,
+        };
+      }
+
+      if (dateTaken) {
+        photo.date = dateTaken;
+      }
+    }
 
     setPhotos((prev) =>
       prev.map((p) => (p.id === photo.id ? { ...p, ...photo } : p))
@@ -95,6 +82,15 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
     setPhotos((prev) => prev.filter((p) => p.id !== id));
   };
 
+  const setCoverPhoto = (id: string) => {
+    setPhotos((prevPhotos) =>
+      prevPhotos.map((photo) => ({
+        ...photo,
+        isCoverPhoto: photo.id === id,
+      }))
+    );
+  };
+
   const handleUpload = () => {
     onSave(photos);
   };
@@ -110,7 +106,9 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
           <CloseIcon className="w-6 h-6" />
         </button>
 
-        <h2 className="text-2xl font-semibold mb-4 text-center">Upload Your Photos</h2>
+        <h2 className="text-2xl font-semibold mb-4 text-center">
+          Upload Your Photos
+        </h2>
         <input
           type="file"
           accept=".jpg,.jpeg,.png,.heic"
@@ -120,25 +118,34 @@ const PhotoUpload: React.FC<PhotoUploadProps> = ({ onClose, onSave }) => {
         />
         <div className="flex flex-wrap gap-4 mb-4">
           {photos.map((photo) => (
-            <div key={photo.id} className="relative group">
+            <div key={photo.id} className="relative group w-32 h-32">
               <img
                 src={photo.preview}
                 alt="Selected"
-                className="w-32 h-32 object-cover rounded-lg"
+                className="w-full h-full object-cover rounded-lg"
               />
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <button
-                  className="text-white mx-2"
-                  onClick={() => editPhoto(photo)}
-                >
-                  <PencilIcon className="w-6 h-6" />
-                </button>
-                <button
-                  className="text-white mx-2"
-                  onClick={() => removePhoto(photo.id)}
-                >
-                  <TrashIcon className="w-6 h-6" />
-                </button>
+              <div className="absolute inset-0 flex items-end justify-center">
+                <div className="flex space-x-1 p-1 bg-black bg-opacity-60 rounded-b-lg">
+                  <button
+                    className="text-white p-1"
+                    onClick={() => editPhoto(photo)}
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    className="text-white p-1"
+                    onClick={() => removePhoto(photo.id)}
+                  >
+                    <TrashIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    className={`p-1 ${photo.isCoverPhoto ? "text-yellow-500" : "text-gray-400"
+                      }`}
+                    onClick={() => setCoverPhoto(photo.id)}
+                  >
+                    <StarIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}

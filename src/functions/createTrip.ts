@@ -9,7 +9,7 @@ interface TripData {
   id: number;
   title: string;
   description: string;
-  gpx_file: string | null;
+  gpx_file?: string;
   gps_reference?: string;
   user_id: string;
 }

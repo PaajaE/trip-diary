@@ -10,7 +10,7 @@ const TripCard: React.FC<{ trip: Trip }> = ({ trip }) => {
   return (
     <div className="max-w-sm rounded overflow-hidden shadow-lg bg-white">
       <div className="px-6 py-4">
-        <div className="font-bold text-xl mb-2">{trip.title}</div>
+        <div className="font-bold text-xl text-black mb-2">{trip.title}</div>
         <p className="text-gray-700 text-base">
           {trip.description || 'No description provided.'}
         </p>

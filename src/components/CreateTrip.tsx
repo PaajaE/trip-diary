@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { createTrip } from '../functions/createTrip';
-import { supabase } from '../supabaseClient';
+import { v4 as uuidv4 } from "uuid";
 import { Session } from '@supabase/supabase-js';
-import { formatGeographyPoint } from '../utils/map';
+import { convertGpxFileToWkt, formatGeographyPoint } from '../utils/map';
 import UploadPhotos from './photos/PhotoUpload'; // Import the UploadPhotos component
 import { Photo, PhotosData } from '../types/photos';
-import { uploadSinglePhoto } from '../functions/uploadPhotos';
+import { uploadSinglePhoto, uploadGpxFile } from '../functions/uploadData';
+import { GpxData } from '../types/georeference';
 
 const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
   const [title, setTitle] = useState<string>('');
@@ -18,36 +19,43 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
   const [isUploadPhotosOpen, setIsUploadPhotosOpen] = useState<boolean>(false);
   // const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState<boolean>(false); // Track photo upload status
-  const [photosUploaded, setPhotosUploaded] = useState<boolean>(false); // Track if photos have been uploaded
   const [uploadedPhotosData, setUploadedPhotosData] = useState<PhotosData[]>([]); // Track if photos have been uploaded
 
-  const handleFileUpload = async (file: File): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const { data, error } = await supabase.storage.from('gpx-files').upload(fileName, file);
-
-    if (error) {
-      throw new Error('Failed to upload GPX file: ' + error.message);
+  const handleFileUpload = async (file: File): Promise<GpxData | undefined> => {
+    if (!session.user.id) {
+      setError('You need to be logged in to create a trip.');
+      return;
+    }
+    const id = uuidv4()
+    const gpxData: GpxData = {
+      id,
+      file
     }
 
-    if (data) {
-      const { data: urlData } = supabase.storage.from('gpx-files').getPublicUrl(data.path);
-      const { publicUrl } = urlData;
+    try {
+      const gpxUploadRes = await uploadGpxFile(gpxData, session.user.id);
+      console.log({ gpxUploadRes })
 
-      if (!publicUrl) {
-        throw new Error('Failed to get public URL for the uploaded file.');
+      if (gpxUploadRes) {
+        const { url, name } = gpxUploadRes
+        return { id, url, name };
+      } else {
+        return
       }
 
-      return publicUrl;
-    }
 
-    throw new Error('Failed to upload GPX file: No data returned');
+
+    } catch (error) {
+      console.error('Photo upload failed:', error);
+      setError('Failed to upload photos.');
+    } finally {
+      console.log('finished')
+    }
   };
 
   async function handlePhotoUpload(photos: Photo[]) {
     setIsUploadPhotosOpen(false);
     setIsUploadingPhotos(true); // Start showing the loading indicator
-    setPhotosUploaded(false); // Reset the photo upload state
 
     if (!session.user.id) {
       setError('You need to be logged in to create a trip.');
@@ -56,7 +64,7 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
 
     try {
       const uploadPromises = photos.map(async (photo) => {
-        const url = await uploadSinglePhoto(photo, session.user.id);
+        const { url, name } = await uploadSinglePhoto(photo, session.user.id);
         let gps_reference;
 
         // If GPS coordinates are available, format them as a point type
@@ -64,7 +72,7 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
           gps_reference = `POINT(${photo.gps.longitude} ${photo.gps.latitude})`
         }
 
-        return { url, gps_reference };
+        return { url, gps_reference, is_cover_photo: photo.isCoverPhoto, note: photo.note, title: photo.title, name };
       });
 
       const uploadedPhotos = await Promise.all(uploadPromises);
@@ -72,7 +80,6 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       // Store the uploaded photo data (including URLs and GPS references)
       // setUploadedPhotoUrls(uploadedPhotos.map((photo) => photo.url));
       setUploadedPhotosData(uploadedPhotos); // Save full photo data for later use in the createTrip function
-      setPhotosUploaded(true);
     } catch (error) {
       console.error('Photo upload failed:', error);
       setError('Failed to upload photos.');
@@ -88,10 +95,12 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       return;
     }
 
-    let gpxUrl = null;
+    let gpxData, tripPath;
     if (gpxFile) {
       try {
-        gpxUrl = await handleFileUpload(gpxFile);
+        gpxData = await handleFileUpload(gpxFile);
+        tripPath = await convertGpxFileToWkt(gpxFile)
+        console.log({ tripPath })
       } catch (uploadError: unknown) {
         if (uploadError instanceof Error) {
           setError(uploadError.message);
@@ -102,7 +111,7 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       }
     }
 
-    const tripData = { title, description, gps_reference: formatGeographyPoint(gpsReference), gpx_file: gpxUrl };
+    const tripData = { title, description, gps_reference: formatGeographyPoint(gpsReference), gpx_file: gpxData?.url, trip_path: tripPath };
     const tagsArray = tags.split(',').map(tag => tag.trim());
 
     try {
@@ -115,7 +124,6 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       setGpxFile(null);
       setTags('');
       // setUploadedPhotoUrls([]);
-      setPhotosUploaded(false); // Reset the photo upload state after creating the trip
       setUploadedPhotosData([]);
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -170,9 +178,11 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
             <input
               type="file"
               id="gpxFile"
+              multiple={false}
               onChange={(e) => setGpxFile(e.target.files ? e.target.files[0] : null)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
             />
+            {gpxFile && <p className="mt-2 text-gray-600">Selected file: {gpxFile.name}</p>}
           </div>
           <div className="mb-4">
             <label className="block text-gray-700 mb-2" htmlFor="tags">Tags (comma separated)</label>
@@ -198,10 +208,9 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
           {/* Disable the Create Trip button until photos are uploaded */}
           <button
             type="submit"
-            className={`w-full py-2 rounded-lg transition duration-200 ${
-              photosUploaded ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-gray-200 cursor-not-allowed'
-            }`}
-            disabled={!photosUploaded}
+            className={`w-full py-2 rounded-lg transition duration-200 ${!isUploadingPhotos ? 'bg-blue-500 text-white hover:bg-blue-600' : 'bg-gray-400 text-gray-200 cursor-not-allowed'
+              }`}
+            disabled={isUploadingPhotos}
           >
             Create Trip
           </button>

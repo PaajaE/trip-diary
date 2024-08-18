@@ -1,3 +1,5 @@
+import GeoJSON from "ol/format/GeoJSON"
+
 export type Json =
   | string
   | number
@@ -51,24 +53,39 @@ export type Database = {
       photos: {
         Row: {
           created_at: string | null
+          date: string | null
           gps_reference: unknown | null
           id: number
+          is_cover_photo: boolean
+          name: string | null
+          note: string | null
+          title: string | null
           trip_id: number | null
           url: string
           user_id: string | null
         }
         Insert: {
           created_at?: string | null
+          date?: string | null
           gps_reference?: unknown | null
           id?: number
+          is_cover_photo?: boolean
+          name?: string | null
+          note?: string | null
+          title?: string | null
           trip_id?: number | null
           url: string
           user_id?: string | null
         }
         Update: {
           created_at?: string | null
+          date?: string | null
           gps_reference?: unknown | null
           id?: number
+          is_cover_photo?: boolean
+          name?: string | null
+          note?: string | null
+          title?: string | null
           trip_id?: number | null
           url?: string
           user_id?: string | null
@@ -194,6 +211,7 @@ export type Database = {
           gpx_file: string | null
           id: number
           title: string
+          trip_path: unknown | null
           user_id: string | null
         }
         Insert: {
@@ -203,6 +221,7 @@ export type Database = {
           gpx_file?: string | null
           id?: number
           title: string
+          trip_path?: unknown | null
           user_id?: string | null
         }
         Update: {
@@ -212,6 +231,7 @@ export type Database = {
           gpx_file?: string | null
           id?: number
           title?: string
+          trip_path?: unknown | null
           user_id?: string | null
         }
         Relationships: [
@@ -231,13 +251,14 @@ export type Database = {
     Functions: {
       get_user_trips: {
         Args: {
-          user_id: string
+          cur_user_id: string
         }
         Returns: {
           id: number
           title: string
-          lat: number
-          long: number
+          lat: number | null
+          long: number | null
+          trip_path: GeoJSON | null
         }[]
       }
     }
