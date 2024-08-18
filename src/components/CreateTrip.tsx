@@ -90,8 +90,15 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
 
   const handleCreateTrip = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault();
+
     if (!session.user.id) {
       setError('You need to be logged in to create a trip.');
+      return;
+    }
+
+    // Check if either GPX file or GPS reference is filled
+    if (!gpxFile && !gpsReference) {
+      setError('You must provide either a GPX file or a GPS reference.');
       return;
     }
 
@@ -99,8 +106,8 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
     if (gpxFile) {
       try {
         gpxData = await handleFileUpload(gpxFile);
-        tripPath = await convertGpxFileToWkt(gpxFile)
-        console.log({ tripPath })
+        tripPath = await convertGpxFileToWkt(gpxFile);
+        console.log({ tripPath });
       } catch (uploadError: unknown) {
         if (uploadError instanceof Error) {
           setError(uploadError.message);
@@ -111,8 +118,14 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       }
     }
 
-    const tripData = { title, description, gps_reference: formatGeographyPoint(gpsReference), gpx_file: gpxData?.url, trip_path: tripPath };
-    const tagsArray = tags.split(',').map(tag => tag.trim());
+    const tripData = {
+      title,
+      description,
+      gps_reference: gpsReference.length > 0 ? formatGeographyPoint(gpsReference) : undefined,
+      gpx_file: gpxData?.url,
+      trip_path: tripPath,
+    };
+    const tagsArray = tags.split(',').map((tag) => tag.trim());
 
     try {
       const data = await createTrip(tripData, session.user.id, tagsArray, uploadedPhotosData);
@@ -123,7 +136,6 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
       setGpsReference('');
       setGpxFile(null);
       setTags('');
-      // setUploadedPhotoUrls([]);
       setUploadedPhotosData([]);
     } catch (error: unknown) {
       if (error instanceof Error) {
@@ -170,7 +182,6 @@ const CreateTrip: React.FC<{ session: Session }> = ({ session }) => {
               value={gpsReference}
               onChange={(e) => setGpsReference(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:border-blue-500"
-              required
             />
           </div>
           <div className="mb-4">

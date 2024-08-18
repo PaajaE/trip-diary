@@ -2,10 +2,25 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import from react-router-dom to use navigation
 import { supabase } from '../supabaseClient';
 import TripCard from './TripCard';
-import { Tables } from '../types/supabase';  // Adjust path as necessary
 import { type Session } from '@supabase/supabase-js'
 
-type Trip = Tables<'trips'>;
+// type Trip = Tables<'trips'>;
+
+type Photo = {
+  name: string | null;
+  signedUrl?: string;
+  is_cover_photo: boolean;
+};
+
+export type Trip = {
+  id: number;
+  created_at: string | null;
+  title: string;
+  description: string | null;
+  gps_reference: unknown | null;
+  photos: Photo[];
+  coverPhoto?: Photo;
+};
 
 /**
  * Component to display a list of trips for a given user.
@@ -22,15 +37,50 @@ const TripList: React.FC<{ session: Session }> = ({ session }) => {
     const fetchTrips = async () => {
       const { data, error } = await supabase
         .from('trips')
-        .select('*')
+        .select(`
+    id,
+    title,
+    description,
+    gps_reference,
+    created_at,
+    photos (
+        name,
+        is_cover_photo
+    )
+  `)
         .eq('user_id', session.user.id);
 
       if (error) {
         console.error('Error fetching trips:', error);
         setError('Failed to fetch trips');
       } else {
-        const trips: Trip[] = data
-        setTrips(trips || []);
+        const tripsWithSignedUrls = await Promise.all(
+          data.map(async (trip: Trip) => {
+            const coverPhoto = trip.photos.find(photo => photo.is_cover_photo) || trip.photos[0];
+
+            if (coverPhoto && coverPhoto.name) {
+              const { data, error } = await supabase.storage
+                .from('trip-photos')
+                .createSignedUrl(`/${coverPhoto.name}`, 3600)
+
+              if (error) {
+                console.error(error);
+              } else {
+                coverPhoto.signedUrl = data.signedUrl;
+              }
+            }
+
+
+            return {
+              ...trip,
+              coverPhoto: coverPhoto,
+            };
+          })
+        );
+
+        if (tripsWithSignedUrls) {
+          setTrips(tripsWithSignedUrls)
+        }
       }
       setLoading(false);
     };

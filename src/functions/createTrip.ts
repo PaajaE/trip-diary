@@ -32,6 +32,8 @@ interface PhotoData {
   user_id: string;
   gps_reference?: string;
   created_at?: string;
+  name: string;
+  is_cover_photo: boolean;
 }
 
 /**
@@ -77,12 +79,14 @@ export const createTrip = async (
   }
 
   if (photosData && photosData.length > 0) {
-    const photoPromises = photosData.map(async ({url, gps_reference}) => {
+    const photoPromises = photosData.map(async ({url, gps_reference, name, is_cover_photo}) => {
       const photoData: PhotoData = {
         url,
         gps_reference,
         trip_id: tripId,
         user_id: userId,
+        name,
+        is_cover_photo
       };
 
       const { error: photoError } = await supabase
