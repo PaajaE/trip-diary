@@ -6,7 +6,7 @@ import { supabase } from './supabaseClient'
 import SupabaseLogin from './components/SupabaseLogin'
 // import SignUp from './components/SignUp'
 import TripList from './components/TripList'
-import Map from './components/Map'
+import Map from './components/map/Map'
 
 import { type Session } from '@supabase/supabase-js'
 import CreateTrip from './components/CreateTrip';

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trip } from './TripList';
+import { Trip } from '../types/trip';
 
 /**
  * Component to display the details of a single trip.

@@ -5,22 +5,17 @@ import TileLayer from 'ol/layer/Tile';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Point from 'ol/geom/Point';
-import LineString from 'ol/geom/LineString';
 import Feature from 'ol/Feature';
 import { Style, Circle as CircleStyle, Fill, Stroke } from 'ol/style';
 import { fromLonLat } from 'ol/proj';
 import { XYZ } from 'ol/source';
 import { Session } from '@supabase/supabase-js';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../../supabaseClient';
 import GeoJSON from 'ol/format/GeoJSON';
-
-interface Trip {
-  id: number;
-  title: string;
-  lat: number | null;
-  long: number | null;
-  trip_path: GeoJSON | null;
-}
+import Popup from './Popup';
+import TripCard from '../TripCard';
+import { LineString } from 'ol/geom';
+import { Trip } from '../../types/trip';
 
 interface MapComponentProps {
   session: Session;
@@ -31,6 +26,8 @@ const MapComponent: React.FC<MapComponentProps> = ({ session }) => {
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapInstance = useRef<Map | null>(null);
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [popupCoordinates, setPopupCoordinates] = useState<[number, number] | null>(null);
 
   // Initialize the map once and add the base layer
   useEffect(() => {
@@ -47,8 +44,10 @@ const MapComponent: React.FC<MapComponentProps> = ({ session }) => {
         view: new View({
           center: fromLonLat([14.41, 50.08]), // Centered on Prague
           zoom: 13,
+          projection: 'EPSG:4326',
         }),
       });
+
       mapInstance.current = map;
     }
   }, []);
@@ -56,13 +55,12 @@ const MapComponent: React.FC<MapComponentProps> = ({ session }) => {
   // Fetch trips data
   useEffect(() => {
     const fetchTrips = async () => {
-      const { data, error } = await supabase
-        .rpc('get_user_trips', { cur_user_id: session.user.id });
+      const { data, error } = await supabase.rpc('get_user_trips', { cur_user_id: session.user.id });
+      console.log({ data })
 
       if (error) {
         console.error('Error fetching trips:', error);
       } else {
-        // Parse trip_path JSON strings to GeoJSON objects
         const convertedTrips: Trip[] = data.map((trip) => ({
           ...trip,
           trip_path: trip.trip_path ? trip.trip_path : null,
@@ -81,27 +79,31 @@ const MapComponent: React.FC<MapComponentProps> = ({ session }) => {
     if (!loading && trips.length > 0 && mapInstance.current) {
       const geoJsonFormat = new GeoJSON();
 
-      const tripFeatures = trips.map((trip) => {
-        if (trip.trip_path) {
-          try {
-            // Transform GeoJSON data into OpenLayers features
-            const feature = geoJsonFormat.readFeature(trip.trip_path, {
-              featureProjection: 'EPSG:3857', // Map projection
-              dataProjection: 'EPSG:4326', // GeoJSON coordinates are in EPSG:4326
+      const tripFeatures = trips
+        .map((trip) => {
+          if (trip.trip_path) {
+            try {
+              // Transform GeoJSON data into OpenLayers features
+              const feature = geoJsonFormat.readFeature(trip.trip_path, {
+                featureProjection: 'EPSG:3857', // Map projection
+                dataProjection: 'EPSG:4326', // GeoJSON coordinates are in EPSG:4326
+              });
+              feature.set('tripData', trip);
+              return feature;
+            } catch (error) {
+              console.error(`Error parsing GeoJSON for trip ${trip.id}:`, error);
+              return null;
+            }
+          } else if (trip.lat && trip.long) {
+            const feature = new Feature({
+              geometry: new Point(fromLonLat([trip.long, trip.lat])),
             });
+            feature.set('tripData', trip);
             return feature;
-          } catch (error) {
-            console.error(`Error parsing GeoJSON for trip ${trip.id}:`, error);
-            return null;
           }
-        } else if (trip.lat !== null && trip.long !== null) {
-          // Use Point if trip_path is not available
-          return new Feature({
-            geometry: new Point(fromLonLat([trip.long, trip.lat])),
-          });
-        }
-        return null;
-      }).filter((feature) => feature !== null); // Filter out any null features
+          return null;
+        })
+        .filter((feature) => feature !== null); // Filter out any null features
 
       const vectorSource = new VectorSource({
         features: tripFeatures as Feature[],
@@ -131,10 +133,45 @@ const MapComponent: React.FC<MapComponentProps> = ({ session }) => {
       });
 
       mapInstance.current.addLayer(vectorLayer);
-    }
-  }, [trips, loading]);
 
-  return <div ref={mapRef} style={{ width: '100%', height: '100vh' }}></div>;
+      // Add click event listener
+      mapInstance.current.on('singleclick', (event) => {
+        let foundFeature = false;
+
+        mapInstance.current?.forEachFeatureAtPixel(event.pixel, (feature) => {
+          const trip = feature.get('tripData') as Trip;
+          console.log({ trip })
+          console.log({ event })
+          if (trip) {
+            // Prevent unnecessary re-renders if the same trip is clicked again
+            // if (selectedTrip?.id !== trip.id) {
+            setSelectedTrip(trip);
+            setPopupCoordinates(event.coordinate as [number, number]);
+            // }
+            foundFeature = true;
+          }
+        });
+
+        // Hide popup if clicking on an empty area
+        if (!foundFeature) {
+          setSelectedTrip(null);
+          setPopupCoordinates(null);
+        }
+      });
+    }
+  }, [trips, loading, selectedTrip]);
+
+  useEffect(() => {
+    console.log({ selectedTrip })
+  }, [selectedTrip])
+
+  return (
+    <div ref={mapRef} style={{ width: '100%', height: '100vh' }}>
+      <Popup show={!!selectedTrip} coordinates={popupCoordinates}>
+        {selectedTrip && <TripCard trip={selectedTrip} />}
+      </Popup>
+    </div>
+  );
 };
 
 export default MapComponent;
