@@ -1,0 +1,6 @@
+dist
+coverage
+playwright-report
+pnpm-lock.yaml
+src/shared/api/database.types.ts
+supabase/.temp
