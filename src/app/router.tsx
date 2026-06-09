@@ -5,7 +5,12 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { LazyAuthPage, LazyProfileRoutePage } from '@/app/lazy-pages'
+import {
+  LazyAuthPage,
+  LazyCreateEntryPage,
+  LazyEntryRoutePage,
+  LazyProfileRoutePage,
+} from '@/app/lazy-pages'
 import { HomePage } from '@/pages/home/HomePage'
 
 const rootRoute = createRootRoute({
@@ -51,11 +56,25 @@ const profileRoute = createRoute({
   component: LazyProfileRoutePage,
 })
 
+const createEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/entries/new',
+  component: LazyCreateEntryPage,
+})
+
+const entryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/e/$entryId',
+  component: LazyEntryRoutePage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
   signUpRoute,
   profileRoute,
+  createEntryRoute,
+  entryRoute,
 ])
 
 export const router = createRouter({ routeTree })

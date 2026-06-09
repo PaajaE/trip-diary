@@ -34,6 +34,60 @@ export type Database = {
   }
   public: {
     Tables: {
+      entries: {
+        Row: {
+          body: string
+          created_at: string
+          creator_id: string
+          event_at: string | null
+          id: string
+          language: Database["public"]["Enums"]["entry_language"]
+          latitude: number | null
+          longitude: number | null
+          published_at: string | null
+          status: Database["public"]["Enums"]["entry_status"]
+          title: string | null
+          type: Database["public"]["Enums"]["entry_type"]
+          updated_at: string
+          version: number
+          visibility: Database["public"]["Enums"]["entry_visibility"]
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          creator_id: string
+          event_at?: string | null
+          id: string
+          language?: Database["public"]["Enums"]["entry_language"]
+          latitude?: number | null
+          longitude?: number | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["entry_status"]
+          title?: string | null
+          type: Database["public"]["Enums"]["entry_type"]
+          updated_at?: string
+          version?: number
+          visibility?: Database["public"]["Enums"]["entry_visibility"]
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          creator_id?: string
+          event_at?: string | null
+          id?: string
+          language?: Database["public"]["Enums"]["entry_language"]
+          latitude?: number | null
+          longitude?: number | null
+          published_at?: string | null
+          status?: Database["public"]["Enums"]["entry_status"]
+          title?: string | null
+          type?: Database["public"]["Enums"]["entry_type"]
+          updated_at?: string
+          version?: number
+          visibility?: Database["public"]["Enums"]["entry_visibility"]
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -72,10 +126,50 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      update_entry: {
+        Args: {
+          p_body: string
+          p_event_at: string
+          p_expected_version: number
+          p_id: string
+          p_language: Database["public"]["Enums"]["entry_language"]
+          p_latitude: number
+          p_longitude: number
+          p_status: Database["public"]["Enums"]["entry_status"]
+          p_title: string
+          p_type: Database["public"]["Enums"]["entry_type"]
+          p_visibility: Database["public"]["Enums"]["entry_visibility"]
+        }
+        Returns: {
+          body: string
+          created_at: string
+          creator_id: string
+          event_at: string | null
+          id: string
+          language: Database["public"]["Enums"]["entry_language"]
+          latitude: number | null
+          longitude: number | null
+          published_at: string | null
+          status: Database["public"]["Enums"]["entry_status"]
+          title: string | null
+          type: Database["public"]["Enums"]["entry_type"]
+          updated_at: string
+          version: number
+          visibility: Database["public"]["Enums"]["entry_visibility"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "entries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
     }
     Enums: {
-      [_ in never]: never
+      entry_language: "cs" | "en"
+      entry_status: "draft" | "published"
+      entry_type: "story" | "tip" | "note" | "place"
+      entry_visibility: "public" | "private"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -205,7 +299,12 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      entry_language: ["cs", "en"],
+      entry_status: ["draft", "published"],
+      entry_type: ["story", "tip", "note", "place"],
+      entry_visibility: ["public", "private"],
+    },
   },
 } as const
 

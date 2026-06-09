@@ -42,6 +42,30 @@ export const en = {
     error: 'The profile could not be loaded.',
     notFound: 'This profile does not exist.',
   },
+  entry: {
+    body: 'Story',
+    createTitle: 'Add a memory',
+    error: 'The memory could not be loaded.',
+    loading: 'Loading…',
+    notFound: 'This memory does not exist.',
+    publish: 'Save and publish',
+    signInRequired: 'Sign in before publishing a memory.',
+    syncNow: 'Sync now',
+    title: 'Title',
+    type: {
+      note: 'Note',
+      place: 'Place',
+      story: 'Story',
+      tip: 'Tip',
+    },
+    sync: {
+      failed: 'Saved on this device · synchronization needs attention',
+      local: 'Saved on this device',
+      pending: 'Saved on this device · waiting to synchronize',
+      synced: 'Synchronized',
+      syncing: 'Synchronizing…',
+    },
+  },
 } as const
 
 type TranslationShape<T> = {

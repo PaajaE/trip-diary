@@ -43,4 +43,28 @@ export const cs: TranslationResources = {
     error: 'Profil se nepodařilo načíst.',
     notFound: 'Tento profil neexistuje.',
   },
+  entry: {
+    body: 'Příběh',
+    createTitle: 'Přidat vzpomínku',
+    error: 'Vzpomínku se nepodařilo načíst.',
+    loading: 'Načítání…',
+    notFound: 'Tato vzpomínka neexistuje.',
+    publish: 'Uložit a publikovat',
+    signInRequired: 'Před publikováním vzpomínky se přihlaste.',
+    syncNow: 'Synchronizovat nyní',
+    title: 'Název',
+    type: {
+      note: 'Poznámka',
+      place: 'Místo',
+      story: 'Příběh',
+      tip: 'Tip',
+    },
+    sync: {
+      failed: 'Uloženo v zařízení · synchronizace vyžaduje pozornost',
+      local: 'Uloženo v zařízení',
+      pending: 'Uloženo v zařízení · čeká na synchronizaci',
+      synced: 'Synchronizováno',
+      syncing: 'Synchronizuje se…',
+    },
+  },
 }

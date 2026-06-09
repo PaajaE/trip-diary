@@ -11,3 +11,15 @@ export const LazyProfileRoutePage = lazy(() =>
     default: ProfileRoutePage,
   })),
 )
+
+export const LazyCreateEntryPage = lazy(() =>
+  import('@/pages/entry/CreateEntryPage').then(({ CreateEntryPage }) => ({
+    default: CreateEntryPage,
+  })),
+)
+
+export const LazyEntryRoutePage = lazy(() =>
+  import('@/pages/entry/EntryRoutePage').then(({ EntryRoutePage }) => ({
+    default: EntryRoutePage,
+  })),
+)

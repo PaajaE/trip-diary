@@ -37,10 +37,13 @@ export function HomePage() {
           {t('home.description')}
         </p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-          <Button>
+          <Link
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            to="/entries/new"
+          >
             <Plus aria-hidden="true" size={18} />
             {t('home.primaryAction')}
-          </Button>
+          </Link>
           <Button variant="secondary">
             <MapPinned aria-hidden="true" size={18} />
             {t('home.secondaryAction')}
