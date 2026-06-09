@@ -48,6 +48,8 @@ export const en = {
     error: 'The memory could not be loaded.',
     loading: 'Loading…',
     notFound: 'This memory does not exist.',
+    photos: 'Photos',
+    photosSelected: '{{count}} photos selected',
     publish: 'Save and publish',
     signInRequired: 'Sign in before publishing a memory.',
     syncNow: 'Sync now',

@@ -88,6 +88,116 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_photos: {
+        Row: {
+          created_at: string
+          creator_id: string
+          entry_id: string
+          photo_id: string
+          position: number
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          entry_id: string
+          photo_id: string
+          position: number
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          entry_id?: string
+          photo_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_photos_entry_creator_fk"
+            columns: ["entry_id", "creator_id"]
+            isOneToOne: false
+            referencedRelation: "entries"
+            referencedColumns: ["id", "creator_id"]
+          },
+          {
+            foreignKeyName: "entry_photos_photo_creator_fk"
+            columns: ["photo_id", "creator_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id", "creator_id"]
+          },
+        ]
+      }
+      photo_variants: {
+        Row: {
+          byte_size: number
+          created_at: string
+          creator_id: string
+          height: number
+          mime_type: string
+          photo_id: string
+          storage_path: string
+          updated_at: string
+          variant: Database["public"]["Enums"]["photo_variant_type"]
+          width: number
+        }
+        Insert: {
+          byte_size: number
+          created_at?: string
+          creator_id: string
+          height: number
+          mime_type?: string
+          photo_id: string
+          storage_path: string
+          updated_at?: string
+          variant: Database["public"]["Enums"]["photo_variant_type"]
+          width: number
+        }
+        Update: {
+          byte_size?: number
+          created_at?: string
+          creator_id?: string
+          height?: number
+          mime_type?: string
+          photo_id?: string
+          storage_path?: string
+          updated_at?: string
+          variant?: Database["public"]["Enums"]["photo_variant_type"]
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_variants_photo_creator_fk"
+            columns: ["photo_id", "creator_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id", "creator_id"]
+          },
+        ]
+      }
+      photos: {
+        Row: {
+          captured_at: string | null
+          created_at: string
+          creator_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          captured_at?: string | null
+          created_at?: string
+          creator_id: string
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          captured_at?: string | null
+          created_at?: string
+          creator_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -170,6 +280,7 @@ export type Database = {
       entry_status: "draft" | "published"
       entry_type: "story" | "tip" | "note" | "place"
       entry_visibility: "public" | "private"
+      photo_variant_type: "thumb" | "preview" | "large"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -304,6 +415,7 @@ export const Constants = {
       entry_status: ["draft", "published"],
       entry_type: ["story", "tip", "note", "place"],
       entry_visibility: ["public", "private"],
+      photo_variant_type: ["thumb", "preview", "large"],
     },
   },
 } as const

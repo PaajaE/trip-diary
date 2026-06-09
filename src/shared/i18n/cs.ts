@@ -49,6 +49,8 @@ export const cs: TranslationResources = {
     error: 'Vzpomínku se nepodařilo načíst.',
     loading: 'Načítání…',
     notFound: 'Tato vzpomínka neexistuje.',
+    photos: 'Fotografie',
+    photosSelected: 'Vybráno fotografií: {{count}}',
     publish: 'Uložit a publikovat',
     signInRequired: 'Před publikováním vzpomínky se přihlaste.',
     syncNow: 'Synchronizovat nyní',

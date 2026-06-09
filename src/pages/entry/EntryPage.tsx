@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
+import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
 
@@ -42,6 +43,10 @@ export function EntryPage({ entryId }: EntryPageProps) {
           <p className="mt-8 whitespace-pre-wrap leading-8">
             {entryQuery.data.body}
           </p>
+          <PhotoGallery
+            alt={entryQuery.data.title}
+            entryId={entryQuery.data.id}
+          />
           <p className="mt-10 text-sm text-muted">
             {t(`entry.sync.${entryQuery.data.syncStatus}`)}
           </p>

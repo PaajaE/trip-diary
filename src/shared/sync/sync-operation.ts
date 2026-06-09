@@ -9,6 +9,14 @@ export const syncOperationSchema = z.discriminatedUnion('type', [
     status: z.enum(['pending', 'syncing', 'failed']),
     type: z.literal('entry.create'),
   }),
+  z.object({
+    createdAt: z.iso.datetime({ offset: true }),
+    creatorId: z.uuid(),
+    id: z.uuid(),
+    photoId: z.uuid(),
+    status: z.enum(['pending', 'syncing', 'failed']),
+    type: z.literal('photo.upload'),
+  }),
 ])
 
 export type SyncOperation = z.infer<typeof syncOperationSchema>

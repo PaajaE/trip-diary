@@ -30,8 +30,10 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await page.goto('/entries/new')
   await page.getByLabel('Název').fill('První cesta')
   await page.getByLabel('Příběh').fill('Vzpomínka uložená nejdříve v zařízení.')
+  await page.getByLabel('Fotografie').setInputFiles('src/assets/hero.png')
   await page.getByRole('button', { name: 'Uložit a publikovat' }).click()
   await expect(page.getByRole('heading', { name: 'První cesta' })).toBeVisible()
+  await expect(page.getByRole('img', { name: 'První cesta' })).toBeVisible()
 
   const publicUrl = page.url()
   const anonymousContext = await browser.newContext()
@@ -39,6 +41,9 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await anonymousPage.goto(publicUrl)
   await expect(
     anonymousPage.getByRole('heading', { name: 'První cesta' }),
+  ).toBeVisible()
+  await expect(
+    anonymousPage.getByRole('img', { name: 'První cesta' }),
   ).toBeVisible()
   await anonymousContext.close()
 })
