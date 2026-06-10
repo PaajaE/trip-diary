@@ -18,6 +18,11 @@ coverage
 playwright-report
 test-results
 .supabase
+ios/App/Pods
+ios/App/App/public
+android/.gradle
+android/app/build
+android/app/src/main/assets/public
 
 # Editor directories and files
 .vscode/*

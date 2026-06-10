@@ -28,5 +28,10 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts", "playwright.config.ts", "tests/**/*.ts"]
+  "include": [
+    "capacitor.config.ts",
+    "vite.config.ts",
+    "playwright.config.ts",
+    "tests/**/*.ts"
+  ]
 }

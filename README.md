@@ -44,3 +44,21 @@ Database migrations are the source of truth. The generated
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md).
+
+## Native applications
+
+The Capacitor projects live in `ios/` and `android/`. IndexedDB provides
+persistent on-device storage inside the native WebView. Automatic native
+synchronization only runs over Wi-Fi; the explicit synchronization button can
+still be used on any connection.
+
+After changing web code or Capacitor plugins, synchronize both projects:
+
+```bash
+pnpm native:sync
+```
+
+Open a platform project with `pnpm native:ios` or `pnpm native:android`.
+Building iOS requires full Xcode. Building Android requires a JDK and Android
+SDK. Physical devices must use a reachable HTTPS Supabase deployment rather
+than the local `127.0.0.1` development URL.

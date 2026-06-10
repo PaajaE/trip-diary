@@ -6,6 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "pnpm typecheck && vite build",
+    "native:sync": "pnpm build && cap sync",
+    "native:assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#f7f4ed' --iconBackgroundColorDark '#20231f' --splashBackgroundColor '#f7f4ed' --splashBackgroundColorDark '#20231f' --logoSplashScale 0.38",
+    "native:doctor": "cap doctor",
+    "native:ios": "pnpm native:sync && cap open ios",
+    "native:android": "pnpm native:sync && cap open android",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -23,6 +28,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/network": "^8.0.1",
     "@hookform/resolvers": "^5.4.0",
     "@supabase/supabase-js": "^2.108.0",
     "@tanstack/react-query": "^5.101.0",
@@ -44,6 +52,10 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/ios": "^8.4.0",
     "@eslint/js": "^9.39.4",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.3.0",
