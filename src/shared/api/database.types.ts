@@ -45,6 +45,8 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           published_at: string | null
+          slug: string
+          space_id: string
           status: Database["public"]["Enums"]["entry_status"]
           title: string | null
           type: Database["public"]["Enums"]["entry_type"]
@@ -62,6 +64,8 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           published_at?: string | null
+          slug: string
+          space_id: string
           status?: Database["public"]["Enums"]["entry_status"]
           title?: string | null
           type: Database["public"]["Enums"]["entry_type"]
@@ -79,6 +83,8 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           published_at?: string | null
+          slug?: string
+          space_id?: string
           status?: Database["public"]["Enums"]["entry_status"]
           title?: string | null
           type?: Database["public"]["Enums"]["entry_type"]
@@ -86,7 +92,15 @@ export type Database = {
           version?: number
           visibility?: Database["public"]["Enums"]["entry_visibility"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "entries_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       entry_journey_links: {
         Row: {
@@ -388,6 +402,8 @@ export type Database = {
           creator_id: string
           ends_at: string | null
           id: string
+          slug: string
+          space_id: string
           starts_at: string | null
           status: Database["public"]["Enums"]["journey_status"]
           summary: string
@@ -400,6 +416,8 @@ export type Database = {
           creator_id: string
           ends_at?: string | null
           id: string
+          slug: string
+          space_id: string
           starts_at?: string | null
           status?: Database["public"]["Enums"]["journey_status"]
           summary?: string
@@ -412,6 +430,8 @@ export type Database = {
           creator_id?: string
           ends_at?: string | null
           id?: string
+          slug?: string
+          space_id?: string
           starts_at?: string | null
           status?: Database["public"]["Enums"]["journey_status"]
           summary?: string
@@ -419,7 +439,15 @@ export type Database = {
           updated_at?: string
           visibility?: Database["public"]["Enums"]["journey_visibility"]
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journeys_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       photo_variants: {
         Row: {
@@ -696,11 +724,67 @@ export type Database = {
           space_name: string
         }[]
       }
+      has_space_publish_role: { Args: { p_space_id: string }; Returns: boolean }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
+      move_entry_to_space: {
+        Args: { p_entry_id: string; p_slug?: string; p_space_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          creator_id: string
+          event_at: string | null
+          id: string
+          language: Database["public"]["Enums"]["entry_language"]
+          latitude: number | null
+          longitude: number | null
+          published_at: string | null
+          slug: string
+          space_id: string
+          status: Database["public"]["Enums"]["entry_status"]
+          title: string | null
+          type: Database["public"]["Enums"]["entry_type"]
+          updated_at: string
+          version: number
+          visibility: Database["public"]["Enums"]["entry_visibility"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "entries"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      move_journey_to_space: {
+        Args: { p_journey_id: string; p_slug?: string; p_space_id: string }
+        Returns: {
+          created_at: string
+          creator_id: string
+          ends_at: string | null
+          id: string
+          slug: string
+          space_id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["journey_status"]
+          summary: string
+          title: string
+          updated_at: string
+          visibility: Database["public"]["Enums"]["journey_visibility"]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "journeys"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      normalize_content_slug: {
+        Args: { p_id: string; p_value: string }
+        Returns: string
+      }
       remove_space_member: {
         Args: { p_space_id: string; p_user_id: string }
         Returns: undefined
@@ -740,6 +824,8 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           published_at: string | null
+          slug: string
+          space_id: string
           status: Database["public"]["Enums"]["entry_status"]
           title: string | null
           type: Database["public"]["Enums"]["entry_type"]

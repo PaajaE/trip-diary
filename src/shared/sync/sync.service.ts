@@ -1,7 +1,9 @@
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
+import { listMySpaces } from '@/entities/space/api/space.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
+import { createPublicSlug } from '@/shared/lib/slug'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
 
 export async function syncPendingOperations(): Promise<void> {
@@ -72,6 +74,8 @@ async function syncEntryCreate(
     await localDb.syncOperations.delete(operation.id)
     return
   }
+  const spaceId = entry.spaceId ?? (await getFallbackSpaceId(creatorId))
+  const slug = entry.slug ?? createPublicSlug(entry.title, entry.id)
 
   const { error } = await getSupabaseClient().from('entries').upsert(
     {
@@ -80,6 +84,8 @@ async function syncEntryCreate(
       event_at: entry.eventAt,
       id: entry.id,
       language: entry.language,
+      slug,
+      space_id: spaceId,
       status: 'published',
       title: entry.title,
       type: entry.type,
@@ -115,6 +121,8 @@ async function syncEntryCreate(
     async () => {
       await localDb.entries.update(entry.id, {
         publishedAt: serverEntry.published_at,
+        slug,
+        spaceId,
         status: 'published',
         syncStatus: 'synced',
         updatedAt: serverEntry.updated_at,
@@ -123,6 +131,15 @@ async function syncEntryCreate(
       await localDb.syncOperations.delete(operation.id)
     },
   )
+}
+
+async function getFallbackSpaceId(userId: string): Promise<string> {
+  const spaces = await listMySpaces(userId)
+  const space = spaces.find(({ kind }) => kind === 'personal') ?? spaces[0]
+  if (space === undefined) {
+    throw new Error('A publishing space is required')
+  }
+  return space.id
 }
 
 async function syncPhotoUpload(

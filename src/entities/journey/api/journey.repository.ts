@@ -4,21 +4,27 @@ import {
   type JourneyDetail,
 } from '@/entities/journey/model/journey'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { createPublicSlug } from '@/shared/lib/slug'
 
 export async function createJourney(
   creatorId: string,
+  spaceId: string,
   input: CreateJourneyInput,
 ): Promise<string> {
   const id = crypto.randomUUID()
-  const { error } = await getSupabaseClient().from('journeys').insert({
-    creator_id: creatorId,
-    ends_at: input.endsAt,
-    id,
-    starts_at: input.startsAt,
-    summary: input.summary,
-    title: input.title,
-    visibility: 'public',
-  })
+  const { error } = await getSupabaseClient()
+    .from('journeys')
+    .insert({
+      creator_id: creatorId,
+      ends_at: input.endsAt,
+      id,
+      slug: createPublicSlug(input.title, id),
+      space_id: spaceId,
+      starts_at: input.startsAt,
+      summary: input.summary,
+      title: input.title,
+      visibility: 'public',
+    })
   if (error !== null) {
     throw error
   }

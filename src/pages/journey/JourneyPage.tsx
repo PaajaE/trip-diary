@@ -7,12 +7,15 @@ import {
 } from '@/entities/journey/api/journey.repository'
 import { JourneyComposer } from '@/features/journeys/ui/JourneyComposer'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
+import { CopyShareLink } from '@/features/sharing'
+import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 
 interface JourneyPageProps {
   journeyId: string
+  shareUrl?: string
 }
 
-export function JourneyPage({ journeyId }: JourneyPageProps) {
+export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
   const { t } = useTranslation()
   const query = useQuery({
     queryFn: () => getJourney(journeyId),
@@ -45,6 +48,12 @@ export function JourneyPage({ journeyId }: JourneyPageProps) {
               <p className="mt-6 max-w-2xl leading-8 text-muted">
                 {journey.summary}
               </p>
+            )}
+            {shareUrl === undefined ? null : (
+              <CopyShareLink
+                className="mt-6"
+                onCopy={() => sharePublicUrl(shareUrl, journey.title)}
+              />
             )}
           </header>
 

@@ -67,3 +67,31 @@ export const LazyAcceptInviteRoutePage = lazy(() =>
     ({ AcceptInviteRoutePage }) => ({ default: AcceptInviteRoutePage }),
   ),
 )
+
+export const LazyPublicSpaceRoutePage = lazy(() =>
+  import('@/pages/public-space/PublicSpaceRoutePage').then(
+    ({ PublicSpaceRoutePage }) => ({ default: PublicSpaceRoutePage }),
+  ),
+)
+
+export const LazyPublicJourneyRoutePage = lazy(() =>
+  import('@/pages/public-space/PublicJourneyRoutePage').then(
+    ({ PublicJourneyRoutePage }) => ({ default: PublicJourneyRoutePage }),
+  ),
+)
+
+export const LazyPublicStandaloneEntryRoutePage = lazy(() =>
+  import('@/pages/public-space/PublicEntryRoutePage').then(
+    ({ PublicStandaloneEntryRoutePage }) => ({
+      default: PublicStandaloneEntryRoutePage,
+    }),
+  ),
+)
+
+export const LazyPublicJourneyEntryRoutePage = lazy(() =>
+  import('@/pages/public-space/PublicEntryRoutePage').then(
+    ({ PublicJourneyEntryRoutePage }) => ({
+      default: PublicJourneyEntryRoutePage,
+    }),
+  ),
+)

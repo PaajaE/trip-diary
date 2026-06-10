@@ -6,20 +6,25 @@ import {
 } from '@/entities/entry/model/entry'
 import { localDb } from '@/shared/lib/local-db'
 import { syncOperationSchema } from '@/shared/sync/sync-operation'
+import { createPublicSlug } from '@/shared/lib/slug'
 
 export async function createLocalEntry(
   creatorId: string,
+  spaceId: string,
   input: CreateEntryInput,
 ): Promise<Entry> {
   const validInput = createEntrySchema.parse(input)
   const now = new Date().toISOString()
+  const id = crypto.randomUUID()
   const entry = entrySchema.parse({
     ...validInput,
     createdAt: now,
     creatorId,
-    id: crypto.randomUUID(),
+    id,
     publishedAt: null,
     status: 'draft',
+    slug: createPublicSlug(validInput.title, id),
+    spaceId,
     syncStatus: 'pending',
     updatedAt: now,
     version: 1,

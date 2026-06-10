@@ -21,6 +21,16 @@ export const entrySchema = z.object({
   id: z.uuid(),
   language: entryLanguageSchema,
   publishedAt: dateTimeSchema.nullable(),
+  slug: z
+    .string()
+    .min(3)
+    .max(80)
+    .nullish()
+    .transform((value) => value ?? null),
+  spaceId: z
+    .uuid()
+    .nullish()
+    .transform((value) => value ?? null),
   status: entryStatusSchema,
   syncStatus: entrySyncStatusSchema,
   title: z.string().min(1).max(160),

@@ -16,11 +16,13 @@ import { Input } from '@/shared/ui/Input'
 interface CreateEntryFormProps {
   creatorId: string
   onCreated: (entryId: string) => void
+  spaceId: string
 }
 
 export function CreateEntryForm({
   creatorId,
   onCreated,
+  spaceId,
 }: CreateEntryFormProps) {
   const { t, i18n } = useTranslation()
   const [photos, setPhotos] = useState<File[]>([])
@@ -37,7 +39,7 @@ export function CreateEntryForm({
   })
 
   async function handleSubmit(input: CreateEntryInput) {
-    const entry = await createLocalEntry(creatorId, input)
+    const entry = await createLocalEntry(creatorId, spaceId, input)
     await addLocalPhotos(creatorId, entry.id, photos)
     try {
       if (await canAutomaticallySync()) {

@@ -17,6 +17,10 @@ import {
   LazySpacesRoutePage,
   LazySpaceMembersRoutePage,
   LazyAcceptInviteRoutePage,
+  LazyPublicJourneyEntryRoutePage,
+  LazyPublicJourneyRoutePage,
+  LazyPublicSpaceRoutePage,
+  LazyPublicStandaloneEntryRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
 import { HomePage } from '@/pages/home/HomePage'
@@ -120,6 +124,30 @@ const acceptInviteRoute = createRoute({
   component: LazyAcceptInviteRoutePage,
 })
 
+const publicSpaceRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle',
+  component: LazyPublicSpaceRoutePage,
+})
+
+const publicJourneyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle/$journeySlug',
+  component: LazyPublicJourneyRoutePage,
+})
+
+const publicStandaloneEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle/tipy/$entrySlug',
+  component: LazyPublicStandaloneEntryRoutePage,
+})
+
+const publicJourneyEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle/$journeySlug/$entrySlug',
+  component: LazyPublicJourneyEntryRoutePage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
@@ -134,6 +162,10 @@ const routeTree = rootRoute.addChildren([
   spacesRoute,
   spaceMembersRoute,
   acceptInviteRoute,
+  publicSpaceRoute,
+  publicJourneyRoute,
+  publicStandaloneEntryRoute,
+  publicJourneyEntryRoute,
 ])
 
 export const router = createRouter({

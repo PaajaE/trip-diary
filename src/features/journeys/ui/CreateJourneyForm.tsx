@@ -12,11 +12,13 @@ import { Input } from '@/shared/ui/Input'
 interface CreateJourneyFormProps {
   creatorId: string
   onCreated: (journeyId: string) => void
+  spaceId: string
 }
 
 export function CreateJourneyForm({
   creatorId,
   onCreated,
+  spaceId,
 }: CreateJourneyFormProps) {
   const { t } = useTranslation()
   const form = useForm<CreateJourneyInput>({
@@ -25,7 +27,7 @@ export function CreateJourneyForm({
   })
 
   async function handleSubmit(input: CreateJourneyInput) {
-    onCreated(await createJourney(creatorId, input))
+    onCreated(await createJourney(creatorId, spaceId, input))
   }
 
   return (

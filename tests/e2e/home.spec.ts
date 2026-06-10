@@ -46,6 +46,27 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await expect(page.getByText('Pozvánka je připravená')).toBeVisible()
   await expect(page.getByText(/\/invite\//)).toBeVisible()
 
+  await page.goto('/entries/new')
+  await page.getByLabel('Název').fill('Rodinný tip')
+  await page.getByLabel('Příběh').fill('Tip publikovaný pod rodinným profilem.')
+  await page.getByRole('button', { name: 'Uložit a publikovat' }).click()
+  await expect(page.getByRole('heading', { name: 'Rodinný tip' })).toBeVisible()
+
+  const familyContext = await browser.newContext()
+  const familyPage = await familyContext.newPage()
+  await familyPage.goto(`/${familyHandle}`)
+  await expect(
+    familyPage.getByRole('heading', { name: 'Ečerovi' }),
+  ).toBeVisible()
+  await familyPage.getByRole('button', { name: /Rodinný tip/ }).click()
+  await expect(familyPage).toHaveURL(
+    new RegExp(`/${familyHandle}/tipy/rodinny-tip-[a-f0-9]{8}$`),
+  )
+  await expect(
+    familyPage.getByRole('heading', { name: 'Rodinný tip' }),
+  ).toBeVisible()
+  await familyContext.close()
+
   await page.goto('/settings/profile')
   await page.getByLabel('Zobrazované jméno').fill('Ečerovi na cestě')
   await page
@@ -131,4 +152,18 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     publicJourneyPage.getByRole('heading', { name: 'Doprava' }),
   ).toBeVisible()
   await publicJourneyContext.close()
+
+  const journeyId = page.url().split('/').at(-1)
+  if (journeyId === undefined) {
+    throw new Error('Journey URL is missing its identifier')
+  }
+  const friendlyJourneyContext = await browser.newContext()
+  const friendlyJourneyPage = await friendlyJourneyContext.newPage()
+  await friendlyJourneyPage.goto(
+    `/${familyHandle}/kanada-2026-${journeyId.replaceAll('-', '').slice(0, 8)}`,
+  )
+  await expect(
+    friendlyJourneyPage.getByRole('heading', { name: 'Kanada 2026' }),
+  ).toBeVisible()
+  await friendlyJourneyContext.close()
 })

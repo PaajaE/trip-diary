@@ -1,4 +1,5 @@
 export * from '@/features/spaces/model/spaces'
+export * from '@/features/spaces/model/use-active-space'
 export * from '@/features/spaces/ui/CreateFamilyForm'
 export * from '@/features/spaces/ui/CreateInviteForm'
 export * from '@/features/spaces/ui/MembersList'

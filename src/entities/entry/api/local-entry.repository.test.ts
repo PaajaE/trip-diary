@@ -12,7 +12,8 @@ describe('local entry repository', () => {
   })
 
   it('stores an entry and its sync operation atomically', async () => {
-    const entry = await createLocalEntry(crypto.randomUUID(), {
+    const spaceId = crypto.randomUUID()
+    const entry = await createLocalEntry(crypto.randomUUID(), spaceId, {
       body: 'First offline memory',
       eventAt: new Date().toISOString(),
       language: 'en',

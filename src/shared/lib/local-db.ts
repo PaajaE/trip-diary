@@ -28,6 +28,12 @@ class TripDiaryDatabase extends Dexie {
       photoVariants: 'id, photoId, kind, createdAt',
       syncOperations: 'id, creatorId, status, createdAt',
     })
+    this.version(4).stores({
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt',
+    })
   }
 }
 
