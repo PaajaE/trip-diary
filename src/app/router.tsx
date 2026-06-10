@@ -8,7 +8,9 @@ import { Suspense } from 'react'
 import {
   LazyAuthPage,
   LazyCreateEntryPage,
+  LazyCreateJourneyPage,
   LazyEntryRoutePage,
+  LazyJourneyRoutePage,
   LazyProfileRoutePage,
 } from '@/app/lazy-pages'
 import { HomePage } from '@/pages/home/HomePage'
@@ -68,6 +70,18 @@ const entryRoute = createRoute({
   component: LazyEntryRoutePage,
 })
 
+const createJourneyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/journeys/new',
+  component: LazyCreateJourneyPage,
+})
+
+const journeyRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId',
+  component: LazyJourneyRoutePage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
@@ -75,6 +89,8 @@ const routeTree = rootRoute.addChildren([
   profileRoute,
   createEntryRoute,
   entryRoute,
+  createJourneyRoute,
+  journeyRoute,
 ])
 
 export const router = createRouter({ routeTree })

@@ -1,7 +1,6 @@
 import { MapPinned, Plus, WifiOff } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/shared/ui/Button'
 
 export function HomePage() {
   const { t } = useTranslation()
@@ -44,10 +43,13 @@ export function HomePage() {
             <Plus aria-hidden="true" size={18} />
             {t('home.primaryAction')}
           </Link>
-          <Button variant="secondary">
+          <Link
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold transition-colors hover:bg-white"
+            to="/journeys/new"
+          >
             <MapPinned aria-hidden="true" size={18} />
             {t('home.secondaryAction')}
-          </Button>
+          </Link>
         </div>
       </section>
     </main>

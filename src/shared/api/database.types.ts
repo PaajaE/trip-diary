@@ -88,6 +88,72 @@ export type Database = {
         }
         Relationships: []
       }
+      entry_journey_links: {
+        Row: {
+          created_at: string
+          creator_id: string
+          entry_id: string
+          guide_section_id: string | null
+          journey_id: string
+          stage_id: string | null
+          stop_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          entry_id: string
+          guide_section_id?: string | null
+          journey_id: string
+          stage_id?: string | null
+          stop_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          entry_id?: string
+          guide_section_id?: string | null
+          journey_id?: string
+          stage_id?: string | null
+          stop_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entry_journey_links_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entry_journey_links_guide_fk"
+            columns: ["guide_section_id", "journey_id"]
+            isOneToOne: false
+            referencedRelation: "journey_guide_sections"
+            referencedColumns: ["id", "journey_id"]
+          },
+          {
+            foreignKeyName: "entry_journey_links_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "entry_journey_links_stage_fk"
+            columns: ["stage_id", "journey_id"]
+            isOneToOne: false
+            referencedRelation: "journey_stages"
+            referencedColumns: ["id", "journey_id"]
+          },
+          {
+            foreignKeyName: "entry_journey_links_stop_fk"
+            columns: ["stop_id", "journey_id"]
+            isOneToOne: false
+            referencedRelation: "journey_stops"
+            referencedColumns: ["id", "journey_id"]
+          },
+        ]
+      }
       entry_photos: {
         Row: {
           created_at: string
@@ -126,6 +192,228 @@ export type Database = {
             referencedColumns: ["id", "creator_id"]
           },
         ]
+      }
+      journey_guide_sections: {
+        Row: {
+          body: string
+          created_at: string
+          creator_id: string
+          id: string
+          journey_id: string
+          position: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          creator_id: string
+          id: string
+          journey_id: string
+          position: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          creator_id?: string
+          id?: string
+          journey_id?: string
+          position?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_guide_sections_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journey_members: {
+        Row: {
+          created_at: string
+          journey_id: string
+          role: Database["public"]["Enums"]["journey_member_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          journey_id: string
+          role?: Database["public"]["Enums"]["journey_member_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          journey_id?: string
+          role?: Database["public"]["Enums"]["journey_member_role"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_members_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journey_stages: {
+        Row: {
+          created_at: string
+          creator_id: string
+          ends_at: string | null
+          id: string
+          journey_id: string
+          position: number
+          starts_at: string | null
+          summary: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          ends_at?: string | null
+          id: string
+          journey_id: string
+          position: number
+          starts_at?: string | null
+          summary?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          ends_at?: string | null
+          id?: string
+          journey_id?: string
+          position?: number
+          starts_at?: string | null
+          summary?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_stages_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journey_stops: {
+        Row: {
+          created_at: string
+          creator_id: string
+          id: string
+          journey_id: string
+          latitude: number | null
+          longitude: number | null
+          notes: string
+          planned_at: string | null
+          position: number
+          stage_id: string | null
+          status: Database["public"]["Enums"]["journey_stop_status"]
+          title: string
+          updated_at: string
+          visited_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          id: string
+          journey_id: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string
+          planned_at?: string | null
+          position: number
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["journey_stop_status"]
+          title: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          id?: string
+          journey_id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string
+          planned_at?: string | null
+          position?: number
+          stage_id?: string | null
+          status?: Database["public"]["Enums"]["journey_stop_status"]
+          title?: string
+          updated_at?: string
+          visited_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journey_stops_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "journeys"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journey_stops_stage_fk"
+            columns: ["stage_id", "journey_id"]
+            isOneToOne: false
+            referencedRelation: "journey_stages"
+            referencedColumns: ["id", "journey_id"]
+          },
+        ]
+      }
+      journeys: {
+        Row: {
+          created_at: string
+          creator_id: string
+          ends_at: string | null
+          id: string
+          starts_at: string | null
+          status: Database["public"]["Enums"]["journey_status"]
+          summary: string
+          title: string
+          updated_at: string
+          visibility: Database["public"]["Enums"]["journey_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          ends_at?: string | null
+          id: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["journey_status"]
+          summary?: string
+          title: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["journey_visibility"]
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          ends_at?: string | null
+          id?: string
+          starts_at?: string | null
+          status?: Database["public"]["Enums"]["journey_status"]
+          summary?: string
+          title?: string
+          updated_at?: string
+          visibility?: Database["public"]["Enums"]["journey_visibility"]
+        }
+        Relationships: []
       }
       photo_variants: {
         Row: {
@@ -236,6 +524,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_journey_guide_section: {
+        Args: { p_body?: string; p_journey_id: string; p_title: string }
+        Returns: string
+      }
+      create_journey_stage: {
+        Args: { p_journey_id: string; p_summary?: string; p_title: string }
+        Returns: string
+      }
+      create_journey_stop: {
+        Args: {
+          p_journey_id: string
+          p_notes?: string
+          p_stage_id: string
+          p_status?: Database["public"]["Enums"]["journey_stop_status"]
+          p_title: string
+        }
+        Returns: string
+      }
+      is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
+      is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
       update_entry: {
         Args: {
           p_body: string
@@ -280,6 +588,10 @@ export type Database = {
       entry_status: "draft" | "published"
       entry_type: "story" | "tip" | "note" | "place"
       entry_visibility: "public" | "private"
+      journey_member_role: "owner" | "editor" | "member"
+      journey_status: "planning" | "active" | "completed"
+      journey_stop_status: "planned" | "visited"
+      journey_visibility: "public" | "private"
       photo_variant_type: "thumb" | "preview" | "large"
     }
     CompositeTypes: {
@@ -415,6 +727,10 @@ export const Constants = {
       entry_status: ["draft", "published"],
       entry_type: ["story", "tip", "note", "place"],
       entry_visibility: ["public", "private"],
+      journey_member_role: ["owner", "editor", "member"],
+      journey_status: ["planning", "active", "completed"],
+      journey_stop_status: ["planned", "visited"],
+      journey_visibility: ["public", "private"],
       photo_variant_type: ["thumb", "preview", "large"],
     },
   },

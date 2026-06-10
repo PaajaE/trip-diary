@@ -46,4 +46,49 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     anonymousPage.getByRole('img', { name: 'První cesta' }),
   ).toBeVisible()
   await anonymousContext.close()
+
+  await page.goto('/journeys/new')
+  await page.getByLabel('Název cesty').fill('Kanada 2026')
+  await page
+    .getByLabel('Krátký popis')
+    .fill('Etapy, místa a praktické poznámky na jednom místě.')
+  await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
+  await expect(page.getByRole('heading', { name: 'Kanada 2026' })).toBeVisible()
+  await expect(page.getByText('Průběh cesty')).toBeVisible()
+
+  const stageForm = page
+    .getByRole('heading', { name: 'Nová etapa' })
+    .locator('..')
+  await stageForm.getByLabel('Název').fill('Skalnaté hory')
+  await stageForm.getByRole('button', { name: 'Přidat' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Skalnaté hory' }),
+  ).toBeVisible()
+
+  const stopForm = page
+    .getByRole('heading', { name: 'Nové místo' })
+    .locator('..')
+  await stopForm.getByLabel('Název').fill('Banff')
+  await stopForm.getByRole('button', { name: 'Přidat' }).click()
+  await expect(page.getByText('Banff')).toBeVisible()
+
+  const guideForm = page
+    .getByRole('heading', { name: 'Praktická sekce' })
+    .locator('..')
+  await guideForm.getByLabel('Název').fill('Doprava')
+  await guideForm.getByLabel('Poznámky').fill('Tipy pro přesuny po Kanadě.')
+  await guideForm.getByRole('button', { name: 'Přidat' }).click()
+  await expect(page.getByRole('heading', { name: 'Doprava' })).toBeVisible()
+
+  const publicJourneyContext = await browser.newContext()
+  const publicJourneyPage = await publicJourneyContext.newPage()
+  await publicJourneyPage.goto(page.url())
+  await expect(
+    publicJourneyPage.getByRole('heading', { name: 'Kanada 2026' }),
+  ).toBeVisible()
+  await expect(publicJourneyPage.getByText('Banff')).toBeVisible()
+  await expect(
+    publicJourneyPage.getByRole('heading', { name: 'Doprava' }),
+  ).toBeVisible()
+  await publicJourneyContext.close()
 })

@@ -23,3 +23,15 @@ export const LazyEntryRoutePage = lazy(() =>
     default: EntryRoutePage,
   })),
 )
+
+export const LazyCreateJourneyPage = lazy(() =>
+  import('@/pages/journey/CreateJourneyPage').then(({ CreateJourneyPage }) => ({
+    default: CreateJourneyPage,
+  })),
+)
+
+export const LazyJourneyRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyRoutePage').then(({ JourneyRoutePage }) => ({
+    default: JourneyRoutePage,
+  })),
+)
