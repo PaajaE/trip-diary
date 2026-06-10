@@ -70,8 +70,8 @@ push to `main`. Before the first deployment:
 
 1. Create a hosted Supabase project and apply all migrations in
    `supabase/migrations`.
-2. Set the Supabase Auth site URL to the final Pages URL, for example
-   `https://owner.github.io/trip-diary/`.
+2. Set the Supabase Auth site URL to the production URL, for example
+   `https://cestovni-denik.cz/`.
 3. Add repository secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
 4. Add `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, and
    `SUPABASE_DB_PASSWORD` secrets.
@@ -80,3 +80,8 @@ push to `main`. Before the first deployment:
 
 The Supabase anon/publishable key is intentionally public. Never add a service
 role key to GitHub Pages or to any `VITE_` variable.
+
+The production build is configured for the custom root domain
+`https://cestovni-denik.cz/`. Configure it under repository **Settings →
+Pages**, point the apex DNS records to GitHub Pages, and point `www` to
+`paajae.github.io`.
