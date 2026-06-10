@@ -41,7 +41,9 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
         .order('position'),
       client
         .from('journey_stops')
-        .select('id, stage_id, title, notes, status')
+        .select(
+          'id, stage_id, title, notes, status, map_latitude, map_longitude',
+        )
         .eq('journey_id', id)
         .order('position'),
       client
@@ -72,6 +74,8 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     status: journeyResult.data.status,
     stops: (stopsResult.data ?? []).map((stop) => ({
       id: stop.id,
+      mapLatitude: stop.map_latitude,
+      mapLongitude: stop.map_longitude,
       notes: stop.notes,
       stageId: stop.stage_id,
       status: stop.status,
@@ -109,11 +113,29 @@ export async function addJourneyStop(
   journeyId: string,
   stageId: string,
   title: string,
-): Promise<void> {
-  const { error } = await getSupabaseClient().rpc('create_journey_stop', {
+): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('create_journey_stop', {
     p_journey_id: journeyId,
     p_stage_id: stageId,
     p_title: title,
+  })
+  if (error !== null) {
+    throw error
+  }
+  return data
+}
+
+export async function setJourneyStopLocation(
+  stopId: string,
+  latitude: number,
+  longitude: number,
+): Promise<void> {
+  const { error } = await getSupabaseClient().rpc('set_journey_stop_location', {
+    p_latitude: latitude,
+    p_longitude: longitude,
+    p_map_latitude: Math.round(latitude * 100) / 100,
+    p_map_longitude: Math.round(longitude * 100) / 100,
+    p_stop_id: stopId,
   })
   if (error !== null) {
     throw error

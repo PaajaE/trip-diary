@@ -318,6 +318,8 @@ export type Database = {
           journey_id: string
           latitude: number | null
           longitude: number | null
+          map_latitude: number | null
+          map_longitude: number | null
           notes: string
           planned_at: string | null
           position: number
@@ -334,6 +336,8 @@ export type Database = {
           journey_id: string
           latitude?: number | null
           longitude?: number | null
+          map_latitude?: number | null
+          map_longitude?: number | null
           notes?: string
           planned_at?: string | null
           position: number
@@ -350,6 +354,8 @@ export type Database = {
           journey_id?: string
           latitude?: number | null
           longitude?: number | null
+          map_latitude?: number | null
+          map_longitude?: number | null
           notes?: string
           planned_at?: string | null
           position?: number
@@ -544,6 +550,16 @@ export type Database = {
       }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
+      set_journey_stop_location: {
+        Args: {
+          p_latitude: number
+          p_longitude: number
+          p_map_latitude: number
+          p_map_longitude: number
+          p_stop_id: string
+        }
+        Returns: undefined
+      }
       update_entry: {
         Args: {
           p_body: string

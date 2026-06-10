@@ -69,8 +69,11 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     .getByRole('heading', { name: 'Nové místo' })
     .locator('..')
   await stopForm.getByLabel('Název').fill('Banff')
+  await stopForm.getByLabel('Zeměpisná šířka').fill('51.1784')
+  await stopForm.getByLabel('Zeměpisná délka').fill('-115.5708')
   await stopForm.getByRole('button', { name: 'Přidat' }).click()
   await expect(page.getByText('Banff')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Mapa cesty' })).toBeVisible()
 
   const guideForm = page
     .getByRole('heading', { name: 'Praktická sekce' })
@@ -87,6 +90,9 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     publicJourneyPage.getByRole('heading', { name: 'Kanada 2026' }),
   ).toBeVisible()
   await expect(publicJourneyPage.getByText('Banff')).toBeVisible()
+  await expect(
+    publicJourneyPage.getByRole('region', { name: 'Mapa cesty' }),
+  ).toBeVisible()
   await expect(
     publicJourneyPage.getByRole('heading', { name: 'Doprava' }),
   ).toBeVisible()

@@ -7,6 +7,7 @@ import {
   getJourney,
 } from '@/entities/journey/api/journey.repository'
 import { JourneyComposer } from '@/features/journeys/ui/JourneyComposer'
+import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
 
 interface JourneyPageProps {
   journeyId: string
@@ -53,6 +54,7 @@ export function JourneyPage({ journeyId }: JourneyPageProps) {
 
           <section className="py-12">
             <h2 className="text-2xl font-semibold">{t('journey.route')}</h2>
+            <JourneyMap stops={journey.stops} />
             {journey.stages.length === 0 && journey.stops.length === 0 ? (
               <p className="mt-4 text-muted">{t('journey.emptyRoute')}</p>
             ) : (

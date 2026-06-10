@@ -25,6 +25,8 @@ export const journeyStageSchema = z.object({
 
 export const journeyStopSchema = z.object({
   id: z.uuid(),
+  mapLatitude: z.number().min(-90).max(90).nullable(),
+  mapLongitude: z.number().min(-180).max(180).nullable(),
   notes: z.string(),
   stageId: z.uuid().nullable(),
   status: z.enum(['planned', 'visited']),

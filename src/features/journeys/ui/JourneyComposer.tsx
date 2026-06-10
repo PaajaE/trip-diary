@@ -4,6 +4,7 @@ import {
   addJourneyGuide,
   addJourneyStage,
   addJourneyStop,
+  setJourneyStopLocation,
 } from '@/entities/journey/api/journey.repository'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { Button } from '@/shared/ui/Button'
@@ -67,16 +68,41 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
             className="space-y-4 rounded-lg bg-surface p-5"
             onSubmit={(event) =>
               void submit(event, async (form) => {
-                await addJourneyStop(
+                const stopId = await addJourneyStop(
                   journey.id,
                   getText(form, 'stageId'),
                   getText(form, 'title'),
                 )
+                const latitude = Number(getText(form, 'latitude'))
+                const longitude = Number(getText(form, 'longitude'))
+                if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+                  await setJourneyStopLocation(stopId, latitude, longitude)
+                }
               })
             }
           >
             <h3 className="font-semibold">{t('journey.addStop')}</h3>
             <Input label={t('journey.itemTitle')} name="title" required />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label={t('journey.latitude')}
+                max="90"
+                min="-90"
+                name="latitude"
+                required
+                step="any"
+                type="number"
+              />
+              <Input
+                label={t('journey.longitude')}
+                max="180"
+                min="-180"
+                name="longitude"
+                required
+                step="any"
+                type="number"
+              />
+            </div>
             <label className="block text-sm font-medium">
               {t('journey.stage')}
               <select
