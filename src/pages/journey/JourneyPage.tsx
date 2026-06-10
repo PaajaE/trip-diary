@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { Circle, MapPin, Signpost } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -27,9 +26,6 @@ export function JourneyPage({ journeyId }: JourneyPageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
-      <Link className="text-sm font-semibold" to="/">
-        {t('brand')}
-      </Link>
       {query.isError ? (
         <p className="mt-16 text-destructive">{t('journey.error')}</p>
       ) : journey === undefined ? (

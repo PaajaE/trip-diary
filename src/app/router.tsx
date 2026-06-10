@@ -9,10 +9,12 @@ import {
   LazyAuthPage,
   LazyCreateEntryPage,
   LazyCreateJourneyPage,
+  LazyDashboardPage,
   LazyEntryRoutePage,
   LazyJourneyRoutePage,
   LazyProfileRoutePage,
 } from '@/app/lazy-pages'
+import { AppShell } from '@/app/AppShell'
 import { HomePage } from '@/pages/home/HomePage'
 
 const rootRoute = createRootRoute({
@@ -24,7 +26,9 @@ const rootRoute = createRootRoute({
         </main>
       }
     >
-      <Outlet />
+      <AppShell>
+        <Outlet />
+      </AppShell>
     </Suspense>
   ),
   notFoundComponent: () => (
@@ -50,6 +54,12 @@ const signUpRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/sign-up',
   component: () => <LazyAuthPage mode="signUp" />,
+})
+
+const dashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dashboard',
+  component: LazyDashboardPage,
 })
 
 const profileRoute = createRoute({
@@ -86,6 +96,7 @@ const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
   signUpRoute,
+  dashboardRoute,
   profileRoute,
   createEntryRoute,
   entryRoute,

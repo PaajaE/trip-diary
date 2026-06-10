@@ -13,9 +13,6 @@ export function AuthPage({ mode }: AuthPageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-md px-5 py-8 sm:py-16">
-      <Link className="text-sm font-semibold" to="/">
-        {t('brand')}
-      </Link>
       <section className="mt-16 rounded-md bg-surface p-6 shadow-soft sm:p-8">
         <h1 className="text-3xl font-semibold tracking-[-0.03em]">
           {t(`auth.${mode}.title`)}
@@ -23,7 +20,10 @@ export function AuthPage({ mode }: AuthPageProps) {
         <p className="mt-3 leading-7 text-muted">
           {t(`auth.${mode}.description`)}
         </p>
-        <AuthForm mode={mode} onSuccess={() => void navigate({ to: '/' })} />
+        <AuthForm
+          mode={mode}
+          onSuccess={() => void navigate({ to: '/dashboard' })}
+        />
         <p className="mt-6 text-center text-sm text-muted">
           {t(`auth.${mode}.alternative`)}{' '}
           <Link

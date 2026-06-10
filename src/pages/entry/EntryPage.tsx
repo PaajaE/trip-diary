@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
@@ -21,9 +20,6 @@ export function EntryPage({ entryId }: EntryPageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
-      <Link className="text-sm font-semibold" to="/">
-        {t('brand')}
-      </Link>
       {entryQuery.isPending ? (
         <p className="mt-16 text-muted">{t('entry.loading')}</p>
       ) : entryQuery.isError ? (

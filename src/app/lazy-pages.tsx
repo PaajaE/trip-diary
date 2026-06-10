@@ -6,6 +6,12 @@ export const LazyAuthPage = lazy(() =>
   })),
 )
 
+export const LazyDashboardPage = lazy(() =>
+  import('@/pages/dashboard/DashboardPage').then(({ DashboardPage }) => ({
+    default: DashboardPage,
+  })),
+)
+
 export const LazyProfileRoutePage = lazy(() =>
   import('@/pages/profile/ProfileRoutePage').then(({ ProfileRoutePage }) => ({
     default: ProfileRoutePage,

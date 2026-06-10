@@ -1,4 +1,4 @@
-import { MapPinned, Plus, WifiOff } from 'lucide-react'
+import { MapPinned, Plus } from 'lucide-react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
@@ -7,24 +7,6 @@ export function HomePage() {
 
   return (
     <main className="mx-auto flex min-h-svh w-full max-w-5xl flex-col px-5 pb-10 pt-6 sm:px-8 sm:pt-10">
-      <header className="flex items-center justify-between">
-        <span className="text-sm font-semibold tracking-wide">
-          {t('brand')}
-        </span>
-        <div className="flex items-center gap-2">
-          <span className="hidden items-center gap-2 rounded-full bg-surface px-3 py-2 text-xs text-muted shadow-soft sm:flex">
-            <WifiOff aria-hidden="true" size={14} />
-            {t('home.status')}
-          </span>
-          <Link
-            className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
-            to="/sign-in"
-          >
-            {t('home.signIn')}
-          </Link>
-        </div>
-      </header>
-
       <section className="my-auto py-20 sm:max-w-3xl">
         <p className="mb-5 text-sm font-medium text-accent">
           {t('home.eyebrow')}

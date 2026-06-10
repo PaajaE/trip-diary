@@ -4,7 +4,7 @@ test('shows the primary capture action', async ({ page }) => {
   await page.goto('/')
 
   await expect(
-    page.getByRole('link', { name: 'Přidat vzpomínku' }),
+    page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
   ).toBeVisible()
 })
 
@@ -19,9 +19,12 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await page.getByLabel('Potvrzení hesla').fill('StrongPass1')
   await page.getByRole('button', { name: 'Vytvořit účet' }).click()
 
-  await expect(page).toHaveURL('/')
+  await expect(page).toHaveURL('/dashboard')
   await expect(
-    page.getByRole('link', { name: 'Přidat vzpomínku' }),
+    page.getByRole('heading', { name: new RegExp(username) }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
   ).toBeVisible()
 
   await page.goto(`/u/${username}`)

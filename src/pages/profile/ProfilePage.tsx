@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { getPublicProfile } from '@/entities/profile/api/profile.repository'
 
@@ -16,9 +15,6 @@ export function ProfilePage({ username }: ProfilePageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
-      <Link className="text-sm font-semibold" to="/">
-        {t('brand')}
-      </Link>
       {profileQuery.isPending ? (
         <p className="mt-16 text-muted">{t('profile.loading')}</p>
       ) : profileQuery.isError ? (
