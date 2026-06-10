@@ -9,6 +9,24 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      ;(() => {
+        const redirect = window.location.search
+        if (!redirect.startsWith('?/')) {
+          return
+        }
+        const route = redirect
+          .slice(2)
+          .split('&')
+          .map((part) => part.replaceAll('~and~', '&'))
+          .join('?')
+        window.history.replaceState(
+          null,
+          '',
+          window.location.pathname.replace(/\/$/, '') + '/' + route,
+        )
+      })()
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

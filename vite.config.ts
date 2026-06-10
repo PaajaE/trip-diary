@@ -4,7 +4,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import { fileURLToPath, URL } from 'node:url'
 
+const base = process.env.VITE_BASE_PATH ?? '/'
+
 export default defineConfig({
+  base,
   plugins: [
     react(),
     tailwindcss(),
@@ -18,24 +21,24 @@ export default defineConfig({
           {
             purpose: 'any',
             sizes: 'any',
-            src: '/app-icon.svg',
+            src: 'app-icon.svg',
             type: 'image/svg+xml',
           },
           {
             purpose: 'maskable',
             sizes: 'any',
-            src: '/app-icon.svg',
+            src: 'app-icon.svg',
             type: 'image/svg+xml',
           },
         ],
         name: 'Trip Diary',
+        scope: '.',
         short_name: 'Trip Diary',
-        start_url: '/',
+        start_url: '.',
         theme_color: '#285845',
       },
       registerType: 'autoUpdate',
       workbox: {
-        navigateFallback: '/index.html',
         runtimeCaching: [
           {
             handler: 'CacheFirst',

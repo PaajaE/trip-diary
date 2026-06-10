@@ -93,7 +93,10 @@ const routeTree = rootRoute.addChildren([
   journeyRoute,
 ])
 
-export const router = createRouter({ routeTree })
+export const router = createRouter({
+  basepath: import.meta.env.BASE_URL.replace(/\/$/, '') || '/',
+  routeTree,
+})
 
 declare module '@tanstack/react-router' {
   interface Register {

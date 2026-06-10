@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Trip Diary</title>
+    <script>
+      const segmentsToKeep = 1
+      const locationParts = window.location.pathname.split('/')
+      const repositoryPath = locationParts
+        .slice(0, segmentsToKeep + 1)
+        .join('/')
+      const routePath = locationParts.slice(segmentsToKeep + 1).join('/')
+      const redirect =
+        window.location.origin +
+        repositoryPath +
+        '/?/' +
+        routePath +
+        window.location.search.replace('?', '&') +
+        window.location.hash
+      window.location.replace(redirect)
+    </script>
+  </head>
+  <body></body>
+</html>
