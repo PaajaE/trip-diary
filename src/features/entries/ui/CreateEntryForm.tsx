@@ -8,6 +8,7 @@ import {
   createEntrySchema,
   type CreateEntryInput,
 } from '@/entities/entry/model/entry'
+import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
@@ -39,7 +40,9 @@ export function CreateEntryForm({
     const entry = await createLocalEntry(creatorId, input)
     await addLocalPhotos(creatorId, entry.id, photos)
     try {
-      await syncPendingOperations()
+      if (await canAutomaticallySync()) {
+        await syncPendingOperations()
+      }
     } catch {
       // The local draft is safe and can be synchronized later.
     }
