@@ -83,6 +83,12 @@ export function AppShell({ children }: PropsWithChildren) {
                     >
                       {t('navigation.settings')}
                     </Link>
+                    <Link
+                      className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+                      to="/spaces"
+                    >
+                      {t('navigation.spaces')}
+                    </Link>
                     <button
                       className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
                       onClick={() => {

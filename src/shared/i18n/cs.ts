@@ -20,6 +20,7 @@ export const cs: TranslationResources = {
     loading: 'Načítání účtu',
     profile: 'Veřejný profil',
     settings: 'Nastavení profilu',
+    spaces: 'Rodinné prostory',
     signOut: 'Odhlásit se',
   },
   dashboard: {

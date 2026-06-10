@@ -14,6 +14,9 @@ import {
   LazyJourneyRoutePage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
+  LazySpacesRoutePage,
+  LazySpaceMembersRoutePage,
+  LazyAcceptInviteRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
 import { HomePage } from '@/pages/home/HomePage'
@@ -99,6 +102,24 @@ const journeyRoute = createRoute({
   component: LazyJourneyRoutePage,
 })
 
+const spacesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/spaces',
+  component: LazySpacesRoutePage,
+})
+
+const spaceMembersRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/spaces/$spaceId/members',
+  component: LazySpaceMembersRoutePage,
+})
+
+const acceptInviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/invite/$token',
+  component: LazyAcceptInviteRoutePage,
+})
+
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
@@ -110,6 +131,9 @@ const routeTree = rootRoute.addChildren([
   entryRoute,
   createJourneyRoute,
   journeyRoute,
+  spacesRoute,
+  spaceMembersRoute,
+  acceptInviteRoute,
 ])
 
 export const router = createRouter({

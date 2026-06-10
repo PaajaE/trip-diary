@@ -27,6 +27,25 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
   ).toBeVisible()
 
+  const familyHandle = `family-${crypto.randomUUID().slice(0, 8)}`
+  await page.goto('/spaces')
+  await page.getByRole('button', { name: new RegExp(username) }).click()
+  await page.getByRole('button', { name: 'Vytvořit rodinný prostor' }).click()
+  await page.getByLabel('Název rodiny nebo skupiny').fill('Ečerovi')
+  await page.getByLabel('Veřejná adresa').fill(familyHandle)
+  await page.getByRole('button', { name: 'Vytvořit rodinný prostor' }).click()
+  await expect(page.getByRole('button', { name: /Ečerovi/ })).toBeVisible()
+  await page
+    .getByRole('link', { name: 'Spravovat členy prostoru Ečerovi' })
+    .click()
+  await expect(
+    page.getByRole('heading', { name: 'Členové prostoru' }),
+  ).toBeVisible()
+  await page.getByLabel('E-mail člena').fill('family@example.test')
+  await page.getByRole('button', { name: 'Vytvořit pozvánku' }).click()
+  await expect(page.getByText('Pozvánka je připravená')).toBeVisible()
+  await expect(page.getByText(/\/invite\//)).toBeVisible()
+
   await page.goto('/settings/profile')
   await page.getByLabel('Zobrazované jméno').fill('Ečerovi na cestě')
   await page

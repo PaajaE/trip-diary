@@ -1,6 +1,7 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { AuthForm } from '@/features/auth/ui/AuthForm'
+import { consumeAuthReturnPath } from '@/features/auth/session/auth-return'
 
 interface AuthPageProps {
   mode: 'signIn' | 'signUp'
@@ -22,7 +23,14 @@ export function AuthPage({ mode }: AuthPageProps) {
         </p>
         <AuthForm
           mode={mode}
-          onSuccess={() => void navigate({ to: '/dashboard' })}
+          onSuccess={() => {
+            const returnPath = consumeAuthReturnPath()
+            if (returnPath === null) {
+              void navigate({ to: '/dashboard' })
+            } else {
+              window.location.assign(returnPath)
+            }
+          }}
         />
         <p className="mt-6 text-center text-sm text-muted">
           {t(`auth.${mode}.alternative`)}{' '}

@@ -525,11 +525,142 @@ export type Database = {
         }
         Relationships: []
       }
+      space_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          email_normalized: string
+          expires_at: string
+          id: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["space_role"]
+          space_id: string
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by: string
+          email_normalized: string
+          expires_at: string
+          id?: string
+          revoked_at?: string | null
+          role: Database["public"]["Enums"]["space_role"]
+          space_id: string
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          email_normalized?: string
+          expires_at?: string
+          id?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["space_role"]
+          space_id?: string
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_invites_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      space_members: {
+        Row: {
+          created_at: string
+          role: Database["public"]["Enums"]["space_role"]
+          space_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          role: Database["public"]["Enums"]["space_role"]
+          space_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          role?: Database["public"]["Enums"]["space_role"]
+          space_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "space_members_space_id_fkey"
+            columns: ["space_id"]
+            isOneToOne: false
+            referencedRelation: "spaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      spaces: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          handle: string
+          id: string
+          kind: Database["public"]["Enums"]["space_kind"]
+          name: string
+          personal_owner_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          handle: string
+          id?: string
+          kind: Database["public"]["Enums"]["space_kind"]
+          name: string
+          personal_owner_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          handle?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["space_kind"]
+          name?: string
+          personal_owner_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      accept_space_invite: { Args: { p_raw_token: string }; Returns: string }
+      change_space_member_role: {
+        Args: {
+          p_role: Database["public"]["Enums"]["space_role"]
+          p_space_id: string
+          p_user_id: string
+        }
+        Returns: undefined
+      }
+      create_family_space: {
+        Args: { p_handle: string; p_name: string }
+        Returns: string
+      }
       create_journey_guide_section: {
         Args: { p_body?: string; p_journey_id: string; p_title: string }
         Returns: string
@@ -548,8 +679,33 @@ export type Database = {
         }
         Returns: string
       }
+      create_space_invite: {
+        Args: {
+          p_email: string
+          p_role?: Database["public"]["Enums"]["space_role"]
+          p_space_id: string
+        }
+        Returns: string
+      }
+      get_space_invite_preview: {
+        Args: { p_raw_token: string }
+        Returns: {
+          space_avatar_url: string
+          space_handle: string
+          space_id: string
+          space_name: string
+        }[]
+      }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
+      is_space_member: { Args: { p_space_id: string }; Returns: boolean }
+      is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
+      leave_space: { Args: { p_space_id: string }; Returns: undefined }
+      remove_space_member: {
+        Args: { p_space_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      revoke_space_invite: { Args: { p_invite_id: string }; Returns: undefined }
       set_journey_stop_location: {
         Args: {
           p_latitude: number
@@ -609,6 +765,8 @@ export type Database = {
       journey_stop_status: "planned" | "visited"
       journey_visibility: "public" | "private"
       photo_variant_type: "thumb" | "preview" | "large"
+      space_kind: "personal" | "family"
+      space_role: "owner" | "editor" | "member"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -748,6 +906,8 @@ export const Constants = {
       journey_stop_status: ["planned", "visited"],
       journey_visibility: ["public", "private"],
       photo_variant_type: ["thumb", "preview", "large"],
+      space_kind: ["personal", "family"],
+      space_role: ["owner", "editor", "member"],
     },
   },
 } as const

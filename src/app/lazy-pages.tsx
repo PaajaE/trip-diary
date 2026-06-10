@@ -49,3 +49,21 @@ export const LazyJourneyRoutePage = lazy(() =>
     default: JourneyRoutePage,
   })),
 )
+
+export const LazySpacesRoutePage = lazy(() =>
+  import('@/pages/spaces/SpacesRoutePage').then(({ SpacesRoutePage }) => ({
+    default: SpacesRoutePage,
+  })),
+)
+
+export const LazySpaceMembersRoutePage = lazy(() =>
+  import('@/pages/spaces/SpaceMembersRoutePage').then(
+    ({ SpaceMembersRoutePage }) => ({ default: SpaceMembersRoutePage }),
+  ),
+)
+
+export const LazyAcceptInviteRoutePage = lazy(() =>
+  import('@/pages/spaces/AcceptInviteRoutePage').then(
+    ({ AcceptInviteRoutePage }) => ({ default: AcceptInviteRoutePage }),
+  ),
+)

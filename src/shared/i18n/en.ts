@@ -18,6 +18,7 @@ export const en = {
     loading: 'Loading account',
     profile: 'Public profile',
     settings: 'Profile settings',
+    spaces: 'Family spaces',
     signOut: 'Sign out',
   },
   dashboard: {
