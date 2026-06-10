@@ -13,6 +13,7 @@ import {
   LazyEntryRoutePage,
   LazyJourneyRoutePage,
   LazyProfileRoutePage,
+  LazySettingsRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
 import { HomePage } from '@/pages/home/HomePage'
@@ -62,6 +63,12 @@ const dashboardRoute = createRoute({
   component: LazyDashboardPage,
 })
 
+const settingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/settings/profile',
+  component: LazySettingsRoutePage,
+})
+
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/u/$username',
@@ -97,6 +104,7 @@ const routeTree = rootRoute.addChildren([
   signInRoute,
   signUpRoute,
   dashboardRoute,
+  settingsRoute,
   profileRoute,
   createEntryRoute,
   entryRoute,

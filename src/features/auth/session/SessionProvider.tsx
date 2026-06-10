@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type PropsWithChildren } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type PropsWithChildren,
+} from 'react'
 import type { Session } from '@supabase/supabase-js'
 import type { Profile } from '@/entities/profile/model/profile'
 import { signOut as requestSignOut } from '@/features/auth/api/auth.service'
@@ -29,6 +35,20 @@ function toError(error: unknown): Error {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<SessionState>(initialState)
+
+  const refreshProfile = useCallback(async () => {
+    const userId = state.session?.user.id
+    if (userId === undefined) {
+      return
+    }
+
+    const profile = await loadCurrentProfile(userId)
+    setState((current) =>
+      current.session?.user.id === userId
+        ? { ...current, error: null, profile }
+        : current,
+    )
+  }, [state.session?.user.id])
 
   useEffect(() => {
     const client = getSupabaseClient()
@@ -111,10 +131,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
   const value = useMemo<SessionContextValue>(
     () => ({
       ...state,
+      refreshProfile,
       signOut: requestSignOut,
       user: state.session?.user ?? null,
     }),
-    [state],
+    [refreshProfile, state],
   )
 
   return (

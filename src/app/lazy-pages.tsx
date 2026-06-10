@@ -12,6 +12,14 @@ export const LazyDashboardPage = lazy(() =>
   })),
 )
 
+export const LazySettingsRoutePage = lazy(() =>
+  import('@/pages/settings/SettingsRoutePage').then(
+    ({ SettingsRoutePage }) => ({
+      default: SettingsRoutePage,
+    }),
+  ),
+)
+
 export const LazyProfileRoutePage = lazy(() =>
   import('@/pages/profile/ProfileRoutePage').then(({ ProfileRoutePage }) => ({
     default: ProfileRoutePage,

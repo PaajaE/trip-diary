@@ -50,7 +50,12 @@ export function AppShell({ children }: PropsWithChildren) {
                   {t('navigation.addMemory')}
                 </Link>
                 <details className="group relative">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full focus-visible:outline [&::-webkit-details-marker]:hidden">
+                  <summary
+                    aria-label={t('navigation.accountMenu', {
+                      name: identity,
+                    })}
+                    className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full focus-visible:outline [&::-webkit-details-marker]:hidden"
+                  >
                     <Avatar label={identity} src={profile?.avatarUrl} />
                     <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">
                       {identity}
@@ -72,6 +77,12 @@ export function AppShell({ children }: PropsWithChildren) {
                         {t('navigation.profile')}
                       </Link>
                     )}
+                    <Link
+                      className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+                      to="/settings/profile"
+                    >
+                      {t('navigation.settings')}
+                    </Link>
                     <button
                       className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
                       onClick={() => {

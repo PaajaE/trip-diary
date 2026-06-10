@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getPublicProfile } from '@/entities/profile/api/profile.repository'
+import { Avatar } from '@/shared/ui/Avatar'
 
 interface ProfilePageProps {
   username: string
@@ -25,11 +26,11 @@ export function ProfilePage({ username }: ProfilePageProps) {
         <p className="mt-16 text-muted">{t('profile.notFound')}</p>
       ) : (
         <section className="mt-16">
-          <div className="flex size-20 items-center justify-center rounded-full bg-primary text-2xl font-semibold text-primary-foreground">
-            {(profileQuery.data.displayName ?? profileQuery.data.username)
-              .slice(0, 1)
-              .toUpperCase()}
-          </div>
+          <Avatar
+            className="size-20 text-2xl"
+            label={profileQuery.data.displayName ?? profileQuery.data.username}
+            src={profileQuery.data.avatarUrl}
+          />
           <h1 className="mt-6 text-4xl font-semibold tracking-[-0.04em]">
             {profileQuery.data.displayName ?? profileQuery.data.username}
           </h1>

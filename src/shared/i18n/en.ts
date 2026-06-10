@@ -12,10 +12,12 @@ export const en = {
   },
   navigation: {
     account: 'Account',
+    accountMenu: 'Account: {{name}}',
     addMemory: 'Add memory',
     dashboard: 'Dashboard',
     loading: 'Loading account',
     profile: 'Public profile',
+    settings: 'Profile settings',
     signOut: 'Sign out',
   },
   dashboard: {
@@ -69,6 +71,11 @@ export const en = {
     loading: 'Loading profile…',
     error: 'The profile could not be loaded.',
     notFound: 'This profile does not exist.',
+    settings: {
+      error: 'Profile settings could not be loaded.',
+      loading: 'Loading profile settings…',
+      signInRequired: 'Sign in to edit your profile.',
+    },
   },
   entry: {
     body: 'Story',

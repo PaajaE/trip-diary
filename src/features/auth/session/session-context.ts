@@ -6,6 +6,7 @@ export interface SessionContextValue {
   error: Error | null
   loading: boolean
   profile: Profile | null
+  refreshProfile: () => Promise<void>
   session: Session | null
   signOut: () => Promise<void>
   user: User | null

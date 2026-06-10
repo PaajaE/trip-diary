@@ -14,10 +14,12 @@ export const cs: TranslationResources = {
   },
   navigation: {
     account: 'Účet',
+    accountMenu: 'Účet: {{name}}',
     addMemory: 'Přidat vzpomínku',
     dashboard: 'Přehled',
     loading: 'Načítání účtu',
     profile: 'Veřejný profil',
+    settings: 'Nastavení profilu',
     signOut: 'Odhlásit se',
   },
   dashboard: {
@@ -70,6 +72,11 @@ export const cs: TranslationResources = {
     loading: 'Načítání profilu…',
     error: 'Profil se nepodařilo načíst.',
     notFound: 'Tento profil neexistuje.',
+    settings: {
+      error: 'Nastavení profilu se nepodařilo načíst.',
+      loading: 'Načítání nastavení profilu…',
+      signInRequired: 'Pro úpravu profilu se přihlaste.',
+    },
   },
   entry: {
     body: 'Příběh',

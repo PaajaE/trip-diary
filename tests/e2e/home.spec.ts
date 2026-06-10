@@ -27,8 +27,20 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
   ).toBeVisible()
 
+  await page.goto('/settings/profile')
+  await page.getByLabel('Zobrazované jméno').fill('Ečerovi na cestě')
+  await page
+    .getByLabel('Vybrat fotografii')
+    .setInputFiles('src/assets/hero.png')
+  await page.getByRole('button', { name: 'Uložit profil' }).click()
+  await expect(page.getByText('Profil je uložený.')).toBeVisible()
+  await expect(page.getByLabel('Účet: Ečerovi na cestě')).toBeVisible()
+
   await page.goto(`/u/${username}`)
-  await expect(page.getByRole('heading', { name: username })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Ečerovi na cestě' }),
+  ).toBeVisible()
+  await expect(page.locator('main img')).toHaveCount(1)
 
   await page.goto('/entries/new')
   await page.getByLabel('Název').fill('První cesta')
