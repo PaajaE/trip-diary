@@ -51,7 +51,21 @@ export function SessionProvider({ children }: PropsWithChildren) {
   }, [state.session?.user.id])
 
   useEffect(() => {
-    const client = getSupabaseClient()
+    let client: ReturnType<typeof getSupabaseClient>
+    try {
+      client = getSupabaseClient()
+    } catch (error) {
+      queueMicrotask(() => {
+        setState({
+          error: toError(error),
+          loading: false,
+          profile: null,
+          session: null,
+        })
+      })
+      return
+    }
+
     let active = true
     let authEventReceived = false
     let revision = 0

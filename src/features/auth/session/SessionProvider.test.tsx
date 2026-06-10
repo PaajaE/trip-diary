@@ -73,6 +73,21 @@ function wrapper({ children }: PropsWithChildren) {
 describe('SessionProvider', () => {
   beforeEach(() => {
     vi.mocked(loadCurrentProfile).mockReset()
+    vi.mocked(getSupabaseClient).mockReset()
+  })
+
+  it('falls back to a signed-out state when Supabase is not configured', async () => {
+    vi.mocked(getSupabaseClient).mockImplementation(() => {
+      throw new Error('Supabase is not configured')
+    })
+
+    const { result } = renderHook(() => useSession(), { wrapper })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+    expect(result.current.user).toBeNull()
+    expect(result.current.error?.message).toBe('Supabase is not configured')
   })
 
   it('loads the active session and its profile', async () => {
