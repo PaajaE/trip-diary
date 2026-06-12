@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Camera } from 'lucide-react'
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -15,7 +16,13 @@ import { addLocalPhotos } from '@/entities/photo/api/local-photo.repository'
 import {
   processPhoto,
   type ProcessedPhoto,
+  type SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
+import {
+  choosePhotosFromGallery,
+  createSelectedPhotos,
+  supportsNativePhotoSelection,
+} from '@/entities/photo/lib/photo-selection'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
@@ -43,7 +50,7 @@ export function CreateJourneyMemoryForm({
   spaceId,
 }: CreateJourneyMemoryFormProps) {
   const { t, i18n } = useTranslation()
-  const [photos, setPhotos] = useState<File[]>([])
+  const [photos, setPhotos] = useState<SelectedPhotoFile[]>([])
   const [detectedPhotos, setDetectedPhotos] = useState<ProcessedPhoto[]>([])
   const [selectedPoint, setSelectedPoint] = useState<{
     latitude: number
@@ -103,7 +110,7 @@ export function CreateJourneyMemoryForm({
       })
   }
 
-  async function handlePhotoSelection(files: File[]) {
+  async function handlePhotoSelection(files: SelectedPhotoFile[]) {
     setPhotos(files)
     setLinkError(null)
     setDetectingPhotos(true)
@@ -153,6 +160,21 @@ export function CreateJourneyMemoryForm({
       setDetectingPhotos(false)
     }
   }
+
+  async function handleNativePhotoSelection() {
+    setLinkError(null)
+
+    try {
+      await handlePhotoSelection(await choosePhotosFromGallery())
+    } catch {
+      setDetectedPhotos([])
+      setSelectedPoint(null)
+      setSuggestedTitle(null)
+      setLinkError(t('entry.photoPickerError'))
+    }
+  }
+
+  const isNativePlatform = supportsNativePhotoSelection()
 
   async function handleSubmit(input: CreateJourneyMemoryInput) {
     setLinkError(null)
@@ -246,15 +268,37 @@ export function CreateJourneyMemoryForm({
       </label>
       <label className="block text-sm font-medium">
         {t('entry.photos')}
-        <input
-          accept="image/*"
-          className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
-          multiple
-          onChange={(event) => {
-            void handlePhotoSelection(Array.from(event.target.files ?? []))
-          }}
-          type="file"
-        />
+        {isNativePlatform ? (
+          <div className="mt-3 space-y-3">
+            <Button
+              className="w-full"
+              disabled={detectingPhotos || form.formState.isSubmitting}
+              onClick={() => void handleNativePhotoSelection()}
+              type="button"
+              variant="secondary"
+            >
+              <Camera aria-hidden="true" size={18} />
+              {detectingPhotos
+                ? t('entry.photoPickerLoading')
+                : t('entry.photoPickerAction')}
+            </Button>
+            <span className="block text-sm font-normal text-muted">
+              {t('entry.photoPickerHint')}
+            </span>
+          </div>
+        ) : (
+          <input
+            accept="image/*"
+            className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
+            multiple
+            onChange={(event) => {
+              void handlePhotoSelection(
+                createSelectedPhotos(Array.from(event.target.files ?? [])),
+              )
+            }}
+            type="file"
+          />
+        )}
         <span className="mt-2 block text-sm font-normal text-muted">
           {t('entry.photosSelected', { count: photos.length })}
         </span>

@@ -86,6 +86,12 @@ export const cs: TranslationResources = {
     loading: 'Načítání…',
     notFound: 'Tato vzpomínka neexistuje.',
     photos: 'Fotografie',
+    photoPickerAction: 'Vybrat fotky z galerie',
+    photoPickerError:
+      'Galerie se nepodařila otevřít nebo z ní nešlo načíst metadata. Zkus to prosím znovu.',
+    photoPickerHint:
+      'Na mobilu otevřeme galerii a zkusíme převzít čas i polohu automaticky.',
+    photoPickerLoading: 'Otevírám galerii…',
     photosSelected: 'Vybráno fotografií: {{count}}',
     publish: 'Uložit a publikovat',
     signInRequired: 'Před publikováním vzpomínky se přihlaste.',

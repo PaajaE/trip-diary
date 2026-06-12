@@ -27,14 +27,41 @@ export interface ProcessedPhoto {
   variants: ProcessedVariant[]
 }
 
-export async function processPhoto(file: File): Promise<ProcessedPhoto> {
+export interface PhotoMetadataOverride {
+  capturedAt?: string | null
+  latitude?: number | null
+  longitude?: number | null
+}
+
+export interface SelectedPhotoFile {
+  file: File
+  metadata?: PhotoMetadataOverride
+}
+
+export async function processPhoto(
+  input: File | SelectedPhotoFile,
+): Promise<ProcessedPhoto> {
+  const file = input instanceof File ? input : input.file
+  const metadataOverrides = input instanceof File ? undefined : input.metadata
   const metadata = await extractPhotoMetadata(file)
   const variants = await processVariants(file)
+  const capturedAt =
+    metadataOverrides?.capturedAt !== undefined
+      ? metadataOverrides.capturedAt
+      : (metadata?.DateTimeOriginal?.toISOString() ?? null)
+  const latitude =
+    metadataOverrides?.latitude !== undefined
+      ? metadataOverrides.latitude
+      : (metadata?.latitude ?? null)
+  const longitude =
+    metadataOverrides?.longitude !== undefined
+      ? metadataOverrides.longitude
+      : (metadata?.longitude ?? null)
 
   return {
-    capturedAt: metadata?.DateTimeOriginal?.toISOString() ?? null,
-    latitude: metadata?.latitude ?? null,
-    longitude: metadata?.longitude ?? null,
+    capturedAt,
+    latitude,
+    longitude,
     variants,
   }
 }

@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Camera } from 'lucide-react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +9,12 @@ import {
   createEntrySchema,
   type CreateEntryInput,
 } from '@/entities/entry/model/entry'
+import {
+  choosePhotosFromGallery,
+  createSelectedPhotos,
+  supportsNativePhotoSelection,
+} from '@/entities/photo/lib/photo-selection'
+import type { SelectedPhotoFile } from '@/entities/photo/lib/process-photo'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
@@ -25,7 +32,9 @@ export function CreateEntryForm({
   spaceId,
 }: CreateEntryFormProps) {
   const { t, i18n } = useTranslation()
-  const [photos, setPhotos] = useState<File[]>([])
+  const [photos, setPhotos] = useState<SelectedPhotoFile[]>([])
+  const [photoError, setPhotoError] = useState<string | null>(null)
+  const [pickingPhotos, setPickingPhotos] = useState(false)
   const form = useForm<CreateEntryInput>({
     resolver: zodResolver(createEntrySchema),
     defaultValues: {
@@ -51,6 +60,21 @@ export function CreateEntryForm({
     onCreated(entry.id)
   }
 
+  async function handleNativePhotoSelection() {
+    setPhotoError(null)
+    setPickingPhotos(true)
+
+    try {
+      setPhotos(await choosePhotosFromGallery())
+    } catch {
+      setPhotoError(t('entry.photoPickerError'))
+    } finally {
+      setPickingPhotos(false)
+    }
+  }
+
+  const isNativePlatform = supportsNativePhotoSelection()
+
   return (
     <form
       className="mt-8 space-y-5"
@@ -70,18 +94,46 @@ export function CreateEntryForm({
       </label>
       <label className="block text-sm font-medium">
         {t('entry.photos')}
-        <input
-          accept="image/*"
-          className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
-          multiple
-          onChange={(event) => {
-            setPhotos(Array.from(event.target.files ?? []))
-          }}
-          type="file"
-        />
+        {isNativePlatform ? (
+          <div className="mt-3 space-y-3">
+            <Button
+              className="w-full"
+              disabled={pickingPhotos}
+              onClick={() => void handleNativePhotoSelection()}
+              type="button"
+              variant="secondary"
+            >
+              <Camera aria-hidden="true" size={18} />
+              {pickingPhotos
+                ? t('entry.photoPickerLoading')
+                : t('entry.photoPickerAction')}
+            </Button>
+            <span className="block text-sm font-normal text-muted">
+              {t('entry.photoPickerHint')}
+            </span>
+          </div>
+        ) : (
+          <input
+            accept="image/*"
+            className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
+            multiple
+            onChange={(event) => {
+              setPhotoError(null)
+              setPhotos(
+                createSelectedPhotos(Array.from(event.target.files ?? [])),
+              )
+            }}
+            type="file"
+          />
+        )}
         <span className="mt-2 block text-sm font-normal text-muted">
           {t('entry.photosSelected', { count: photos.length })}
         </span>
+        {photoError === null ? null : (
+          <span className="mt-2 block text-sm font-normal text-destructive">
+            {photoError}
+          </span>
+        )}
       </label>
       <Button
         className="w-full"

@@ -85,6 +85,12 @@ export const en = {
     loading: 'Loading…',
     notFound: 'This memory does not exist.',
     photos: 'Photos',
+    photoPickerAction: 'Choose photos from gallery',
+    photoPickerError:
+      'The gallery could not be opened or its metadata could not be read. Please try again.',
+    photoPickerHint:
+      'On mobile, we open the gallery directly and try to bring over time and location automatically.',
+    photoPickerLoading: 'Opening gallery…',
     photosSelected: '{{count}} photos selected',
     publish: 'Save and publish',
     signInRequired: 'Sign in before publishing a memory.',

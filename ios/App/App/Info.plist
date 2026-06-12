@@ -24,6 +24,12 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Trip Diary uses the camera when you want to capture a new travel memory.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Trip Diary can save edited travel photos back to your photo library when you ask it to.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Trip Diary opens your photo library so you can attach travel photos with their time and place.</string>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

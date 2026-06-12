@@ -2,14 +2,17 @@ import {
   localPhotoSchema,
   type LocalPhotoVariant,
 } from '@/entities/photo/model/photo'
-import { processPhoto } from '@/entities/photo/lib/process-photo'
+import {
+  processPhoto,
+  type SelectedPhotoFile,
+} from '@/entities/photo/lib/process-photo'
 import { localDb } from '@/shared/lib/local-db'
 import { syncOperationSchema } from '@/shared/sync/sync-operation'
 
 export async function addLocalPhotos(
   creatorId: string,
   entryId: string,
-  files: File[],
+  files: (File | SelectedPhotoFile)[],
 ): Promise<void> {
   const startingPosition = await localDb.photos
     .where('entryId')
