@@ -15,9 +15,9 @@ interface WorkerResponse {
 }
 
 interface ExifMetadata {
-  DateTimeOriginal?: Date
-  latitude?: number
-  longitude?: number
+  DateTimeOriginal?: Date | undefined
+  latitude?: number | undefined
+  longitude?: number | undefined
 }
 
 export interface ProcessedPhoto {
@@ -28,11 +28,7 @@ export interface ProcessedPhoto {
 }
 
 export async function processPhoto(file: File): Promise<ProcessedPhoto> {
-  const metadata = (await exifr.parse(file, [
-    'DateTimeOriginal',
-    'latitude',
-    'longitude',
-  ])) as ExifMetadata | undefined
+  const metadata = await extractPhotoMetadata(file)
   const variants = await processVariants(file)
 
   return {
@@ -40,6 +36,46 @@ export async function processPhoto(file: File): Promise<ProcessedPhoto> {
     latitude: metadata?.latitude ?? null,
     longitude: metadata?.longitude ?? null,
     variants,
+  }
+}
+
+async function extractPhotoMetadata(
+  file: File,
+): Promise<ExifMetadata | undefined> {
+  const buffer = await file.arrayBuffer()
+  const basicMetadata = (await exifr.parse(buffer, ['DateTimeOriginal'])) as
+    | ExifMetadata
+    | undefined
+  const gpsMetadata = await exifr.gps(buffer).catch(() => undefined)
+
+  if (gpsMetadata !== undefined) {
+    return {
+      ...(basicMetadata?.DateTimeOriginal === undefined
+        ? {}
+        : { DateTimeOriginal: basicMetadata.DateTimeOriginal }),
+      latitude: gpsMetadata.latitude,
+      longitude: gpsMetadata.longitude,
+    }
+  }
+
+  const fullMetadata = (await exifr
+    .parse(buffer, true)
+    .catch(() => undefined)) as ExifMetadata | undefined
+
+  return {
+    ...((basicMetadata?.DateTimeOriginal ?? fullMetadata?.DateTimeOriginal) ===
+    undefined
+      ? {}
+      : {
+          DateTimeOriginal:
+            basicMetadata?.DateTimeOriginal ?? fullMetadata?.DateTimeOriginal,
+        }),
+    ...(fullMetadata?.latitude === undefined
+      ? {}
+      : { latitude: fullMetadata.latitude }),
+    ...(fullMetadata?.longitude === undefined
+      ? {}
+      : { longitude: fullMetadata.longitude }),
   }
 }
 
