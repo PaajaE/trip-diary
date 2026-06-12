@@ -25,7 +25,7 @@ export const cs: TranslationResources = {
   },
   dashboard: {
     addEntry: 'Přidat vzpomínku',
-    addJourney: 'Naplánovat cestu',
+    addJourney: 'Vytvořit cestu',
     description:
       'Vaše cesty, koncepty a poslední publikované vzpomínky na jednom klidném místě.',
     draft: 'Koncept',
@@ -107,16 +107,29 @@ export const cs: TranslationResources = {
   },
   journey: {
     add: 'Přidat',
+    addNote: 'Přidat poznámku',
+    addPhotos: 'Přidat fotky',
+    addPlace: 'Přidat místo na mapě',
     addContent: 'Rozvíjet cestu',
     addError: 'Obsah se nepodařilo přidat. Zkuste to prosím znovu.',
     addGuide: 'Praktická sekce',
     addStage: 'Nová etapa',
+    addStageAction: 'Přidat etapu',
     addStop: 'Nové místo',
+    captureDescription:
+      'Začni tím, co je přirozené: fotkami, místem na mapě nebo krátkou poznámkou. Etapy si můžeš doladit až potom.',
+    captureEyebrow: 'Zaznamenat cestu',
+    captureTitle: 'Přidej další moment bez technických polí',
     create: 'Vytvořit cestu',
     createTitle: 'Naplánovat cestu',
-    emptyRoute: 'První etapu nebo místo můžete přidat později.',
+    dateUnknown: 'Datum doplníš později',
+    emptyRoute:
+      'Tahle cesta je zatím prázdná. Přidej fotky, připíchni místo na mapě nebo si ulož první krátkou poznámku.',
+    emptyStage: 'Tady zatím ještě nic není.',
+    emptyTitle: 'Začni prvním momentem',
     endsAt: 'Konec',
     error: 'Cestu se nepodařilo načíst.',
+    freeMoments: 'Momenty mimo etapu',
     guide: 'Praktický průvodce',
     guideBody: 'Poznámky',
     itemTitle: 'Název',
@@ -124,12 +137,56 @@ export const cs: TranslationResources = {
     loading: 'Načítání cesty…',
     longitude: 'Zeměpisná délka',
     map: 'Mapa cesty',
+    mapHint: 'bez ruční GPS',
+    mapPicker: 'Výběr místa na mapě',
+    mapPickerHelp:
+      'Klikni do mapy a ulož místo přesně tam, kde jste byli. Stávající body cesty zůstávají vidět jako orientace.',
+    memoryDescription:
+      'Přidej fotky nebo krátký text a vrať tuto vzpomínku přímo do průběhu cesty.',
+    memoryDescriptionWithTrip:
+      'Přidej fotky nebo krátký text a vrať tuto vzpomínku přímo do cesty {{title}}.',
+    memoryEyebrow: 'Nový moment',
+    memoryNeedsConnection:
+      'Aby se vzpomínka připojila přímo k cestě, potřebujeme ji teď synchronizovat. Připoj se a zkus to prosím znovu.',
+    memoryTitle: 'Přidat vzpomínku do cesty',
+    momentsCount: '{{count}} momentů',
     notFound: 'Tato cesta neexistuje.',
+    noteDescription:
+      'Pro rychlý zápis dojmu, malého příběhu nebo detailu, který nechceš ztratit.',
+    photoDescription:
+      'Vyber fotky z telefonu a vytvoř z nich další vzpomínku patřící do této cesty.',
+    photoGpsDetected: 'GPS nalezeno ve fotkách',
+    photoGpsMissing:
+      'Ve fotkách se nepodařilo najít polohu. Vyber ji jedním kliknutím do mapy.',
+    photoInsightsError:
+      'Metadata z fotek se nepodařilo přečíst, ale můžeš pokračovat a místo doplnit ručně na mapě.',
+    photoInsightsLoading: 'Čtu čas a GPS z vybraných fotek…',
+    photoInsightsSummary:
+      '{{gps}} z {{total}} fotek už má GPS a {{time}} z {{total}} má čas pořízení.',
+    photoInsightsTitle: 'Co se povedlo najít ve fotkách',
+    photoStopFallback: 'Místo z fotek',
+    pickOnMap: 'Vyber místo kliknutím do mapy.',
+    placeDescription:
+      'Připíchni další zastávku rovnou do mapy. Bez ručního vypisování souřadnic.',
+    placeNeedsStage:
+      'Nejdřív přidej etapu. Pak do ní můžeš během pár sekund připnout konkrétní místo.',
+    placeSuggestionApplied: 'Navržený název místa: {{title}}',
+    placeSuggestionLoading: 'Hledám přirozený název místa podle mapy…',
     route: 'Průběh cesty',
+    routeEyebrow: 'Mapa a timeline',
     signInRequired: 'Před vytvořením cesty se přihlaste.',
+    saveMemory: 'Uložit vzpomínku do cesty',
+    savePlace: 'Uložit místo',
+    selectedPoint: 'Vybráno: {{latitude}}, {{longitude}}',
     startsAt: 'Začátek',
     stage: 'Etapa',
+    stageDescription:
+      'Etapy jsou jen pomůcka pro dny nebo přesuny. Nejsou potřeba hned na začátku, ale pomůžou s pořádkem.',
+    stageOptional: 'Etapa',
+    stageTitle: 'Název etapy',
     summary: 'Krátký popis',
+    summaryFallback:
+      'Cesta je připravená. Teď už stačí přidat první moment a všechno začne dávat smysl.',
     title: 'Název cesty',
     status: {
       active: 'Právě na cestě',

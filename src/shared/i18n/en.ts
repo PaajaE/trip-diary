@@ -23,7 +23,7 @@ export const en = {
   },
   dashboard: {
     addEntry: 'Add memory',
-    addJourney: 'Plan journey',
+    addJourney: 'Create trip',
     description:
       'Your journeys, drafts, and recently published memories in one calm place.',
     draft: 'Draft',
@@ -106,16 +106,29 @@ export const en = {
   },
   journey: {
     add: 'Add',
+    addNote: 'Add note',
+    addPhotos: 'Add photos',
+    addPlace: 'Add place on map',
     addContent: 'Build the journey',
     addError: 'The content could not be added. Please try again.',
     addGuide: 'Practical section',
     addStage: 'New stage',
+    addStageAction: 'Add stage',
     addStop: 'New place',
+    captureDescription:
+      'Start with what feels natural: photos, a place on the map, or a quick note. You can organize the stages afterwards.',
+    captureEyebrow: 'Capture the trip',
+    captureTitle: 'Add the next moment without technical fields',
     create: 'Create journey',
     createTitle: 'Plan a journey',
-    emptyRoute: 'You can add the first stage or place later.',
+    dateUnknown: 'Add dates later',
+    emptyRoute:
+      'This trip is still empty. Add photos, pin a place on the map, or save the first quick note.',
+    emptyStage: 'Nothing has been added here yet.',
+    emptyTitle: 'Start with the first moment',
     endsAt: 'End',
     error: 'The journey could not be loaded.',
+    freeMoments: 'Moments outside a stage',
     guide: 'Practical guide',
     guideBody: 'Notes',
     itemTitle: 'Title',
@@ -123,12 +136,56 @@ export const en = {
     loading: 'Loading journey…',
     longitude: 'Longitude',
     map: 'Journey map',
+    mapHint: 'no manual GPS',
+    mapPicker: 'Pick a place on the map',
+    mapPickerHelp:
+      'Click anywhere on the map and save the place exactly where you were. Existing trip points stay visible for orientation.',
+    memoryDescription:
+      'Add photos or a quick text and save this memory directly into the trip.',
+    memoryDescriptionWithTrip:
+      'Add photos or a quick text and save this memory directly into {{title}}.',
+    memoryEyebrow: 'New moment',
+    memoryNeedsConnection:
+      'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
+    memoryTitle: 'Add a memory to this trip',
+    momentsCount: '{{count}} moments',
     notFound: 'This journey does not exist.',
+    noteDescription:
+      'For a quick impression, a short story, or a tiny detail you do not want to lose.',
+    photoDescription:
+      'Choose photos from your phone and turn them into another memory that belongs to this trip.',
+    photoGpsDetected: 'GPS found in the photos',
+    photoGpsMissing:
+      'No location could be read from the photos. Pick it with one click on the map.',
+    photoInsightsError:
+      'Photo metadata could not be read, but you can still continue and choose the place manually on the map.',
+    photoInsightsLoading: 'Reading time and GPS from the selected photos…',
+    photoInsightsSummary:
+      '{{gps}} of {{total}} photos already have GPS and {{time}} of {{total}} have a capture time.',
+    photoInsightsTitle: 'What the photos already told us',
+    photoStopFallback: 'Place from photos',
+    pickOnMap: 'Pick the place by clicking on the map.',
+    placeDescription:
+      'Pin the next stop directly on the map without typing coordinates by hand.',
+    placeNeedsStage:
+      'Add a stage first, then you can pin a specific place into it in a few seconds.',
+    placeSuggestionApplied: 'Suggested place name: {{title}}',
+    placeSuggestionLoading: 'Looking up a natural place name from the map…',
     route: 'Journey route',
+    routeEyebrow: 'Map and timeline',
     signInRequired: 'Sign in before creating a journey.',
+    saveMemory: 'Save memory into trip',
+    savePlace: 'Save place',
+    selectedPoint: 'Selected: {{latitude}}, {{longitude}}',
     startsAt: 'Start',
     stage: 'Stage',
+    stageDescription:
+      'Stages are only a lightweight way to organize days or transfers. They help later, but should never block the start.',
+    stageOptional: 'Stage',
+    stageTitle: 'Stage title',
     summary: 'Short description',
+    summaryFallback:
+      'The trip is ready. Add the first moment and the whole thing starts to feel alive.',
     title: 'Journey name',
     status: {
       active: 'On the road',

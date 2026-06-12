@@ -51,14 +51,15 @@ export function DashboardPage() {
         </div>
         <div className="flex flex-col gap-3 sm:flex-row">
           <DashboardAction
-            icon={Plus}
-            label={t('dashboard.addEntry')}
-            to="/entries/new"
-          />
-          <DashboardAction
             icon={MapPinned}
             label={t('dashboard.addJourney')}
             to="/journeys/new"
+          />
+          <DashboardAction
+            icon={Plus}
+            label={t('dashboard.addEntry')}
+            to="/entries/new"
+            variant="secondary"
           />
         </div>
       </header>
@@ -167,12 +168,22 @@ interface DashboardActionProps {
   icon: typeof Plus
   label: string
   to: '/entries/new' | '/journeys/new'
+  variant?: 'primary' | 'secondary'
 }
 
-function DashboardAction({ icon: Icon, label, to }: DashboardActionProps) {
+function DashboardAction({
+  icon: Icon,
+  label,
+  to,
+  variant = 'primary',
+}: DashboardActionProps) {
   return (
     <Link
-      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      className={
+        variant === 'primary'
+          ? 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
+          : 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:bg-white'
+      }
       to={to}
     >
       <Icon aria-hidden="true" size={17} />

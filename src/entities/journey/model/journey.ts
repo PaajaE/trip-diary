@@ -39,7 +39,18 @@ export const journeyGuideSectionSchema = z.object({
   title: z.string(),
 })
 
+export const journeyEntrySchema = z.object({
+  body: z.string(),
+  eventAt: z.iso.datetime({ offset: true }).nullable(),
+  id: z.uuid(),
+  stageId: z.uuid().nullable(),
+  stopId: z.uuid().nullable(),
+  title: z.string().nullable(),
+  type: z.enum(['story', 'tip', 'note', 'place']),
+})
+
 export const journeyDetailSchema = z.object({
+  entries: z.array(journeyEntrySchema),
   endsAt: optionalDateSchema,
   guides: z.array(journeyGuideSectionSchema),
   id: z.uuid(),

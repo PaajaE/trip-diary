@@ -44,6 +44,14 @@ export const LazyCreateJourneyPage = lazy(() =>
   })),
 )
 
+export const LazyCreateJourneyMemoryRoutePage = lazy(() =>
+  import('@/pages/journey/CreateJourneyMemoryRoutePage').then(
+    ({ CreateJourneyMemoryRoutePage }) => ({
+      default: CreateJourneyMemoryRoutePage,
+    }),
+  ),
+)
+
 export const LazyJourneyRoutePage = lazy(() =>
   import('@/pages/journey/JourneyRoutePage').then(({ JourneyRoutePage }) => ({
     default: JourneyRoutePage,

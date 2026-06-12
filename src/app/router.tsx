@@ -9,6 +9,7 @@ import {
   LazyAuthPage,
   LazyCreateEntryPage,
   LazyCreateJourneyPage,
+  LazyCreateJourneyMemoryRoutePage,
   LazyDashboardPage,
   LazyEntryRoutePage,
   LazyJourneyRoutePage,
@@ -106,6 +107,12 @@ const journeyRoute = createRoute({
   component: LazyJourneyRoutePage,
 })
 
+const createJourneyMemoryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/memory/new',
+  component: LazyCreateJourneyMemoryRoutePage,
+})
+
 const spacesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/spaces',
@@ -159,6 +166,7 @@ const routeTree = rootRoute.addChildren([
   entryRoute,
   createJourneyRoute,
   journeyRoute,
+  createJourneyMemoryRoute,
   spacesRoute,
   spaceMembersRoute,
   acceptInviteRoute,

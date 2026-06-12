@@ -33,7 +33,7 @@ export async function createJourney(
 
 export async function getJourney(id: string): Promise<JourneyDetail | null> {
   const client = getSupabaseClient()
-  const [journeyResult, stagesResult, stopsResult, guidesResult] =
+  const [journeyResult, stagesResult, stopsResult, guidesResult, linksResult] =
     await Promise.all([
       client
         .from('journeys')
@@ -57,13 +57,18 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
         .select('id, title, body')
         .eq('journey_id', id)
         .order('position'),
+      client
+        .from('entry_journey_links')
+        .select('entry_id, stage_id, stop_id')
+        .eq('journey_id', id),
     ])
 
   const error =
     journeyResult.error ??
     stagesResult.error ??
     stopsResult.error ??
-    guidesResult.error
+    guidesResult.error ??
+    linksResult.error
   if (error !== null) {
     throw error
   }
@@ -71,7 +76,36 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     return null
   }
 
+  const entryIds = (linksResult.data ?? []).map((link) => link.entry_id)
+  const entriesResult =
+    entryIds.length === 0
+      ? { data: [], error: null }
+      : await client
+          .from('entries')
+          .select('id, title, body, type, event_at')
+          .in('id', entryIds)
+
+  if (entriesResult.error !== null) {
+    throw entriesResult.error
+  }
+
+  const linksByEntryId = new Map(
+    (linksResult.data ?? []).map((link) => [link.entry_id, link]),
+  )
+
   return journeyDetailSchema.parse({
+    entries: (entriesResult.data ?? []).map((entry) => {
+      const link = linksByEntryId.get(entry.id)
+      return {
+        body: entry.body,
+        eventAt: entry.event_at,
+        id: entry.id,
+        stageId: link?.stage_id ?? null,
+        stopId: link?.stop_id ?? null,
+        title: entry.title,
+        type: entry.type,
+      }
+    }),
     endsAt: journeyResult.data.ends_at,
     guides: guidesResult.data,
     id: journeyResult.data.id,
@@ -157,6 +191,29 @@ export async function addJourneyGuide(
     'create_journey_guide_section',
     { p_body: body, p_journey_id: journeyId, p_title: title },
   )
+  if (error !== null) {
+    throw error
+  }
+}
+
+export async function linkEntryToJourney(input: {
+  creatorId: string
+  entryId: string
+  journeyId: string
+  stageId?: string | null
+  stopId?: string | null
+}): Promise<void> {
+  const { error } = await getSupabaseClient().from('entry_journey_links').upsert(
+    {
+      creator_id: input.creatorId,
+      entry_id: input.entryId,
+      journey_id: input.journeyId,
+      stage_id: input.stageId ?? null,
+      stop_id: input.stopId ?? null,
+    },
+    { ignoreDuplicates: false, onConflict: 'entry_id' },
+  )
+
   if (error !== null) {
     throw error
   }
