@@ -91,6 +91,12 @@ export const en = {
     photoPickerHint:
       'On mobile, we open the gallery directly and try to bring over time and location automatically.',
     photoPickerLoading: 'Opening gallery…',
+    filePickerAction: 'Choose photos from files',
+    filePickerFallbackHint:
+      'If the browser does not support the system file picker, the regular photo chooser still stays available.',
+    filePickerHint:
+      'We first try to open the system file picker instead of the gallery. If the browser cannot do that, it falls back to the regular picker.',
+    filePickerLoading: 'Opening files…',
     photosSelected: '{{count}} photos selected',
     publish: 'Save and publish',
     signInRequired: 'Sign in before publishing a memory.',

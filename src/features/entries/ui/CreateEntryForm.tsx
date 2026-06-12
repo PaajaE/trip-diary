@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
@@ -10,8 +10,10 @@ import {
   type CreateEntryInput,
 } from '@/entities/entry/model/entry'
 import {
+  choosePhotosFromFiles,
   choosePhotosFromGallery,
   createSelectedPhotos,
+  supportsFileSystemPhotoSelection,
   supportsNativePhotoSelection,
 } from '@/entities/photo/lib/photo-selection'
 import type { SelectedPhotoFile } from '@/entities/photo/lib/process-photo'
@@ -35,6 +37,7 @@ export function CreateEntryForm({
   const [photos, setPhotos] = useState<SelectedPhotoFile[]>([])
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [pickingPhotos, setPickingPhotos] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const form = useForm<CreateEntryInput>({
     resolver: zodResolver(createEntrySchema),
     defaultValues: {
@@ -73,7 +76,21 @@ export function CreateEntryForm({
     }
   }
 
+  async function handleFileSystemPhotoSelection() {
+    setPhotoError(null)
+    setPickingPhotos(true)
+
+    try {
+      setPhotos(await choosePhotosFromFiles())
+    } catch {
+      fileInputRef.current?.click()
+    } finally {
+      setPickingPhotos(false)
+    }
+  }
+
   const isNativePlatform = supportsNativePhotoSelection()
+  const supportsFileSystemPicker = supportsFileSystemPhotoSelection()
 
   return (
     <form
@@ -113,18 +130,40 @@ export function CreateEntryForm({
             </span>
           </div>
         ) : (
-          <input
-            accept="image/*"
-            className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
-            multiple
-            onChange={(event) => {
-              setPhotoError(null)
-              setPhotos(
-                createSelectedPhotos(Array.from(event.target.files ?? [])),
-              )
-            }}
-            type="file"
-          />
+          <div className="mt-3 space-y-3">
+            {supportsFileSystemPicker ? (
+              <Button
+                className="w-full"
+                disabled={pickingPhotos}
+                onClick={() => void handleFileSystemPhotoSelection()}
+                type="button"
+                variant="secondary"
+              >
+                <Camera aria-hidden="true" size={18} />
+                {pickingPhotos
+                  ? t('entry.filePickerLoading')
+                  : t('entry.filePickerAction')}
+              </Button>
+            ) : null}
+            <input
+              accept="image/*"
+              className="block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
+              multiple
+              onChange={(event) => {
+                setPhotoError(null)
+                setPhotos(
+                  createSelectedPhotos(Array.from(event.target.files ?? [])),
+                )
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
+            <span className="block text-sm font-normal text-muted">
+              {supportsFileSystemPicker
+                ? t('entry.filePickerHint')
+                : t('entry.filePickerFallbackHint')}
+            </span>
+          </div>
         )}
         <span className="mt-2 block text-sm font-normal text-muted">
           {t('entry.photosSelected', { count: photos.length })}

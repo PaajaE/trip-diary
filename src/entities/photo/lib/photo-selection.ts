@@ -5,12 +5,68 @@ import type {
   SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
 
+interface PhotoFilePickerHandle {
+  getFile: () => Promise<File>
+}
+
+interface PhotoFilePickerOptions {
+  excludeAcceptAllOption?: boolean
+  multiple?: boolean
+  types?: {
+    accept: Record<string, string[]>
+    description: string
+  }[]
+}
+
+interface FilePickerCapableWindow extends Window {
+  showOpenFilePicker?: (
+    options?: PhotoFilePickerOptions,
+  ) => Promise<PhotoFilePickerHandle[]>
+}
+
 export function supportsNativePhotoSelection() {
   return Capacitor.isNativePlatform()
 }
 
 export function createSelectedPhotos(files: File[]): SelectedPhotoFile[] {
   return files.map((file) => ({ file }))
+}
+
+export function supportsFileSystemPhotoSelection() {
+  const pickerWindow = window as FilePickerCapableWindow
+  return (
+    typeof window !== 'undefined' &&
+    typeof pickerWindow.showOpenFilePicker === 'function'
+  )
+}
+
+export async function choosePhotosFromFiles(): Promise<SelectedPhotoFile[]> {
+  if (!supportsFileSystemPhotoSelection()) {
+    throw new Error('File system picker is not available')
+  }
+
+  const pickerWindow = window as FilePickerCapableWindow
+  const openFilePicker = pickerWindow.showOpenFilePicker
+
+  if (openFilePicker === undefined) {
+    throw new Error('File system picker is not available')
+  }
+
+  const handles = await openFilePicker({
+    excludeAcceptAllOption: true,
+    multiple: true,
+    types: [
+      {
+        accept: {
+          'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic'],
+        },
+        description: 'Images',
+      },
+    ],
+  })
+
+  const files = await Promise.all(handles.map((handle) => handle.getFile()))
+  return createSelectedPhotos(files)
 }
 
 export async function choosePhotosFromGallery(): Promise<SelectedPhotoFile[]> {

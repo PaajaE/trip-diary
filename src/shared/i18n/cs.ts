@@ -92,6 +92,12 @@ export const cs: TranslationResources = {
     photoPickerHint:
       'Na mobilu otevřeme galerii a zkusíme převzít čas i polohu automaticky.',
     photoPickerLoading: 'Otevírám galerii…',
+    filePickerAction: 'Vybrat fotky ze souborů',
+    filePickerFallbackHint:
+      'Když prohlížeč neumí systémový výběr souborů, zůstává k dispozici běžný výběr fotek.',
+    filePickerHint:
+      'Nejdřív zkusíme otevřít systémový výběr souborů místo galerie. Když to prohlížeč neumí, spadne to na běžný výběr.',
+    filePickerLoading: 'Otevírám soubory…',
     photosSelected: 'Vybráno fotografií: {{count}}',
     publish: 'Uložit a publikovat',
     signInRequired: 'Před publikováním vzpomínky se přihlaste.',

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera } from 'lucide-react'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
@@ -19,8 +19,10 @@ import {
   type SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
 import {
+  choosePhotosFromFiles,
   choosePhotosFromGallery,
   createSelectedPhotos,
+  supportsFileSystemPhotoSelection,
   supportsNativePhotoSelection,
 } from '@/entities/photo/lib/photo-selection'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
@@ -60,6 +62,7 @@ export function CreateJourneyMemoryForm({
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
   const [linkError, setLinkError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const form = useForm<CreateJourneyMemoryInput>({
     defaultValues: {
       body: '',
@@ -172,7 +175,20 @@ export function CreateJourneyMemoryForm({
     }
   }
 
+  async function handleFileSystemPhotoSelection() {
+    setLinkError(null)
+    setDetectingPhotos(true)
+
+    try {
+      await handlePhotoSelection(await choosePhotosFromFiles())
+    } catch {
+      setDetectingPhotos(false)
+      fileInputRef.current?.click()
+    }
+  }
+
   const isNativePlatform = supportsNativePhotoSelection()
+  const supportsFileSystemPicker = supportsFileSystemPhotoSelection()
 
   async function handleSubmit(input: CreateJourneyMemoryInput) {
     setLinkError(null)
@@ -283,17 +299,39 @@ export function CreateJourneyMemoryForm({
             </span>
           </div>
         ) : (
-          <input
-            accept="image/*"
-            className="mt-2 block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
-            multiple
-            onChange={(event) => {
-              void handlePhotoSelection(
-                createSelectedPhotos(Array.from(event.target.files ?? [])),
-              )
-            }}
-            type="file"
-          />
+          <div className="mt-3 space-y-3">
+            {supportsFileSystemPicker ? (
+              <Button
+                className="w-full"
+                disabled={detectingPhotos || form.formState.isSubmitting}
+                onClick={() => void handleFileSystemPhotoSelection()}
+                type="button"
+                variant="secondary"
+              >
+                <Camera aria-hidden="true" size={18} />
+                {detectingPhotos
+                  ? t('entry.filePickerLoading')
+                  : t('entry.filePickerAction')}
+              </Button>
+            ) : null}
+            <input
+              accept="image/*"
+              className="block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
+              multiple
+              onChange={(event) => {
+                void handlePhotoSelection(
+                  createSelectedPhotos(Array.from(event.target.files ?? [])),
+                )
+              }}
+              ref={fileInputRef}
+              type="file"
+            />
+            <span className="block text-sm font-normal text-muted">
+              {supportsFileSystemPicker
+                ? t('entry.filePickerHint')
+                : t('entry.filePickerFallbackHint')}
+            </span>
+          </div>
         )}
         <span className="mt-2 block text-sm font-normal text-muted">
           {t('entry.photosSelected', { count: photos.length })}
