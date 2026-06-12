@@ -173,7 +173,10 @@ export const cs: TranslationResources = {
       'Aby se vzpomínka připojila přímo k cestě, potřebujeme ji teď synchronizovat. Připoj se a zkus to prosím znovu.',
     memoryTitle: 'Přidat vzpomínku do cesty',
     momentsCount: '{{count}} momentů',
+    noStage: 'Bez etapy',
     openMoment: 'Otevřít moment',
+    organizeMoment: 'Zařadit do etapy',
+    organizeMomentError: 'Přesun se nepovedl. Zkus to prosím znovu.',
     notFound: 'Tato cesta neexistuje.',
     noteDescription:
       'Pro rychlý zápis dojmu, malého příběhu nebo detailu, který nechceš ztratit.',

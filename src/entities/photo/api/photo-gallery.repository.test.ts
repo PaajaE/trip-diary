@@ -80,6 +80,14 @@ function createThumb(photoId: string, blob: Blob): LocalPhotoVariant {
   }
 }
 
+function createPreview(photoId: string, blob: Blob): LocalPhotoVariant {
+  return {
+    ...createThumb(photoId, blob),
+    id: `${photoId}:preview`,
+    kind: 'preview',
+  }
+}
+
 describe('getEntryPhotoPreviews', () => {
   beforeEach(() => {
     getSupabaseClientMock.mockReset()
@@ -192,5 +200,19 @@ describe('getEntryPhotoPreviews', () => {
     await expect(getEntryPhotoPreviews(entryId)).resolves.toEqual([
       { blob: usableBlob, id: usableId },
     ])
+  })
+
+  it('uses another local display variant when the thumbnail is missing', async () => {
+    const entryId = crypto.randomUUID()
+    const photoId = crypto.randomUUID()
+    const blob = new Blob(['preview'])
+    await localDb.photos.add(createLocalPhoto(photoId, entryId, 0))
+    await localDb.photoVariants.add(createPreview(photoId, blob))
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn(() => createQuery({ data: [], error: null })),
+    })
+
+    const previews = await getEntryPhotoPreviews(entryId)
+    expect(previews.map(({ id }) => id)).toEqual([photoId])
   })
 })

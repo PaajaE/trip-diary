@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { getJourney } from '@/entities/journey/api/journey.repository'
@@ -14,6 +14,7 @@ export function CreateJourneyMemoryPage({
 }: CreateJourneyMemoryPageProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const { loading, user } = useSession()
   const journeyQuery = useQuery({
     queryFn: () => getJourney(journeyId),
@@ -55,9 +56,15 @@ export function CreateJourneyMemoryPage({
         <CreateJourneyMemoryForm
           creatorId={user.id}
           journey={journeyQuery.data}
-          onCreated={() =>
+          onCreated={() => {
+            void queryClient.invalidateQueries({
+              queryKey: ['journeys', journeyId],
+            })
+            void queryClient.invalidateQueries({
+              queryKey: ['journey-gallery'],
+            })
             void navigate({ params: { journeyId }, to: '/j/$journeyId' })
-          }
+          }}
           spaceId={journeyQuery.data.spaceId}
         />
       )}

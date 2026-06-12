@@ -11,9 +11,11 @@ import {
   Signpost,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useState } from 'react'
 import {
   canContributeToJourney,
   getJourney,
+  moveJourneyMomentToStage,
 } from '@/entities/journey/api/journey.repository'
 import { JourneyComposer } from '@/features/journeys/ui/JourneyComposer'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
@@ -159,7 +161,10 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                 {content?.stageContents.map((stageContent) => (
                   <StageContent
                     content={stageContent}
+                    journey={journey}
                     key={stageContent.stage?.id ?? 'unassigned'}
+                    onChanged={() => void query.refetch()}
+                    canEdit={contributionQuery.data === true}
                   />
                 ))}
               </div>
@@ -241,7 +246,17 @@ function SectionHeading({
   )
 }
 
-function StageContent({ content }: { content: JourneyStageContent }) {
+function StageContent({
+  content,
+  canEdit,
+  journey,
+  onChanged,
+}: {
+  content: JourneyStageContent
+  canEdit: boolean
+  journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
+  onChanged: () => void
+}) {
   const { t } = useTranslation()
 
   return (
@@ -252,7 +267,13 @@ function StageContent({ content }: { content: JourneyStageContent }) {
       </h3>
       <div className="mt-6 space-y-4">
         {content.moments.map((moment) => (
-          <MomentCard key={moment.entry.id} moment={moment} />
+          <MomentCard
+            journey={journey}
+            key={moment.entry.id}
+            moment={moment}
+            onChanged={onChanged}
+            canEdit={canEdit}
+          />
         ))}
         {content.plannedStops.length === 0 ? null : (
           <div className="pt-3">
@@ -282,9 +303,21 @@ function StageContent({ content }: { content: JourneyStageContent }) {
   )
 }
 
-function MomentCard({ moment }: { moment: JourneyMoment }) {
+function MomentCard({
+  canEdit,
+  journey,
+  moment,
+  onChanged,
+}: {
+  canEdit: boolean
+  journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
+  moment: JourneyMoment
+  onChanged: () => void
+}) {
   const { t } = useTranslation()
   const title = moment.entry.title ?? t('dashboard.untitled')
+  const [moving, setMoving] = useState(false)
+  const [moveFailed, setMoveFailed] = useState(false)
 
   return (
     <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5">
@@ -310,6 +343,45 @@ function MomentCard({ moment }: { moment: JourneyMoment }) {
         </p>
       )}
       <PhotoGallery alt={title} entryId={moment.entry.id} />
+      {!canEdit || journey.stages.length === 0 ? null : (
+        <label className="mt-5 block text-sm font-medium text-muted">
+          {t('journey.organizeMoment')}
+          <select
+            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-foreground"
+            disabled={moving}
+            onChange={(event) => {
+              setMoveFailed(false)
+              setMoving(true)
+              void moveJourneyMomentToStage({
+                entryId: moment.entry.id,
+                journeyId: journey.id,
+                stageId: event.currentTarget.value || null,
+                stopId: moment.entry.stopId,
+              })
+                .then(onChanged)
+                .catch(() => {
+                  setMoveFailed(true)
+                })
+                .finally(() => {
+                  setMoving(false)
+                })
+            }}
+            value={moment.entry.stageId ?? ''}
+          >
+            <option value="">{t('journey.noStage')}</option>
+            {journey.stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.title}
+              </option>
+            ))}
+          </select>
+          {moveFailed ? (
+            <span className="mt-2 block text-sm text-destructive" role="alert">
+              {t('journey.organizeMomentError')}
+            </span>
+          ) : null}
+        </label>
+      )}
       <Link
         className="mt-5 inline-flex text-sm font-semibold text-primary hover:underline"
         params={{ entryId: moment.entry.id }}

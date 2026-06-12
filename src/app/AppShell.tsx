@@ -1,6 +1,6 @@
 import { Link, useNavigate } from '@tanstack/react-router'
 import { LogOut, Plus, WifiOff } from 'lucide-react'
-import type { PropsWithChildren } from 'react'
+import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { Avatar } from '@/shared/ui/Avatar'
@@ -49,58 +49,13 @@ export function AppShell({ children }: PropsWithChildren) {
                   <Plus aria-hidden="true" size={17} />
                   {t('navigation.addMemory')}
                 </Link>
-                <details className="group relative">
-                  <summary
-                    aria-label={t('navigation.accountMenu', {
-                      name: identity,
-                    })}
-                    className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-full focus-visible:outline [&::-webkit-details-marker]:hidden"
-                  >
-                    <Avatar label={identity} src={profile?.avatarUrl} />
-                    <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">
-                      {identity}
-                    </span>
-                  </summary>
-                  <div className="absolute right-0 mt-2 w-56 rounded-md border border-border bg-surface p-2 shadow-soft">
-                    <Link
-                      className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-                      to="/dashboard"
-                    >
-                      {t('navigation.dashboard')}
-                    </Link>
-                    {profile === null ? null : (
-                      <Link
-                        className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-                        params={{ username: profile.username }}
-                        to="/u/$username"
-                      >
-                        {t('navigation.profile')}
-                      </Link>
-                    )}
-                    <Link
-                      className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-                      to="/settings/profile"
-                    >
-                      {t('navigation.settings')}
-                    </Link>
-                    <Link
-                      className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-                      to="/spaces"
-                    >
-                      {t('navigation.spaces')}
-                    </Link>
-                    <button
-                      className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
-                      onClick={() => {
-                        void signOut().then(() => navigate({ to: '/' }))
-                      }}
-                      type="button"
-                    >
-                      <LogOut aria-hidden="true" size={16} />
-                      {t('navigation.signOut')}
-                    </button>
-                  </div>
-                </details>
+                <AccountMenu
+                  identity={identity}
+                  profile={profile}
+                  signOut={() =>
+                    void signOut().then(() => navigate({ to: '/' }))
+                  }
+                />
               </>
             )}
           </nav>
@@ -108,5 +63,111 @@ export function AppShell({ children }: PropsWithChildren) {
       </header>
       {children}
     </>
+  )
+}
+
+function AccountMenu({
+  identity,
+  profile,
+  signOut,
+}: {
+  identity: string
+  profile: ReturnType<typeof useSession>['profile']
+  signOut: () => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function closeOnOutsideClick(event: PointerEvent) {
+      if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [])
+
+  return (
+    <div className="relative" ref={menuRef}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-label={t('navigation.accountMenu', { name: identity })}
+        className="flex min-h-11 cursor-pointer items-center gap-2 rounded-full focus-visible:outline"
+        onClick={() => {
+          setOpen((current) => !current)
+        }}
+        type="button"
+      >
+        <Avatar label={identity} src={profile?.avatarUrl} />
+        <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">
+          {identity}
+        </span>
+      </button>
+      {open ? (
+        <div
+          className="absolute right-0 mt-2 w-56 rounded-md border border-border bg-surface p-2 shadow-soft"
+          role="menu"
+        >
+          <Link
+            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+            }}
+            to="/dashboard"
+          >
+            {t('navigation.dashboard')}
+          </Link>
+          {profile === null ? null : (
+            <Link
+              className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+              onClick={() => {
+                setOpen(false)
+              }}
+              params={{ username: profile.username }}
+              to="/u/$username"
+            >
+              {t('navigation.profile')}
+            </Link>
+          )}
+          <Link
+            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+            }}
+            to="/settings/profile"
+          >
+            {t('navigation.settings')}
+          </Link>
+          <Link
+            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+            }}
+            to="/spaces"
+          >
+            {t('navigation.spaces')}
+          </Link>
+          <button
+            className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+              signOut()
+            }}
+            type="button"
+          >
+            <LogOut aria-hidden="true" size={16} />
+            {t('navigation.signOut')}
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }

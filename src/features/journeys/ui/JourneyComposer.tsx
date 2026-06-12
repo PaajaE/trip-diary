@@ -318,26 +318,21 @@ function PlaceCaptureCard({
           ) : null}
         </div>
 
-        {journey.stages.length === 0 ? (
-          <p className="rounded-md border border-dashed border-border px-4 py-3 text-sm text-muted">
-            {t('journey.placeNeedsStage')}
-          </p>
-        ) : (
-          <label className="block text-sm font-medium">
-            {t('journey.stageOptional')}
-            <select
-              className="mt-2 min-h-11 w-full rounded-md border border-border bg-background px-3"
-              defaultValue={journey.stages[0]?.id ?? ''}
-              name="stageId"
-            >
-              {journey.stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.title}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
+        <label className="block text-sm font-medium">
+          {t('journey.stageOptional')}
+          <select
+            className="mt-2 min-h-11 w-full rounded-md border border-border bg-background px-3"
+            defaultValue=""
+            name="stageId"
+          >
+            <option value="">{t('journey.noStage')}</option>
+            {journey.stages.map((stage) => (
+              <option key={stage.id} value={stage.id}>
+                {stage.title}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <LocationPickerMap
           onSelectPoint={handlePointSelected}
@@ -356,9 +351,7 @@ function PlaceCaptureCard({
           </p>
           <Button
             className="sm:min-w-44"
-            disabled={
-              busy || journey.stages.length === 0 || selectedPoint === null
-            }
+            disabled={busy || selectedPoint === null}
             type="submit"
           >
             {t('journey.savePlace')}

@@ -19,7 +19,14 @@ async function getLocalPhotoPreviews(
     .sortBy('position')
   const previews = await Promise.allSettled(
     photos.map(async (photo) => {
-      const variant = await localDb.photoVariants.get(`${photo.id}:thumb`)
+      const variants = await localDb.photoVariants
+        .where('photoId')
+        .equals(photo.id)
+        .toArray()
+      const variant =
+        variants.find(({ kind }) => kind === 'thumb') ??
+        variants.find(({ kind }) => kind === 'preview') ??
+        variants.find(({ kind }) => kind === 'large')
       return variant === undefined
         ? null
         : { blob: variant.blob, id: photo.id, position: photo.position }

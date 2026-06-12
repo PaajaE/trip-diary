@@ -173,7 +173,10 @@ export const en = {
       'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
     memoryTitle: 'Add a memory to this trip',
     momentsCount: '{{count}} moments',
+    noStage: 'No stage',
     openMoment: 'Open moment',
+    organizeMoment: 'Organize into stage',
+    organizeMomentError: 'The move failed. Please try again.',
     notFound: 'This journey does not exist.',
     noteDescription:
       'For a quick impression, a short story, or a tiny detail you do not want to lose.',

@@ -3,7 +3,10 @@ import {
   type CreateJourneyInput,
   type JourneyDetail,
 } from '@/entities/journey/model/journey'
-import { listLocalJourneyLinks } from '@/entities/journey/api/local-journey-link.repository'
+import {
+  listLocalJourneyLinks,
+  saveLocalJourneyLink,
+} from '@/entities/journey/api/local-journey-link.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { createPublicSlug } from '@/shared/lib/slug'
@@ -275,6 +278,35 @@ export async function linkEntryToJourney(input: {
       { ignoreDuplicates: false, onConflict: 'entry_id' },
     )
 
+  if (error !== null) {
+    throw error
+  }
+}
+
+export async function moveJourneyMomentToStage(input: {
+  entryId: string
+  journeyId: string
+  stageId: string | null
+  stopId: string | null
+}): Promise<void> {
+  const localLink = await localDb.journeyLinks.get(input.entryId)
+  if (localLink !== undefined) {
+    await saveLocalJourneyLink({
+      ...localLink,
+      stageId: input.stageId,
+    })
+    return
+  }
+
+  const { error } = await getSupabaseClient().rpc(
+    'upsert_journey_moment_assignment',
+    {
+      p_entry_id: input.entryId,
+      p_journey_id: input.journeyId,
+      p_stage_id: input.stageId as never,
+      p_stop_id: input.stopId as never,
+    },
+  )
   if (error !== null) {
     throw error
   }

@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, MapPin } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
@@ -65,7 +65,7 @@ export function CreateJourneyMemoryForm({
       body: '',
       eventAt: new Date().toISOString(),
       language: i18n.language === 'en' ? 'en' : 'cs',
-      stageId: journey.stages[0]?.id ?? '',
+      stageId: '',
       title: '',
       type: 'story',
       visibility: 'public',
@@ -73,6 +73,33 @@ export function CreateJourneyMemoryForm({
     resolver: zodResolver(createJourneyMemorySchema),
   })
   const title = useWatch({ control: form.control, name: 'title' })
+  const photoPreviewUrls = useMemo(
+    () =>
+      detectedPhotos.flatMap((photo, index) => {
+        const variant =
+          photo.variants.find(({ kind }) => kind === 'thumb') ??
+          photo.variants.find(({ kind }) => kind === 'preview') ??
+          photo.variants.find(({ kind }) => kind === 'large')
+        return variant === undefined
+          ? []
+          : [
+              {
+                id: `${String(index)}-${variant.kind}`,
+                url: URL.createObjectURL(variant.blob),
+              },
+            ]
+      }),
+    [detectedPhotos],
+  )
+
+  useEffect(
+    () => () => {
+      for (const preview of photoPreviewUrls) {
+        URL.revokeObjectURL(preview.url)
+      }
+    },
+    [photoPreviewUrls],
+  )
 
   function handlePointSelected(point: { latitude: number; longitude: number }) {
     setSelectedPoint(point)
@@ -286,6 +313,7 @@ export function CreateJourneyMemoryForm({
             className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3"
             {...form.register('stageId')}
           >
+            <option value="">{t('journey.noStage')}</option>
             {journey.stages.map((stage) => (
               <option key={stage.id} value={stage.id}>
                 {stage.title}
@@ -385,6 +413,18 @@ export function CreateJourneyMemoryForm({
           </div>
 
           <div className="mt-5 space-y-4">
+            {photoPreviewUrls.length === 0 ? null : (
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {photoPreviewUrls.map((preview) => (
+                  <img
+                    alt=""
+                    className="aspect-square w-full rounded-xl object-cover"
+                    key={preview.id}
+                    src={preview.url}
+                  />
+                ))}
+              </div>
+            )}
             <div className="flex flex-wrap gap-3">
               <Button
                 disabled={locatingUser}
