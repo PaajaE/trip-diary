@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import {
+  BookOpen,
   CalendarDays,
   Camera,
   Circle,
   FileText,
+  Images,
   MapPin,
   Signpost,
 } from 'lucide-react'
@@ -14,6 +16,12 @@ import {
   getJourney,
 } from '@/entities/journey/api/journey.repository'
 import { JourneyComposer } from '@/features/journeys/ui/JourneyComposer'
+import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
+import {
+  composeJourneyContent,
+  type JourneyMoment,
+  type JourneyStageContent,
+} from '@/features/journeys/lib/journey-content'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
 import { CopyShareLink } from '@/features/sharing'
@@ -35,6 +43,10 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
     queryKey: ['journey-contribution', journeyId],
   })
   const journey = query.data
+  const content =
+    journey === null || journey === undefined
+      ? null
+      : composeJourneyContent(journey)
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
@@ -75,7 +87,13 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
                   <MapPin aria-hidden="true" size={16} />
                   {t('journey.momentsCount', {
-                    count: journey.stops.length + journey.entries.length,
+                    count: content?.moments.length ?? 0,
+                  })}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
+                  <MapPin aria-hidden="true" size={16} />
+                  {t('journey.mappedCount', {
+                    count: content?.locatedMomentCount ?? 0,
                   })}
                 </span>
               </div>
@@ -100,144 +118,78 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
             </div>
           </header>
 
-          <section className="py-12">
+          <nav
+            aria-label={t('journey.explore')}
+            className="sticky top-3 z-10 mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border bg-surface/95 p-2 shadow-soft backdrop-blur"
+          >
+            <JourneyNavLink
+              href="#story"
+              icon={BookOpen}
+              label={t('journey.story')}
+            />
+            <JourneyNavLink
+              href="#map"
+              icon={MapPin}
+              label={t('journey.map')}
+            />
+            <JourneyNavLink
+              href="#gallery"
+              icon={Images}
+              label={t('journey.gallery')}
+            />
+          </nav>
+
+          <section className="scroll-mt-24 py-12" id="story">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-accent">
-                  {t('journey.routeEyebrow')}
+                  {t('journey.storyEyebrow')}
                 </p>
                 <h2 className="mt-3 text-2xl font-semibold">
-                  {t('journey.route')}
+                  {t('journey.story')}
                 </h2>
               </div>
             </div>
-            <JourneyMap stops={journey.stops} />
             {journey.stages.length === 0 &&
             journey.stops.length === 0 &&
             journey.entries.length === 0 ? (
               <EmptyJourneyState journeyId={journey.id} />
             ) : (
               <div className="mt-8 space-y-8">
-                {journey.stages.map((stage) => {
-                  const stageStops = journey.stops.filter(
-                    (stop) => stop.stageId === stage.id,
-                  )
-                  const stageEntries = journey.entries.filter(
-                    (entry) => entry.stageId === stage.id,
-                  )
-
-                  return (
-                    <section
-                      className="rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft"
-                      key={stage.id}
-                    >
-                      <h3 className="flex items-center gap-3 text-xl font-semibold">
-                        <Signpost aria-hidden="true" size={18} />
-                        {stage.title}
-                      </h3>
-                      <div className="mt-6 space-y-4">
-                        {stageStops.map((stop) => (
-                          <article
-                            className="rounded-xl border border-border/80 bg-background/70 p-4"
-                            key={stop.id}
-                          >
-                            <p className="flex items-center gap-3 font-semibold">
-                              {stop.status === 'planned' ? (
-                                <Circle aria-hidden="true" size={14} />
-                              ) : (
-                                <MapPin aria-hidden="true" size={16} />
-                              )}
-                              {stop.title}
-                            </p>
-                          </article>
-                        ))}
-                        {stageEntries.map((entry) => (
-                          <article
-                            className="rounded-xl border border-border/80 bg-background/70 p-4"
-                            key={entry.id}
-                          >
-                            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                              {t(`entry.type.${entry.type}`)}
-                            </p>
-                            <h4 className="mt-2 text-lg font-semibold">
-                              {entry.title ?? t('dashboard.untitled')}
-                            </h4>
-                            {entry.body === '' ? null : (
-                              <p className="mt-3 line-clamp-3 leading-7 text-muted">
-                                {entry.body}
-                              </p>
-                            )}
-                            <PhotoGallery
-                              alt={entry.title ?? t('dashboard.untitled')}
-                              entryId={entry.id}
-                            />
-                          </article>
-                        ))}
-                        {stageStops.length === 0 &&
-                        stageEntries.length === 0 ? (
-                          <p className="text-sm text-muted">
-                            {t('journey.emptyStage')}
-                          </p>
-                        ) : null}
-                      </div>
-                    </section>
-                  )
-                })}
-                {journey.stops.filter((stop) => stop.stageId === null).length >
-                  0 ||
-                journey.entries.filter((entry) => entry.stageId === null)
-                  .length > 0 ? (
-                  <section className="rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft">
-                    <h3 className="text-xl font-semibold">
-                      {t('journey.freeMoments')}
-                    </h3>
-                    <div className="mt-6 space-y-4">
-                      {journey.stops
-                        .filter((stop) => stop.stageId === null)
-                        .map((stop) => (
-                          <article
-                            className="rounded-xl border border-border/80 bg-background/70 p-4"
-                            key={stop.id}
-                          >
-                            <p className="flex items-center gap-3 font-semibold">
-                              {stop.status === 'planned' ? (
-                                <Circle aria-hidden="true" size={14} />
-                              ) : (
-                                <MapPin aria-hidden="true" size={16} />
-                              )}
-                              {stop.title}
-                            </p>
-                          </article>
-                        ))}
-                      {journey.entries
-                        .filter((entry) => entry.stageId === null)
-                        .map((entry) => (
-                          <article
-                            className="rounded-xl border border-border/80 bg-background/70 p-4"
-                            key={entry.id}
-                          >
-                            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                              {t(`entry.type.${entry.type}`)}
-                            </p>
-                            <h4 className="mt-2 text-lg font-semibold">
-                              {entry.title ?? t('dashboard.untitled')}
-                            </h4>
-                            {entry.body === '' ? null : (
-                              <p className="mt-3 line-clamp-3 leading-7 text-muted">
-                                {entry.body}
-                              </p>
-                            )}
-                            <PhotoGallery
-                              alt={entry.title ?? t('dashboard.untitled')}
-                              entryId={entry.id}
-                            />
-                          </article>
-                        ))}
-                    </div>
-                  </section>
-                ) : null}
+                {content?.stageContents.map((stageContent) => (
+                  <StageContent
+                    content={stageContent}
+                    key={stageContent.stage?.id ?? 'unassigned'}
+                  />
+                ))}
               </div>
             )}
+          </section>
+
+          <section className="scroll-mt-24 py-12" id="map">
+            <SectionHeading
+              eyebrow={t('journey.mapEyebrow')}
+              title={t('journey.map')}
+            />
+            <JourneyMap
+              moments={content?.moments ?? []}
+              plannedStops={content?.plannedStops ?? []}
+            />
+            {journey.stops.every(
+              (stop) => stop.mapLatitude === null || stop.mapLongitude === null,
+            ) ? (
+              <p className="mt-6 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">
+                {t('journey.mapEmpty')}
+              </p>
+            ) : null}
+          </section>
+
+          <section className="scroll-mt-24 py-12" id="gallery">
+            <SectionHeading
+              eyebrow={t('journey.galleryEyebrow')}
+              title={t('journey.gallery')}
+            />
+            <JourneyGallery moments={content?.moments ?? []} />
           </section>
 
           {contributionQuery.data === true ? (
@@ -251,6 +203,121 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
         </>
       )}
     </main>
+  )
+}
+
+function JourneyNavLink({
+  href,
+  icon: Icon,
+  label,
+}: {
+  href: string
+  icon: typeof BookOpen
+  label: string
+}) {
+  return (
+    <a
+      className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-sm font-semibold transition-colors hover:bg-background"
+      href={href}
+    >
+      <Icon aria-hidden="true" size={16} />
+      {label}
+    </a>
+  )
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string
+  title: string
+}) {
+  return (
+    <div>
+      <p className="text-sm font-medium text-accent">{eyebrow}</p>
+      <h2 className="mt-3 text-2xl font-semibold">{title}</h2>
+    </div>
+  )
+}
+
+function StageContent({ content }: { content: JourneyStageContent }) {
+  const { t } = useTranslation()
+
+  return (
+    <section className="rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft">
+      <h3 className="flex items-center gap-3 text-xl font-semibold">
+        <Signpost aria-hidden="true" size={18} />
+        {content.stage?.title ?? t('journey.freeMoments')}
+      </h3>
+      <div className="mt-6 space-y-4">
+        {content.moments.map((moment) => (
+          <MomentCard key={moment.entry.id} moment={moment} />
+        ))}
+        {content.plannedStops.length === 0 ? null : (
+          <div className="pt-3">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('journey.plannedPlaces')}
+            </p>
+            <div className="space-y-3">
+              {content.plannedStops.map((stop) => (
+                <article
+                  className="rounded-xl border border-dashed border-border bg-background/60 p-4"
+                  key={stop.id}
+                >
+                  <p className="flex items-center gap-3 font-semibold">
+                    <Circle aria-hidden="true" size={14} />
+                    {stop.title}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
+        )}
+        {content.moments.length === 0 && content.plannedStops.length === 0 ? (
+          <p className="text-sm text-muted">{t('journey.emptyStage')}</p>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function MomentCard({ moment }: { moment: JourneyMoment }) {
+  const { t } = useTranslation()
+  const title = moment.entry.title ?? t('dashboard.untitled')
+
+  return (
+    <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+            {t(`entry.type.${moment.entry.type}`)}
+          </p>
+          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+        </div>
+        {moment.location === null ? null : (
+          <span
+            aria-label={t('journey.hasLocation')}
+            className="rounded-full bg-primary/10 p-2 text-primary"
+          >
+            <MapPin aria-hidden="true" size={16} />
+          </span>
+        )}
+      </div>
+      {moment.entry.body === '' ? null : (
+        <p className="mt-3 line-clamp-3 leading-7 text-muted">
+          {moment.entry.body}
+        </p>
+      )}
+      <PhotoGallery alt={title} entryId={moment.entry.id} />
+      <Link
+        className="mt-5 inline-flex text-sm font-semibold text-primary hover:underline"
+        params={{ entryId: moment.entry.id }}
+        to="/e/$entryId"
+      >
+        {t('journey.openMoment')}
+      </Link>
+    </article>
   )
 }
 

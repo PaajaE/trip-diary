@@ -34,6 +34,11 @@ export async function getDashboardData(
 
   const memberships = membershipsResult.data ?? []
   const entries = entriesResult.data ?? []
+  const journeyLinks =
+    entries.length === 0
+      ? []
+      : await getJourneyLinks(entries.map((entry) => entry.id))
+  const linkedEntryIds = new Set(journeyLinks.map((link) => link.entry_id))
   const rolesByJourneyId = new Map(
     memberships.map(({ journey_id, role }) => [journey_id, role]),
   )
@@ -47,16 +52,18 @@ export async function getDashboardData(
         )
 
   return dashboardDataSchema.parse({
-    entries: entries.map((entry) => ({
-      eventAt: entry.event_at,
-      id: entry.id,
-      publishedAt: entry.published_at,
-      status: entry.status,
-      title: entry.title,
-      type: entry.type,
-      updatedAt: entry.updated_at,
-      visibility: entry.visibility,
-    })),
+    entries: entries
+      .filter((entry) => !linkedEntryIds.has(entry.id))
+      .map((entry) => ({
+        eventAt: entry.event_at,
+        id: entry.id,
+        publishedAt: entry.published_at,
+        status: entry.status,
+        title: entry.title,
+        type: entry.type,
+        updatedAt: entry.updated_at,
+        visibility: entry.visibility,
+      })),
     journeys: journeys.map((journey) => ({
       endsAt: journey.ends_at,
       id: journey.id,
@@ -69,6 +76,19 @@ export async function getDashboardData(
       visibility: journey.visibility,
     })),
   })
+}
+
+async function getJourneyLinks(entryIds: string[]) {
+  const { data, error } = await getSupabaseClient()
+    .from('entry_journey_links')
+    .select('entry_id, journey_id')
+    .in('entry_id', entryIds)
+
+  if (error !== null) {
+    throw error
+  }
+
+  return data
 }
 
 async function getRecentJourneys(journeyIds: string[], limit: number) {

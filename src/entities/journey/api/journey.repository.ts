@@ -45,7 +45,7 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   ] = await Promise.all([
     client
       .from('journeys')
-      .select('id, title, summary, status, starts_at, ends_at')
+      .select('id, title, summary, status, starts_at, ends_at, space_id')
       .eq('id', id)
       .maybeSingle(),
     client
@@ -110,6 +110,34 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   const localLinksByEntryId = new Map(
     localLinks.map((link) => [link.entryId, link]),
   )
+  const serverStops = (stopsResult.data ?? []).map((stop) => ({
+    id: stop.id,
+    mapLatitude: stop.map_latitude,
+    mapLongitude: stop.map_longitude,
+    notes: stop.notes,
+    stageId: stop.stage_id,
+    status: stop.status,
+    title: stop.title,
+  }))
+  const serverStopIds = new Set(serverStops.map((stop) => stop.id))
+  const localStops = localLinks.flatMap((link) =>
+    link.stopId === null ||
+    link.latitude === null ||
+    link.longitude === null ||
+    serverStopIds.has(link.stopId)
+      ? []
+      : [
+          {
+            id: link.stopId,
+            mapLatitude: link.latitude,
+            mapLongitude: link.longitude,
+            notes: '',
+            stageId: link.stageId,
+            status: 'visited' as const,
+            title: link.locationTitle ?? '',
+          },
+        ],
+  )
 
   return journeyDetailSchema.parse({
     entries: [
@@ -150,15 +178,8 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     stages: stagesResult.data,
     startsAt: journeyResult.data.starts_at,
     status: journeyResult.data.status,
-    stops: (stopsResult.data ?? []).map((stop) => ({
-      id: stop.id,
-      mapLatitude: stop.map_latitude,
-      mapLongitude: stop.map_longitude,
-      notes: stop.notes,
-      stageId: stop.stage_id,
-      status: stop.status,
-      title: stop.title,
-    })),
+    stops: [...serverStops, ...localStops],
+    spaceId: journeyResult.data.space_id,
     summary: journeyResult.data.summary,
     title: journeyResult.data.title,
   })

@@ -43,6 +43,40 @@ class TripDiaryDatabase extends Dexie {
       photoVariants: 'id, photoId, kind, createdAt',
       syncOperations: 'id, creatorId, status, createdAt',
     })
+    this.version(6).stores({
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+    })
+    this.version(7)
+      .stores({
+        entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+        journeyLinks:
+          'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+        photos: 'id, entryId, creatorId, syncStatus, createdAt',
+        photoVariants: 'id, photoId, kind, createdAt',
+        syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+      })
+      .upgrade(async (transaction) => {
+        await transaction.table('journeyLinks').toCollection().modify({
+          latitude: null,
+          locationTitle: null,
+          longitude: null,
+        })
+        await transaction
+          .table<SyncOperation, string>('syncOperations')
+          .toCollection()
+          .modify((operation) => {
+            if (operation.type !== 'journey.assignment.upsert') {
+              return
+            }
+            operation.latitude = null
+            operation.locationTitle = null
+            operation.longitude = null
+          })
+      })
   }
 }
 

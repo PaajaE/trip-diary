@@ -3,11 +3,6 @@ import { Camera, MapPin } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import {
-  addJourneyStop,
-  linkEntryToJourney,
-  setJourneyStopLocation,
-} from '@/entities/journey/api/journey.repository'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { z } from 'zod'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
@@ -234,43 +229,30 @@ export function CreateJourneyMemoryForm({
     })
     await addLocalPhotos(creatorId, entry.id, photos)
 
-    let stopId: string | null = null
-    if (selectedPoint !== null) {
-      stopId = await addJourneyStop(
-        journey.id,
-        input.stageId === '' ? null : input.stageId,
-        input.title === '' ? t('journey.photoStopFallback') : input.title,
-      )
-      await setJourneyStopLocation(
-        stopId,
-        selectedPoint.latitude,
-        selectedPoint.longitude,
-      )
-    }
+    const stopId = selectedPoint === null ? null : crypto.randomUUID()
 
     await saveLocalJourneyLink({
       creatorId,
       entryId: entry.id,
       journeyId: journey.id,
-      stageId: input.stageId === '' ? null : input.stageId,
-      stopId,
-    })
-
-    if (!(await canAutomaticallySync())) {
-      setLinkError(t('journey.memoryNeedsConnection'))
-      return
-    }
-
-    await syncPendingOperations()
-
-    await linkEntryToJourney({
-      creatorId,
-      entryId: entry.id,
-      journeyId: journey.id,
+      latitude: selectedPoint?.latitude ?? null,
+      locationTitle:
+        selectedPoint === null
+          ? null
+          : input.title === ''
+            ? t('journey.photoStopFallback')
+            : input.title,
+      longitude: selectedPoint?.longitude ?? null,
       stageId: input.stageId === '' ? null : input.stageId,
       stopId,
     })
     onCreated()
+
+    if (await canAutomaticallySync()) {
+      void syncPendingOperations().catch(() => {
+        // The local moment remains visible and can be synced again later.
+      })
+    }
   }
 
   const photosWithGps = detectedPhotos.filter(hasValidGpsPoint).length

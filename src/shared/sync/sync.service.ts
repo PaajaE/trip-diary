@@ -6,6 +6,8 @@ import { localDb } from '@/shared/lib/local-db'
 import { createPublicSlug } from '@/shared/lib/slug'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
 
+export const STALE_SYNCING_OPERATION_MS = 5 * 60 * 1000
+
 export async function syncPendingOperations(): Promise<void> {
   const { data } = await getSupabaseClient().auth.getUser()
   const creatorId = data.user?.id
@@ -14,19 +16,32 @@ export async function syncPendingOperations(): Promise<void> {
     return
   }
 
+  await recoverStaleSyncingOperations(creatorId)
+
   const operations = await localDb.syncOperations
     .where('status')
     .anyOf(['pending', 'failed'])
     .filter((operation) => operation.creatorId === creatorId)
     .sortBy('createdAt')
 
+  const errors: Error[] = []
   for (const operation of operations) {
-    await localDb.syncOperations.update(operation.id, { status: 'syncing' })
+    if (await hasUnfinishedDependency(operation)) {
+      continue
+    }
+
+    await localDb.syncOperations.update(operation.id, {
+      lastAttemptAt: new Date().toISOString(),
+      status: 'syncing',
+    })
 
     try {
       switch (operation.type) {
         case 'entry.create':
           await syncEntryCreate(operation, creatorId)
+          break
+        case 'journey.assignment.upsert':
+          await syncJourneyAssignment(operation)
           break
         case 'photo.upload':
           await syncPhotoUpload(operation, creatorId)
@@ -38,12 +53,49 @@ export async function syncPendingOperations(): Promise<void> {
         await localDb.entries.update(operation.entryId, {
           syncStatus: 'failed',
         })
-      } else {
+      } else if (operation.type === 'photo.upload') {
         await localDb.photos.update(operation.photoId, { syncStatus: 'failed' })
       }
-      throw toSyncError(error)
+      errors.push(toSyncError(error))
     }
   }
+
+  const firstError = errors[0]
+  if (firstError !== undefined) {
+    throw firstError
+  }
+}
+
+async function recoverStaleSyncingOperations(creatorId: string): Promise<void> {
+  const staleBefore = Date.now() - STALE_SYNCING_OPERATION_MS
+  await localDb.syncOperations
+    .where('status')
+    .equals('syncing')
+    .filter(
+      (operation) =>
+        operation.creatorId === creatorId &&
+        (operation.lastAttemptAt === undefined ||
+          new Date(operation.lastAttemptAt).valueOf() <= staleBefore),
+    )
+    .modify({ status: 'pending' })
+}
+
+async function hasUnfinishedDependency(
+  operation: SyncOperation,
+): Promise<boolean> {
+  if (operation.type !== 'journey.assignment.upsert') {
+    return false
+  }
+
+  return (
+    (await localDb.syncOperations
+      .filter(
+        (candidate) =>
+          candidate.type === 'entry.create' &&
+          candidate.entryId === operation.entryId,
+      )
+      .count()) > 0
+  )
 }
 
 function toSyncError(error: unknown): Error {
@@ -62,6 +114,10 @@ function toSyncError(error: unknown): Error {
 }
 
 type EntryCreateOperation = Extract<SyncOperation, { type: 'entry.create' }>
+type JourneyAssignmentOperation = Extract<
+  SyncOperation,
+  { type: 'journey.assignment.upsert' }
+>
 type PhotoUploadOperation = Extract<SyncOperation, { type: 'photo.upload' }>
 
 async function syncEntryCreate(
@@ -128,6 +184,58 @@ async function syncEntryCreate(
         updatedAt: serverEntry.updated_at,
         version: serverEntry.version,
       })
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
+}
+
+async function syncJourneyAssignment(
+  operation: JourneyAssignmentOperation,
+): Promise<void> {
+  const client = getSupabaseClient()
+  const { error } = await client.rpc('upsert_journey_moment_assignment', {
+    p_entry_id: operation.entryId,
+    p_journey_id: operation.journeyId,
+    p_latitude: operation.latitude,
+    p_location_title: operation.locationTitle,
+    p_longitude: operation.longitude,
+    p_stage_id: operation.stageId,
+    p_stop_id: operation.stopId,
+  })
+
+  if (error !== null) {
+    throw error
+  }
+
+  const { data: confirmedLink, error: confirmationError } = await client
+    .from('entry_journey_links')
+    .select('entry_id, journey_id, stage_id, stop_id')
+    .eq('entry_id', operation.entryId)
+    .single()
+  if (
+    confirmationError !== null ||
+    confirmedLink.entry_id !== operation.entryId ||
+    confirmedLink.journey_id !== operation.journeyId ||
+    confirmedLink.stage_id !== operation.stageId ||
+    confirmedLink.stop_id !== operation.stopId
+  ) {
+    throw new Error('Journey assignment synchronization could not be confirmed')
+  }
+
+  await localDb.transaction(
+    'rw',
+    localDb.journeyLinks,
+    localDb.syncOperations,
+    async () => {
+      const localLink = await localDb.journeyLinks.get(operation.entryId)
+      if (
+        localLink?.syncOperationId === operation.id &&
+        localLink.journeyId === operation.journeyId &&
+        localLink.stageId === operation.stageId &&
+        localLink.stopId === operation.stopId
+      ) {
+        await localDb.journeyLinks.delete(operation.entryId)
+      }
       await localDb.syncOperations.delete(operation.id)
     },
   )

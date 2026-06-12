@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { getJourney } from '@/entities/journey/api/journey.repository'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
-import { useActiveSpace } from '@/features/spaces'
 
 interface CreateJourneyMemoryPageProps {
   journeyId: string
@@ -16,7 +15,6 @@ export function CreateJourneyMemoryPage({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { loading, user } = useSession()
-  const spacesQuery = useActiveSpace(user?.id)
   const journeyQuery = useQuery({
     queryFn: () => getJourney(journeyId),
     queryKey: ['journeys', journeyId, 'capture'],
@@ -53,12 +51,6 @@ export function CreateJourneyMemoryPage({
         <p className="mt-8 text-muted">{t('journey.loading')}</p>
       ) : journeyQuery.isError || journeyQuery.data === null ? (
         <p className="mt-8 text-destructive">{t('journey.error')}</p>
-      ) : spacesQuery.isPending ? (
-        <p className="mt-8 text-muted">Načítám publikační prostor…</p>
-      ) : spacesQuery.activeSpace === null ? (
-        <p className="mt-8 text-destructive">
-          Pro publikování potřebujete osobní nebo rodinný prostor.
-        </p>
       ) : (
         <CreateJourneyMemoryForm
           creatorId={user.id}
@@ -66,7 +58,7 @@ export function CreateJourneyMemoryPage({
           onCreated={() =>
             void navigate({ params: { journeyId }, to: '/j/$journeyId' })
           }
-          spaceId={spacesQuery.activeSpace.id}
+          spaceId={journeyQuery.data.spaceId}
         />
       )}
     </main>

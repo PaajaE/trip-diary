@@ -141,6 +141,11 @@ export const en = {
     endsAt: 'End',
     error: 'The journey could not be loaded.',
     freeMoments: 'Moments outside a stage',
+    explore: 'Explore journey',
+    gallery: 'Gallery',
+    galleryEmpty:
+      'Photos will appear here together with the first journey moments.',
+    galleryEyebrow: 'Every memory in one place',
     guide: 'Practical guide',
     guideBody: 'Notes',
     itemTitle: 'Title',
@@ -148,6 +153,11 @@ export const en = {
     loading: 'Loading journey…',
     longitude: 'Longitude',
     map: 'Journey map',
+    mapEmpty:
+      'There are no located moments yet. For the next one, use your current location or pick a point on the map.',
+    mapEyebrow: 'The whole journey in one place',
+    mappedCount: '{{count}} on map',
+    hasLocation: 'Moment has a location',
     mapHint: 'no manual GPS',
     mapPicker: 'Pick a place on the map',
     mapPickerHelp:
@@ -161,6 +171,7 @@ export const en = {
       'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
     memoryTitle: 'Add a memory to this trip',
     momentsCount: '{{count}} moments',
+    openMoment: 'Open moment',
     notFound: 'This journey does not exist.',
     noteDescription:
       'For a quick impression, a short story, or a tiny detail you do not want to lose.',
@@ -188,8 +199,11 @@ export const en = {
       'Add a stage first, then you can pin a specific place into it in a few seconds.',
     placeSuggestionApplied: 'Suggested place name: {{title}}',
     placeSuggestionLoading: 'Looking up a natural place name from the map…',
+    plannedPlaces: 'Planned places',
     route: 'Journey route',
     routeEyebrow: 'Map and timeline',
+    story: 'Story',
+    storyEyebrow: 'Moments by stage',
     useCurrentLocation: 'Use current location',
     signInRequired: 'Sign in before creating a journey.',
     saveMemory: 'Save memory into trip',

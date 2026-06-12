@@ -840,6 +840,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      upsert_journey_moment_assignment: {
+        Args: {
+          p_entry_id: string
+          p_journey_id: string
+          p_latitude?: number | null
+          p_location_title?: string | null
+          p_longitude?: number | null
+          p_stage_id?: string | null
+          p_stop_id?: string | null
+        }
+        Returns: string | null
+      }
     }
     Enums: {
       entry_language: "cs" | "en"
@@ -997,4 +1009,3 @@ export const Constants = {
     },
   },
 } as const
-

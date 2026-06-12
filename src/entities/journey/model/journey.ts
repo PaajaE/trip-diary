@@ -58,6 +58,7 @@ export const journeyDetailSchema = z.object({
   startsAt: optionalDateSchema,
   status: z.enum(['planning', 'active', 'completed']),
   stops: z.array(journeyStopSchema),
+  spaceId: z.uuid(),
   summary: z.string(),
   title: z.string(),
 })
