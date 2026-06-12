@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import {
   loadJourneyGalleryPreviews,
   mergeJourneyGalleryPhotos,
@@ -59,27 +60,12 @@ export function JourneyGallery({ moments }: JourneyGalleryProps) {
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)
     ? previewsQuery.data
     : null
-  const photos = mergeJourneyGalleryPhotos(
-    moments,
-    previewData?.previewsByMoment ?? [],
-  )
-  const urls = useMemo(
+  const photos = useMemo(
     () =>
-      photos.map((photo) => ({
-        ...photo,
-        url: URL.createObjectURL(photo.blob),
-      })),
-    [photos],
+      mergeJourneyGalleryPhotos(moments, previewData?.previewsByMoment ?? []),
+    [moments, previewData?.previewsByMoment],
   )
-
-  useEffect(
-    () => () => {
-      for (const photo of urls) {
-        URL.revokeObjectURL(photo.url)
-      }
-    },
-    [urls],
-  )
+  const urls = usePhotoObjectUrls(photos)
 
   const hasPartialError = (previewData?.failedMomentCount ?? 0) > 0
 

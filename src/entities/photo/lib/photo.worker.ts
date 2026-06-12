@@ -18,7 +18,7 @@ self.onmessage = async (event: MessageEvent<ProcessPhotoMessage>) => {
   try {
     const source = await createImageBitmap(file, {
       imageOrientation: 'from-image',
-    })
+    }).catch(() => createImageBitmap(file))
     const results: {
       blob: Blob
       height: number

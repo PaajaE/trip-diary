@@ -54,6 +54,9 @@ export function CreateJourneyMemoryForm({
     latitude: number
     longitude: number
   } | null>(null)
+  const [locationSource, setLocationSource] = useState<
+    'current' | 'map' | 'photo' | null
+  >(null)
   const [detectingPhotos, setDetectingPhotos] = useState(false)
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
@@ -101,8 +104,12 @@ export function CreateJourneyMemoryForm({
     [photoPreviewUrls],
   )
 
-  function handlePointSelected(point: { latitude: number; longitude: number }) {
+  function handlePointSelected(
+    point: { latitude: number; longitude: number },
+    source: 'current' | 'map' | 'photo' = 'map',
+  ) {
     setSelectedPoint(point)
+    setLocationSource(source)
     const currentTitle = form.getValues('title').trim()
     if (currentTitle !== '' && currentTitle !== (suggestedTitle ?? '')) {
       setSuggestingTitle(false)
@@ -168,17 +175,22 @@ export function CreateJourneyMemoryForm({
 
       const firstGps = processed.find(hasValidGpsPoint)
       if (firstGps !== undefined) {
-        handlePointSelected({
-          latitude: firstGps.latitude,
-          longitude: firstGps.longitude,
-        })
+        handlePointSelected(
+          {
+            latitude: firstGps.latitude,
+            longitude: firstGps.longitude,
+          },
+          'photo',
+        )
       } else if (files.length > 0) {
         setSelectedPoint(null)
+        setLocationSource(null)
         setSuggestedTitle(null)
       }
     } catch {
       setDetectedPhotos([])
       setSelectedPoint(null)
+      setLocationSource(null)
       setSuggestedTitle(null)
       setLinkError(t('journey.photoInsightsError'))
     } finally {
@@ -230,10 +242,13 @@ export function CreateJourneyMemoryForm({
           })
         },
       )
-      handlePointSelected({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      })
+      handlePointSelected(
+        {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        },
+        'current',
+      )
     } catch {
       setLinkError(t('journey.currentLocationFailed'))
     } finally {
@@ -405,9 +420,9 @@ export function CreateJourneyMemoryForm({
                     })}
               </p>
             </div>
-            {selectedPoint === null ? null : (
+            {locationSource === null ? null : (
               <span className="rounded-full bg-background px-3 py-2 text-xs font-semibold text-accent">
-                {t('journey.photoGpsDetected')}
+                {t(`journey.locationSource.${locationSource}`)}
               </span>
             )}
           </div>

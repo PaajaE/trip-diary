@@ -154,6 +154,11 @@ export const cs: TranslationResources = {
     latitude: 'Zeměpisná šířka',
     loading: 'Načítání cesty…',
     longitude: 'Zeměpisná délka',
+    locationSource: {
+      current: 'Použita aktuální poloha',
+      map: 'Poloha vybrána na mapě',
+      photo: 'GPS nalezeno ve fotkách',
+    },
     map: 'Mapa cesty',
     mapEmpty:
       'Zatím tu není žádný moment s polohou. U dalšího můžeš použít aktuální polohu nebo bod vybrat na mapě.',

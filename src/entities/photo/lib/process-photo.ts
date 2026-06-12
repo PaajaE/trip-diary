@@ -1,4 +1,5 @@
 import exifr from 'exifr'
+import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessedVariant {
@@ -70,9 +71,9 @@ async function extractPhotoMetadata(
   file: File,
 ): Promise<ExifMetadata | undefined> {
   const buffer = await file.arrayBuffer()
-  const basicMetadata = (await exifr.parse(buffer, ['DateTimeOriginal'])) as
-    | ExifMetadata
-    | undefined
+  const basicMetadata = (await exifr
+    .parse(buffer, ['DateTimeOriginal'])
+    .catch(() => undefined)) as ExifMetadata | undefined
   const gpsMetadata = await exifr.gps(buffer).catch(() => undefined)
 
   if (gpsMetadata !== undefined) {
@@ -107,6 +108,10 @@ async function extractPhotoMetadata(
 }
 
 function processVariants(file: File): Promise<ProcessedVariant[]> {
+  return processVariantsInWorker(file).catch(() => processVariantsOnPage(file))
+}
+
+function processVariantsInWorker(file: File): Promise<ProcessedVariant[]> {
   return new Promise((resolve, reject) => {
     const requestId = crypto.randomUUID()
     const worker = new Worker(new URL('./photo.worker.ts', import.meta.url), {
@@ -129,5 +134,58 @@ function processVariants(file: File): Promise<ProcessedVariant[]> {
       reject(new Error('Photo processing worker failed'))
     }
     worker.postMessage({ file, requestId })
+  })
+}
+
+async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
+  const source = await createImageBitmap(file, {
+    imageOrientation: 'from-image',
+  }).catch(() => createImageBitmap(file))
+  const variants = [
+    { kind: 'thumb', maxWidth: 400, quality: 0.72 },
+    { kind: 'preview', maxWidth: 1000, quality: 0.78 },
+    { kind: 'large', maxWidth: 1800, quality: 0.82 },
+  ] as const
+
+  try {
+    return await Promise.all(
+      variants.map(async (variant) => {
+        const dimensions = calculateDimensions(source, variant.maxWidth)
+        const canvas = document.createElement('canvas')
+        canvas.width = dimensions.width
+        canvas.height = dimensions.height
+        const context = canvas.getContext('2d')
+        if (context === null) {
+          throw new Error('Image canvas is unavailable')
+        }
+        context.drawImage(source, 0, 0, dimensions.width, dimensions.height)
+        return {
+          blob: await canvasToBlob(canvas, variant.quality),
+          ...dimensions,
+          kind: variant.kind,
+        }
+      }),
+    )
+  } finally {
+    source.close()
+  }
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob === null) {
+          reject(new Error('Photo variant could not be encoded'))
+          return
+        }
+        resolve(blob)
+      },
+      'image/webp',
+      quality,
+    )
   })
 }

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useState } from 'react'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 
 interface PhotoGalleryProps {
   alt: string
@@ -37,23 +38,7 @@ export function PhotoGallery({
     queryKey: ['entries', entryId, 'photo-previews'],
     queryFn: () => getEntryPhotoPreviews(entryId),
   })
-  const urls = useMemo(
-    () =>
-      previewsQuery.data?.map((preview) => ({
-        id: preview.id,
-        url: URL.createObjectURL(preview.blob),
-      })) ?? [],
-    [previewsQuery.data],
-  )
-
-  useEffect(
-    () => () => {
-      for (const preview of urls) {
-        URL.revokeObjectURL(preview.url)
-      }
-    },
-    [urls],
-  )
+  const urls = usePhotoObjectUrls(previewsQuery.data ?? [])
 
   if (previewsQuery.isPending) {
     return (

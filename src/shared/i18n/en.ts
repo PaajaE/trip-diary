@@ -154,6 +154,11 @@ export const en = {
     latitude: 'Latitude',
     loading: 'Loading journey…',
     longitude: 'Longitude',
+    locationSource: {
+      current: 'Current location selected',
+      map: 'Location selected on map',
+      photo: 'GPS found in the photos',
+    },
     map: 'Journey map',
     mapEmpty:
       'There are no located moments yet. For the next one, use your current location or pick a point on the map.',
