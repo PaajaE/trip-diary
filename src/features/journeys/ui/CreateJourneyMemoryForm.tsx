@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import {
   addJourneyStop,
@@ -9,9 +9,7 @@ import {
 } from '@/entities/journey/api/journey.repository'
 import { z } from 'zod'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
-import {
-  createEntrySchema,
-} from '@/entities/entry/model/entry'
+import { createEntrySchema } from '@/entities/entry/model/entry'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { addLocalPhotos } from '@/entities/photo/api/local-photo.repository'
 import {
@@ -67,15 +65,10 @@ export function CreateJourneyMemoryForm({
     },
     resolver: zodResolver(createJourneyMemorySchema),
   })
-  const title = form.watch('title')
+  const title = useWatch({ control: form.control, name: 'title' })
 
-  useEffect(() => {
-    if (selectedPoint === null) {
-      setSuggestedTitle(null)
-      setSuggestingTitle(false)
-      return
-    }
-
+  function handlePointSelected(point: { latitude: number; longitude: number }) {
+    setSelectedPoint(point)
     const currentTitle = form.getValues('title').trim()
     if (currentTitle !== '' && currentTitle !== (suggestedTitle ?? '')) {
       setSuggestingTitle(false)
@@ -87,8 +80,8 @@ export function CreateJourneyMemoryForm({
 
     void suggestPlaceLabel({
       language: i18n.language,
-      latitude: selectedPoint.latitude,
-      longitude: selectedPoint.longitude,
+      latitude: point.latitude,
+      longitude: point.longitude,
       signal: controller.signal,
     })
       .then((label) => {
@@ -108,9 +101,7 @@ export function CreateJourneyMemoryForm({
           setSuggestingTitle(false)
         }
       })
-
-    return () => controller.abort()
-  }, [form, i18n.language, selectedPoint, suggestedTitle])
+  }
 
   async function handlePhotoSelection(files: File[]) {
     setPhotos(files)
@@ -144,16 +135,11 @@ export function CreateJourneyMemoryForm({
       const firstGps = processed.find(
         (photo) => photo.latitude !== null && photo.longitude !== null,
       )
-      if (
-        firstGps !== undefined &&
-        firstGps.latitude !== null &&
-        firstGps.longitude !== null
-      ) {
-        setSelectedPoint({
+      if (firstGps?.latitude != null && firstGps.longitude != null) {
+        handlePointSelected({
           latitude: firstGps.latitude,
           longitude: firstGps.longitude,
         })
-        setSuggestedTitle(null)
       } else if (files.length > 0) {
         setSelectedPoint(null)
         setSuggestedTitle(null)
@@ -228,7 +214,9 @@ export function CreateJourneyMemoryForm({
         {...form.register('title')}
       />
       {suggestingTitle ? (
-        <p className="text-sm text-muted">{t('journey.placeSuggestionLoading')}</p>
+        <p className="text-sm text-muted">
+          {t('journey.placeSuggestionLoading')}
+        </p>
       ) : suggestedTitle !== null && title.trim() !== '' ? (
         <p className="text-sm text-muted">
           {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
@@ -298,8 +286,8 @@ export function CreateJourneyMemoryForm({
           <div className="mt-5 space-y-4">
             <LocationPickerMap
               heightClassName="h-64"
+              onSelectPoint={handlePointSelected}
               selectedPoint={selectedPoint}
-              setSelectedPoint={setSelectedPoint}
               stops={journey.stops}
             />
             <p className="text-sm text-muted">

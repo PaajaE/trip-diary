@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { CalendarDays, Camera, Circle, FileText, MapPin, Signpost } from 'lucide-react'
+import {
+  CalendarDays,
+  Camera,
+  Circle,
+  FileText,
+  MapPin,
+  Signpost,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import {
   canContributeToJourney,
@@ -59,7 +66,11 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
               <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-muted">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
                   <CalendarDays aria-hidden="true" size={16} />
-                  {formatDateRange(journey.startsAt, journey.endsAt, t('journey.dateUnknown'))}
+                  {formatDateRange(
+                    journey.startsAt,
+                    journey.endsAt,
+                    t('journey.dateUnknown'),
+                  )}
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
                   <MapPin aria-hidden="true" size={16} />
@@ -162,7 +173,8 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                             />
                           </article>
                         ))}
-                        {stageStops.length === 0 && stageEntries.length === 0 ? (
+                        {stageStops.length === 0 &&
+                        stageEntries.length === 0 ? (
                           <p className="text-sm text-muted">
                             {t('journey.emptyStage')}
                           </p>
@@ -171,8 +183,10 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                     </section>
                   )
                 })}
-                {journey.stops.filter((stop) => stop.stageId === null).length > 0 ||
-                journey.entries.filter((entry) => entry.stageId === null).length > 0 ? (
+                {journey.stops.filter((stop) => stop.stageId === null).length >
+                  0 ||
+                journey.entries.filter((entry) => entry.stageId === null)
+                  .length > 0 ? (
                   <section className="rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft">
                     <h3 className="text-xl font-semibold">
                       {t('journey.freeMoments')}

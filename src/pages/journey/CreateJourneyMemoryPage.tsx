@@ -32,7 +32,7 @@ export function CreateJourneyMemoryPage({
           {t('journey.memoryTitle')}
         </h1>
         <p className="mt-4 max-w-xl leading-7 text-muted">
-          {journeyQuery.data?.title === undefined || journeyQuery.data === null
+          {journeyQuery.data?.title == null
             ? t('journey.memoryDescription')
             : t('journey.memoryDescriptionWithTrip', {
                 title: journeyQuery.data.title,

@@ -67,7 +67,11 @@ function buildPlaceLabel(result: ReverseGeocodeResponse): string | null {
   )
 
   if (parts.length >= 2) {
-    return `${parts[0]}, ${parts[1]}`
+    const first = parts[0]
+    const second = parts[1]
+    if (first !== undefined && second !== undefined) {
+      return `${first}, ${second}`
+    }
   }
   if (parts.length === 1) {
     return parts[0] ?? null

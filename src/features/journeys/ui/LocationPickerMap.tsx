@@ -5,17 +5,20 @@ import type { JourneyDetail } from '@/entities/journey/model/journey'
 
 interface LocationPickerMapProps {
   heightClassName?: string
+  onSelectPoint: (point: { latitude: number; longitude: number }) => void
   selectedPoint: { latitude: number; longitude: number } | null
-  setSelectedPoint: (
-    point: { latitude: number; longitude: number } | null,
-  ) => void
   stops: JourneyDetail['stops']
+}
+
+type MappedStop = JourneyDetail['stops'][number] & {
+  mapLatitude: number
+  mapLongitude: number
 }
 
 export function LocationPickerMap({
   heightClassName = 'h-72',
+  onSelectPoint,
   selectedPoint,
-  setSelectedPoint,
   stops,
 }: LocationPickerMapProps) {
   const { t } = useTranslation()
@@ -23,7 +26,8 @@ export function LocationPickerMap({
   const mappedStops = useMemo(
     () =>
       stops.filter(
-        (stop) => stop.mapLatitude !== null && stop.mapLongitude !== null,
+        (stop): stop is MappedStop =>
+          stop.mapLatitude !== null && stop.mapLongitude !== null,
       ),
     [stops],
   )
@@ -32,12 +36,10 @@ export function LocationPickerMap({
     const container = containerRef.current
     if (container === null) return
 
+    const firstMappedStop = mappedStops[0]
     const initialCenter: [number, number] =
-      mappedStops[0]?.mapLongitude !== null &&
-      mappedStops[0]?.mapLongitude !== undefined &&
-      mappedStops[0]?.mapLatitude !== null &&
-      mappedStops[0]?.mapLatitude !== undefined
-        ? [mappedStops[0].mapLongitude, mappedStops[0].mapLatitude]
+      firstMappedStop !== undefined
+        ? [firstMappedStop.mapLongitude, firstMappedStop.mapLatitude]
         : [14.4378, 50.0755]
 
     const map = new maplibregl.Map({
@@ -64,7 +66,6 @@ export function LocationPickerMap({
 
     const bounds = new maplibregl.LngLatBounds()
     for (const stop of mappedStops) {
-      if (stop.mapLatitude === null || stop.mapLongitude === null) continue
       const point: [number, number] = [stop.mapLongitude, stop.mapLatitude]
       bounds.extend(point)
       new maplibregl.Marker({ color: '#285943' })
@@ -89,14 +90,14 @@ export function LocationPickerMap({
         latitude: event.lngLat.lat,
         longitude: event.lngLat.lng,
       }
-      setSelectedPoint(point)
+      onSelectPoint(point)
       draftMarker.setLngLat([point.longitude, point.latitude]).addTo(map)
     })
 
     return () => {
       map.remove()
     }
-  }, [mappedStops, selectedPoint, setSelectedPoint])
+  }, [mappedStops, onSelectPoint, selectedPoint])
 
   return (
     <div>

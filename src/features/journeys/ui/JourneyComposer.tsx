@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Camera, FileText, MapPin, Plus, Route, Sparkles } from 'lucide-react'
-import { useEffect, useState, type SyntheticEvent } from 'react'
+import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   addJourneyStage,
@@ -77,12 +77,16 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
           busy={busy}
           journey={journey}
           onChanged={onChanged}
-          onFailed={() => setFailed(true)}
+          onFailed={() => {
+            setFailed(true)
+          }}
           onStart={() => {
             setFailed(false)
             setBusy(true)
           }}
-          onSettled={() => setBusy(false)}
+          onSettled={() => {
+            setBusy(false)
+          }}
         />
 
         <div className="space-y-5">
@@ -102,11 +106,11 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
           />
           <form
             className="rounded-[1.25rem] border border-border bg-surface p-5 shadow-soft"
-            onSubmit={(event) =>
+            onSubmit={(event) => {
               void submit(event, async (form) => {
                 await addJourneyStage(journey.id, getText(form, 'title'))
               })
-            }
+            }}
           >
             <div className="flex items-start gap-3">
               <div className="mt-1 rounded-full bg-background p-2 text-accent">
@@ -198,13 +202,8 @@ function PlaceCaptureCard({
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (selectedPoint === null) {
-      setSuggestedTitle(null)
-      setSuggestingTitle(false)
-      return
-    }
-
+  function handlePointSelected(point: { latitude: number; longitude: number }) {
+    setSelectedPoint(point)
     if (title.trim() !== '' && title.trim() !== (suggestedTitle ?? '')) {
       setSuggestingTitle(false)
       return
@@ -215,8 +214,8 @@ function PlaceCaptureCard({
 
     void suggestPlaceLabel({
       language: i18n.language,
-      latitude: selectedPoint.latitude,
-      longitude: selectedPoint.longitude,
+      latitude: point.latitude,
+      longitude: point.longitude,
       signal: controller.signal,
     })
       .then((label) => {
@@ -236,9 +235,7 @@ function PlaceCaptureCard({
           setSuggestingTitle(false)
         }
       })
-
-    return () => controller.abort()
-  }, [i18n.language, selectedPoint, suggestedTitle])
+  }
 
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -254,7 +251,7 @@ function PlaceCaptureCard({
     try {
       const stopId = await addJourneyStop(
         journey.id,
-        stageId === '' ? journey.stages[0]?.id ?? '' : stageId,
+        stageId === '' ? (journey.stages[0]?.id ?? '') : stageId,
         title,
       )
       await setJourneyStopLocation(
@@ -277,7 +274,9 @@ function PlaceCaptureCard({
   return (
     <form
       className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft"
-      onSubmit={(event) => void handleSubmit(event)}
+      onSubmit={(event) => {
+        void handleSubmit(event)
+      }}
     >
       <div className="flex items-start gap-3">
         <div className="mt-1 rounded-full bg-background p-2 text-accent">
@@ -302,7 +301,9 @@ function PlaceCaptureCard({
           <Input
             label={t('journey.itemTitle')}
             name="title"
-            onChange={(event) => setTitle(event.currentTarget.value)}
+            onChange={(event) => {
+              setTitle(event.currentTarget.value)
+            }}
             required
             value={title}
           />
@@ -339,8 +340,8 @@ function PlaceCaptureCard({
         )}
 
         <LocationPickerMap
+          onSelectPoint={handlePointSelected}
           selectedPoint={selectedPoint}
-          setSelectedPoint={setSelectedPoint}
           stops={journey.stops}
         />
 
@@ -355,7 +356,9 @@ function PlaceCaptureCard({
           </p>
           <Button
             className="sm:min-w-44"
-            disabled={busy || journey.stages.length === 0 || selectedPoint === null}
+            disabled={
+              busy || journey.stages.length === 0 || selectedPoint === null
+            }
             type="submit"
           >
             {t('journey.savePlace')}

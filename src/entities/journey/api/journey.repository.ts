@@ -94,7 +94,7 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   )
 
   return journeyDetailSchema.parse({
-    entries: (entriesResult.data ?? []).map((entry) => {
+    entries: entriesResult.data.map((entry) => {
       const link = linksByEntryId.get(entry.id)
       return {
         body: entry.body,
@@ -203,16 +203,18 @@ export async function linkEntryToJourney(input: {
   stageId?: string | null
   stopId?: string | null
 }): Promise<void> {
-  const { error } = await getSupabaseClient().from('entry_journey_links').upsert(
-    {
-      creator_id: input.creatorId,
-      entry_id: input.entryId,
-      journey_id: input.journeyId,
-      stage_id: input.stageId ?? null,
-      stop_id: input.stopId ?? null,
-    },
-    { ignoreDuplicates: false, onConflict: 'entry_id' },
-  )
+  const { error } = await getSupabaseClient()
+    .from('entry_journey_links')
+    .upsert(
+      {
+        creator_id: input.creatorId,
+        entry_id: input.entryId,
+        journey_id: input.journeyId,
+        stage_id: input.stageId ?? null,
+        stop_id: input.stopId ?? null,
+      },
+      { ignoreDuplicates: false, onConflict: 'entry_id' },
+    )
 
   if (error !== null) {
     throw error
