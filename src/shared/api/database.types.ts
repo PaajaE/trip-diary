@@ -41,18 +41,18 @@ export type Database = {
           creator_id: string
           event_at: string | null
           id: string
-          language: Database["public"]["Enums"]["entry_language"]
+          language: Database['public']['Enums']['entry_language']
           latitude: number | null
           longitude: number | null
           published_at: string | null
           slug: string
           space_id: string
-          status: Database["public"]["Enums"]["entry_status"]
+          status: Database['public']['Enums']['entry_status']
           title: string | null
-          type: Database["public"]["Enums"]["entry_type"]
+          type: Database['public']['Enums']['entry_type']
           updated_at: string
           version: number
-          visibility: Database["public"]["Enums"]["entry_visibility"]
+          visibility: Database['public']['Enums']['entry_visibility']
         }
         Insert: {
           body?: string
@@ -60,18 +60,18 @@ export type Database = {
           creator_id: string
           event_at?: string | null
           id: string
-          language?: Database["public"]["Enums"]["entry_language"]
+          language?: Database['public']['Enums']['entry_language']
           latitude?: number | null
           longitude?: number | null
           published_at?: string | null
           slug: string
           space_id: string
-          status?: Database["public"]["Enums"]["entry_status"]
+          status?: Database['public']['Enums']['entry_status']
           title?: string | null
-          type: Database["public"]["Enums"]["entry_type"]
+          type: Database['public']['Enums']['entry_type']
           updated_at?: string
           version?: number
-          visibility?: Database["public"]["Enums"]["entry_visibility"]
+          visibility?: Database['public']['Enums']['entry_visibility']
         }
         Update: {
           body?: string
@@ -79,26 +79,26 @@ export type Database = {
           creator_id?: string
           event_at?: string | null
           id?: string
-          language?: Database["public"]["Enums"]["entry_language"]
+          language?: Database['public']['Enums']['entry_language']
           latitude?: number | null
           longitude?: number | null
           published_at?: string | null
           slug?: string
           space_id?: string
-          status?: Database["public"]["Enums"]["entry_status"]
+          status?: Database['public']['Enums']['entry_status']
           title?: string | null
-          type?: Database["public"]["Enums"]["entry_type"]
+          type?: Database['public']['Enums']['entry_type']
           updated_at?: string
           version?: number
-          visibility?: Database["public"]["Enums"]["entry_visibility"]
+          visibility?: Database['public']['Enums']['entry_visibility']
         }
         Relationships: [
           {
-            foreignKeyName: "entries_space_id_fkey"
-            columns: ["space_id"]
+            foreignKeyName: 'entries_space_id_fkey'
+            columns: ['space_id']
             isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
+            referencedRelation: 'spaces'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -132,39 +132,39 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "entry_journey_links_entry_id_fkey"
-            columns: ["entry_id"]
+            foreignKeyName: 'entry_journey_links_entry_id_fkey'
+            columns: ['entry_id']
             isOneToOne: true
-            referencedRelation: "entries"
-            referencedColumns: ["id"]
+            referencedRelation: 'entries'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "entry_journey_links_guide_fk"
-            columns: ["guide_section_id", "journey_id"]
+            foreignKeyName: 'entry_journey_links_guide_fk'
+            columns: ['guide_section_id', 'journey_id']
             isOneToOne: false
-            referencedRelation: "journey_guide_sections"
-            referencedColumns: ["id", "journey_id"]
+            referencedRelation: 'journey_guide_sections'
+            referencedColumns: ['id', 'journey_id']
           },
           {
-            foreignKeyName: "entry_journey_links_journey_id_fkey"
-            columns: ["journey_id"]
+            foreignKeyName: 'entry_journey_links_journey_id_fkey'
+            columns: ['journey_id']
             isOneToOne: false
-            referencedRelation: "journeys"
-            referencedColumns: ["id"]
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "entry_journey_links_stage_fk"
-            columns: ["stage_id", "journey_id"]
+            foreignKeyName: 'entry_journey_links_stage_fk'
+            columns: ['stage_id', 'journey_id']
             isOneToOne: false
-            referencedRelation: "journey_stages"
-            referencedColumns: ["id", "journey_id"]
+            referencedRelation: 'journey_stages'
+            referencedColumns: ['id', 'journey_id']
           },
           {
-            foreignKeyName: "entry_journey_links_stop_fk"
-            columns: ["stop_id", "journey_id"]
+            foreignKeyName: 'entry_journey_links_stop_fk'
+            columns: ['stop_id', 'journey_id']
             isOneToOne: false
-            referencedRelation: "journey_stops"
-            referencedColumns: ["id", "journey_id"]
+            referencedRelation: 'journey_stops'
+            referencedColumns: ['id', 'journey_id']
           },
         ]
       }
@@ -192,18 +192,18 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "entry_photos_entry_creator_fk"
-            columns: ["entry_id", "creator_id"]
+            foreignKeyName: 'entry_photos_entry_creator_fk'
+            columns: ['entry_id', 'creator_id']
             isOneToOne: false
-            referencedRelation: "entries"
-            referencedColumns: ["id", "creator_id"]
+            referencedRelation: 'entries'
+            referencedColumns: ['id', 'creator_id']
           },
           {
-            foreignKeyName: "entry_photos_photo_creator_fk"
-            columns: ["photo_id", "creator_id"]
+            foreignKeyName: 'entry_photos_photo_creator_fk'
+            columns: ['photo_id', 'creator_id']
             isOneToOne: false
-            referencedRelation: "photos"
-            referencedColumns: ["id", "creator_id"]
+            referencedRelation: 'photos'
+            referencedColumns: ['id', 'creator_id']
           },
         ]
       }
@@ -240,11 +240,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "journey_guide_sections_journey_id_fkey"
-            columns: ["journey_id"]
+            foreignKeyName: 'journey_guide_sections_journey_id_fkey'
+            columns: ['journey_id']
             isOneToOne: false
-            referencedRelation: "journeys"
-            referencedColumns: ["id"]
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -252,28 +252,28 @@ export type Database = {
         Row: {
           created_at: string
           journey_id: string
-          role: Database["public"]["Enums"]["journey_member_role"]
+          role: Database['public']['Enums']['journey_member_role']
           user_id: string
         }
         Insert: {
           created_at?: string
           journey_id: string
-          role?: Database["public"]["Enums"]["journey_member_role"]
+          role?: Database['public']['Enums']['journey_member_role']
           user_id: string
         }
         Update: {
           created_at?: string
           journey_id?: string
-          role?: Database["public"]["Enums"]["journey_member_role"]
+          role?: Database['public']['Enums']['journey_member_role']
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "journey_members_journey_id_fkey"
-            columns: ["journey_id"]
+            foreignKeyName: 'journey_members_journey_id_fkey'
+            columns: ['journey_id']
             isOneToOne: false
-            referencedRelation: "journeys"
-            referencedColumns: ["id"]
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -316,11 +316,11 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "journey_stages_journey_id_fkey"
-            columns: ["journey_id"]
+            foreignKeyName: 'journey_stages_journey_id_fkey'
+            columns: ['journey_id']
             isOneToOne: false
-            referencedRelation: "journeys"
-            referencedColumns: ["id"]
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -338,7 +338,7 @@ export type Database = {
           planned_at: string | null
           position: number
           stage_id: string | null
-          status: Database["public"]["Enums"]["journey_stop_status"]
+          status: Database['public']['Enums']['journey_stop_status']
           title: string
           updated_at: string
           visited_at: string | null
@@ -356,7 +356,7 @@ export type Database = {
           planned_at?: string | null
           position: number
           stage_id?: string | null
-          status?: Database["public"]["Enums"]["journey_stop_status"]
+          status?: Database['public']['Enums']['journey_stop_status']
           title: string
           updated_at?: string
           visited_at?: string | null
@@ -374,25 +374,25 @@ export type Database = {
           planned_at?: string | null
           position?: number
           stage_id?: string | null
-          status?: Database["public"]["Enums"]["journey_stop_status"]
+          status?: Database['public']['Enums']['journey_stop_status']
           title?: string
           updated_at?: string
           visited_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "journey_stops_journey_id_fkey"
-            columns: ["journey_id"]
+            foreignKeyName: 'journey_stops_journey_id_fkey'
+            columns: ['journey_id']
             isOneToOne: false
-            referencedRelation: "journeys"
-            referencedColumns: ["id"]
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
           },
           {
-            foreignKeyName: "journey_stops_stage_fk"
-            columns: ["stage_id", "journey_id"]
+            foreignKeyName: 'journey_stops_stage_fk'
+            columns: ['stage_id', 'journey_id']
             isOneToOne: false
-            referencedRelation: "journey_stages"
-            referencedColumns: ["id", "journey_id"]
+            referencedRelation: 'journey_stages'
+            referencedColumns: ['id', 'journey_id']
           },
         ]
       }
@@ -405,11 +405,11 @@ export type Database = {
           slug: string
           space_id: string
           starts_at: string | null
-          status: Database["public"]["Enums"]["journey_status"]
+          status: Database['public']['Enums']['journey_status']
           summary: string
           title: string
           updated_at: string
-          visibility: Database["public"]["Enums"]["journey_visibility"]
+          visibility: Database['public']['Enums']['journey_visibility']
         }
         Insert: {
           created_at?: string
@@ -419,11 +419,11 @@ export type Database = {
           slug: string
           space_id: string
           starts_at?: string | null
-          status?: Database["public"]["Enums"]["journey_status"]
+          status?: Database['public']['Enums']['journey_status']
           summary?: string
           title: string
           updated_at?: string
-          visibility?: Database["public"]["Enums"]["journey_visibility"]
+          visibility?: Database['public']['Enums']['journey_visibility']
         }
         Update: {
           created_at?: string
@@ -433,19 +433,19 @@ export type Database = {
           slug?: string
           space_id?: string
           starts_at?: string | null
-          status?: Database["public"]["Enums"]["journey_status"]
+          status?: Database['public']['Enums']['journey_status']
           summary?: string
           title?: string
           updated_at?: string
-          visibility?: Database["public"]["Enums"]["journey_visibility"]
+          visibility?: Database['public']['Enums']['journey_visibility']
         }
         Relationships: [
           {
-            foreignKeyName: "journeys_space_id_fkey"
-            columns: ["space_id"]
+            foreignKeyName: 'journeys_space_id_fkey'
+            columns: ['space_id']
             isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
+            referencedRelation: 'spaces'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -459,7 +459,7 @@ export type Database = {
           photo_id: string
           storage_path: string
           updated_at: string
-          variant: Database["public"]["Enums"]["photo_variant_type"]
+          variant: Database['public']['Enums']['photo_variant_type']
           width: number
         }
         Insert: {
@@ -471,7 +471,7 @@ export type Database = {
           photo_id: string
           storage_path: string
           updated_at?: string
-          variant: Database["public"]["Enums"]["photo_variant_type"]
+          variant: Database['public']['Enums']['photo_variant_type']
           width: number
         }
         Update: {
@@ -483,16 +483,16 @@ export type Database = {
           photo_id?: string
           storage_path?: string
           updated_at?: string
-          variant?: Database["public"]["Enums"]["photo_variant_type"]
+          variant?: Database['public']['Enums']['photo_variant_type']
           width?: number
         }
         Relationships: [
           {
-            foreignKeyName: "photo_variants_photo_creator_fk"
-            columns: ["photo_id", "creator_id"]
+            foreignKeyName: 'photo_variants_photo_creator_fk'
+            columns: ['photo_id', 'creator_id']
             isOneToOne: false
-            referencedRelation: "photos"
-            referencedColumns: ["id", "creator_id"]
+            referencedRelation: 'photos'
+            referencedColumns: ['id', 'creator_id']
           },
         ]
       }
@@ -563,7 +563,7 @@ export type Database = {
           expires_at: string
           id: string
           revoked_at: string | null
-          role: Database["public"]["Enums"]["space_role"]
+          role: Database['public']['Enums']['space_role']
           space_id: string
           token_hash: string
         }
@@ -576,7 +576,7 @@ export type Database = {
           expires_at: string
           id?: string
           revoked_at?: string | null
-          role: Database["public"]["Enums"]["space_role"]
+          role: Database['public']['Enums']['space_role']
           space_id: string
           token_hash: string
         }
@@ -589,46 +589,46 @@ export type Database = {
           expires_at?: string
           id?: string
           revoked_at?: string | null
-          role?: Database["public"]["Enums"]["space_role"]
+          role?: Database['public']['Enums']['space_role']
           space_id?: string
           token_hash?: string
         }
         Relationships: [
           {
-            foreignKeyName: "space_invites_space_id_fkey"
-            columns: ["space_id"]
+            foreignKeyName: 'space_invites_space_id_fkey'
+            columns: ['space_id']
             isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
+            referencedRelation: 'spaces'
+            referencedColumns: ['id']
           },
         ]
       }
       space_members: {
         Row: {
           created_at: string
-          role: Database["public"]["Enums"]["space_role"]
+          role: Database['public']['Enums']['space_role']
           space_id: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          role: Database["public"]["Enums"]["space_role"]
+          role: Database['public']['Enums']['space_role']
           space_id: string
           user_id: string
         }
         Update: {
           created_at?: string
-          role?: Database["public"]["Enums"]["space_role"]
+          role?: Database['public']['Enums']['space_role']
           space_id?: string
           user_id?: string
         }
         Relationships: [
           {
-            foreignKeyName: "space_members_space_id_fkey"
-            columns: ["space_id"]
+            foreignKeyName: 'space_members_space_id_fkey'
+            columns: ['space_id']
             isOneToOne: false
-            referencedRelation: "spaces"
-            referencedColumns: ["id"]
+            referencedRelation: 'spaces'
+            referencedColumns: ['id']
           },
         ]
       }
@@ -640,7 +640,7 @@ export type Database = {
           description: string | null
           handle: string
           id: string
-          kind: Database["public"]["Enums"]["space_kind"]
+          kind: Database['public']['Enums']['space_kind']
           name: string
           personal_owner_id: string | null
           updated_at: string
@@ -652,7 +652,7 @@ export type Database = {
           description?: string | null
           handle: string
           id?: string
-          kind: Database["public"]["Enums"]["space_kind"]
+          kind: Database['public']['Enums']['space_kind']
           name: string
           personal_owner_id?: string | null
           updated_at?: string
@@ -664,7 +664,7 @@ export type Database = {
           description?: string | null
           handle?: string
           id?: string
-          kind?: Database["public"]["Enums"]["space_kind"]
+          kind?: Database['public']['Enums']['space_kind']
           name?: string
           personal_owner_id?: string | null
           updated_at?: string
@@ -679,7 +679,7 @@ export type Database = {
       accept_space_invite: { Args: { p_raw_token: string }; Returns: string }
       change_space_member_role: {
         Args: {
-          p_role: Database["public"]["Enums"]["space_role"]
+          p_role: Database['public']['Enums']['space_role']
           p_space_id: string
           p_user_id: string
         }
@@ -702,7 +702,7 @@ export type Database = {
           p_journey_id: string
           p_notes?: string
           p_stage_id: string
-          p_status?: Database["public"]["Enums"]["journey_stop_status"]
+          p_status?: Database['public']['Enums']['journey_stop_status']
           p_title: string
         }
         Returns: string
@@ -710,7 +710,7 @@ export type Database = {
       create_space_invite: {
         Args: {
           p_email: string
-          p_role?: Database["public"]["Enums"]["space_role"]
+          p_role?: Database['public']['Enums']['space_role']
           p_space_id: string
         }
         Returns: string
@@ -738,22 +738,22 @@ export type Database = {
           creator_id: string
           event_at: string | null
           id: string
-          language: Database["public"]["Enums"]["entry_language"]
+          language: Database['public']['Enums']['entry_language']
           latitude: number | null
           longitude: number | null
           published_at: string | null
           slug: string
           space_id: string
-          status: Database["public"]["Enums"]["entry_status"]
+          status: Database['public']['Enums']['entry_status']
           title: string | null
-          type: Database["public"]["Enums"]["entry_type"]
+          type: Database['public']['Enums']['entry_type']
           updated_at: string
           version: number
-          visibility: Database["public"]["Enums"]["entry_visibility"]
+          visibility: Database['public']['Enums']['entry_visibility']
         }[]
         SetofOptions: {
-          from: "*"
-          to: "entries"
+          from: '*'
+          to: 'entries'
           isOneToOne: false
           isSetofReturn: true
         }
@@ -768,15 +768,15 @@ export type Database = {
           slug: string
           space_id: string
           starts_at: string | null
-          status: Database["public"]["Enums"]["journey_status"]
+          status: Database['public']['Enums']['journey_status']
           summary: string
           title: string
           updated_at: string
-          visibility: Database["public"]["Enums"]["journey_visibility"]
+          visibility: Database['public']['Enums']['journey_visibility']
         }[]
         SetofOptions: {
-          from: "*"
-          to: "journeys"
+          from: '*'
+          to: 'journeys'
           isOneToOne: false
           isSetofReturn: true
         }
@@ -806,13 +806,13 @@ export type Database = {
           p_event_at: string
           p_expected_version: number
           p_id: string
-          p_language: Database["public"]["Enums"]["entry_language"]
+          p_language: Database['public']['Enums']['entry_language']
           p_latitude: number
           p_longitude: number
-          p_status: Database["public"]["Enums"]["entry_status"]
+          p_status: Database['public']['Enums']['entry_status']
           p_title: string
-          p_type: Database["public"]["Enums"]["entry_type"]
-          p_visibility: Database["public"]["Enums"]["entry_visibility"]
+          p_type: Database['public']['Enums']['entry_type']
+          p_visibility: Database['public']['Enums']['entry_visibility']
         }
         Returns: {
           body: string
@@ -820,22 +820,22 @@ export type Database = {
           creator_id: string
           event_at: string | null
           id: string
-          language: Database["public"]["Enums"]["entry_language"]
+          language: Database['public']['Enums']['entry_language']
           latitude: number | null
           longitude: number | null
           published_at: string | null
           slug: string
           space_id: string
-          status: Database["public"]["Enums"]["entry_status"]
+          status: Database['public']['Enums']['entry_status']
           title: string | null
-          type: Database["public"]["Enums"]["entry_type"]
+          type: Database['public']['Enums']['entry_type']
           updated_at: string
           version: number
-          visibility: Database["public"]["Enums"]["entry_visibility"]
+          visibility: Database['public']['Enums']['entry_visibility']
         }[]
         SetofOptions: {
-          from: "*"
-          to: "entries"
+          from: '*'
+          to: 'entries'
           isOneToOne: false
           isSetofReturn: true
         }
@@ -854,17 +854,17 @@ export type Database = {
       }
     }
     Enums: {
-      entry_language: "cs" | "en"
-      entry_status: "draft" | "published"
-      entry_type: "story" | "tip" | "note" | "place"
-      entry_visibility: "public" | "private"
-      journey_member_role: "owner" | "editor" | "member"
-      journey_status: "planning" | "active" | "completed"
-      journey_stop_status: "planned" | "visited"
-      journey_visibility: "public" | "private"
-      photo_variant_type: "thumb" | "preview" | "large"
-      space_kind: "personal" | "family"
-      space_role: "owner" | "editor" | "member"
+      entry_language: 'cs' | 'en'
+      entry_status: 'draft' | 'published'
+      entry_type: 'story' | 'tip' | 'note' | 'place'
+      entry_visibility: 'public' | 'private'
+      journey_member_role: 'owner' | 'editor' | 'member'
+      journey_status: 'planning' | 'active' | 'completed'
+      journey_stop_status: 'planned' | 'visited'
+      journey_visibility: 'public' | 'private'
+      photo_variant_type: 'thumb' | 'preview' | 'large'
+      space_kind: 'personal' | 'family'
+      space_role: 'owner' | 'editor' | 'member'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -872,33 +872,33 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, '__InternalSupabase'>
 
-type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, 'public'>]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
-    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])
-    ? (DefaultSchema["Tables"] &
-        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])
+    ? (DefaultSchema['Tables'] &
+        DefaultSchema['Views'])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -907,23 +907,23 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -932,23 +932,23 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
+    | keyof DefaultSchema['Tables']
     | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
     : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
-    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema['Tables']
+    ? DefaultSchema['Tables'][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -957,36 +957,36 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
+    | keyof DefaultSchema['Enums']
     | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
     : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
-    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums'][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema['Enums']
+    ? DefaultSchema['Enums'][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
+    | keyof DefaultSchema['CompositeTypes']
     | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
-    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
-  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
-    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes'][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema['CompositeTypes']
+    ? DefaultSchema['CompositeTypes'][PublicCompositeTypeNameOrOptions]
     : never
 
 export const Constants = {
@@ -995,17 +995,17 @@ export const Constants = {
   },
   public: {
     Enums: {
-      entry_language: ["cs", "en"],
-      entry_status: ["draft", "published"],
-      entry_type: ["story", "tip", "note", "place"],
-      entry_visibility: ["public", "private"],
-      journey_member_role: ["owner", "editor", "member"],
-      journey_status: ["planning", "active", "completed"],
-      journey_stop_status: ["planned", "visited"],
-      journey_visibility: ["public", "private"],
-      photo_variant_type: ["thumb", "preview", "large"],
-      space_kind: ["personal", "family"],
-      space_role: ["owner", "editor", "member"],
+      entry_language: ['cs', 'en'],
+      entry_status: ['draft', 'published'],
+      entry_type: ['story', 'tip', 'note', 'place'],
+      entry_visibility: ['public', 'private'],
+      journey_member_role: ['owner', 'editor', 'member'],
+      journey_status: ['planning', 'active', 'completed'],
+      journey_stop_status: ['planned', 'visited'],
+      journey_visibility: ['public', 'private'],
+      photo_variant_type: ['thumb', 'preview', 'large'],
+      space_kind: ['personal', 'family'],
+      space_role: ['owner', 'editor', 'member'],
     },
   },
 } as const
