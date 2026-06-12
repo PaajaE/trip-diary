@@ -3,7 +3,9 @@ import {
   type CreateJourneyInput,
   type JourneyDetail,
 } from '@/entities/journey/model/journey'
+import { listLocalJourneyLinks } from '@/entities/journey/api/local-journey-link.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { localDb } from '@/shared/lib/local-db'
 import { createPublicSlug } from '@/shared/lib/slug'
 
 export async function createJourney(
@@ -33,35 +35,40 @@ export async function createJourney(
 
 export async function getJourney(id: string): Promise<JourneyDetail | null> {
   const client = getSupabaseClient()
-  const [journeyResult, stagesResult, stopsResult, guidesResult, linksResult] =
-    await Promise.all([
-      client
-        .from('journeys')
-        .select('id, title, summary, status, starts_at, ends_at')
-        .eq('id', id)
-        .maybeSingle(),
-      client
-        .from('journey_stages')
-        .select('id, title, summary')
-        .eq('journey_id', id)
-        .order('position'),
-      client
-        .from('journey_stops')
-        .select(
-          'id, stage_id, title, notes, status, map_latitude, map_longitude',
-        )
-        .eq('journey_id', id)
-        .order('position'),
-      client
-        .from('journey_guide_sections')
-        .select('id, title, body')
-        .eq('journey_id', id)
-        .order('position'),
-      client
-        .from('entry_journey_links')
-        .select('entry_id, stage_id, stop_id')
-        .eq('journey_id', id),
-    ])
+  const [
+    journeyResult,
+    stagesResult,
+    stopsResult,
+    guidesResult,
+    linksResult,
+    localLinks,
+  ] = await Promise.all([
+    client
+      .from('journeys')
+      .select('id, title, summary, status, starts_at, ends_at')
+      .eq('id', id)
+      .maybeSingle(),
+    client
+      .from('journey_stages')
+      .select('id, title, summary')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('journey_stops')
+      .select('id, stage_id, title, notes, status, map_latitude, map_longitude')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('journey_guide_sections')
+      .select('id, title, body')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('entry_journey_links')
+      .select('entry_id, stage_id, stop_id')
+      .eq('journey_id', id),
+    listLocalJourneyLinks(id),
+  ])
 
   const error =
     journeyResult.error ??
@@ -77,6 +84,9 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   }
 
   const entryIds = (linksResult.data ?? []).map((link) => link.entry_id)
+  const localOnlyEntryIds = localLinks
+    .map((link) => link.entryId)
+    .filter((entryId) => !entryIds.includes(entryId))
   const entriesResult =
     entryIds.length === 0
       ? { data: [], error: null }
@@ -89,22 +99,50 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     throw entriesResult.error
   }
 
+  const localEntries =
+    localOnlyEntryIds.length === 0
+      ? []
+      : await localDb.entries.where('id').anyOf(localOnlyEntryIds).toArray()
+
   const linksByEntryId = new Map(
     (linksResult.data ?? []).map((link) => [link.entry_id, link]),
   )
+  const localLinksByEntryId = new Map(
+    localLinks.map((link) => [link.entryId, link]),
+  )
 
   return journeyDetailSchema.parse({
-    entries: entriesResult.data.map((entry) => {
-      const link = linksByEntryId.get(entry.id)
-      return {
-        body: entry.body,
-        eventAt: entry.event_at,
-        id: entry.id,
-        stageId: link?.stage_id ?? null,
-        stopId: link?.stop_id ?? null,
-        title: entry.title,
-        type: entry.type,
-      }
+    entries: [
+      ...entriesResult.data.map((entry) => {
+        const link = linksByEntryId.get(entry.id)
+        return {
+          body: entry.body,
+          eventAt: entry.event_at,
+          id: entry.id,
+          stageId: link?.stage_id ?? null,
+          stopId: link?.stop_id ?? null,
+          title: entry.title,
+          type: entry.type,
+        }
+      }),
+      ...localEntries.map((entry) => {
+        const link = localLinksByEntryId.get(entry.id)
+        return {
+          body: entry.body,
+          eventAt: entry.eventAt,
+          id: entry.id,
+          stageId: link?.stageId ?? null,
+          stopId: link?.stopId ?? null,
+          title: entry.title,
+          type: entry.type,
+        }
+      }),
+    ].sort((left, right) => {
+      const leftTime =
+        left.eventAt === null ? 0 : new Date(left.eventAt).valueOf()
+      const rightTime =
+        right.eventAt === null ? 0 : new Date(right.eventAt).valueOf()
+      return rightTime - leftTime
     }),
     endsAt: journeyResult.data.ends_at,
     guides: guidesResult.data,
@@ -151,12 +189,12 @@ export async function addJourneyStage(
 
 export async function addJourneyStop(
   journeyId: string,
-  stageId: string,
+  stageId: string | null,
   title: string,
 ): Promise<string> {
   const { data, error } = await getSupabaseClient().rpc('create_journey_stop', {
     p_journey_id: journeyId,
-    p_stage_id: stageId,
+    p_stage_id: stageId as never,
     p_title: title,
   })
   if (error !== null) {

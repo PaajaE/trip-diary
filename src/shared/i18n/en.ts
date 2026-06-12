@@ -176,6 +176,11 @@ export const en = {
       '{{gps}} of {{total}} photos already have GPS and {{time}} of {{total}} have a capture time.',
     photoInsightsTitle: 'What the photos already told us',
     photoStopFallback: 'Place from photos',
+    currentLocationFailed:
+      'Your current location could not be loaded. Please try again or pick a point on the map.',
+    currentLocationLoading: 'Getting current location…',
+    currentLocationUnavailable:
+      'This browser cannot provide your current location.',
     pickOnMap: 'Pick the place by clicking on the map.',
     placeDescription:
       'Pin the next stop directly on the map without typing coordinates by hand.',
@@ -185,6 +190,7 @@ export const en = {
     placeSuggestionLoading: 'Looking up a natural place name from the map…',
     route: 'Journey route',
     routeEyebrow: 'Map and timeline',
+    useCurrentLocation: 'Use current location',
     signInRequired: 'Sign in before creating a journey.',
     saveMemory: 'Save memory into trip',
     savePlace: 'Save place',

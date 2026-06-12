@@ -251,7 +251,7 @@ function PlaceCaptureCard({
     try {
       const stopId = await addJourneyStop(
         journey.id,
-        stageId === '' ? (journey.stages[0]?.id ?? '') : stageId,
+        stageId === '' ? null : stageId,
         title,
       )
       await setJourneyStopLocation(

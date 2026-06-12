@@ -177,6 +177,10 @@ export const cs: TranslationResources = {
       '{{gps}} z {{total}} fotek už má GPS a {{time}} z {{total}} má čas pořízení.',
     photoInsightsTitle: 'Co se povedlo najít ve fotkách',
     photoStopFallback: 'Místo z fotek',
+    currentLocationFailed:
+      'Nepodařilo se získat aktuální polohu. Zkus to prosím znovu nebo vyber bod na mapě.',
+    currentLocationLoading: 'Zjišťuji aktuální polohu…',
+    currentLocationUnavailable: 'Tento prohlížeč neumí předat aktuální polohu.',
     pickOnMap: 'Vyber místo kliknutím do mapy.',
     placeDescription:
       'Připíchni další zastávku rovnou do mapy. Bez ručního vypisování souřadnic.',
@@ -186,6 +190,7 @@ export const cs: TranslationResources = {
     placeSuggestionLoading: 'Hledám přirozený název místa podle mapy…',
     route: 'Průběh cesty',
     routeEyebrow: 'Mapa a timeline',
+    useCurrentLocation: 'Použít aktuální polohu',
     signInRequired: 'Před vytvořením cesty se přihlaste.',
     saveMemory: 'Uložit vzpomínku do cesty',
     savePlace: 'Uložit místo',

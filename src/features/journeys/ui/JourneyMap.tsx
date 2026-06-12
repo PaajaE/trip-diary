@@ -14,7 +14,11 @@ export function JourneyMap({ stops }: JourneyMapProps) {
   const mappedStops = useMemo(
     () =>
       stops.filter(
-        (stop) => stop.mapLatitude !== null && stop.mapLongitude !== null,
+        (stop) =>
+          stop.mapLatitude !== null &&
+          stop.mapLongitude !== null &&
+          Number.isFinite(stop.mapLatitude) &&
+          Number.isFinite(stop.mapLongitude),
       ),
     [stops],
   )

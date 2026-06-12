@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Camera } from 'lucide-react'
+import { Camera, MapPin } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -8,6 +8,7 @@ import {
   linkEntryToJourney,
   setJourneyStopLocation,
 } from '@/entities/journey/api/journey.repository'
+import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { z } from 'zod'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { createEntrySchema } from '@/entities/entry/model/entry'
@@ -62,6 +63,7 @@ export function CreateJourneyMemoryForm({
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
   const [linkError, setLinkError] = useState<string | null>(null)
+  const [locatingUser, setLocatingUser] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const form = useForm<CreateJourneyMemoryInput>({
     defaultValues: {
@@ -187,6 +189,36 @@ export function CreateJourneyMemoryForm({
     }
   }
 
+  async function handleUseCurrentLocation() {
+    if (!('geolocation' in navigator)) {
+      setLinkError(t('journey.currentLocationUnavailable'))
+      return
+    }
+
+    setLinkError(null)
+    setLocatingUser(true)
+
+    try {
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            maximumAge: 120000,
+            timeout: 12000,
+          })
+        },
+      )
+      handlePointSelected({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      })
+    } catch {
+      setLinkError(t('journey.currentLocationFailed'))
+    } finally {
+      setLocatingUser(false)
+    }
+  }
+
   const isNativePlatform = supportsNativePhotoSelection()
   const supportsFileSystemPicker = supportsFileSystemPhotoSelection()
 
@@ -202,17 +234,11 @@ export function CreateJourneyMemoryForm({
     })
     await addLocalPhotos(creatorId, entry.id, photos)
 
-    if (!(await canAutomaticallySync())) {
-      setLinkError(t('journey.memoryNeedsConnection'))
-      return
-    }
-
-    await syncPendingOperations()
     let stopId: string | null = null
-    if (selectedPoint !== null && input.stageId !== '') {
+    if (selectedPoint !== null) {
       stopId = await addJourneyStop(
         journey.id,
-        input.stageId,
+        input.stageId === '' ? null : input.stageId,
         input.title === '' ? t('journey.photoStopFallback') : input.title,
       )
       await setJourneyStopLocation(
@@ -221,6 +247,21 @@ export function CreateJourneyMemoryForm({
         selectedPoint.longitude,
       )
     }
+
+    await saveLocalJourneyLink({
+      creatorId,
+      entryId: entry.id,
+      journeyId: journey.id,
+      stageId: input.stageId === '' ? null : input.stageId,
+      stopId,
+    })
+
+    if (!(await canAutomaticallySync())) {
+      setLinkError(t('journey.memoryNeedsConnection'))
+      return
+    }
+
+    await syncPendingOperations()
 
     await linkEntryToJourney({
       creatorId,
@@ -362,6 +403,19 @@ export function CreateJourneyMemoryForm({
           </div>
 
           <div className="mt-5 space-y-4">
+            <div className="flex flex-wrap gap-3">
+              <Button
+                disabled={locatingUser}
+                onClick={() => void handleUseCurrentLocation()}
+                type="button"
+                variant="secondary"
+              >
+                <MapPin aria-hidden="true" size={16} />
+                {locatingUser
+                  ? t('journey.currentLocationLoading')
+                  : t('journey.useCurrentLocation')}
+              </Button>
+            </div>
             <LocationPickerMap
               heightClassName="h-64"
               onSelectPoint={handlePointSelected}

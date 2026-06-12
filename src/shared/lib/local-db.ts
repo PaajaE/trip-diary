@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import type { Entry } from '@/entities/entry/model/entry'
+import type { LocalJourneyLink } from '@/entities/journey/model/local-journey-link'
 import type {
   LocalPhoto,
   LocalPhotoVariant,
@@ -8,6 +9,7 @@ import type { SyncOperation } from '@/shared/sync/sync-operation'
 
 class TripDiaryDatabase extends Dexie {
   entries!: EntityTable<Entry, 'id'>
+  journeyLinks!: EntityTable<LocalJourneyLink, 'entryId'>
   photos!: EntityTable<LocalPhoto, 'id'>
   photoVariants!: EntityTable<LocalPhotoVariant, 'id'>
   syncOperations!: EntityTable<SyncOperation, 'id'>
@@ -30,6 +32,13 @@ class TripDiaryDatabase extends Dexie {
     })
     this.version(4).stores({
       entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt',
+    })
+    this.version(5).stores({
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
       photos: 'id, entryId, creatorId, syncStatus, createdAt',
       photoVariants: 'id, photoId, kind, createdAt',
       syncOperations: 'id, creatorId, status, createdAt',
