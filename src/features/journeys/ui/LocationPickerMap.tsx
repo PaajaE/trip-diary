@@ -27,7 +27,10 @@ export function LocationPickerMap({
     () =>
       stops.filter(
         (stop): stop is MappedStop =>
-          stop.mapLatitude !== null && stop.mapLongitude !== null,
+          stop.mapLatitude !== null &&
+          stop.mapLongitude !== null &&
+          Number.isFinite(stop.mapLatitude) &&
+          Number.isFinite(stop.mapLongitude),
       ),
     [stops],
   )
@@ -79,7 +82,11 @@ export function LocationPickerMap({
     }
 
     const draftMarker = new maplibregl.Marker({ color: '#b85f42' })
-    if (selectedPoint !== null) {
+    if (
+      selectedPoint !== null &&
+      Number.isFinite(selectedPoint.latitude) &&
+      Number.isFinite(selectedPoint.longitude)
+    ) {
       draftMarker
         .setLngLat([selectedPoint.longitude, selectedPoint.latitude])
         .addTo(map)

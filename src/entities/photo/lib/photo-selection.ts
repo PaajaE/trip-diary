@@ -65,19 +65,21 @@ function extractMetadataOverride(
 ): PhotoMetadataOverride | undefined {
   const gps = parseNativeExifGps(metadata.exif)
   const capturedAt = normalizeCapturedAt(metadata.creationDate)
+  const latitude = isValidLatitude(gps.latitude) ? gps.latitude : undefined
+  const longitude = isValidLongitude(gps.longitude) ? gps.longitude : undefined
 
   if (
     capturedAt === undefined &&
-    gps.latitude === undefined &&
-    gps.longitude === undefined
+    latitude === undefined &&
+    longitude === undefined
   ) {
     return undefined
   }
 
   return {
     ...(capturedAt === undefined ? {} : { capturedAt }),
-    ...(gps.latitude === undefined ? {} : { latitude: gps.latitude }),
-    ...(gps.longitude === undefined ? {} : { longitude: gps.longitude }),
+    ...(latitude === undefined ? {} : { latitude }),
+    ...(longitude === undefined ? {} : { longitude }),
   }
 }
 
@@ -235,6 +237,14 @@ function applyCoordinateReference(
   }
 
   return value
+}
+
+function isValidLatitude(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value) && Math.abs(value) <= 90
+}
+
+function isValidLongitude(value: number | undefined): value is number {
+  return value !== undefined && Number.isFinite(value) && Math.abs(value) <= 180
 }
 
 function safeJsonParse(value: string): unknown {

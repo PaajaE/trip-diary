@@ -139,10 +139,8 @@ export function CreateJourneyMemoryForm({
         form.setValue('eventAt', firstCapturedAt, { shouldDirty: true })
       }
 
-      const firstGps = processed.find(
-        (photo) => photo.latitude !== null && photo.longitude !== null,
-      )
-      if (firstGps?.latitude != null && firstGps.longitude != null) {
+      const firstGps = processed.find(hasValidGpsPoint)
+      if (firstGps !== undefined) {
         handlePointSelected({
           latitude: firstGps.latitude,
           longitude: firstGps.longitude,
@@ -218,9 +216,7 @@ export function CreateJourneyMemoryForm({
     onCreated()
   }
 
-  const photosWithGps = detectedPhotos.filter(
-    (photo) => photo.latitude !== null && photo.longitude !== null,
-  ).length
+  const photosWithGps = detectedPhotos.filter(hasValidGpsPoint).length
   const photosWithTime = detectedPhotos.filter(
     (photo) => photo.capturedAt !== null,
   ).length
@@ -359,4 +355,18 @@ export function CreateJourneyMemoryForm({
       </Button>
     </form>
   )
+}
+
+function hasValidGpsPoint(
+  photo: Pick<ProcessedPhoto, 'latitude' | 'longitude'>,
+): photo is ProcessedPhoto & { latitude: number; longitude: number } {
+  return isFiniteLatitude(photo.latitude) && isFiniteLongitude(photo.longitude)
+}
+
+function isFiniteLatitude(value: number | null): value is number {
+  return value !== null && Number.isFinite(value) && Math.abs(value) <= 90
+}
+
+function isFiniteLongitude(value: number | null): value is number {
+  return value !== null && Number.isFinite(value) && Math.abs(value) <= 180
 }
