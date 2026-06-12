@@ -133,6 +133,8 @@ export const cs: TranslationResources = {
     captureEyebrow: 'Zaznamenat cestu',
     captureTitle: 'Přidej další moment bez technických polí',
     create: 'Vytvořit cestu',
+    createError:
+      'Cestu se nepodařilo vytvořit. Zkontroluj připojení a zkus to znovu.',
     createTitle: 'Naplánovat cestu',
     dateUnknown: 'Datum doplníš později',
     emptyRoute:

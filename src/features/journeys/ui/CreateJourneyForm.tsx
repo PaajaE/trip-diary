@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { createJourney } from '@/entities/journey/api/journey.repository'
@@ -21,13 +22,19 @@ export function CreateJourneyForm({
   spaceId,
 }: CreateJourneyFormProps) {
   const { t } = useTranslation()
+  const [submitError, setSubmitError] = useState<string | null>(null)
   const form = useForm<CreateJourneyInput>({
     defaultValues: { endsAt: null, startsAt: null, summary: '', title: '' },
     resolver: zodResolver(createJourneySchema),
   })
 
   async function handleSubmit(input: CreateJourneyInput) {
-    onCreated(await createJourney(creatorId, spaceId, input))
+    setSubmitError(null)
+    try {
+      onCreated(await createJourney(creatorId, spaceId, input))
+    } catch {
+      setSubmitError(t('journey.createError'))
+    }
   }
 
   return (
@@ -71,6 +78,11 @@ export function CreateJourneyForm({
       >
         {t('journey.create')}
       </Button>
+      {submitError === null ? null : (
+        <p className="text-sm text-destructive" role="alert">
+          {submitError}
+        </p>
+      )}
     </form>
   )
 }

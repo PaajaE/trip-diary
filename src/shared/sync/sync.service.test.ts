@@ -33,8 +33,8 @@ function createAssignmentClient(input: {
       args: {
         p_entry_id: string
         p_journey_id: string
-        p_stage_id: string | null
-        p_stop_id: string | null
+        p_stage_id?: string
+        p_stop_id?: string
       },
     ) => {
       if (input.failingEntryIds?.has(args.p_entry_id) === true) {
@@ -46,11 +46,11 @@ function createAssignmentClient(input: {
         creator_id: input.userId,
         entry_id: args.p_entry_id,
         journey_id: args.p_journey_id,
-        stage_id: args.p_stage_id,
-        stop_id: args.p_stop_id,
+        stage_id: args.p_stage_id ?? null,
+        stop_id: args.p_stop_id ?? null,
       })
       return Promise.resolve({
-        data: args.p_stop_id,
+        data: args.p_stop_id ?? null,
         error: null,
       })
     },

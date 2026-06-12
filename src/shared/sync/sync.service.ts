@@ -193,15 +193,23 @@ async function syncJourneyAssignment(
   operation: JourneyAssignmentOperation,
 ): Promise<void> {
   const client = getSupabaseClient()
-  const { error } = await client.rpc('upsert_journey_moment_assignment', {
+  const rpcInput = {
     p_entry_id: operation.entryId,
     p_journey_id: operation.journeyId,
-    p_latitude: operation.latitude,
-    p_location_title: operation.locationTitle,
-    p_longitude: operation.longitude,
-    p_stage_id: operation.stageId,
-    p_stop_id: operation.stopId,
-  })
+    ...(operation.latitude === null ? {} : { p_latitude: operation.latitude }),
+    ...(operation.locationTitle === null
+      ? {}
+      : { p_location_title: operation.locationTitle }),
+    ...(operation.longitude === null
+      ? {}
+      : { p_longitude: operation.longitude }),
+    ...(operation.stageId === null ? {} : { p_stage_id: operation.stageId }),
+    ...(operation.stopId === null ? {} : { p_stop_id: operation.stopId }),
+  }
+  const { error } = await client.rpc(
+    'upsert_journey_moment_assignment',
+    rpcInput,
+  )
 
   if (error !== null) {
     throw error

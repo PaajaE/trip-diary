@@ -132,6 +132,8 @@ export const en = {
     captureEyebrow: 'Capture the trip',
     captureTitle: 'Add the next moment without technical fields',
     create: 'Create journey',
+    createError:
+      'The journey could not be created. Check your connection and try again.',
     createTitle: 'Plan a journey',
     dateUnknown: 'Add dates later',
     emptyRoute:

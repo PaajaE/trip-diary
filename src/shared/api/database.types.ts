@@ -844,13 +844,13 @@ export type Database = {
         Args: {
           p_entry_id: string
           p_journey_id: string
-          p_latitude?: number | null
-          p_location_title?: string | null
-          p_longitude?: number | null
-          p_stage_id?: string | null
-          p_stop_id?: string | null
+          p_latitude?: number
+          p_location_title?: string
+          p_longitude?: number
+          p_stage_id?: string
+          p_stop_id?: string
         }
-        Returns: string | null
+        Returns: string
       }
     }
     Enums: {

@@ -122,15 +122,15 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   const serverStopIds = new Set(serverStops.map((stop) => stop.id))
   const localStops = localLinks.flatMap((link) =>
     link.stopId === null ||
-    link.latitude === null ||
-    link.longitude === null ||
+    !Number.isFinite(link.latitude) ||
+    !Number.isFinite(link.longitude) ||
     serverStopIds.has(link.stopId)
       ? []
       : [
           {
             id: link.stopId,
-            mapLatitude: link.latitude,
-            mapLongitude: link.longitude,
+            mapLatitude: link.latitude ?? null,
+            mapLongitude: link.longitude ?? null,
             notes: '',
             stageId: link.stageId,
             status: 'visited' as const,
