@@ -20,9 +20,11 @@ export type LocalPhoto = z.infer<typeof localPhotoSchema>
 export interface LocalPhotoVariant {
   blob: Blob
   createdAt: string
+  ext: 'jpg' | 'webp'
   height: number
   id: string
   kind: PhotoVariantKind
+  mimeType: 'image/jpeg' | 'image/webp'
   photoId: string
   sizeBytes: number
   width: number

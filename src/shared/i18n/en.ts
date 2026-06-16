@@ -109,6 +109,8 @@ export const en = {
     photoPickerHint:
       'On mobile, we open the gallery directly and try to bring over time and location automatically.',
     photoPickerLoading: 'Opening gallery…',
+    photoProcessingFailed:
+      'The memory was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
     filePickerAction: 'Choose photos from files',
     filePickerFallbackHint:
       'If the browser does not support the system file picker, the regular photo chooser still stays available.',
@@ -133,6 +135,8 @@ export const en = {
       synced: 'Synchronized',
       syncing: 'Synchronizing…',
     },
+    photosFailedNotice:
+      'The memory was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
   },
   journey: {
     add: 'Add',
@@ -270,6 +274,10 @@ export const en = {
       'No location could be read from the photos. Pick it with one click on the map.',
     photoInsightsError:
       'Photo metadata could not be read, but you can still continue and choose the place manually on the map.',
+    photoProcessingFailed:
+      'The moment was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
+    photosFailedNotice:
+      'The moment was saved, but the photos could not be processed on this device. You can add the photos later from another device.',
     photoInsightsLoading: 'Reading time and GPS from the selected photos…',
     photoInsightsSummary:
       '{{gps}} of {{total}} photos already have GPS and {{time}} of {{total}} have a capture time.',

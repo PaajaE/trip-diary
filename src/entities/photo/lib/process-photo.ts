@@ -4,8 +4,10 @@ import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessedVariant {
   blob: Blob
+  ext: 'jpg' | 'webp'
   height: number
   kind: PhotoVariantKind
+  mimeType: 'image/jpeg' | 'image/webp'
   width: number
 }
 
@@ -108,7 +110,11 @@ async function extractPhotoMetadata(
 }
 
 function processVariants(file: File): Promise<ProcessedVariant[]> {
-  return processVariantsInWorker(file).catch(() => processVariantsOnPage(file))
+  try {
+    return processVariantsInWorker(file).catch(() => processVariantsOnPage(file))
+  } catch {
+    return processVariantsOnPage(file)
+  }
 }
 
 function processVariantsInWorker(file: File): Promise<ProcessedVariant[]> {
@@ -159,10 +165,13 @@ async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
           throw new Error('Image canvas is unavailable')
         }
         context.drawImage(source, 0, 0, dimensions.width, dimensions.height)
+        const encoded = await canvasToEncodedBlob(canvas, variant.quality)
         return {
-          blob: await canvasToBlob(canvas, variant.quality),
+          blob: encoded.blob,
           ...dimensions,
+          ext: encoded.ext,
           kind: variant.kind,
+          mimeType: encoded.mimeType,
         }
       }),
     )
@@ -171,20 +180,44 @@ async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
   }
 }
 
+async function canvasToEncodedBlob(
+  canvas: HTMLCanvasElement,
+  quality: number,
+): Promise<{ blob: Blob; ext: 'jpg' | 'webp'; mimeType: 'image/jpeg' | 'image/webp' }> {
+  // iOS/WKWebView commonly can't encode WebP via canvas. Prefer WebP, but
+  // fall back to JPEG so saving moments on mobile doesn't fail.
+  const webp = await canvasToBlob(canvas, 'image/webp', quality).catch(
+    () => null,
+  )
+  if (webp !== null) {
+    return { blob: webp, ext: 'webp', mimeType: 'image/webp' }
+  }
+
+  const jpeg = await canvasToBlob(canvas, 'image/jpeg', quality).catch(
+    () => null,
+  )
+  if (jpeg !== null) {
+    return { blob: jpeg, ext: 'jpg', mimeType: 'image/jpeg' }
+  }
+
+  throw new Error('Photo variant could not be encoded')
+}
+
 function canvasToBlob(
   canvas: HTMLCanvasElement,
+  mimeType: 'image/jpeg' | 'image/webp',
   quality: number,
 ): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (blob === null) {
-          reject(new Error('Photo variant could not be encoded'))
+          reject(new Error(`Canvas failed to encode ${mimeType}`))
           return
         }
         resolve(blob)
       },
-      'image/webp',
+      mimeType,
       quality,
     )
   })

@@ -39,10 +39,11 @@ import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 
 interface JourneyPageProps {
   journeyId: string
+  notice?: 'photos_failed'
   shareUrl?: string
 }
 
-export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
+export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
   const { t } = useTranslation()
   const { user } = useSession()
   const [guideFormOpen, setGuideFormOpen] = useState(false)
@@ -94,6 +95,11 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
         <p className="mt-16 text-muted">{t('journey.notFound')}</p>
       ) : (
         <>
+          {notice === 'photos_failed' ? (
+            <p className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+              {t('journey.photosFailedNotice')}
+            </p>
+          ) : null}
           <header className="mt-10 overflow-hidden rounded-[2rem] border border-border bg-surface shadow-soft">
             <div className="bg-[radial-gradient(circle_at_top_left,_rgba(184,95,66,0.18),_transparent_36%),linear-gradient(135deg,_rgba(40,88,69,0.12),_rgba(255,253,248,0.8))] px-5 py-8 sm:px-8 sm:py-10">
               <p className="text-sm font-medium text-accent">

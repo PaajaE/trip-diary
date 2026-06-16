@@ -24,7 +24,7 @@ import { Input } from '@/shared/ui/Input'
 
 interface CreateEntryFormProps {
   creatorId: string
-  onCreated: (entryId: string) => void
+  onCreated: (entryId: string, meta?: { photosFailed?: boolean }) => void
   spaceId: string
 }
 
@@ -52,7 +52,15 @@ export function CreateEntryForm({
 
   async function handleSubmit(input: CreateEntryInput) {
     const entry = await createLocalEntry(creatorId, spaceId, input)
-    await addLocalPhotos(creatorId, entry.id, photos)
+    let photosFailed = false
+    try {
+      await addLocalPhotos(creatorId, entry.id, photos)
+    } catch {
+      // Don't block saving the moment if the browser can't process photos.
+      // The user can retry with different photos or proceed without them.
+      setPhotoError(t('entry.photoProcessingFailed'))
+      photosFailed = true
+    }
     try {
       if (await canAutomaticallySync()) {
         await syncPendingOperations()
@@ -60,7 +68,7 @@ export function CreateEntryForm({
     } catch {
       // The local draft is safe and can be synchronized later.
     }
-    onCreated(entry.id)
+    onCreated(entry.id, { photosFailed })
   }
 
   async function handleNativePhotoSelection() {

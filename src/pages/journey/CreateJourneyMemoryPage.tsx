@@ -56,14 +56,19 @@ export function CreateJourneyMemoryPage({
         <CreateJourneyMemoryForm
           creatorId={user.id}
           journey={journeyQuery.data}
-          onCreated={() => {
+          onCreated={(meta) => {
             void queryClient.invalidateQueries({
               queryKey: ['journeys', journeyId],
             })
             void queryClient.invalidateQueries({
               queryKey: ['journey-gallery'],
             })
-            void navigate({ params: { journeyId }, to: '/j/$journeyId' })
+            void navigate({
+              params: { journeyId },
+              search:
+                meta?.photosFailed === true ? { notice: 'photos_failed' } : {},
+              to: '/j/$journeyId',
+            })
           }}
           spaceId={journeyQuery.data.spaceId}
         />

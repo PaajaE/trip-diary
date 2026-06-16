@@ -33,8 +33,13 @@ export function CreateEntryPage() {
       ) : (
         <CreateEntryForm
           creatorId={user.id}
-          onCreated={(entryId) =>
-            void navigate({ to: '/e/$entryId', params: { entryId } })
+          onCreated={(entryId, meta) =>
+            void navigate({
+              params: { entryId },
+              search:
+                meta?.photosFailed === true ? { notice: 'photos_failed' } : {},
+              to: '/e/$entryId',
+            })
           }
           spaceId={spacesQuery.activeSpace.id}
         />

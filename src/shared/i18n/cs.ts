@@ -110,6 +110,8 @@ export const cs: TranslationResources = {
     photoPickerHint:
       'Na mobilu otevřeme galerii a zkusíme převzít čas i polohu automaticky.',
     photoPickerLoading: 'Otevírám galerii…',
+    photoProcessingFailed:
+      'Vzpomínka se uložila, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     filePickerAction: 'Vybrat fotky ze souborů',
     filePickerFallbackHint:
       'Když prohlížeč neumí systémový výběr souborů, zůstává k dispozici běžný výběr fotek.',
@@ -134,6 +136,8 @@ export const cs: TranslationResources = {
       synced: 'Synchronizováno',
       syncing: 'Synchronizuje se…',
     },
+    photosFailedNotice:
+      'Vzpomínka se uložila, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
   },
   journey: {
     add: 'Přidat',
@@ -270,6 +274,10 @@ export const cs: TranslationResources = {
       'Ve fotkách se nepodařilo najít polohu. Vyber ji jedním kliknutím do mapy.',
     photoInsightsError:
       'Metadata z fotek se nepodařilo přečíst, ale můžeš pokračovat a místo doplnit ručně na mapě.',
+    photoProcessingFailed:
+      'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
+    photosFailedNotice:
+      'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Fotky můžeš přidat později z jiného zařízení.',
     photoInsightsLoading: 'Čtu čas a GPS z vybraných fotek…',
     photoInsightsSummary:
       '{{gps}} z {{total}} fotek už má GPS a {{time}} z {{total}} má čas pořízení.',

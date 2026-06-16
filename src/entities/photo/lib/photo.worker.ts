@@ -12,6 +12,19 @@ const variants = [
   { kind: 'large', maxWidth: 1800, quality: 0.82 },
 ] as const
 
+async function encodeVariant(
+  canvas: OffscreenCanvas,
+  quality: number,
+): Promise<{ blob: Blob; ext: 'jpg' | 'webp'; mimeType: 'image/jpeg' | 'image/webp' }> {
+  try {
+    const blob = await canvas.convertToBlob({ quality, type: 'image/webp' })
+    return { blob, ext: 'webp', mimeType: 'image/webp' }
+  } catch {
+    const blob = await canvas.convertToBlob({ quality, type: 'image/jpeg' })
+    return { blob, ext: 'jpg', mimeType: 'image/jpeg' }
+  }
+}
+
 self.onmessage = async (event: MessageEvent<ProcessPhotoMessage>) => {
   const { file, requestId } = event.data
 
@@ -21,8 +34,10 @@ self.onmessage = async (event: MessageEvent<ProcessPhotoMessage>) => {
     }).catch(() => createImageBitmap(file))
     const results: {
       blob: Blob
+      ext: 'jpg' | 'webp'
       height: number
       kind: PhotoVariantKind
+      mimeType: 'image/jpeg' | 'image/webp'
       width: number
     }[] = []
 
@@ -34,13 +49,13 @@ self.onmessage = async (event: MessageEvent<ProcessPhotoMessage>) => {
         throw new Error('Image canvas is unavailable')
       }
       context.drawImage(source, 0, 0, dimensions.width, dimensions.height)
+      const encoded = await encodeVariant(canvas, variant.quality)
       results.push({
-        blob: await canvas.convertToBlob({
-          quality: variant.quality,
-          type: 'image/webp',
-        }),
+        blob: encoded.blob,
         ...dimensions,
+        ext: encoded.ext,
         kind: variant.kind,
+        mimeType: encoded.mimeType,
       })
     }
 

@@ -10,10 +10,11 @@ import { Button } from '@/shared/ui/Button'
 
 interface EntryPageProps {
   entryId: string
+  notice?: 'photos_failed'
   shareUrl?: string
 }
 
-export function EntryPage({ entryId, shareUrl }: EntryPageProps) {
+export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
   const { t } = useTranslation()
   const entryQuery = useQuery({
     queryKey: ['entries', entryId],
@@ -34,6 +35,11 @@ export function EntryPage({ entryId, shareUrl }: EntryPageProps) {
         <p className="mt-16 text-muted">{t('entry.notFound')}</p>
       ) : (
         <article className="mt-16">
+          {notice === 'photos_failed' ? (
+            <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+              {t('entry.photosFailedNotice')}
+            </p>
+          ) : null}
           <p className="text-sm text-accent">{t(`entry.type.${entry.type}`)}</p>
           <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em]">
             {entry.title}

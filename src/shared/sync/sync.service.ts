@@ -408,7 +408,7 @@ async function declareAndUploadVariant(
   variant: LocalPhotoVariant,
   creatorId: string,
 ): Promise<void> {
-  const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.webp`
+  const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.${variant.ext}`
   const client = getSupabaseClient()
   const { error: declarationError } = await client
     .from('photo_variants')
@@ -417,7 +417,7 @@ async function declareAndUploadVariant(
         byte_size: variant.sizeBytes,
         creator_id: creatorId,
         height: variant.height,
-        mime_type: 'image/webp',
+        mime_type: variant.mimeType,
         photo_id: variant.photoId,
         storage_path: storagePath,
         variant: variant.kind,
@@ -432,7 +432,7 @@ async function declareAndUploadVariant(
   const { error: uploadError } = await client.storage
     .from('photos')
     .upload(storagePath, variant.blob, {
-      contentType: 'image/webp',
+      contentType: variant.mimeType,
       upsert: false,
     })
   if (

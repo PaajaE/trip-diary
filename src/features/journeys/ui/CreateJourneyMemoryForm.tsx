@@ -31,7 +31,7 @@ import { Input } from '@/shared/ui/Input'
 interface CreateJourneyMemoryFormProps {
   creatorId: string
   journey: JourneyDetail
-  onCreated: () => void
+  onCreated: (meta?: { photosFailed?: boolean }) => void
   spaceId: string
 }
 
@@ -269,7 +269,6 @@ export function CreateJourneyMemoryForm({
       type: input.type,
       visibility: input.visibility,
     })
-    await addLocalPhotos(creatorId, entry.id, photos)
 
     const stopId = selectedPoint === null ? null : crypto.randomUUID()
 
@@ -288,7 +287,16 @@ export function CreateJourneyMemoryForm({
       stageId: input.stageId === '' ? null : input.stageId,
       stopId,
     })
-    onCreated()
+
+    let photosFailed = false
+    try {
+      await addLocalPhotos(creatorId, entry.id, photos)
+    } catch {
+      // Keep the moment in the journey even if photo processing fails.
+      setLinkError(t('journey.photoProcessingFailed'))
+      photosFailed = true
+    }
+    onCreated({ photosFailed })
 
     if (await canAutomaticallySync()) {
       void syncPendingOperations().catch(() => {

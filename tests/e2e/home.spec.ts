@@ -4,7 +4,7 @@ test('shows the primary capture action', async ({ page }) => {
   await page.goto('/')
 
   await expect(
-    page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
+    page.getByRole('main').getByRole('link', { name: 'Rychlá poznámka' }),
   ).toBeVisible()
 })
 
@@ -23,9 +23,7 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await expect(
     page.getByRole('heading', { name: new RegExp(username) }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('main').getByRole('link', { name: 'Přidat vzpomínku' }),
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Rychlá poznámka' })).toBeVisible()
 
   const familyHandle = `family-${crypto.randomUUID().slice(0, 8)}`
   await page.goto('/spaces')

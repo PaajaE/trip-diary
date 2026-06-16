@@ -22,6 +22,22 @@ export function LocationPickerMap({
   stops,
 }: LocationPickerMapProps) {
   const { t } = useTranslation()
+
+  if (import.meta.env.VITE_E2E === '1') {
+    return (
+      <div>
+        <div
+          aria-label={t('journey.mapPicker')}
+          className={`${heightClassName} flex items-center justify-center overflow-hidden rounded-xl border border-border bg-surface text-sm text-muted`}
+          role="region"
+        >
+          {t('journey.mapPicker')}
+        </div>
+        <p className="mt-3 text-sm text-muted">{t('journey.mapPickerHelp')}</p>
+      </div>
+    )
+  }
+
   const containerRef = useRef<HTMLDivElement>(null)
   const mappedStops = useMemo(
     () =>
