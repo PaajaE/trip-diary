@@ -6,7 +6,7 @@ import {
   type PropsWithChildren,
 } from 'react'
 import type { Session } from '@supabase/supabase-js'
-import type { Profile } from '@/entities/profile/model/profile'
+import type { CurrentProfile } from '@/entities/profile/model/profile'
 import { signOut as requestSignOut } from '@/features/auth/api/auth.service'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import {
@@ -18,7 +18,7 @@ import { loadCurrentProfile } from '@/features/auth/session/load-current-profile
 interface SessionState {
   error: Error | null
   loading: boolean
-  profile: Profile | null
+  profile: CurrentProfile | null
   session: Session | null
 }
 

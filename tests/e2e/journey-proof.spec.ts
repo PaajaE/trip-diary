@@ -34,10 +34,10 @@ test('journey photo workflow stays visible and organized', async ({
 
   await page
     .locator('header')
-    .getByRole('link', { name: 'Přidat fotky', exact: true })
+    .getByRole('link', { name: 'Přidat moment', exact: true })
     .click()
   await expect(
-    page.getByRole('heading', { name: 'Přidat vzpomínku do cesty' }),
+    page.getByRole('heading', { name: 'Přidat moment do cesty' }),
   ).toBeVisible()
   await page.getByLabel('Název', { exact: true }).fill(momentTitle)
   await page
@@ -54,7 +54,7 @@ test('journey photo workflow stays visible and organized', async ({
     path: 'test-results/proof-2-photo-review.png',
   })
 
-  await page.getByRole('button', { name: 'Uložit vzpomínku do cesty' }).click()
+  await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect(page.getByRole('heading', { name: momentTitle })).toBeVisible()
   await expect(
@@ -79,6 +79,7 @@ test('journey photo workflow stays visible and organized', async ({
     path: 'test-results/proof-3-saved-gallery.png',
   })
 
+  await page.getByRole('button', { name: 'Organizovat cestu' }).click()
   await page.getByLabel('Název etapy').fill(stageTitle)
   await page.getByRole('button', { name: 'Přidat etapu' }).click()
   await expect(page.getByRole('heading', { name: stageTitle })).toBeVisible()

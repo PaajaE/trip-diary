@@ -7,8 +7,16 @@ import {
   listLocalJourneyLinks,
   saveLocalJourneyLink,
 } from '@/entities/journey/api/local-journey-link.repository'
+import {
+  getJourneySnapshot,
+  saveJourneySnapshot,
+  updateJourneySnapshotContribution,
+} from '@/entities/journey/api/local-journey-cache.repository'
+import { applyLocalJourneyDeltas } from '@/entities/journey/api/journey-local-merge'
+import { createLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
+import { isBrowserOnline } from '@/shared/lib/network'
 import { createPublicSlug } from '@/shared/lib/slug'
 
 export async function createJourney(
@@ -16,27 +24,60 @@ export async function createJourney(
   spaceId: string,
   input: CreateJourneyInput,
 ): Promise<string> {
-  const id = crypto.randomUUID()
-  const { error } = await getSupabaseClient()
-    .from('journeys')
-    .insert({
-      creator_id: creatorId,
-      ends_at: input.endsAt,
-      id,
-      slug: createPublicSlug(input.title, id),
-      space_id: spaceId,
-      starts_at: input.startsAt,
-      summary: input.summary,
-      title: input.title,
-      visibility: 'public',
-    })
-  if (error !== null) {
-    throw error
+  if (!isBrowserOnline()) {
+    return createLocalJourney(creatorId, spaceId, input)
   }
-  return id
+
+  const id = crypto.randomUUID()
+  try {
+    const { error } = await getSupabaseClient()
+      .from('journeys')
+      .insert({
+        creator_id: creatorId,
+        ends_at: input.endsAt,
+        id,
+        slug: createPublicSlug(input.title, id),
+        space_id: spaceId,
+        starts_at: input.startsAt,
+        summary: input.summary,
+        title: input.title,
+        visibility: 'public',
+      })
+    if (error !== null) {
+      throw error
+    }
+    return id
+  } catch {
+    return createLocalJourney(creatorId, spaceId, input)
+  }
 }
 
 export async function getJourney(id: string): Promise<JourneyDetail | null> {
+  if (isBrowserOnline()) {
+    try {
+      const journey = await fetchJourneyFromRemote(id)
+      if (journey === null) {
+        return null
+      }
+      const canContribute = await resolveCanContributeForSnapshot(id)
+      await saveJourneySnapshot(journey, canContribute)
+      return journey
+    } catch {
+      // Fall back to the last cached snapshot when the remote read fails.
+    }
+  }
+
+  const snapshot = await getJourneySnapshot(id)
+  if (snapshot === null) {
+    return null
+  }
+
+  return applyLocalJourneyDeltas(snapshot.journey)
+}
+
+async function fetchJourneyFromRemote(
+  id: string,
+): Promise<JourneyDetail | null> {
   const client = getSupabaseClient()
   const [
     journeyResult,
@@ -188,14 +229,40 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   })
 }
 
-export async function canContributeToJourney(id: string): Promise<boolean> {
+async function fetchCanContributeFromRemote(id: string): Promise<boolean> {
   const { data, error } = await getSupabaseClient().rpc('is_journey_member', {
     p_journey_id: id,
   })
   if (error !== null) {
-    return false
+    throw error
   }
   return data
+}
+
+async function resolveCanContributeForSnapshot(
+  journeyId: string,
+): Promise<boolean> {
+  try {
+    return await fetchCanContributeFromRemote(journeyId)
+  } catch {
+    const snapshot = await getJourneySnapshot(journeyId)
+    return snapshot?.canContribute ?? false
+  }
+}
+
+export async function canContributeToJourney(id: string): Promise<boolean> {
+  if (isBrowserOnline()) {
+    try {
+      const canContribute = await fetchCanContributeFromRemote(id)
+      await updateJourneySnapshotContribution(id, canContribute)
+      return canContribute
+    } catch {
+      // Fall back to the cached contribution flag when the remote check fails.
+    }
+  }
+
+  const snapshot = await getJourneySnapshot(id)
+  return snapshot?.canContribute ?? false
 }
 
 export async function addJourneyStage(

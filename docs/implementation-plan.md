@@ -102,8 +102,8 @@ Acceptance:
 
 Goal: expose the collaboration capabilities already present in the database.
 
-- Add journey member management and invitation flows.
-- Add role-aware controls and clear ownership indicators.
+- Add journey member management and invitation flows (member list + add by username + email invites ✅)
+- Add role-aware controls and clear ownership indicators ✅
 - Link entries to journeys, stages, stops, or guide sections.
 - Add editing, ordering, and removal for journey content.
 - Show journey entries in the public timeline and map.
@@ -159,3 +159,22 @@ Acceptance:
 
 - CI, database security tests, and production smoke tests pass.
 - Recovery behavior is documented for failed migrations and deployments.
+
+## Stage 9: Offline Hardening
+
+Goal: make the primary on-trip flow work without connectivity.
+
+See [offline-hardening-plan.md](offline-hardening-plan.md) for slice detail.
+
+- Slice A: journey read cache and offline trip page ✅
+- Slice B: cached publishing spaces for capture forms ✅
+- Slice C: resilient session and query behavior while offline ✅
+- Slice D: offline create trip outbox ✅
+- Slice E: PWA production verification and offline E2E ✅
+
+Acceptance:
+
+- A trip opened online remains readable after refresh offline.
+- Adding a moment offline works and appears immediately in the trip.
+- Sync badge reflects pending local work, not a false “synchronized”.
+- Capture forms do not block on space loading when a cache exists.

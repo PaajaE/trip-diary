@@ -11,9 +11,35 @@ import {
   type SpaceRole,
   type SpaceSummary,
 } from '@/entities/space/model/space'
+import {
+  getCachedUserSpaces,
+  saveCachedUserSpaces,
+} from '@/entities/space/api/local-space-cache.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 export async function listMySpaces(userId: string): Promise<SpaceSummary[]> {
+  if (isBrowserOnline()) {
+    try {
+      const spaces = await fetchMySpacesFromRemote(userId)
+      await saveCachedUserSpaces(userId, spaces)
+      return spaces
+    } catch {
+      // Fall back to the cached space list when the remote read fails.
+    }
+  }
+
+  const cached = await getCachedUserSpaces(userId)
+  if (cached !== null) {
+    return cached
+  }
+
+  return []
+}
+
+async function fetchMySpacesFromRemote(
+  userId: string,
+): Promise<SpaceSummary[]> {
   const client = getSupabaseClient()
   const { data: memberships, error: membershipError } = await client
     .from('space_members')

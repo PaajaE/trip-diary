@@ -13,6 +13,15 @@ export const syncOperationSchema = z.discriminatedUnion('type', [
   z.object({
     createdAt: z.iso.datetime({ offset: true }),
     creatorId: z.uuid(),
+    id: z.uuid(),
+    journeyId: z.uuid(),
+    lastAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    status: z.enum(['pending', 'syncing', 'failed']),
+    type: z.literal('journey.create'),
+  }),
+  z.object({
+    createdAt: z.iso.datetime({ offset: true }),
+    creatorId: z.uuid(),
     entryId: z.uuid(),
     id: z.uuid(),
     journeyId: z.uuid(),

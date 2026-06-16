@@ -1,16 +1,32 @@
-import { profileSchema, type Profile } from '@/entities/profile/model/profile'
+import {
+  currentProfileSchema,
+  type CurrentProfile,
+} from '@/entities/profile/model/profile'
+import {
+  getCachedProfile,
+  saveCachedProfile,
+} from '@/entities/profile/api/local-profile-cache.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 export async function loadCurrentProfile(
   userId: string,
-): Promise<Profile | null> {
+): Promise<CurrentProfile | null> {
+  if (!isBrowserOnline()) {
+    return getCachedProfile(userId)
+  }
+
   const { data, error } = await getSupabaseClient()
     .from('profiles')
-    .select('id, username, display_name, avatar_url, bio')
+    .select('id, username, display_name, avatar_url, bio, preferred_locale')
     .eq('id', userId)
     .maybeSingle()
 
   if (error !== null) {
+    const cached = getCachedProfile(userId)
+    if (cached !== null) {
+      return cached
+    }
     throw error
   }
 
@@ -18,11 +34,15 @@ export async function loadCurrentProfile(
     return null
   }
 
-  return profileSchema.parse({
+  const profile = currentProfileSchema.parse({
     avatarUrl: data.avatar_url,
     bio: data.bio,
     displayName: data.display_name,
     id: data.id,
+    preferredLocale: data.preferred_locale,
     username: data.username,
-  })
+  }) satisfies CurrentProfile
+
+  saveCachedProfile(profile)
+  return profile
 }

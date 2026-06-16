@@ -78,6 +78,7 @@ describe('journey remediation projection', () => {
   afterEach(async () => {
     await localDb.entries.clear()
     await localDb.journeyLinks.clear()
+    await localDb.journeySnapshots.clear()
     await localDb.syncOperations.clear()
   })
 

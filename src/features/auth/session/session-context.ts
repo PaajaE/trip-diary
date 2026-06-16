@@ -1,11 +1,11 @@
 import { createContext } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import type { Profile } from '@/entities/profile/model/profile'
+import type { CurrentProfile } from '@/entities/profile/model/profile'
 
 export interface SessionContextValue {
   error: Error | null
   loading: boolean
-  profile: Profile | null
+  profile: CurrentProfile | null
   refreshProfile: () => Promise<void>
   session: Session | null
   signOut: () => Promise<void>

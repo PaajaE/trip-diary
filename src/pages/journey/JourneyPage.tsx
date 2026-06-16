@@ -3,29 +3,37 @@ import { Link } from '@tanstack/react-router'
 import {
   BookOpen,
   CalendarDays,
-  Camera,
   Circle,
-  FileText,
   Images,
+  Lightbulb,
   MapPin,
+  Plus,
   Signpost,
+  UsersRound,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useState } from 'react'
 import {
   canContributeToJourney,
   getJourney,
   moveJourneyMomentToStage,
 } from '@/entities/journey/api/journey.repository'
-import { JourneyComposer } from '@/features/journeys/ui/JourneyComposer'
-import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
+import {
+  getMyJourneyRole,
+  isJourneyOwner,
+} from '@/entities/journey/api/journey-member.repository'
+import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
+import { useSession } from '@/features/auth/session'
 import {
   composeJourneyContent,
   type JourneyMoment,
   type JourneyStageContent,
 } from '@/features/journeys/lib/journey-content'
-import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
+import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
+import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
+import { JourneyOrganizePanel } from '@/features/journeys/ui/JourneyOrganizePanel'
+import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { CopyShareLink } from '@/features/sharing'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 
@@ -36,6 +44,8 @@ interface JourneyPageProps {
 
 export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
   const { t } = useTranslation()
+  const { user } = useSession()
+  const [guideFormOpen, setGuideFormOpen] = useState(false)
   const query = useQuery({
     queryFn: () => getJourney(journeyId),
     queryKey: ['journeys', journeyId],
@@ -44,14 +54,38 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
     queryFn: () => canContributeToJourney(journeyId),
     queryKey: ['journey-contribution', journeyId],
   })
+  const ownerQuery = useQuery({
+    queryFn: () => isJourneyOwner(journeyId),
+    queryKey: ['journey-owner', journeyId],
+  })
+  const myRoleQuery = useQuery({
+    enabled: user !== null,
+    queryFn: () => getMyJourneyRole(journeyId, user?.id ?? ''),
+    queryKey: ['journey-my-role', journeyId, user?.id],
+  })
   const journey = query.data
   const content =
     journey === null || journey === undefined
       ? null
       : composeJourneyContent(journey)
+  const canEdit = contributionQuery.data === true
+  const canManageMembers = ownerQuery.data === true
+
+  useEffect(() => {
+    if (!guideFormOpen) {
+      return
+    }
+    document.getElementById('guides')?.scrollIntoView({ behavior: 'smooth' })
+  }, [guideFormOpen])
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
+    <main
+      className={
+        canEdit
+          ? 'mx-auto min-h-svh w-full max-w-3xl px-5 py-8 pb-28 sm:py-16 sm:pb-16'
+          : 'mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16'
+      }
+    >
       {query.isError ? (
         <p className="mt-16 text-destructive">{t('journey.error')}</p>
       ) : journey === undefined ? (
@@ -61,11 +95,20 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
       ) : (
         <>
           <header className="mt-10 overflow-hidden rounded-[2rem] border border-border bg-surface shadow-soft">
-            <div className="bg-[radial-gradient(circle_at_top_left,_rgba(184,95,66,0.18),_transparent_36%),linear-gradient(135deg,_rgba(40,88,69,0.12),_rgba(255,253,248,0.8))] px-6 py-8 sm:px-8 sm:py-10">
+            <div className="bg-[radial-gradient(circle_at_top_left,_rgba(184,95,66,0.18),_transparent_36%),linear-gradient(135deg,_rgba(40,88,69,0.12),_rgba(255,253,248,0.8))] px-5 py-8 sm:px-8 sm:py-10">
               <p className="text-sm font-medium text-accent">
                 {t(`journey.status.${journey.status}`)}
+                {myRoleQuery.data === null ||
+                myRoleQuery.data === undefined ? null : (
+                  <>
+                    {' · '}
+                    {t('journey.yourRole', {
+                      role: journeyMemberRoleLabels[myRoleQuery.data],
+                    })}
+                  </>
+                )}
               </p>
-              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-[-0.04em] sm:text-6xl">
+              <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] sm:text-6xl">
                 {journey.title}
               </h1>
               {journey.summary === '' ? (
@@ -77,7 +120,7 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                   {journey.summary}
                 </p>
               )}
-              <div className="mt-6 flex flex-wrap items-center gap-3 text-sm text-muted">
+              <div className="mt-6 flex flex-wrap items-center gap-2 text-sm text-muted">
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
                   <CalendarDays aria-hidden="true" size={16} />
                   {formatDateRange(
@@ -99,30 +142,54 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
                   })}
                 </span>
               </div>
-              <div className="mt-6 flex flex-wrap gap-3">
-                {contributionQuery.data === true ? (
-                  <Link
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-                    params={{ journeyId: journey.id }}
-                    to="/j/$journeyId/memory/new"
-                  >
-                    <Camera aria-hidden="true" size={17} />
-                    {t('journey.addPhotos')}
-                  </Link>
-                ) : null}
-                {shareUrl === undefined ? null : (
-                  <CopyShareLink
-                    className="bg-white/80"
-                    onCopy={() => sharePublicUrl(shareUrl, journey.title)}
-                  />
-                )}
-              </div>
+              {canEdit || shareUrl !== undefined ? (
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                  {canEdit ? (
+                    <>
+                      <Link
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
+                        params={{ journeyId: journey.id }}
+                        to="/j/$journeyId/memory/new"
+                      >
+                        <Plus aria-hidden="true" size={17} />
+                        {t('journey.addMoment')}
+                      </Link>
+                      <button
+                        className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-white/80 px-5 text-sm font-semibold transition-colors hover:bg-white sm:w-auto"
+                        onClick={() => {
+                          setGuideFormOpen(true)
+                        }}
+                        type="button"
+                      >
+                        <Lightbulb aria-hidden="true" size={17} />
+                        {t('journey.addGuide')}
+                      </button>
+                      {canManageMembers ? (
+                        <Link
+                          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-white/80 px-5 text-sm font-semibold transition-colors hover:bg-white sm:w-auto"
+                          params={{ journeyId: journey.id }}
+                          to="/j/$journeyId/members"
+                        >
+                          <UsersRound aria-hidden="true" size={17} />
+                          {t('journey.manageMembers')}
+                        </Link>
+                      ) : null}
+                    </>
+                  ) : null}
+                  {shareUrl === undefined ? null : (
+                    <CopyShareLink
+                      className="bg-white/80 sm:min-h-12"
+                      onCopy={() => sharePublicUrl(shareUrl, journey.title)}
+                    />
+                  )}
+                </div>
+              ) : null}
             </div>
           </header>
 
           <nav
             aria-label={t('journey.explore')}
-            className="sticky top-3 z-10 mt-5 grid grid-cols-3 gap-2 rounded-2xl border border-border bg-surface/95 p-2 shadow-soft backdrop-blur"
+            className="sticky top-[calc(4rem-0.25rem)] z-10 mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-border bg-surface/95 p-2 shadow-soft backdrop-blur sm:top-3 sm:grid-cols-4"
           >
             <JourneyNavLink
               href="#story"
@@ -139,9 +206,14 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
               icon={Images}
               label={t('journey.gallery')}
             />
+            <JourneyNavLink
+              href="#guides"
+              icon={Lightbulb}
+              label={t('journey.guides')}
+            />
           </nav>
 
-          <section className="scroll-mt-24 py-12" id="story">
+          <section className="scroll-mt-28 py-12 sm:scroll-mt-24" id="story">
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-accent">
@@ -160,18 +232,27 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
               <div className="mt-8 space-y-8">
                 {content?.stageContents.map((stageContent) => (
                   <StageContent
+                    canEdit={canEdit}
                     content={stageContent}
                     journey={journey}
                     key={stageContent.stage?.id ?? 'unassigned'}
                     onChanged={() => void query.refetch()}
-                    canEdit={contributionQuery.data === true}
                   />
                 ))}
               </div>
             )}
+
+            {canEdit ? (
+              <JourneyOrganizePanel
+                journey={journey}
+                onChanged={() => {
+                  void query.refetch()
+                }}
+              />
+            ) : null}
           </section>
 
-          <section className="scroll-mt-24 py-12" id="map">
+          <section className="scroll-mt-28 py-12 sm:scroll-mt-24" id="map">
             <SectionHeading
               eyebrow={t('journey.mapEyebrow')}
               title={t('journey.map')}
@@ -189,7 +270,7 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
             ) : null}
           </section>
 
-          <section className="scroll-mt-24 py-12" id="gallery">
+          <section className="scroll-mt-28 py-12 sm:scroll-mt-24" id="gallery">
             <SectionHeading
               eyebrow={t('journey.galleryEyebrow')}
               title={t('journey.gallery')}
@@ -197,13 +278,27 @@ export function JourneyPage({ journeyId, shareUrl }: JourneyPageProps) {
             <JourneyGallery moments={content?.moments ?? []} />
           </section>
 
-          {contributionQuery.data === true ? (
-            <JourneyComposer
-              journey={journey}
-              onChanged={() => {
-                void query.refetch()
-              }}
-            />
+          <JourneyGuidesSection
+            canEdit={canEdit}
+            journey={journey}
+            onChanged={() => {
+              setGuideFormOpen(false)
+              void query.refetch()
+            }}
+            showAddForm={guideFormOpen}
+          />
+
+          {canEdit ? (
+            <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 p-3 backdrop-blur sm:hidden pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <Link
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground"
+                params={{ journeyId: journey.id }}
+                to="/j/$journeyId/memory/new"
+              >
+                <Plus aria-hidden="true" size={17} />
+                {t('journey.addMoment')}
+              </Link>
+            </div>
           ) : null}
         </>
       )}
@@ -222,11 +317,11 @@ function JourneyNavLink({
 }) {
   return (
     <a
-      className="flex min-h-11 items-center justify-center gap-2 rounded-xl px-2 text-sm font-semibold transition-colors hover:bg-background"
+      className="flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-2 text-sm font-semibold transition-colors hover:bg-background sm:gap-2"
       href={href}
     >
       <Icon aria-hidden="true" size={16} />
-      {label}
+      <span className="truncate">{label}</span>
     </a>
   )
 }
@@ -247,20 +342,20 @@ function SectionHeading({
 }
 
 function StageContent({
-  content,
   canEdit,
+  content,
   journey,
   onChanged,
 }: {
-  content: JourneyStageContent
   canEdit: boolean
+  content: JourneyStageContent
   journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
   onChanged: () => void
 }) {
   const { t } = useTranslation()
 
   return (
-    <section className="rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft">
+    <section className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6">
       <h3 className="flex items-center gap-3 text-xl font-semibold">
         <Signpost aria-hidden="true" size={18} />
         {content.stage?.title ?? t('journey.freeMoments')}
@@ -268,11 +363,11 @@ function StageContent({
       <div className="mt-6 space-y-4">
         {content.moments.map((moment) => (
           <MomentCard
+            canEdit={canEdit}
             journey={journey}
             key={moment.entry.id}
             moment={moment}
             onChanged={onChanged}
-            canEdit={canEdit}
           />
         ))}
         {content.plannedStops.length === 0 ? null : (
@@ -347,7 +442,7 @@ function MomentCard({
         <label className="mt-5 block text-sm font-medium text-muted">
           {t('journey.organizeMoment')}
           <select
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-foreground"
+            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base text-foreground"
             disabled={moving}
             onChange={(event) => {
               setMoveFailed(false)
@@ -383,7 +478,7 @@ function MomentCard({
         </label>
       )}
       <Link
-        className="mt-5 inline-flex text-sm font-semibold text-primary hover:underline"
+        className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
         params={{ entryId: moment.entry.id }}
         to="/e/$entryId"
       >
@@ -402,40 +497,14 @@ function EmptyJourneyState({ journeyId }: { journeyId: string }) {
       <p className="mt-3 max-w-2xl leading-7 text-muted">
         {t('journey.emptyRoute')}
       </p>
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
-        <Link
-          className="rounded-xl border border-border bg-background/70 p-4 transition-colors hover:bg-white"
-          params={{ journeyId }}
-          to="/j/$journeyId/memory/new"
-        >
-          <Camera aria-hidden="true" size={18} />
-          <p className="mt-3 font-semibold">{t('journey.addPhotos')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            {t('journey.photoDescription')}
-          </p>
-        </Link>
-        <a
-          className="rounded-xl border border-border bg-background/70 p-4"
-          href="#journey-capture"
-        >
-          <MapPin aria-hidden="true" size={18} />
-          <p className="mt-3 font-semibold">{t('journey.addPlace')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            {t('journey.placeDescription')}
-          </p>
-        </a>
-        <Link
-          className="rounded-xl border border-border bg-background/70 p-4 transition-colors hover:bg-white"
-          params={{ journeyId }}
-          to="/j/$journeyId/memory/new"
-        >
-          <FileText aria-hidden="true" size={18} />
-          <p className="mt-3 font-semibold">{t('journey.addNote')}</p>
-          <p className="mt-2 text-sm leading-6 text-muted">
-            {t('journey.noteDescription')}
-          </p>
-        </Link>
-      </div>
+      <Link
+        className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
+        params={{ journeyId }}
+        to="/j/$journeyId/memory/new"
+      >
+        <Plus aria-hidden="true" size={18} />
+        {t('journey.addMoment')}
+      </Link>
     </div>
   )
 }

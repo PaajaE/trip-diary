@@ -8,7 +8,7 @@ describe('HomePage', () => {
     render(<App />)
 
     expect(
-      await screen.findByRole('link', { name: 'Přidat vzpomínku' }),
+      await screen.findByRole('link', { name: 'Vytvořit cestu' }),
     ).toBeVisible()
   })
 })

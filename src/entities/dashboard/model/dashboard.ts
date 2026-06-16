@@ -10,6 +10,7 @@ export const dashboardJourneyCardSchema = z.object({
   startsAt: optionalDateSchema,
   status: z.enum(['planning', 'active', 'completed']),
   summary: z.string().max(5000),
+  syncStatus: z.enum(['pending', 'syncing', 'failed']).optional(),
   title: z.string().min(1).max(160),
   updatedAt: dateTimeSchema,
   visibility: z.enum(['public', 'private']),

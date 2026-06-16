@@ -58,6 +58,12 @@ export const LazyJourneyRoutePage = lazy(() =>
   })),
 )
 
+export const LazyJourneyMembersRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyMembersRoutePage').then(
+    ({ JourneyMembersRoutePage }) => ({ default: JourneyMembersRoutePage }),
+  ),
+)
+
 export const LazySpacesRoutePage = lazy(() =>
   import('@/pages/spaces/SpacesRoutePage').then(({ SpacesRoutePage }) => ({
     default: SpacesRoutePage,
@@ -73,6 +79,14 @@ export const LazySpaceMembersRoutePage = lazy(() =>
 export const LazyAcceptInviteRoutePage = lazy(() =>
   import('@/pages/spaces/AcceptInviteRoutePage').then(
     ({ AcceptInviteRoutePage }) => ({ default: AcceptInviteRoutePage }),
+  ),
+)
+
+export const LazyAcceptJourneyInviteRoutePage = lazy(() =>
+  import('@/pages/journey/AcceptJourneyInviteRoutePage').then(
+    ({ AcceptJourneyInviteRoutePage }) => ({
+      default: AcceptJourneyInviteRoutePage,
+    }),
   ),
 )
 

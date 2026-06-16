@@ -97,6 +97,7 @@ describe('SessionProvider', () => {
       bio: null,
       displayName: 'Ečerovi',
       id: userId,
+      preferredLocale: 'cs',
       username: 'ecerovi2016',
     })
 
@@ -117,6 +118,7 @@ describe('SessionProvider', () => {
       bio: null,
       displayName: null,
       id: userId,
+      preferredLocale: 'cs',
       username: 'ecerovi2016',
     })
 
@@ -160,6 +162,7 @@ describe('SessionProvider', () => {
         bio: null,
         displayName: null,
         id: userId,
+        preferredLocale: 'cs',
         username: 'ecerovi2016',
       })
       .mockResolvedValueOnce({
@@ -167,6 +170,7 @@ describe('SessionProvider', () => {
         bio: null,
         displayName: 'Ečerovi',
         id: userId,
+        preferredLocale: 'cs',
         username: 'ecerovi2016',
       })
 

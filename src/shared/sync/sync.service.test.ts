@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { localDb } from '@/shared/lib/local-db'
+import { syncOperationSchema } from '@/shared/sync/sync-operation'
 import {
   STALE_SYNCING_OPERATION_MS,
   syncPendingOperations,
@@ -98,6 +99,8 @@ describe('syncPendingOperations', () => {
   afterEach(async () => {
     await localDb.entries.clear()
     await localDb.journeyLinks.clear()
+    await localDb.journeySnapshots.clear()
+    await localDb.localJourneys.clear()
     await localDb.photos.clear()
     await localDb.photoVariants.clear()
     await localDb.syncOperations.clear()
@@ -228,5 +231,81 @@ describe('syncPendingOperations', () => {
         type: 'journey.assignment.upsert',
       },
     ])
+  })
+
+  it('syncs an offline journey draft and removes its outbox operation', async () => {
+    const userId = crypto.randomUUID()
+    const spaceId = crypto.randomUUID()
+    const journeyId = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const journeys = new Map<string, Record<string, unknown>>()
+
+    getSupabaseClientMock.mockReturnValue({
+      auth: {
+        getUser: vi.fn(() =>
+          Promise.resolve({
+            data: { user: { id: userId } },
+          }),
+        ),
+      },
+      from: vi.fn((table: string) => {
+        if (table === 'journeys') {
+          return {
+            insert: vi.fn((row: Record<string, unknown>) => {
+              journeys.set(String(row.id), row)
+              return Promise.resolve({ error: null })
+            }),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                single: vi.fn(() =>
+                  Promise.resolve({
+                    data: journeys.get(journeyId),
+                    error: journeys.has(journeyId)
+                      ? null
+                      : new Error('missing'),
+                  }),
+                ),
+              })),
+            })),
+          }
+        }
+        throw new Error(`Unexpected table ${table}`)
+      }),
+    })
+
+    await localDb.localJourneys.add({
+      createdAt: now,
+      creatorId: userId,
+      endsAt: null,
+      id: journeyId,
+      slug: `offline-trip-${journeyId}`,
+      spaceId,
+      startsAt: null,
+      summary: 'Offline draft',
+      syncStatus: 'pending',
+      title: 'Offline trip',
+      updatedAt: now,
+    })
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: now,
+        creatorId: userId,
+        id: crypto.randomUUID(),
+        journeyId,
+        status: 'pending',
+        type: 'journey.create',
+      }),
+    )
+
+    await syncPendingOperations()
+
+    await expect(localDb.syncOperations.toArray()).resolves.toEqual([])
+    await expect(localDb.localJourneys.get(journeyId)).resolves.toMatchObject({
+      syncStatus: 'synced',
+    })
+    expect(journeys.get(journeyId)).toMatchObject({
+      id: journeyId,
+      title: 'Offline trip',
+    })
   })
 })

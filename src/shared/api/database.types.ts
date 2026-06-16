@@ -248,6 +248,56 @@ export type Database = {
           },
         ]
       }
+      journey_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          created_at: string
+          created_by: string
+          email_normalized: string
+          expires_at: string
+          id: string
+          journey_id: string
+          revoked_at: string | null
+          role: Database['public']['Enums']['journey_member_role']
+          token_hash: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by: string
+          email_normalized: string
+          expires_at: string
+          id?: string
+          journey_id: string
+          revoked_at?: string | null
+          role: Database['public']['Enums']['journey_member_role']
+          token_hash: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          created_at?: string
+          created_by?: string
+          email_normalized?: string
+          expires_at?: string
+          id?: string
+          journey_id?: string
+          revoked_at?: string | null
+          role?: Database['public']['Enums']['journey_member_role']
+          token_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'journey_invites_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       journey_members: {
         Row: {
           created_at: string
@@ -676,6 +726,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_journey_invite: { Args: { p_raw_token: string }; Returns: string }
       accept_space_invite: { Args: { p_raw_token: string }; Returns: string }
       change_space_member_role: {
         Args: {
@@ -691,6 +742,14 @@ export type Database = {
       }
       create_journey_guide_section: {
         Args: { p_body?: string; p_journey_id: string; p_title: string }
+        Returns: string
+      }
+      create_journey_invite: {
+        Args: {
+          p_email: string
+          p_journey_id: string
+          p_role?: Database['public']['Enums']['journey_member_role']
+        }
         Returns: string
       }
       create_journey_stage: {
@@ -715,6 +774,14 @@ export type Database = {
         }
         Returns: string
       }
+      get_journey_invite_preview: {
+        Args: { p_raw_token: string }
+        Returns: {
+          journey_id: string
+          journey_summary: string
+          journey_title: string
+        }[]
+      }
       get_space_invite_preview: {
         Args: { p_raw_token: string }
         Returns: {
@@ -730,6 +797,16 @@ export type Database = {
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
+      list_journey_pending_invites: {
+        Args: { p_journey_id: string }
+        Returns: {
+          created_at: string
+          email_normalized: string
+          expires_at: string
+          id: string
+          role: Database['public']['Enums']['journey_member_role']
+        }[]
+      }
       move_entry_to_space: {
         Args: { p_entry_id: string; p_slug?: string; p_space_id: string }
         Returns: {
@@ -787,6 +864,10 @@ export type Database = {
       }
       remove_space_member: {
         Args: { p_space_id: string; p_user_id: string }
+        Returns: undefined
+      }
+      revoke_journey_invite: {
+        Args: { p_invite_id: string }
         Returns: undefined
       }
       revoke_space_invite: { Args: { p_invite_id: string }; Returns: undefined }

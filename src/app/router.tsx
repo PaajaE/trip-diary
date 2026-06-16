@@ -12,18 +12,21 @@ import {
   LazyCreateJourneyMemoryRoutePage,
   LazyDashboardPage,
   LazyEntryRoutePage,
+  LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
   LazySpacesRoutePage,
   LazySpaceMembersRoutePage,
   LazyAcceptInviteRoutePage,
+  LazyAcceptJourneyInviteRoutePage,
   LazyPublicJourneyEntryRoutePage,
   LazyPublicJourneyRoutePage,
   LazyPublicSpaceRoutePage,
   LazyPublicStandaloneEntryRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
+import { requireAuth } from '@/features/auth/routing/require-auth'
 import { HomePage } from '@/pages/home/HomePage'
 
 const rootRoute = createRootRoute({
@@ -66,12 +69,14 @@ const signUpRoute = createRoute({
 })
 
 const dashboardRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/dashboard',
   component: LazyDashboardPage,
 })
 
 const settingsRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/settings/profile',
   component: LazySettingsRoutePage,
@@ -84,6 +89,7 @@ const profileRoute = createRoute({
 })
 
 const createEntryRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/entries/new',
   component: LazyCreateEntryPage,
@@ -96,6 +102,7 @@ const entryRoute = createRoute({
 })
 
 const createJourneyRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/journeys/new',
   component: LazyCreateJourneyPage,
@@ -108,18 +115,28 @@ const journeyRoute = createRoute({
 })
 
 const createJourneyMemoryRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/memory/new',
   component: LazyCreateJourneyMemoryRoutePage,
 })
 
+const journeyMembersRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/members',
+  component: LazyJourneyMembersRoutePage,
+})
+
 const spacesRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/spaces',
   component: LazySpacesRoutePage,
 })
 
 const spaceMembersRoute = createRoute({
+  beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/spaces/$spaceId/members',
   component: LazySpaceMembersRoutePage,
@@ -129,6 +146,12 @@ const acceptInviteRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/invite/$token',
   component: LazyAcceptInviteRoutePage,
+})
+
+const acceptJourneyInviteRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/journey-invite/$token',
+  component: LazyAcceptJourneyInviteRoutePage,
 })
 
 const publicSpaceRoute = createRoute({
@@ -167,9 +190,11 @@ const routeTree = rootRoute.addChildren([
   createJourneyRoute,
   journeyRoute,
   createJourneyMemoryRoute,
+  journeyMembersRoute,
   spacesRoute,
   spaceMembersRoute,
   acceptInviteRoute,
+  acceptJourneyInviteRoute,
   publicSpaceRoute,
   publicJourneyRoute,
   publicStandaloneEntryRoute,

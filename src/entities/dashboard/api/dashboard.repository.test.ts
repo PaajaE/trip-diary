@@ -9,6 +9,10 @@ vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: getSupabaseClientMock,
 }))
 
+vi.mock('@/shared/lib/network', () => ({
+  isBrowserOnline: vi.fn(() => true),
+}))
+
 interface QueryResult {
   data: unknown[]
   error: Error | null
@@ -143,7 +147,7 @@ describe('getDashboardData', () => {
     expect(client.from).not.toHaveBeenCalledWith('journeys')
   })
 
-  it('propagates Supabase query errors', async () => {
+  it('falls back to local journeys when the remote dashboard read fails', async () => {
     const error = new Error('entries unavailable')
     const memberships = createQueryBuilder({ data: [], error: null })
     const entries = createQueryBuilder({ data: [], error })
@@ -155,6 +159,9 @@ describe('getDashboardData', () => {
 
     await expect(
       getDashboardData({ userId: crypto.randomUUID() }),
-    ).rejects.toBe(error)
+    ).resolves.toEqual({
+      entries: [],
+      journeys: [],
+    })
   })
 })

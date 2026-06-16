@@ -16,8 +16,11 @@ vi.mock('@tanstack/react-router', () => ({
     <a href="/">{children}</a>
   ),
 }))
-vi.mock('@/features/journeys/ui/JourneyComposer', () => ({
-  JourneyComposer: () => null,
+vi.mock('@/features/auth/session', () => ({
+  useSession: () => ({ loading: false, user: null }),
+}))
+vi.mock('@/features/journeys/ui/JourneyOrganizePanel', () => ({
+  JourneyOrganizePanel: () => null,
 }))
 vi.mock('@/features/journeys/ui/JourneyMap', () => ({
   JourneyMap: () => null,
@@ -68,11 +71,15 @@ describe('JourneyPage remediation', () => {
       summary: '',
       title: 'Canada 2026',
     }
-    useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) =>
-      queryKey[0] === 'journeys'
-        ? { data: journey, isError: false, refetch: vi.fn() }
-        : { data: false, isError: false },
-    )
+    useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
+      if (queryKey[0] === 'journeys') {
+        return { data: journey, isError: false, refetch: vi.fn() }
+      }
+      if (queryKey[0] === 'journey-my-role') {
+        return { data: null, isError: false }
+      }
+      return { data: false, isError: false }
+    })
 
     render(<JourneyPage journeyId={journey.id} />)
 

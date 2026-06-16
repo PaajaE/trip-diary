@@ -20,16 +20,16 @@ export function HomePage() {
         <div className="mt-9 flex flex-col gap-3 sm:flex-row">
           <Link
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            to="/entries/new"
+            to="/journeys/new"
           >
-            <Plus aria-hidden="true" size={18} />
+            <MapPinned aria-hidden="true" size={18} />
             {t('home.primaryAction')}
           </Link>
           <Link
             className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold transition-colors hover:bg-white"
-            to="/journeys/new"
+            to="/entries/new"
           >
-            <MapPinned aria-hidden="true" size={18} />
+            <Plus aria-hidden="true" size={18} />
             {t('home.secondaryAction')}
           </Link>
         </div>

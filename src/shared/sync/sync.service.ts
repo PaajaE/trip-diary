@@ -1,4 +1,5 @@
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
+import { getLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 import { listMySpaces } from '@/entities/space/api/space.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
@@ -40,6 +41,9 @@ export async function syncPendingOperations(): Promise<void> {
         case 'entry.create':
           await syncEntryCreate(operation, creatorId)
           break
+        case 'journey.create':
+          await syncJourneyCreate(operation)
+          break
         case 'journey.assignment.upsert':
           await syncJourneyAssignment(operation)
           break
@@ -51,6 +55,10 @@ export async function syncPendingOperations(): Promise<void> {
       await localDb.syncOperations.update(operation.id, { status: 'failed' })
       if (operation.type === 'entry.create') {
         await localDb.entries.update(operation.entryId, {
+          syncStatus: 'failed',
+        })
+      } else if (operation.type === 'journey.create') {
+        await localDb.localJourneys.update(operation.journeyId, {
           syncStatus: 'failed',
         })
       } else if (operation.type === 'photo.upload') {
@@ -83,19 +91,31 @@ async function recoverStaleSyncingOperations(creatorId: string): Promise<void> {
 async function hasUnfinishedDependency(
   operation: SyncOperation,
 ): Promise<boolean> {
-  if (operation.type !== 'journey.assignment.upsert') {
-    return false
+  if (operation.type === 'journey.assignment.upsert') {
+    const pendingEntryCreate =
+      (await localDb.syncOperations
+        .filter(
+          (candidate) =>
+            candidate.type === 'entry.create' &&
+            candidate.entryId === operation.entryId,
+        )
+        .count()) > 0
+    if (pendingEntryCreate) {
+      return true
+    }
+
+    return (
+      (await localDb.syncOperations
+        .filter(
+          (candidate) =>
+            candidate.type === 'journey.create' &&
+            candidate.journeyId === operation.journeyId,
+        )
+        .count()) > 0
+    )
   }
 
-  return (
-    (await localDb.syncOperations
-      .filter(
-        (candidate) =>
-          candidate.type === 'entry.create' &&
-          candidate.entryId === operation.entryId,
-      )
-      .count()) > 0
-  )
+  return false
 }
 
 function toSyncError(error: unknown): Error {
@@ -114,6 +134,7 @@ function toSyncError(error: unknown): Error {
 }
 
 type EntryCreateOperation = Extract<SyncOperation, { type: 'entry.create' }>
+type JourneyCreateOperation = Extract<SyncOperation, { type: 'journey.create' }>
 type JourneyAssignmentOperation = Extract<
   SyncOperation,
   { type: 'journey.assignment.upsert' }
@@ -184,6 +205,58 @@ async function syncEntryCreate(
         updatedAt: serverEntry.updated_at,
         version: serverEntry.version,
       })
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
+}
+
+async function syncJourneyCreate(
+  operation: JourneyCreateOperation,
+): Promise<void> {
+  const draft = await getLocalJourney(operation.journeyId)
+  if (draft === null) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  await localDb.localJourneys.update(draft.id, { syncStatus: 'syncing' })
+  const { error } = await getSupabaseClient().from('journeys').insert({
+    creator_id: draft.creatorId,
+    ends_at: draft.endsAt,
+    id: draft.id,
+    slug: draft.slug,
+    space_id: draft.spaceId,
+    starts_at: draft.startsAt,
+    summary: draft.summary,
+    title: draft.title,
+    visibility: 'public',
+  })
+
+  if (error !== null) {
+    throw error
+  }
+
+  const { data: confirmedJourney, error: confirmationError } =
+    await getSupabaseClient()
+      .from('journeys')
+      .select('id, title')
+      .eq('id', draft.id)
+      .single()
+
+  if (
+    confirmationError !== null ||
+    confirmedJourney.id !== draft.id ||
+    confirmedJourney.title !== draft.title
+  ) {
+    throw new Error('Journey synchronization could not be confirmed')
+  }
+
+  await localDb.transaction(
+    'rw',
+    localDb.localJourneys,
+    localDb.syncOperations,
+    async () => {
+      await localDb.localJourneys.update(draft.id, { syncStatus: 'synced' })
       await localDb.syncOperations.delete(operation.id)
     },
   )

@@ -325,7 +325,7 @@ export function CreateJourneyMemoryForm({
         <label className="block text-sm font-medium">
           {t('journey.stageOptional')}
           <select
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3"
+            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base"
             {...form.register('stageId')}
           >
             <option value="">{t('journey.noStage')}</option>
@@ -335,6 +335,9 @@ export function CreateJourneyMemoryForm({
               </option>
             ))}
           </select>
+          <span className="mt-2 block text-sm font-normal text-muted">
+            {t('journey.stageOptionalHint')}
+          </span>
         </label>
       )}
       <label className="block text-sm font-medium">

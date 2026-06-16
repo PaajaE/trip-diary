@@ -1,8 +1,9 @@
 import { Link, useNavigate } from '@tanstack/react-router'
-import { LogOut, Plus, WifiOff } from 'lucide-react'
+import { LogOut, MapPinned } from 'lucide-react'
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
+import { SyncStatusBadge } from '@/features/sync/ui/SyncStatusBadge'
 import { Avatar } from '@/shared/ui/Avatar'
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -23,10 +24,7 @@ export function AppShell({ children }: PropsWithChildren) {
             aria-label={t('navigation.account')}
             className="flex items-center gap-2"
           >
-            <span className="hidden items-center gap-2 rounded-full bg-surface px-3 py-2 text-xs text-muted shadow-soft sm:flex">
-              <WifiOff aria-hidden="true" size={14} />
-              {t('home.status')}
-            </span>
+            <SyncStatusBadge />
             {loading ? (
               <span
                 aria-label={t('navigation.loading')}
@@ -42,12 +40,14 @@ export function AppShell({ children }: PropsWithChildren) {
             ) : (
               <>
                 <Link
-                  aria-label={t('navigation.addMemory')}
-                  className="hidden min-h-11 items-center gap-2 rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface sm:inline-flex"
-                  to="/entries/new"
+                  aria-label={t('navigation.newTrip')}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
+                  to="/journeys/new"
                 >
-                  <Plus aria-hidden="true" size={17} />
-                  {t('navigation.addMemory')}
+                  <MapPinned aria-hidden="true" size={17} />
+                  <span className="hidden sm:inline">
+                    {t('navigation.newTrip')}
+                  </span>
                 </Link>
                 <AccountMenu
                   identity={identity}
@@ -145,6 +145,15 @@ function AccountMenu({
             to="/settings/profile"
           >
             {t('navigation.settings')}
+          </Link>
+          <Link
+            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+            }}
+            to="/entries/new"
+          >
+            {t('navigation.quickNote')}
           </Link>
           <Link
             className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"

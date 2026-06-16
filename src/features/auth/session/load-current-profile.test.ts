@@ -1,9 +1,14 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { loadCurrentProfile } from '@/features/auth/session/load-current-profile'
+import * as network from '@/shared/lib/network'
 
 vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: vi.fn(),
+}))
+
+vi.mock('@/shared/lib/network', () => ({
+  isBrowserOnline: vi.fn(() => true),
 }))
 
 const userId = 'e7a8d51b-e975-46aa-965c-1d52c54fa119'
@@ -25,6 +30,12 @@ function mockProfileResult(result: {
 }
 
 describe('loadCurrentProfile', () => {
+  afterEach(() => {
+    sessionStorage.clear()
+    vi.mocked(getSupabaseClient).mockReset()
+    vi.mocked(network.isBrowserOnline).mockReturnValue(true)
+  })
+
   it('loads and validates the profile belonging to the user', async () => {
     const query = mockProfileResult({
       data: {
@@ -32,6 +43,7 @@ describe('loadCurrentProfile', () => {
         bio: 'Na cestě',
         display_name: 'Ečerovi',
         id: userId,
+        preferred_locale: 'cs',
         username: 'ecerovi2016',
       },
       error: null,
@@ -42,6 +54,7 @@ describe('loadCurrentProfile', () => {
       bio: 'Na cestě',
       displayName: 'Ečerovi',
       id: userId,
+      preferredLocale: 'cs',
       username: 'ecerovi2016',
     })
     expect(query.from).toHaveBeenCalledWith('profiles')
@@ -67,5 +80,31 @@ describe('loadCurrentProfile', () => {
     })
 
     await expect(loadCurrentProfile(userId)).rejects.toThrow()
+  })
+
+  it('returns the cached profile when offline', async () => {
+    vi.mocked(getSupabaseClient).mockReset()
+    vi.mocked(network.isBrowserOnline).mockReturnValue(false)
+    sessionStorage.setItem(
+      `trip-diary:profile:${userId}`,
+      JSON.stringify({
+        avatarUrl: null,
+        bio: 'Na cestě',
+        displayName: 'Ečerovi',
+        id: userId,
+        preferredLocale: 'cs',
+        username: 'ecerovi2016',
+      }),
+    )
+
+    await expect(loadCurrentProfile(userId)).resolves.toEqual({
+      avatarUrl: null,
+      bio: 'Na cestě',
+      displayName: 'Ečerovi',
+      id: userId,
+      preferredLocale: 'cs',
+      username: 'ecerovi2016',
+    })
+    expect(getSupabaseClient).not.toHaveBeenCalled()
   })
 })

@@ -2,14 +2,59 @@ import {
   dashboardDataSchema,
   dashboardQuerySchema,
   type DashboardData,
+  type DashboardJourneyCard,
   type DashboardQueryInput,
 } from '@/entities/dashboard/model/dashboard'
+import { listPendingLocalJourneys } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 export async function getDashboardData(
   input: DashboardQueryInput,
 ): Promise<DashboardData> {
   const query = dashboardQuerySchema.parse(input)
+  const localJourneys = await listPendingLocalJourneys(query.userId)
+
+  if (!isBrowserOnline()) {
+    return dashboardDataSchema.parse({
+      entries: [],
+      journeys: localJourneys,
+    })
+  }
+
+  try {
+    const remote = await fetchDashboardFromRemote(query)
+    return dashboardDataSchema.parse({
+      entries: remote.entries,
+      journeys: mergeDashboardJourneys(localJourneys, remote.journeys),
+    })
+  } catch {
+    return dashboardDataSchema.parse({
+      entries: [],
+      journeys: localJourneys,
+    })
+  }
+}
+
+function mergeDashboardJourneys(
+  localJourneys: DashboardJourneyCard[],
+  remoteJourneys: DashboardJourneyCard[],
+): DashboardJourneyCard[] {
+  const remoteIds = new Set(remoteJourneys.map((journey) => journey.id))
+  const pendingLocal = localJourneys.filter(
+    (journey) => !remoteIds.has(journey.id),
+  )
+
+  return [...pendingLocal, ...remoteJourneys].sort((left, right) => {
+    return (
+      new Date(right.updatedAt).valueOf() - new Date(left.updatedAt).valueOf()
+    )
+  })
+}
+
+async function fetchDashboardFromRemote(
+  query: ReturnType<typeof dashboardQuerySchema.parse>,
+): Promise<DashboardData> {
   const client = getSupabaseClient()
 
   const [membershipsResult, entriesResult] = await Promise.all([

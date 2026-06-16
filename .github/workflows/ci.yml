@@ -40,3 +40,30 @@ jobs:
       - run: pnpm db:test
       - run: pnpm db:types
       - run: git diff --exit-code -- src/shared/api/database.types.ts
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.5.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.75.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm supabase:start
+      - name: Configure local Supabase env
+        run: |
+          supabase status --output json > /tmp/supabase-status.json
+          node --input-type=module -e "
+            import { writeFileSync } from 'node:fs';
+            const status = JSON.parse(await import('node:fs').then((fs) => fs.promises.readFile('/tmp/supabase-status.json', 'utf8')));
+            writeFileSync('.env.local', \`VITE_SUPABASE_URL=\${status.API_URL}\\nVITE_SUPABASE_ANON_KEY=\${status.ANON_KEY}\\n\`);
+          "
+      - run: pnpm exec playwright install --with-deps chromium
+      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts

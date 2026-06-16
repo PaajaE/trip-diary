@@ -1,8 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
-import { BookOpen, MapPinned, Plus } from 'lucide-react'
+import { ArrowRight, BookOpen, MapPinned, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getDashboardData } from '@/entities/dashboard/api/dashboard.repository'
+import { pickContinueJourney } from '@/entities/dashboard/lib/pick-continue-journey'
+import type { DashboardJourneyCard } from '@/entities/dashboard/model/dashboard'
+import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
 import { useSession } from '@/features/auth/session'
 
 export function DashboardPage() {
@@ -71,58 +74,110 @@ export function DashboardPage() {
       ) : dashboardQuery.data === undefined ? (
         <p className="py-12 text-muted">{t('dashboard.loading')}</p>
       ) : (
-        <div className="grid gap-12 py-12 lg:grid-cols-2">
-          <DashboardSection
-            empty={t('dashboard.noJourneys')}
-            icon={MapPinned}
-            title={t('dashboard.journeys')}
-          >
-            {dashboardQuery.data.journeys.map((journey) => (
-              <Link
-                className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
-                key={journey.id}
-                params={{ journeyId: journey.id }}
-                to="/j/$journeyId"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                  {t(`journey.status.${journey.status}`)}
-                </p>
-                <h3 className="mt-2 text-lg font-semibold">{journey.title}</h3>
-                <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
-                  {journey.summary || t('dashboard.noSummary')}
-                </p>
-              </Link>
-            ))}
-          </DashboardSection>
-          <DashboardSection
-            empty={t('dashboard.noEntries')}
-            icon={BookOpen}
-            title={t('dashboard.entries')}
-          >
-            {dashboardQuery.data.entries.map((entry) => (
-              <Link
-                className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
-                key={entry.id}
-                params={{ entryId: entry.id }}
-                to="/e/$entryId"
-              >
-                <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                  {t(`entry.type.${entry.type}`)}
-                </p>
-                <h3 className="mt-2 text-lg font-semibold">
-                  {entry.title ?? t('dashboard.untitled')}
-                </h3>
-                <p className="mt-2 text-sm text-muted">
-                  {entry.status === 'published'
-                    ? t('dashboard.published')
-                    : t('dashboard.draft')}
-                </p>
-              </Link>
-            ))}
-          </DashboardSection>
-        </div>
+        <>
+          <ContinueTripHero journeys={dashboardQuery.data.journeys} />
+          <div className="grid gap-12 py-12 lg:grid-cols-2">
+            <DashboardSection
+              empty={t('dashboard.noJourneys')}
+              icon={MapPinned}
+              title={t('dashboard.journeys')}
+            >
+              {dashboardQuery.data.journeys.map((journey) => (
+                <Link
+                  className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                  key={journey.id}
+                  params={{ journeyId: journey.id }}
+                  to="/j/$journeyId"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                    {journey.syncStatus === undefined
+                      ? journey.role === 'owner'
+                        ? t(`journey.status.${journey.status}`)
+                        : journeyMemberRoleLabels[journey.role]
+                      : t('dashboard.pendingJourney')}
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold">
+                    {journey.title}
+                  </h3>
+                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
+                    {journey.summary || t('dashboard.noSummary')}
+                  </p>
+                </Link>
+              ))}
+            </DashboardSection>
+            <DashboardSection
+              empty={t('dashboard.noEntries')}
+              icon={BookOpen}
+              title={t('dashboard.entries')}
+            >
+              {dashboardQuery.data.entries.map((entry) => (
+                <Link
+                  className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                  key={entry.id}
+                  params={{ entryId: entry.id }}
+                  to="/e/$entryId"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                    {t(`entry.type.${entry.type}`)}
+                  </p>
+                  <h3 className="mt-2 text-lg font-semibold">
+                    {entry.title ?? t('dashboard.untitled')}
+                  </h3>
+                  <p className="mt-2 text-sm text-muted">
+                    {entry.status === 'published'
+                      ? t('dashboard.published')
+                      : t('dashboard.draft')}
+                  </p>
+                </Link>
+              ))}
+            </DashboardSection>
+          </div>
+        </>
       )}
     </main>
+  )
+}
+
+function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
+  const { t } = useTranslation()
+  const journey = pickContinueJourney(journeys)
+
+  if (journey === null) {
+    return null
+  }
+
+  return (
+    <section className="mt-10 rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft sm:p-8">
+      <p className="text-sm font-medium text-accent">
+        {t('dashboard.continueEyebrow')}
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
+        {journey.title}
+      </h2>
+      <p className="mt-3 max-w-2xl leading-7 text-muted">
+        {journey.summary === ''
+          ? t('dashboard.continueDescription')
+          : journey.summary}
+      </p>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Link
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
+          params={{ journeyId: journey.id }}
+          to="/j/$journeyId"
+        >
+          {t('dashboard.continueTrip')}
+          <ArrowRight aria-hidden="true" size={16} />
+        </Link>
+        <Link
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-semibold hover:bg-white sm:w-auto"
+          params={{ journeyId: journey.id }}
+          to="/j/$journeyId/memory/new"
+        >
+          <Plus aria-hidden="true" size={16} />
+          {t('journey.addMoment')}
+        </Link>
+      </div>
+    </section>
   )
 }
 

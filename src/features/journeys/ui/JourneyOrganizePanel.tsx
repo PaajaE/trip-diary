@@ -1,5 +1,4 @@
-import { Link } from '@tanstack/react-router'
-import { Camera, FileText, MapPin, Plus, Route, Sparkles } from 'lucide-react'
+import { ChevronDown, MapPin, Plus, Route, Sparkles } from 'lucide-react'
 import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -12,14 +11,19 @@ import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
+import { cn } from '@/shared/lib/cn'
 
-interface JourneyComposerProps {
+interface JourneyOrganizePanelProps {
   journey: JourneyDetail
   onChanged: () => void
 }
 
-export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
+export function JourneyOrganizePanel({
+  journey,
+  onChanged,
+}: JourneyOrganizePanelProps) {
   const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [failed, setFailed] = useState(false)
 
@@ -43,69 +47,45 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
   }
 
   return (
-    <section className="border-t border-border py-12" id="journey-capture">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <section className="mt-10 rounded-[1.5rem] border border-border bg-surface shadow-soft">
+      <button
+        aria-expanded={open}
+        className="flex min-h-14 w-full items-center justify-between gap-4 px-5 py-4 text-left sm:px-6"
+        onClick={() => {
+          setOpen((current) => !current)
+        }}
+        type="button"
+      >
         <div>
           <p className="text-sm font-semibold text-accent">
-            {t('journey.captureEyebrow')}
+            {t('journey.organizeEyebrow')}
           </p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em]">
-            {t('journey.captureTitle')}
-          </h2>
-          <p className="mt-3 max-w-2xl leading-7 text-muted">
-            {t('journey.captureDescription')}
+          <p className="mt-1 text-lg font-semibold">
+            {t('journey.organizeTitle')}
+          </p>
+          <p className="mt-1 text-sm leading-6 text-muted">
+            {t('journey.organizeDescription')}
           </p>
         </div>
-        <Link
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          params={{ journeyId: journey.id }}
-          to="/j/$journeyId/memory/new"
-        >
-          <Camera aria-hidden="true" size={17} />
-          {t('journey.addPhotos')}
-        </Link>
-      </div>
-
-      {failed ? (
-        <p className="mt-6 text-sm text-destructive" role="alert">
-          {t('journey.addError')}
-        </p>
-      ) : null}
-
-      <div className="mt-8 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-        <PlaceCaptureCard
-          busy={busy}
-          journey={journey}
-          onChanged={onChanged}
-          onFailed={() => {
-            setFailed(true)
-          }}
-          onStart={() => {
-            setFailed(false)
-            setBusy(true)
-          }}
-          onSettled={() => {
-            setBusy(false)
-          }}
+        <ChevronDown
+          aria-hidden="true"
+          className={cn(
+            'size-5 shrink-0 text-muted transition-transform',
+            open ? 'rotate-180' : '',
+          )}
         />
+      </button>
 
-        <div className="space-y-5">
-          <ActionCard
-            description={t('journey.photoDescription')}
-            href="/j/$journeyId/memory/new"
-            icon={Camera}
-            journeyId={journey.id}
-            label={t('journey.addPhotos')}
-          />
-          <ActionCard
-            description={t('journey.noteDescription')}
-            href="/j/$journeyId/memory/new"
-            icon={FileText}
-            journeyId={journey.id}
-            label={t('journey.addNote')}
-          />
+      {open ? (
+        <div className="space-y-5 border-t border-border px-5 py-5 sm:px-6">
+          {failed ? (
+            <p className="text-sm text-destructive" role="alert">
+              {t('journey.addError')}
+            </p>
+          ) : null}
+
           <form
-            className="rounded-[1.25rem] border border-border bg-surface p-5 shadow-soft"
+            className="rounded-[1.25rem] border border-border bg-background/70 p-5"
             onSubmit={(event) => {
               void submit(event, async (form) => {
                 await addJourneyStage(journey.id, getText(form, 'title'))
@@ -113,7 +93,7 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
             }}
           >
             <div className="flex items-start gap-3">
-              <div className="mt-1 rounded-full bg-background p-2 text-accent">
+              <div className="mt-1 rounded-full bg-surface p-2 text-accent">
                 <Route aria-hidden="true" size={18} />
               </div>
               <div className="min-w-0 flex-1">
@@ -136,43 +116,25 @@ export function JourneyComposer({ journey, onChanged }: JourneyComposerProps) {
               </div>
             </div>
           </form>
+
+          <PlaceCaptureCard
+            busy={busy}
+            journey={journey}
+            onChanged={onChanged}
+            onFailed={() => {
+              setFailed(true)
+            }}
+            onSettled={() => {
+              setBusy(false)
+            }}
+            onStart={() => {
+              setFailed(false)
+              setBusy(true)
+            }}
+          />
         </div>
-      </div>
+      ) : null}
     </section>
-  )
-}
-
-interface ActionCardProps {
-  description: string
-  href: '/j/$journeyId/memory/new'
-  icon: typeof Camera
-  journeyId: string
-  label: string
-}
-
-function ActionCard({
-  description,
-  href,
-  icon: Icon,
-  journeyId,
-  label,
-}: ActionCardProps) {
-  return (
-    <Link
-      className="block rounded-[1.25rem] border border-border bg-surface p-5 shadow-soft transition-transform hover:-translate-y-0.5 hover:bg-white"
-      params={{ journeyId }}
-      to={href}
-    >
-      <div className="flex items-start gap-3">
-        <div className="mt-1 rounded-full bg-background p-2 text-accent">
-          <Icon aria-hidden="true" size={18} />
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold">{label}</h3>
-          <p className="mt-2 text-sm leading-6 text-muted">{description}</p>
-        </div>
-      </div>
-    </Link>
   )
 }
 
@@ -273,55 +235,53 @@ function PlaceCaptureCard({
 
   return (
     <form
-      className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft"
+      className="rounded-[1.25rem] border border-border bg-background/70 p-5"
       onSubmit={(event) => {
         void handleSubmit(event)
       }}
     >
       <div className="flex items-start gap-3">
-        <div className="mt-1 rounded-full bg-background p-2 text-accent">
+        <div className="mt-1 rounded-full bg-surface p-2 text-accent">
           <MapPin aria-hidden="true" size={18} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-xl font-semibold">{t('journey.addPlace')}</h3>
-            <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-accent">
+            <h3 className="text-lg font-semibold">{t('journey.addPlace')}</h3>
+            <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-accent">
               <Sparkles aria-hidden="true" className="mr-1 inline" size={12} />
               {t('journey.mapHint')}
             </span>
           </div>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-muted">
+          <p className="mt-2 text-sm leading-6 text-muted">
             {t('journey.placeDescription')}
           </p>
         </div>
       </div>
 
       <div className="mt-5 grid gap-5">
-        <div>
-          <Input
-            label={t('journey.itemTitle')}
-            name="title"
-            onChange={(event) => {
-              setTitle(event.currentTarget.value)
-            }}
-            required
-            value={title}
-          />
-          {suggestingTitle ? (
-            <p className="mt-2 text-sm text-muted">
-              {t('journey.placeSuggestionLoading')}
-            </p>
-          ) : suggestedTitle !== null && title.trim() !== '' ? (
-            <p className="mt-2 text-sm text-muted">
-              {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
-            </p>
-          ) : null}
-        </div>
+        <Input
+          label={t('journey.itemTitle')}
+          name="title"
+          onChange={(event) => {
+            setTitle(event.currentTarget.value)
+          }}
+          required
+          value={title}
+        />
+        {suggestingTitle ? (
+          <p className="text-sm text-muted">
+            {t('journey.placeSuggestionLoading')}
+          </p>
+        ) : suggestedTitle !== null && title.trim() !== '' ? (
+          <p className="text-sm text-muted">
+            {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
+          </p>
+        ) : null}
 
         <label className="block text-sm font-medium">
           {t('journey.stageOptional')}
           <select
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-background px-3"
+            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base"
             defaultValue=""
             name="stageId"
           >
@@ -332,6 +292,9 @@ function PlaceCaptureCard({
               </option>
             ))}
           </select>
+          <span className="mt-2 block text-sm font-normal text-muted">
+            {t('journey.stageOptionalHint')}
+          </span>
         </label>
 
         <LocationPickerMap
@@ -340,7 +303,7 @@ function PlaceCaptureCard({
           stops={journey.stops}
         />
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3">
           <p className="text-sm text-muted">
             {selectedPoint === null
               ? t('journey.pickOnMap')
@@ -350,7 +313,7 @@ function PlaceCaptureCard({
                 })}
           </p>
           <Button
-            className="sm:min-w-44"
+            className="w-full"
             disabled={busy || selectedPoint === null}
             type="submit"
           >
