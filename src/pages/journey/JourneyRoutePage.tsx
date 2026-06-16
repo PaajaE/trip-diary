@@ -4,5 +4,10 @@ import { JourneyPage } from '@/pages/journey/JourneyPage'
 export function JourneyRoutePage() {
   const { journeyId } = useParams({ from: '/j/$journeyId' })
   const search = useSearch({ from: '/j/$journeyId' })
-  return <JourneyPage journeyId={journeyId} notice={search.notice} />
+  return (
+    <JourneyPage
+      journeyId={journeyId}
+      {...(search.notice !== undefined ? { notice: search.notice } : {})}
+    />
+  )
 }

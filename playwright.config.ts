@@ -51,20 +51,18 @@ export default defineConfig({
       name: 'mobile-chromium',
       use: {
         ...devices['Pixel 7'],
-        launchOptions:
-          chromiumExecutablePath === undefined
-            ? undefined
-            : { executablePath: chromiumExecutablePath },
+        ...(chromiumExecutablePath !== undefined
+          ? { launchOptions: { executablePath: chromiumExecutablePath } }
+          : {}),
       },
     },
     {
       name: 'desktop-chromium',
       use: {
         ...devices['Desktop Chrome'],
-        launchOptions:
-          chromiumExecutablePath === undefined
-            ? undefined
-            : { executablePath: chromiumExecutablePath },
+        ...(chromiumExecutablePath !== undefined
+          ? { launchOptions: { executablePath: chromiumExecutablePath } }
+          : {}),
       },
     },
   ],

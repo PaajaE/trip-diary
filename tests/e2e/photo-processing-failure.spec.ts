@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test'
 
 test('saving a journey moment still succeeds when photo processing fails', async ({
-  context,
   page,
 }) => {
   // Force photo processing to fail by disabling workers and breaking canvas encoding.

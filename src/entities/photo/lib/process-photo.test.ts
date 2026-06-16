@@ -22,7 +22,8 @@ describe('processPhoto', () => {
     const canvas: Partial<HTMLCanvasElement> = {
       width: 0,
       height: 0,
-      getContext: () => ({ drawImage }) as unknown as CanvasRenderingContext2D,
+      getContext: (() =>
+        ({ drawImage }) as unknown as CanvasRenderingContext2D) as unknown as HTMLCanvasElement['getContext'],
       toBlob: (cb: BlobCallback, type?: string) => {
         if (type === 'image/webp') {
           cb(null)

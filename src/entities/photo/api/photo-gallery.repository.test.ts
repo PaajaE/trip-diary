@@ -71,9 +71,11 @@ function createThumb(photoId: string, blob: Blob): LocalPhotoVariant {
   return {
     blob,
     createdAt: new Date().toISOString(),
+    ext: 'jpg',
     height: 100,
     id: `${photoId}:thumb`,
     kind: 'thumb',
+    mimeType: 'image/jpeg',
     photoId,
     sizeBytes: blob.size,
     width: 100,
