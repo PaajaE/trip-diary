@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { getEntryPhotoPreviews, getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import type {
   LocalPhoto,
   LocalPhotoVariant,
@@ -22,6 +22,7 @@ interface QueryResult {
 function createQuery(result: QueryResult) {
   const query = {
     eq: vi.fn(),
+    in: vi.fn(),
     order: vi.fn(),
     select: vi.fn(),
     single: vi.fn(),
@@ -31,6 +32,7 @@ function createQuery(result: QueryResult) {
     ) => Promise.resolve(result).then(resolve, reject),
   }
   query.eq.mockReturnValue(query)
+  query.in.mockReturnValue(query)
   query.order.mockReturnValue(query)
   query.select.mockReturnValue(query)
   query.single.mockResolvedValue(result)
@@ -216,5 +218,69 @@ describe('getEntryPhotoPreviews', () => {
 
     const previews = await getEntryPhotoPreviews(entryId)
     expect(previews.map(({ id }) => id)).toEqual([photoId])
+  })
+})
+
+describe('getJourneyEntryPhotoPreviews', () => {
+  beforeEach(() => {
+    getSupabaseClientMock.mockReset()
+  })
+
+  afterEach(async () => {
+    await localDb.photos.clear()
+    await localDb.photoVariants.clear()
+  })
+
+  it('loads previews for multiple entries in one batch', async () => {
+    const firstEntryId = crypto.randomUUID()
+    const secondEntryId = crypto.randomUUID()
+    const firstPhotoId = crypto.randomUUID()
+    const secondPhotoId = crypto.randomUUID()
+    const firstBlob = new Blob(['first'])
+    const secondBlob = new Blob(['second'])
+
+    const links = createQuery({
+      data: [
+        { entry_id: firstEntryId, photo_id: firstPhotoId, position: 0 },
+        { entry_id: secondEntryId, photo_id: secondPhotoId, position: 0 },
+      ],
+      error: null,
+    })
+    const variants = createQuery({
+      data: [
+        { photo_id: firstPhotoId, storage_path: 'first' },
+        { photo_id: secondPhotoId, storage_path: 'second' },
+      ],
+      error: null,
+    })
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'entry_photos') {
+          return links
+        }
+        return variants
+      }),
+      storage: {
+        from: vi.fn(() => ({
+          download: vi.fn((path: string) =>
+            Promise.resolve({
+              data: path === 'first' ? firstBlob : secondBlob,
+              error: null,
+            }),
+          ),
+        })),
+      },
+    })
+
+    const { failedEntryIds, previewsByEntry } =
+      await getJourneyEntryPhotoPreviews([firstEntryId, secondEntryId])
+
+    expect(failedEntryIds.size).toBe(0)
+    expect(previewsByEntry.get(firstEntryId)).toEqual([
+      { blob: firstBlob, id: firstPhotoId },
+    ])
+    expect(previewsByEntry.get(secondEntryId)).toEqual([
+      { blob: secondBlob, id: secondPhotoId },
+    ])
   })
 })

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   BookOpen,
   CalendarDays,
@@ -15,6 +15,8 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   canContributeToJourney,
+  deleteJourneyStage,
+  deleteJourneyStop,
   getJourney,
   moveJourneyMomentToStage,
 } from '@/entities/journey/api/journey.repository'
@@ -45,6 +47,7 @@ interface JourneyPageProps {
 
 export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { user } = useSession()
   const [guideFormOpen, setGuideFormOpen] = useState(false)
   const query = useQuery({
@@ -240,6 +243,7 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
                   <StageContent
                     canEdit={canEdit}
                     content={stageContent}
+                    creatorId={user?.id ?? ''}
                     journey={journey}
                     key={stageContent.stage?.id ?? 'unassigned'}
                     onChanged={() => void query.refetch()}
@@ -250,9 +254,14 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
 
             {canEdit ? (
               <JourneyOrganizePanel
+                canManageJourney={canManageMembers}
+                creatorId={user?.id ?? ''}
                 journey={journey}
                 onChanged={() => {
                   void query.refetch()
+                }}
+                onDeleted={() => {
+                  void navigate({ to: '/' })
                 }}
               />
             ) : null}
@@ -286,6 +295,7 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
 
           <JourneyGuidesSection
             canEdit={canEdit}
+            creatorId={user?.id ?? ''}
             journey={journey}
             onChanged={() => {
               setGuideFormOpen(false)
@@ -350,11 +360,13 @@ function SectionHeading({
 function StageContent({
   canEdit,
   content,
+  creatorId,
   journey,
   onChanged,
 }: {
   canEdit: boolean
   content: JourneyStageContent
+  creatorId: string
   journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
   onChanged: () => void
 }) {
@@ -362,14 +374,37 @@ function StageContent({
 
   return (
     <section className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6">
-      <h3 className="flex items-center gap-3 text-xl font-semibold">
-        <Signpost aria-hidden="true" size={18} />
-        {content.stage?.title ?? t('journey.freeMoments')}
-      </h3>
+      <div className="flex items-start justify-between gap-4">
+        <h3 className="flex items-center gap-3 text-xl font-semibold">
+          <Signpost aria-hidden="true" size={18} />
+          {content.stage?.title ?? t('journey.freeMoments')}
+        </h3>
+        {canEdit && content.stage !== null ? (
+          <button
+            className="text-sm font-semibold text-destructive"
+            onClick={() => {
+              const stageId = content.stage?.id
+              if (stageId === undefined) {
+                return
+              }
+              if (!window.confirm(t('journey.deleteStageConfirm'))) {
+                return
+              }
+              void deleteJourneyStage(creatorId, journey.id, stageId).then(
+                onChanged,
+              )
+            }}
+            type="button"
+          >
+            {t('journey.deleteStageAction')}
+          </button>
+        ) : null}
+      </div>
       <div className="mt-6 space-y-4">
         {content.moments.map((moment) => (
           <MomentCard
             canEdit={canEdit}
+            creatorId={creatorId}
             journey={journey}
             key={moment.entry.id}
             moment={moment}
@@ -387,10 +422,30 @@ function StageContent({
                   className="rounded-xl border border-dashed border-border bg-background/60 p-4"
                   key={stop.id}
                 >
-                  <p className="flex items-center gap-3 font-semibold">
-                    <Circle aria-hidden="true" size={14} />
-                    {stop.title}
-                  </p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="flex items-center gap-3 font-semibold">
+                      <Circle aria-hidden="true" size={14} />
+                      {stop.title}
+                    </p>
+                    {canEdit ? (
+                      <button
+                        className="text-xs font-semibold text-destructive"
+                        onClick={() => {
+                          if (!window.confirm(t('journey.deleteStopConfirm'))) {
+                            return
+                          }
+                          void deleteJourneyStop(
+                            creatorId,
+                            journey.id,
+                            stop.id,
+                          ).then(onChanged)
+                        }}
+                        type="button"
+                      >
+                        {t('journey.deleteStopAction')}
+                      </button>
+                    ) : null}
+                  </div>
                 </article>
               ))}
             </div>
@@ -406,11 +461,13 @@ function StageContent({
 
 function MomentCard({
   canEdit,
+  creatorId,
   journey,
   moment,
   onChanged,
 }: {
   canEdit: boolean
+  creatorId: string
   journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
   moment: JourneyMoment
   onChanged: () => void
@@ -454,6 +511,7 @@ function MomentCard({
               setMoveFailed(false)
               setMoving(true)
               void moveJourneyMomentToStage({
+                creatorId,
                 entryId: moment.entry.id,
                 journeyId: journey.id,
                 stageId: event.currentTarget.value || null,

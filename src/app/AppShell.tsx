@@ -3,7 +3,7 @@ import { LogOut, MapPinned } from 'lucide-react'
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
-import { SyncStatusBadge } from '@/features/sync/ui/SyncStatusBadge'
+import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -24,7 +24,7 @@ export function AppShell({ children }: PropsWithChildren) {
             aria-label={t('navigation.account')}
             className="flex items-center gap-2"
           >
-            <SyncStatusBadge />
+            <SyncStatusControl />
             {loading ? (
               <span
                 aria-label={t('navigation.loading')}

@@ -888,8 +888,8 @@ export type Database = {
           p_expected_version: number
           p_id: string
           p_language: Database['public']['Enums']['entry_language']
-          p_latitude: number
-          p_longitude: number
+          p_latitude: number | null
+          p_longitude: number | null
           p_status: Database['public']['Enums']['entry_status']
           p_title: string
           p_type: Database['public']['Enums']['entry_type']

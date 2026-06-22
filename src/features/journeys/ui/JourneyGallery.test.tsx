@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
-  getEntryPhotoPreviews: vi.fn(),
+  getJourneyEntryPhotoPreviews: vi.fn(),
 }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -45,7 +45,7 @@ describe('JourneyGallery', () => {
 
   it('shows clear loading, error, and empty states', async () => {
     let rejectLoads: (reason: Error) => void = () => undefined
-    vi.mocked(getEntryPhotoPreviews).mockReturnValue(
+    vi.mocked(getJourneyEntryPhotoPreviews).mockReturnValue(
       new Promise((_, reject) => {
         rejectLoads = reject
       }),
@@ -61,7 +61,10 @@ describe('JourneyGallery', () => {
     )
     loadingView.unmount()
 
-    vi.mocked(getEntryPhotoPreviews).mockResolvedValue([])
+    vi.mocked(getJourneyEntryPhotoPreviews).mockResolvedValue({
+      failedEntryIds: new Set(),
+      previewsByEntry: new Map(),
+    })
     renderGallery()
     expect(
       await screen.findByText('V této cestě zatím nejsou žádné fotografie.'),
@@ -78,13 +81,16 @@ describe('JourneyGallery', () => {
         .mockReturnValueOnce('blob:second'),
       revokeObjectURL: vi.fn(),
     })
-    vi.mocked(getEntryPhotoPreviews)
-      .mockResolvedValueOnce([
-        { blob: new Blob(['first']), id: crypto.randomUUID() },
-      ])
-      .mockResolvedValueOnce([
-        { blob: new Blob(['second']), id: crypto.randomUUID() },
-      ])
+    vi.mocked(getJourneyEntryPhotoPreviews).mockResolvedValue({
+      failedEntryIds: new Set(),
+      previewsByEntry: new Map([
+        [firstEntryId, [{ blob: new Blob(['first']), id: crypto.randomUUID() }]],
+        [
+          secondEntryId,
+          [{ blob: new Blob(['second']), id: crypto.randomUUID() }],
+        ],
+      ]),
+    })
     renderGallery([
       { entry: { id: firstEntryId, title: 'První moment' } },
       { entry: { id: secondEntryId, title: 'Druhý moment' } },
@@ -103,16 +109,26 @@ describe('JourneyGallery', () => {
   })
 
   it('keeps available photos when another moment fails and hides broken images', async () => {
+    const firstEntryId = crypto.randomUUID()
+    const secondEntryId = crypto.randomUUID()
     vi.stubGlobal('URL', {
       createObjectURL: vi.fn().mockReturnValue('blob:available'),
       revokeObjectURL: vi.fn(),
     })
-    vi.mocked(getEntryPhotoPreviews)
-      .mockResolvedValueOnce([
-        { blob: new Blob(['available']), id: crypto.randomUUID() },
-      ])
-      .mockRejectedValueOnce(new Error('offline'))
-    renderGallery()
+    vi.mocked(getJourneyEntryPhotoPreviews).mockResolvedValue({
+      failedEntryIds: new Set([secondEntryId]),
+      previewsByEntry: new Map([
+        [
+          firstEntryId,
+          [{ blob: new Blob(['available']), id: crypto.randomUUID() }],
+        ],
+        [secondEntryId, []],
+      ]),
+    })
+    renderGallery([
+      { entry: { id: firstEntryId, title: 'První moment' } },
+      { entry: { id: secondEntryId, title: 'Druhý moment' } },
+    ])
 
     const image = await screen.findByRole('img')
     expect(screen.getByRole('status')).toHaveTextContent(

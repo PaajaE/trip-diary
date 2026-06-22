@@ -2,38 +2,192 @@ import {
   dashboardDataSchema,
   dashboardQuerySchema,
   type DashboardData,
+  type DashboardEntryCard,
   type DashboardJourneyCard,
   type DashboardQueryInput,
 } from '@/entities/dashboard/model/dashboard'
+import {
+  getDashboardCache,
+  saveDashboardCache,
+} from '@/entities/dashboard/api/local-dashboard-cache.repository'
+import { prefetchJourneySnapshots } from '@/entities/dashboard/api/prefetch-journey-snapshots'
+import type { JourneySnapshotRecord } from '@/entities/journey/api/local-journey-cache.repository'
 import { listPendingLocalJourneys } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { localDb } from '@/shared/lib/local-db'
+import { listDeletedRecordIds } from '@/shared/lib/local-deleted-records'
 import { isBrowserOnline } from '@/shared/lib/network'
 
 export async function getDashboardData(
   input: DashboardQueryInput,
 ): Promise<DashboardData> {
   const query = dashboardQuerySchema.parse(input)
-  const localJourneys = await listPendingLocalJourneys(query.userId)
 
   if (!isBrowserOnline()) {
-    return dashboardDataSchema.parse({
-      entries: [],
-      journeys: localJourneys,
-    })
+    return buildOfflineDashboard(query)
   }
 
   try {
     const remote = await fetchDashboardFromRemote(query)
-    return dashboardDataSchema.parse({
+    const localJourneys = await listPendingLocalJourneys(query.userId)
+    const data = dashboardDataSchema.parse({
       entries: remote.entries,
       journeys: mergeDashboardJourneys(localJourneys, remote.journeys),
     })
+    await saveDashboardCache(query.userId, data)
+    prefetchJourneySnapshots(data.journeys.map((journey) => journey.id))
+    return data
   } catch {
-    return dashboardDataSchema.parse({
-      entries: [],
-      journeys: localJourneys,
-    })
+    return buildOfflineDashboard(query)
   }
+}
+
+async function buildOfflineDashboard(
+  query: ReturnType<typeof dashboardQuerySchema.parse>,
+): Promise<DashboardData> {
+  const [journeys, entries] = await Promise.all([
+    listOfflineJourneyCards(query.userId, query.journeyLimit),
+    listOfflineEntries(query.userId, query.entryLimit),
+  ])
+
+  return dashboardDataSchema.parse({ entries, journeys })
+}
+
+async function listOfflineJourneyCards(
+  userId: string,
+  journeyLimit: number,
+): Promise<DashboardJourneyCard[]> {
+  const [pendingLocal, cachedDashboard, snapshots, linkedJourneyIds] =
+    await Promise.all([
+      listPendingLocalJourneys(userId),
+      getDashboardCache(userId),
+      localDb.journeySnapshots.toArray(),
+      listLinkedJourneyIdsForUser(userId),
+    ])
+
+  const cardsById = new Map<string, DashboardJourneyCard>()
+  for (const journey of pendingLocal) {
+    cardsById.set(journey.id, journey)
+  }
+
+  for (const journey of cachedDashboard?.journeys ?? []) {
+    if (!cardsById.has(journey.id)) {
+      cardsById.set(journey.id, journey)
+    }
+  }
+
+  const snapshotById = new Map(
+    snapshots.map((snapshot) => [snapshot.journeyId, snapshot]),
+  )
+  const deletedJourneyIds = await listDeletedRecordIds('journey', [
+    ...cardsById.keys(),
+    ...linkedJourneyIds,
+    ...(cachedDashboard?.journeys.map((journey) => journey.id) ?? []),
+  ])
+
+  for (const journeyId of linkedJourneyIds) {
+    if (cardsById.has(journeyId)) {
+      continue
+    }
+    const snapshot = snapshotById.get(journeyId)
+    if (snapshot !== undefined) {
+      cardsById.set(journeyId, snapshotToJourneyCard(snapshot))
+    }
+  }
+
+  return [...cardsById.values()]
+    .filter((journey) => !deletedJourneyIds.has(journey.id))
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).valueOf() - new Date(left.updatedAt).valueOf(),
+    )
+    .slice(0, journeyLimit)
+}
+
+async function listLinkedJourneyIdsForUser(userId: string): Promise<string[]> {
+  const links = await localDb.journeyLinks
+    .where('creatorId')
+    .equals(userId)
+    .toArray()
+
+  return [...new Set(links.map((link) => link.journeyId))]
+}
+
+function snapshotToJourneyCard(
+  snapshot: JourneySnapshotRecord,
+): DashboardJourneyCard {
+  return {
+    endsAt: snapshot.journey.endsAt,
+    id: snapshot.journeyId,
+    role: 'member',
+    startsAt: snapshot.journey.startsAt,
+    status: snapshot.journey.status,
+    summary: snapshot.journey.summary,
+    title: snapshot.journey.title,
+    updatedAt: snapshot.cachedAt,
+    visibility: 'public',
+  }
+}
+
+async function listOfflineEntries(
+  userId: string,
+  entryLimit: number,
+): Promise<DashboardEntryCard[]> {
+  const [cachedDashboard, localStandalone] = await Promise.all([
+    getDashboardCache(userId),
+    listLocalStandaloneEntries(userId),
+  ])
+
+  const entriesById = new Map<string, DashboardEntryCard>()
+  for (const entry of cachedDashboard?.entries ?? []) {
+    entriesById.set(entry.id, entry)
+  }
+
+  for (const entry of localStandalone) {
+    const existing = entriesById.get(entry.id)
+    if (
+      existing === undefined ||
+      new Date(entry.updatedAt).valueOf() >
+        new Date(existing.updatedAt).valueOf()
+    ) {
+      entriesById.set(entry.id, entry)
+    }
+  }
+
+  const deletedEntryIds = await listDeletedRecordIds('entry', [
+    ...entriesById.keys(),
+  ])
+
+  return [...entriesById.values()]
+    .filter((entry) => !deletedEntryIds.has(entry.id))
+    .sort(
+      (left, right) =>
+        new Date(right.updatedAt).valueOf() - new Date(left.updatedAt).valueOf(),
+    )
+    .slice(0, entryLimit)
+}
+
+async function listLocalStandaloneEntries(
+  userId: string,
+): Promise<DashboardEntryCard[]> {
+  const [entries, links] = await Promise.all([
+    localDb.entries.where('creatorId').equals(userId).toArray(),
+    localDb.journeyLinks.toArray(),
+  ])
+  const linkedEntryIds = new Set(links.map((link) => link.entryId))
+
+  return entries
+    .filter((entry) => !linkedEntryIds.has(entry.id))
+    .map((entry) => ({
+      eventAt: entry.eventAt,
+      id: entry.id,
+      publishedAt: entry.publishedAt,
+      status: entry.status,
+      title: entry.title,
+      type: entry.type,
+      updatedAt: entry.updatedAt,
+      visibility: entry.visibility,
+    }))
 }
 
 function mergeDashboardJourneys(

@@ -4,23 +4,35 @@ import { useTranslation } from 'react-i18next'
 import {
   addJourneyStage,
   addJourneyStop,
+  deleteJourneyStage,
   setJourneyStopLocation,
+  updateJourneyStage,
 } from '@/entities/journey/api/journey.repository'
+import {
+  deleteJourney,
+  updateJourney,
+} from '@/entities/journey/api/journey-mutation.repository'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
-import type { JourneyDetail } from '@/entities/journey/model/journey'
+import type { JourneyDetail, JourneyStage } from '@/entities/journey/model/journey'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
 import { cn } from '@/shared/lib/cn'
 
 interface JourneyOrganizePanelProps {
+  canManageJourney?: boolean
+  creatorId: string
   journey: JourneyDetail
   onChanged: () => void
+  onDeleted?: () => void
 }
 
 export function JourneyOrganizePanel({
+  canManageJourney = false,
+  creatorId,
   journey,
   onChanged,
+  onDeleted,
 }: JourneyOrganizePanelProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -88,7 +100,81 @@ export function JourneyOrganizePanel({
             className="rounded-[1.25rem] border border-border bg-background/70 p-5"
             onSubmit={(event) => {
               void submit(event, async (form) => {
-                await addJourneyStage(journey.id, getText(form, 'title'))
+                await updateJourney(journey.id, creatorId, {
+                  endsAt: journey.endsAt,
+                  startsAt: journey.startsAt,
+                  summary: getText(form, 'summary'),
+                  title: getText(form, 'title'),
+                })
+              })
+            }}
+          >
+            <h3 className="text-lg font-semibold">{t('journey.editTrip')}</h3>
+            <Input
+              className="mt-4"
+              defaultValue={journey.title}
+              label={t('journey.itemTitle')}
+              name="title"
+              required
+            />
+            <label className="mt-4 block text-sm font-medium">
+              {t('journey.summary')}
+              <textarea
+                className="mt-2 min-h-24 w-full rounded-md border border-border bg-surface px-3 py-3 text-base"
+                defaultValue={journey.summary}
+                name="summary"
+              />
+            </label>
+            <Button className="mt-4 w-full" disabled={busy} type="submit">
+              {t('journey.saveTrip')}
+            </Button>
+          </form>
+
+          {canManageJourney ? (
+            <div className="rounded-[1.25rem] border border-destructive/20 bg-destructive/5 p-5">
+              <h3 className="text-lg font-semibold text-destructive">
+                {t('journey.deleteTrip')}
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                {t('journey.deleteTripDescription')}
+              </p>
+              <Button
+                className="mt-4 w-full"
+                disabled={busy}
+                onClick={() => {
+                  if (!window.confirm(t('journey.deleteTripConfirm'))) {
+                    return
+                  }
+                  setFailed(false)
+                  setBusy(true)
+                  void deleteJourney(journey.id, creatorId)
+                    .then(() => {
+                      onDeleted?.()
+                    })
+                    .catch(() => {
+                      setFailed(true)
+                    })
+                    .finally(() => {
+                      setBusy(false)
+                    })
+                }}
+                type="button"
+                variant="secondary"
+              >
+                {t('journey.deleteTripAction')}
+              </Button>
+            </div>
+          ) : null}
+
+          <form
+            className="rounded-[1.25rem] border border-border bg-background/70 p-5"
+            onSubmit={(event) => {
+              void submit(event, async (form) => {
+                await addJourneyStage(
+                  creatorId,
+                  journey.id,
+                  getText(form, 'title'),
+                )
               })
             }}
           >
@@ -117,8 +203,33 @@ export function JourneyOrganizePanel({
             </div>
           </form>
 
+          {journey.stages.length > 0 ? (
+            <div className="rounded-[1.25rem] border border-border bg-background/70 p-5">
+              <h3 className="text-lg font-semibold">
+                {t('journey.manageStages')}
+              </h3>
+              <div className="mt-4 space-y-4">
+                {journey.stages.map((stage) => (
+                  <StageEditForm
+                    busy={busy}
+                    creatorId={creatorId}
+                    journeyId={journey.id}
+                    key={stage.id}
+                    onChanged={onChanged}
+                    onFailed={() => {
+                      setFailed(true)
+                    }}
+                    onSubmit={submit}
+                    stage={stage}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           <PlaceCaptureCard
             busy={busy}
+            creatorId={creatorId}
             journey={journey}
             onChanged={onChanged}
             onFailed={() => {
@@ -140,6 +251,7 @@ export function JourneyOrganizePanel({
 
 interface PlaceCaptureCardProps {
   busy: boolean
+  creatorId: string
   journey: JourneyDetail
   onChanged: () => void
   onFailed: () => void
@@ -149,6 +261,7 @@ interface PlaceCaptureCardProps {
 
 function PlaceCaptureCard({
   busy,
+  creatorId,
   journey,
   onChanged,
   onFailed,
@@ -212,6 +325,7 @@ function PlaceCaptureCard({
     onStart()
     try {
       const stopId = await addJourneyStop(
+        creatorId,
         journey.id,
         stageId === '' ? null : stageId,
         title,
@@ -328,4 +442,79 @@ function PlaceCaptureCard({
 function getText(form: FormData, name: string): string {
   const value = form.get(name)
   return typeof value === 'string' ? value : ''
+}
+
+interface StageEditFormProps {
+  busy: boolean
+  creatorId: string
+  journeyId: string
+  onChanged: () => void
+  onFailed: () => void
+  onSubmit: (
+    event: SyntheticEvent<HTMLFormElement>,
+    action: (form: FormData) => Promise<void>,
+  ) => Promise<void>
+  stage: JourneyStage
+}
+
+function StageEditForm({
+  busy,
+  creatorId,
+  journeyId,
+  onChanged,
+  onFailed,
+  onSubmit,
+  stage,
+}: StageEditFormProps) {
+  const { t } = useTranslation()
+
+  return (
+    <form
+      className="rounded-xl border border-border bg-surface p-4"
+      onSubmit={(event) => {
+        void onSubmit(event, async (form) => {
+          await updateJourneyStage(creatorId, journeyId, stage.id, {
+            summary: getText(form, 'summary'),
+            title: getText(form, 'title'),
+          })
+        })
+      }}
+    >
+      <Input
+        defaultValue={stage.title}
+        label={t('journey.stageTitle')}
+        name="title"
+        required
+      />
+      <label className="mt-4 block text-sm font-medium">
+        {t('journey.stageSummary')}
+        <textarea
+          className="mt-2 min-h-20 w-full rounded-md border border-border bg-background px-3 py-3 text-base"
+          defaultValue={stage.summary}
+          name="summary"
+        />
+      </label>
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+        <Button className="flex-1" disabled={busy} type="submit">
+          {t('journey.saveStage')}
+        </Button>
+        <Button
+          className="flex-1"
+          disabled={busy}
+          onClick={() => {
+            if (!window.confirm(t('journey.deleteStageConfirm'))) {
+              return
+            }
+            void deleteJourneyStage(creatorId, journeyId, stage.id)
+              .then(onChanged)
+              .catch(onFailed)
+          }}
+          type="button"
+          variant="secondary"
+        >
+          {t('journey.deleteStageAction')}
+        </Button>
+      </div>
+    </form>
+  )
 }

@@ -154,6 +154,33 @@ describe('SessionProvider', () => {
     expect(client.unsubscribe).toHaveBeenCalledOnce()
   })
 
+  it('keeps profile visible during token refresh', async () => {
+    const client = createAuthClient(session)
+    vi.mocked(loadCurrentProfile).mockResolvedValue({
+      avatarUrl: null,
+      bio: null,
+      displayName: 'Ečerovi',
+      id: userId,
+      preferredLocale: 'cs',
+      username: 'ecerovi2016',
+    })
+
+    const { result } = renderHook(() => useSession(), { wrapper })
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    act(() => {
+      client.emit('TOKEN_REFRESHED', session)
+    })
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+    expect(result.current.profile?.username).toBe('ecerovi2016')
+    expect(loadCurrentProfile).toHaveBeenCalledOnce()
+  })
+
   it('refreshes the current profile on demand', async () => {
     createAuthClient(session)
     vi.mocked(loadCurrentProfile)

@@ -1,4 +1,5 @@
 import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
+import { LOCAL_PHOTO_VARIANT_SIZES } from '@/entities/photo/lib/photo-variant-config'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessPhotoMessage {
@@ -6,11 +7,7 @@ interface ProcessPhotoMessage {
   requestId: string
 }
 
-const variants = [
-  { kind: 'thumb', maxWidth: 400, quality: 0.72 },
-  { kind: 'preview', maxWidth: 1000, quality: 0.78 },
-  { kind: 'large', maxWidth: 1800, quality: 0.82 },
-] as const
+const variants = LOCAL_PHOTO_VARIANT_SIZES
 
 async function encodeVariant(
   canvas: OffscreenCanvas,

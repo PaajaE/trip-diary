@@ -1,5 +1,6 @@
 import { Capacitor } from '@capacitor/core'
 import { Network } from '@capacitor/network'
+import { isCellularSyncEnabled } from '@/shared/sync/sync-preferences'
 
 export async function canAutomaticallySync(): Promise<boolean> {
   if (!Capacitor.isNativePlatform()) {
@@ -7,5 +8,13 @@ export async function canAutomaticallySync(): Promise<boolean> {
   }
 
   const status = await Network.getStatus()
-  return status.connected && status.connectionType === 'wifi'
+  if (!status.connected) {
+    return false
+  }
+
+  if (status.connectionType === 'wifi') {
+    return true
+  }
+
+  return isCellularSyncEnabled()
 }

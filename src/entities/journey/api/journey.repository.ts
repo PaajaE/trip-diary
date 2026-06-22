@@ -12,10 +12,22 @@ import {
   saveJourneySnapshot,
   updateJourneySnapshotContribution,
 } from '@/entities/journey/api/local-journey-cache.repository'
+import {
+  addJourneyGuide as addJourneyGuideStructure,
+  addJourneyStage as addJourneyStageStructure,
+  addJourneyStop as addJourneyStopStructure,
+  deleteJourneyGuide as deleteJourneyGuideStructure,
+  deleteJourneyStage as deleteJourneyStageStructure,
+  deleteJourneyStop as deleteJourneyStopStructure,
+  setJourneyStopLocation as setJourneyStopLocationStructure,
+  updateJourneyGuide as updateJourneyGuideStructure,
+  updateJourneyStage as updateJourneyStageStructure,
+} from '@/entities/journey/api/local-journey-structure.repository'
 import { applyLocalJourneyDeltas } from '@/entities/journey/api/journey-local-merge'
 import { createLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
+import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { isBrowserOnline } from '@/shared/lib/network'
 import { createPublicSlug } from '@/shared/lib/slug'
 
@@ -53,6 +65,10 @@ export async function createJourney(
 }
 
 export async function getJourney(id: string): Promise<JourneyDetail | null> {
+  if (await isRecordDeleted('journey', id)) {
+    return null
+  }
+
   if (isBrowserOnline()) {
     try {
       const journey = await fetchJourneyFromRemote(id)
@@ -266,32 +282,22 @@ export async function canContributeToJourney(id: string): Promise<boolean> {
 }
 
 export async function addJourneyStage(
+  creatorId: string,
   journeyId: string,
   title: string,
+  summary = '',
 ): Promise<void> {
-  const { error } = await getSupabaseClient().rpc('create_journey_stage', {
-    p_journey_id: journeyId,
-    p_title: title,
-  })
-  if (error !== null) {
-    throw error
-  }
+  await addJourneyStageStructure(creatorId, journeyId, title, summary)
 }
 
 export async function addJourneyStop(
+  creatorId: string,
   journeyId: string,
   stageId: string | null,
   title: string,
+  notes = '',
 ): Promise<string> {
-  const { data, error } = await getSupabaseClient().rpc('create_journey_stop', {
-    p_journey_id: journeyId,
-    p_stage_id: stageId as never,
-    p_title: title,
-  })
-  if (error !== null) {
-    throw error
-  }
-  return data
+  return addJourneyStopStructure(creatorId, journeyId, stageId, title, notes)
 }
 
 export async function setJourneyStopLocation(
@@ -299,30 +305,58 @@ export async function setJourneyStopLocation(
   latitude: number,
   longitude: number,
 ): Promise<void> {
-  const { error } = await getSupabaseClient().rpc('set_journey_stop_location', {
-    p_latitude: latitude,
-    p_longitude: longitude,
-    p_map_latitude: Math.round(latitude * 100) / 100,
-    p_map_longitude: Math.round(longitude * 100) / 100,
-    p_stop_id: stopId,
-  })
-  if (error !== null) {
-    throw error
-  }
+  await setJourneyStopLocationStructure(stopId, latitude, longitude)
 }
 
 export async function addJourneyGuide(
+  creatorId: string,
   journeyId: string,
   title: string,
   body: string,
 ): Promise<void> {
-  const { error } = await getSupabaseClient().rpc(
-    'create_journey_guide_section',
-    { p_body: body, p_journey_id: journeyId, p_title: title },
-  )
-  if (error !== null) {
-    throw error
-  }
+  await addJourneyGuideStructure(creatorId, journeyId, title, body)
+}
+
+export async function updateJourneyStage(
+  creatorId: string,
+  journeyId: string,
+  stageId: string,
+  input: { summary: string; title: string },
+): Promise<void> {
+  await updateJourneyStageStructure(creatorId, journeyId, stageId, input)
+}
+
+export async function deleteJourneyStage(
+  creatorId: string,
+  journeyId: string,
+  stageId: string,
+): Promise<void> {
+  await deleteJourneyStageStructure(creatorId, journeyId, stageId)
+}
+
+export async function deleteJourneyStop(
+  creatorId: string,
+  journeyId: string,
+  stopId: string,
+): Promise<void> {
+  await deleteJourneyStopStructure(creatorId, journeyId, stopId)
+}
+
+export async function updateJourneyGuide(
+  creatorId: string,
+  journeyId: string,
+  guideId: string,
+  input: { body: string; title: string },
+): Promise<void> {
+  await updateJourneyGuideStructure(creatorId, journeyId, guideId, input)
+}
+
+export async function deleteJourneyGuide(
+  creatorId: string,
+  journeyId: string,
+  guideId: string,
+): Promise<void> {
+  await deleteJourneyGuideStructure(creatorId, journeyId, guideId)
 }
 
 export async function linkEntryToJourney(input: {
@@ -351,16 +385,24 @@ export async function linkEntryToJourney(input: {
 }
 
 export async function moveJourneyMomentToStage(input: {
+  creatorId: string
   entryId: string
   journeyId: string
   stageId: string | null
   stopId: string | null
 }): Promise<void> {
   const localLink = await localDb.journeyLinks.get(input.entryId)
-  if (localLink !== undefined) {
+
+  if (!isBrowserOnline() || localLink !== undefined) {
     await saveLocalJourneyLink({
-      ...localLink,
+      creatorId: localLink?.creatorId ?? input.creatorId,
+      entryId: input.entryId,
+      journeyId: input.journeyId,
+      latitude: localLink?.latitude ?? null,
+      locationTitle: localLink?.locationTitle ?? null,
+      longitude: localLink?.longitude ?? null,
       stageId: input.stageId,
+      stopId: input.stopId,
     })
     return
   }

@@ -1,5 +1,8 @@
 import exifr from 'exifr'
+import { Capacitor } from '@capacitor/core'
+import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
 import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
+import { LOCAL_PHOTO_VARIANT_SIZES } from '@/entities/photo/lib/photo-variant-config'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessedVariant {
@@ -46,8 +49,10 @@ export async function processPhoto(
 ): Promise<ProcessedPhoto> {
   const file = input instanceof File ? input : input.file
   const metadataOverrides = input instanceof File ? undefined : input.metadata
+
   const metadata = await extractPhotoMetadata(file)
   const variants = await processVariants(file)
+
   const capturedAt =
     metadataOverrides?.capturedAt !== undefined
       ? metadataOverrides.capturedAt
@@ -55,11 +60,15 @@ export async function processPhoto(
   const latitude =
     metadataOverrides?.latitude !== undefined
       ? metadataOverrides.latitude
-      : (metadata?.latitude ?? null)
+      : isMeaningfulGpsCoordinate(metadata?.latitude, metadata?.longitude)
+        ? (metadata?.latitude ?? null)
+        : null
   const longitude =
     metadataOverrides?.longitude !== undefined
       ? metadataOverrides.longitude
-      : (metadata?.longitude ?? null)
+      : isMeaningfulGpsCoordinate(metadata?.latitude, metadata?.longitude)
+        ? (metadata?.longitude ?? null)
+        : null
 
   return {
     capturedAt,
@@ -83,8 +92,12 @@ async function extractPhotoMetadata(
       ...(basicMetadata?.DateTimeOriginal === undefined
         ? {}
         : { DateTimeOriginal: basicMetadata.DateTimeOriginal }),
-      latitude: gpsMetadata.latitude,
-      longitude: gpsMetadata.longitude,
+      ...(isMeaningfulGpsCoordinate(gpsMetadata.latitude, gpsMetadata.longitude)
+        ? {
+            latitude: gpsMetadata.latitude,
+            longitude: gpsMetadata.longitude,
+          }
+        : {}),
     }
   }
 
@@ -100,16 +113,23 @@ async function extractPhotoMetadata(
           DateTimeOriginal:
             basicMetadata?.DateTimeOriginal ?? fullMetadata?.DateTimeOriginal,
         }),
-    ...(fullMetadata?.latitude === undefined
-      ? {}
-      : { latitude: fullMetadata.latitude }),
-    ...(fullMetadata?.longitude === undefined
-      ? {}
-      : { longitude: fullMetadata.longitude }),
+    ...(isMeaningfulGpsCoordinate(
+      fullMetadata?.latitude,
+      fullMetadata?.longitude,
+    )
+      ? {
+          latitude: fullMetadata?.latitude,
+          longitude: fullMetadata?.longitude,
+        }
+      : {}),
   }
 }
 
 function processVariants(file: File): Promise<ProcessedVariant[]> {
+  if (Capacitor.isNativePlatform()) {
+    return processVariantsOnPage(file)
+  }
+
   try {
     return processVariantsInWorker(file).catch(() => processVariantsOnPage(file))
   } catch {
@@ -147,11 +167,7 @@ async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
   const source = await createImageBitmap(file, {
     imageOrientation: 'from-image',
   }).catch(() => createImageBitmap(file))
-  const variants = [
-    { kind: 'thumb', maxWidth: 400, quality: 0.72 },
-    { kind: 'preview', maxWidth: 1000, quality: 0.78 },
-    { kind: 'large', maxWidth: 1800, quality: 0.82 },
-  ] as const
+  const variants = LOCAL_PHOTO_VARIANT_SIZES
 
   try {
     return await Promise.all(

@@ -23,6 +23,8 @@ export const journeyStageSchema = z.object({
   title: z.string(),
 })
 
+export type JourneyStage = z.infer<typeof journeyStageSchema>
+
 export const journeyStopSchema = z.object({
   id: z.uuid(),
   mapLatitude: z.number().min(-90).max(90).nullable(),

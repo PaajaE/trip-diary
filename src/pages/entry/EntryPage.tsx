@@ -1,9 +1,15 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
+import { useSession } from '@/features/auth/session'
+import { EditEntryForm } from '@/features/entries/ui/EditEntryForm'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { CopyShareLink } from '@/features/sharing'
+import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
@@ -16,12 +22,22 @@ interface EntryPageProps {
 
 export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { user } = useSession()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const entryQuery = useQuery({
     queryKey: ['entries', entryId],
-    queryFn: async () =>
-      (await getLocalEntry(entryId)) ?? getPublicEntry(entryId),
+    queryFn: async () => {
+      if (await isRecordDeleted('entry', entryId)) {
+        return null
+      }
+      return (await getLocalEntry(entryId)) ?? getPublicEntry(entryId)
+    },
   })
   const entry = entryQuery.data
+  const canManage = user !== null && entry?.creatorId === user.id
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
@@ -33,6 +49,21 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
         </p>
       ) : entry === null ? (
         <p className="mt-16 text-muted">{t('entry.notFound')}</p>
+      ) : editing && canManage ? (
+        <article className="mt-16">
+          <EditEntryForm
+            creatorId={user.id}
+            entry={entry}
+            onCancel={() => {
+              setEditing(false)
+            }}
+            onUpdated={(updated) => {
+              setEditing(false)
+              entryQuery.refetch()
+              void queryClient.invalidateQueries({ queryKey: ['entries', updated.id] })
+            }}
+          />
+        </article>
       ) : (
         <article className="mt-16">
           {notice === 'photos_failed' ? (
@@ -55,6 +86,38 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
           <p className="mt-10 text-sm text-muted">
             {t(`entry.sync.${entry.syncStatus}`)}
           </p>
+          {canManage ? (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <Button
+                onClick={() => {
+                  setEditing(true)
+                }}
+                variant="secondary"
+              >
+                {t('entry.editAction')}
+              </Button>
+              <Button
+                disabled={deleting}
+                onClick={() => {
+                  if (!window.confirm(t('entry.deleteConfirm'))) {
+                    return
+                  }
+                  setDeleting(true)
+                  void deleteEntry(entry.id, user.id)
+                    .then(async () => {
+                      await queryClient.invalidateQueries()
+                      await navigate({ to: '/' })
+                    })
+                    .finally(() => {
+                      setDeleting(false)
+                    })
+                }}
+                variant="secondary"
+              >
+                {deleting ? t('entry.deleting') : t('entry.deleteAction')}
+              </Button>
+            </div>
+          ) : null}
           {entry.syncStatus === 'synced' ? null : (
             <Button
               className="mt-4"

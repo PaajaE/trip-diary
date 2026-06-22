@@ -15,6 +15,8 @@ type MappedStop = JourneyDetail['stops'][number] & {
   mapLongitude: number
 }
 
+const SELECTED_POINT_ZOOM = 13
+
 export function LocationPickerMap({
   heightClassName = 'h-72',
   onSelectPoint,
@@ -39,6 +41,13 @@ export function LocationPickerMap({
   }
 
   const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<maplibregl.Map | null>(null)
+  const draftMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const onSelectPointRef = useRef(onSelectPoint)
+  const selectedPointRef = useRef(selectedPoint)
+  onSelectPointRef.current = onSelectPoint
+  selectedPointRef.current = selectedPoint
+
   const mappedStops = useMemo(
     () =>
       stops.filter(
@@ -82,6 +91,7 @@ export function LocationPickerMap({
     })
 
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
+    mapRef.current = map
 
     const bounds = new maplibregl.LngLatBounds()
     for (const stop of mappedStops) {
@@ -98,14 +108,32 @@ export function LocationPickerMap({
     }
 
     const draftMarker = new maplibregl.Marker({ color: '#b85f42' })
-    if (
-      selectedPoint !== null &&
-      Number.isFinite(selectedPoint.latitude) &&
-      Number.isFinite(selectedPoint.longitude)
-    ) {
-      draftMarker
-        .setLngLat([selectedPoint.longitude, selectedPoint.latitude])
-        .addTo(map)
+    draftMarkerRef.current = draftMarker
+
+    function applySelectedPointFromRef() {
+      const activeMap = mapRef.current
+      const marker = draftMarkerRef.current
+      const point = selectedPointRef.current
+      if (activeMap === null || marker === null) {
+        return
+      }
+
+      if (
+        point === null ||
+        !Number.isFinite(point.latitude) ||
+        !Number.isFinite(point.longitude)
+      ) {
+        marker.remove()
+        return
+      }
+
+      const center: [number, number] = [point.longitude, point.latitude]
+      marker.setLngLat(center).addTo(activeMap)
+      activeMap.flyTo({
+        center,
+        essential: true,
+        zoom: SELECTED_POINT_ZOOM,
+      })
     }
 
     map.on('click', (event) => {
@@ -113,14 +141,70 @@ export function LocationPickerMap({
         latitude: event.lngLat.lat,
         longitude: event.lngLat.lng,
       }
-      onSelectPoint(point)
+      onSelectPointRef.current(point)
       draftMarker.setLngLat([point.longitude, point.latitude]).addTo(map)
     })
 
+    if (map.isStyleLoaded()) {
+      applySelectedPointFromRef()
+    } else {
+      map.once('load', applySelectedPointFromRef)
+    }
+
     return () => {
+      map.off('load', applySelectedPointFromRef)
+      draftMarkerRef.current = null
+      mapRef.current = null
       map.remove()
     }
-  }, [mappedStops, onSelectPoint, selectedPoint])
+  }, [mappedStops])
+
+  useEffect(() => {
+    const map = mapRef.current
+    const draftMarker = draftMarkerRef.current
+    if (map === null || draftMarker === null) {
+      return
+    }
+
+    function applySelectedPoint() {
+      const activeMap = mapRef.current
+      const marker = draftMarkerRef.current
+      if (activeMap === null || marker === null) {
+        return
+      }
+
+      if (
+        selectedPoint === null ||
+        !Number.isFinite(selectedPoint.latitude) ||
+        !Number.isFinite(selectedPoint.longitude)
+      ) {
+        marker.remove()
+        return
+      }
+
+      const center: [number, number] = [
+        selectedPoint.longitude,
+        selectedPoint.latitude,
+      ]
+
+      marker.setLngLat(center).addTo(activeMap)
+      activeMap.flyTo({
+        center,
+        essential: true,
+        zoom: SELECTED_POINT_ZOOM,
+      })
+    }
+
+    if (map.isStyleLoaded()) {
+      applySelectedPoint()
+      return
+    }
+
+    map.once('load', applySelectedPoint)
+    return () => {
+      map.off('load', applySelectedPoint)
+    }
+  }, [selectedPoint])
 
   return (
     <div>

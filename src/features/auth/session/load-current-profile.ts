@@ -23,7 +23,7 @@ export async function loadCurrentProfile(
     .maybeSingle()
 
   if (error !== null) {
-    const cached = getCachedProfile(userId)
+    const cached = await getCachedProfile(userId)
     if (cached !== null) {
       return cached
     }
@@ -43,6 +43,6 @@ export async function loadCurrentProfile(
     username: data.username,
   }) satisfies CurrentProfile
 
-  saveCachedProfile(profile)
+  await saveCachedProfile(profile)
   return profile
 }

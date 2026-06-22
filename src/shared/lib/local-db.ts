@@ -2,7 +2,14 @@ import Dexie, { type EntityTable } from 'dexie'
 import type { Entry } from '@/entities/entry/model/entry'
 import type { LocalJourney } from '@/entities/journey/model/local-journey'
 import type { LocalJourneyLink } from '@/entities/journey/model/local-journey-link'
+import type {
+  LocalJourneyGuide,
+  LocalJourneyStage,
+  LocalJourneyStop,
+} from '@/entities/journey/model/local-journey-structure'
+import type { DashboardData } from '@/entities/dashboard/model/dashboard'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
+import type { CurrentProfile } from '@/entities/profile/model/profile'
 import type { SpaceSummary } from '@/entities/space/model/space'
 import type {
   LocalPhoto,
@@ -23,11 +30,36 @@ interface CachedUserSpacesRecord {
   userId: string
 }
 
+interface DashboardSnapshotRecord {
+  cachedAt: string
+  data: DashboardData
+  userId: string
+}
+
+interface CachedProfileRecord {
+  cachedAt: string
+  profile: CurrentProfile
+  userId: string
+}
+
+interface DeletedRecord {
+  creatorId: string
+  deletedAt: string
+  id: string
+  kind: 'entry' | 'guide' | 'journey' | 'stage' | 'stop'
+}
+
 class TripDiaryDatabase extends Dexie {
   cachedUserSpaces!: EntityTable<CachedUserSpacesRecord, 'userId'>
+  cachedProfiles!: EntityTable<CachedProfileRecord, 'userId'>
+  dashboardSnapshots!: EntityTable<DashboardSnapshotRecord, 'userId'>
+  deletedRecords!: EntityTable<DeletedRecord, 'id'>
   entries!: EntityTable<Entry, 'id'>
   journeyLinks!: EntityTable<LocalJourneyLink, 'entryId'>
   journeySnapshots!: EntityTable<JourneySnapshotRecord, 'journeyId'>
+  localJourneyGuides!: EntityTable<LocalJourneyGuide, 'id'>
+  localJourneyStages!: EntityTable<LocalJourneyStage, 'id'>
+  localJourneyStops!: EntityTable<LocalJourneyStop, 'id'>
   localJourneys!: EntityTable<LocalJourney, 'id'>
   photos!: EntityTable<LocalPhoto, 'id'>
   photoVariants!: EntityTable<LocalPhotoVariant, 'id'>
@@ -117,6 +149,47 @@ class TripDiaryDatabase extends Dexie {
       entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
       journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
       journeySnapshots: 'journeyId, cachedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+    })
+    this.version(11).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+    })
+    this.version(12).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      deletedRecords: 'id, kind, creatorId, deletedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+    })
+    this.version(13).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      deletedRecords: 'id, kind, creatorId, deletedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localJourneyGuides: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStages: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStops: 'id, journeyId, creatorId, syncStatus, updatedAt',
       localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
       photos: 'id, entryId, creatorId, syncStatus, createdAt',
       photoVariants: 'id, photoId, kind, createdAt',

@@ -1,9 +1,21 @@
 import { Camera, MediaType, MediaTypeSelection } from '@capacitor/camera'
 import { Capacitor } from '@capacitor/core'
+import { FilePicker, type PickedFile } from '@capawesome/capacitor-file-picker'
+import exifr from 'exifr'
+import {
+  isMeaningfulGpsCoordinate,
+  parseNativeExifGps,
+} from '@/entities/photo/lib/photo-exif-gps'
 import type {
   PhotoMetadataOverride,
   SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
+import {
+  materializeNativePhoto,
+  readMaterializedPhotoMetadata,
+  readNativePhotoGps,
+  requestNativePhotoPermissions,
+} from '@/shared/lib/native-photo'
 
 interface PhotoFilePickerHandle {
   getFile: () => Promise<File>
@@ -23,6 +35,10 @@ interface FilePickerCapableWindow extends Window {
     options?: PhotoFilePickerOptions,
   ) => Promise<PhotoFilePickerHandle[]>
 }
+
+type CapacitorGalleryResult = Awaited<
+  ReturnType<typeof Camera.chooseFromGallery>
+>['results'][number]
 
 export function supportsNativePhotoSelection() {
   return Capacitor.isNativePlatform()
@@ -70,252 +86,379 @@ export async function choosePhotosFromFiles(): Promise<SelectedPhotoFile[]> {
 }
 
 export async function choosePhotosFromGallery(): Promise<SelectedPhotoFile[]> {
-  const { results } = await Camera.chooseFromGallery({
-    allowMultipleSelection: true,
-    correctOrientation: true,
-    includeMetadata: true,
-    mediaType: MediaTypeSelection.Photo,
-    quality: 100,
-  })
-
-  const selectedPhotos = await Promise.all(
-    results
-      .filter((result) => result.type === MediaType.Photo)
-      .map((result) => mediaResultToSelectedPhoto(result)),
-  )
-
-  return selectedPhotos
-}
-
-async function mediaResultToSelectedPhoto(
-  result: Awaited<
-    ReturnType<typeof Camera.chooseFromGallery>
-  >['results'][number],
-): Promise<SelectedPhotoFile> {
-  if (result.webPath === undefined) {
-    throw new Error('Missing selected photo path')
+  if (Capacitor.getPlatform() === 'android') {
+    await requestAndroidPhotoPermissions()
+    return choosePhotosFromAndroidFilePicker()
   }
 
-  const response = await fetch(result.webPath)
-  if (!response.ok) {
+  return choosePhotosFromCapacitorGallery()
+}
+
+async function requestAndroidPhotoPermissions() {
+  try {
+    await requestNativePhotoPermissions()
+  } catch {
+    // Permission request failed; picker may still work.
+  }
+}
+
+async function choosePhotosFromAndroidFilePicker(): Promise<SelectedPhotoFile[]> {
+  let files: PickedFile[]
+
+  try {
+    ;({ files } = await FilePicker.pickImages({
+      limit: 0,
+      readData: false,
+    }))
+  } catch (error) {
+    if (isFilePickerCancelled(error)) {
+      return []
+    }
+
+    try {
+      ;({ files } = await FilePicker.pickFiles({
+        limit: 0,
+        readData: false,
+        types: ['image/*'],
+      }))
+    } catch (fallbackError) {
+      if (isFilePickerCancelled(fallbackError)) {
+        return []
+      }
+
+      throw fallbackError
+    }
+  }
+
+  if (files.length === 0) {
+    return []
+  }
+
+  const settled = await Promise.allSettled(
+    files.map((file) => pickedFileToSelectedPhoto(file)),
+  )
+
+  const photos = settled.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  )
+
+  if (photos.length === 0 && files.length > 0) {
+    const firstFailure = settled.find(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    )
+    throw firstFailure?.reason ?? new Error('Selected photo could not be loaded')
+  }
+
+  return photos
+}
+
+async function choosePhotosFromCapacitorGallery(): Promise<SelectedPhotoFile[]> {
+  let results: CapacitorGalleryResult[]
+
+  try {
+    ;({ results } = await Camera.chooseFromGallery({
+      allowMultipleSelection: true,
+      correctOrientation: true,
+      includeMetadata: true,
+      mediaType: MediaTypeSelection.Photo,
+      quality: 100,
+    }))
+  } catch (error) {
+    if (isPickerCancelled(error)) {
+      return []
+    }
+    throw error
+  }
+
+  const photoResults = results.filter(isPhotoMediaResult)
+  if (photoResults.length === 0) {
+    return []
+  }
+
+  const settled = await Promise.allSettled(
+    photoResults.map((result) => mediaResultToSelectedPhoto(result)),
+  )
+
+  const photos = settled.flatMap((result) =>
+    result.status === 'fulfilled' ? [result.value] : [],
+  )
+
+  if (photos.length === 0 && photoResults.length > 0) {
     throw new Error('Selected photo could not be loaded')
   }
 
-  const blob = await response.blob()
-  const name = deriveFileName(result.webPath, result.metadata?.format)
-  const file = new File([blob], name, {
-    lastModified: parseCapturedAt(result.metadata?.creationDate) ?? Date.now(),
-    type: blob.type === '' ? inferMimeType(result.metadata?.format) : blob.type,
-  })
+  return photos
+}
 
-  const metadata = extractMetadataOverride(result.metadata)
+function isPhotoMediaResult(result: CapacitorGalleryResult) {
+  const type = result.type as unknown
+  return type === MediaType.Photo || type === 0 || type === 'Photo'
+}
+
+function isPickerCancelled(error: unknown) {
+  if (error === null || typeof error !== 'object') {
+    return false
+  }
+
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message.toLowerCase()
+      : ''
+  const code =
+    'code' in error && typeof error.code === 'string' ? error.code : ''
+
+  return (
+    message.includes('cancel') ||
+    code === 'OS-PLUG-CAMR-0020' ||
+    code === 'OS-PLUG-CAMR-0006'
+  )
+}
+
+function isFilePickerCancelled(error: unknown) {
+  if (error === null || typeof error !== 'object') {
+    return false
+  }
+
+  const message =
+    'message' in error && typeof error.message === 'string'
+      ? error.message.toLowerCase()
+      : ''
+
+  return message.includes('cancel')
+}
+
+async function pickedFileToSelectedPhoto(
+  picked: PickedFile,
+): Promise<SelectedPhotoFile> {
+  const loaded = await loadPickedFileBlob(picked)
+  const mimeType =
+    loaded.mimeType ??
+    (picked.mimeType === '' ? inferMimeTypeFromName(picked.name) : picked.mimeType)
+  const file = new File([loaded.blob], picked.name, {
+    lastModified: picked.modifiedAt ?? Date.now(),
+    type: mimeType,
+  })
+  const capturedAt =
+    loaded.metadata?.capturedAt ??
+    normalizeCapturedAtFromTimestamp(picked.modifiedAt)
+  const metadata = await buildSelectedPhotoMetadata({
+    file,
+    ...(capturedAt === undefined ? {} : { capturedAt }),
+    ...(loaded.metadata?.latitude !== undefined &&
+    loaded.metadata.latitude !== null &&
+    loaded.metadata.longitude !== undefined &&
+    loaded.metadata.longitude !== null
+      ? {
+          latitude: loaded.metadata.latitude,
+          longitude: loaded.metadata.longitude,
+        }
+      : {}),
+    ...(picked.path === undefined ? {} : { sourceUri: picked.path }),
+  })
 
   return metadata === undefined ? { file } : { file, metadata }
 }
 
-function extractMetadataOverride(
-  metadata: {
-    creationDate?: string
-    exif?: string
-  } = {},
-): PhotoMetadataOverride | undefined {
-  const gps = parseNativeExifGps(metadata.exif)
-  const capturedAt = normalizeCapturedAt(metadata.creationDate)
-  const latitude = isValidLatitude(gps.latitude) ? gps.latitude : undefined
-  const longitude = isValidLongitude(gps.longitude) ? gps.longitude : undefined
+async function mediaResultToSelectedPhoto(
+  result: CapacitorGalleryResult,
+): Promise<SelectedPhotoFile> {
+  const blob = await loadCapacitorMediaBlob(result)
+  const name = deriveFileName(
+    result.webPath ?? result.uri ?? 'photo.jpg',
+    result.metadata?.format,
+  )
+  const file = new File([blob], name, {
+    lastModified: parseCapturedAt(result.metadata?.creationDate) ?? Date.now(),
+    type:
+      blob.type === '' ? inferMimeType(result.metadata?.format) : blob.type,
+  })
+
+  const capturedAt = normalizeCapturedAt(result.metadata?.creationDate)
+  const metadata = await buildSelectedPhotoMetadata({
+    file,
+    ...(capturedAt === undefined ? {} : { capturedAt }),
+    ...(result.metadata?.exif === undefined
+      ? {}
+      : {
+          exif: result.metadata.exif as string | Record<string, unknown>,
+        }),
+    ...(result.uri === undefined ? {} : { sourceUri: result.uri }),
+  })
+
+  return metadata === undefined ? { file } : { file, metadata }
+}
+
+async function buildSelectedPhotoMetadata(options: {
+  capturedAt?: string | null
+  exif?: string | Record<string, unknown> | undefined
+  file: File
+  latitude?: number
+  longitude?: number
+  sourceUri?: string
+}): Promise<PhotoMetadataOverride | undefined> {
+  const gpsFromPreloaded =
+    isMeaningfulGpsCoordinate(options.latitude, options.longitude)
+      ? {
+          latitude: options.latitude as number,
+          longitude: options.longitude as number,
+        }
+      : null
+  const gpsFromNative =
+    gpsFromPreloaded ?? (await readNativePhotoGps(options.sourceUri))
+  const gpsFromExif = parseNativeExifGps(options.exif)
+  const gpsFromBlob = await readGpsFromFile(options.file)
+
+  const latitude =
+    gpsFromNative?.latitude ??
+    (isMeaningfulGpsCoordinate(gpsFromExif.latitude, gpsFromExif.longitude)
+      ? gpsFromExif.latitude
+      : gpsFromBlob?.latitude)
+  const longitude =
+    gpsFromNative?.longitude ??
+    (isMeaningfulGpsCoordinate(gpsFromExif.latitude, gpsFromExif.longitude)
+      ? gpsFromExif.longitude
+      : gpsFromBlob?.longitude)
+
+  const capturedAt = options.capturedAt
 
   if (
     capturedAt === undefined &&
-    latitude === undefined &&
-    longitude === undefined
+    !isMeaningfulGpsCoordinate(latitude, longitude)
   ) {
     return undefined
   }
 
   return {
     ...(capturedAt === undefined ? {} : { capturedAt }),
-    ...(latitude === undefined ? {} : { latitude }),
-    ...(longitude === undefined ? {} : { longitude }),
+    ...(isMeaningfulGpsCoordinate(latitude, longitude)
+      ? { latitude: latitude as number, longitude: longitude as number }
+      : {}),
   }
 }
 
-function parseNativeExifGps(exif: string | undefined) {
-  if (exif === undefined) {
-    return {}
+async function readGpsFromFile(file: File) {
+  const buffer = await file.arrayBuffer()
+  const gps = await exifr.gps(buffer).catch(() => undefined)
+  if (
+    gps === undefined ||
+    !isMeaningfulGpsCoordinate(gps.latitude, gps.longitude)
+  ) {
+    return undefined
   }
-
-  const parsed = safeJsonParse(exif)
-  if (parsed === undefined) {
-    return {}
-  }
-
-  const latitude = readCoordinate(parsed, ['latitude', 'gpslatitude'])
-  const longitude = readCoordinate(parsed, ['longitude', 'gpslongitude'])
 
   return {
-    ...(latitude === undefined ? {} : { latitude }),
-    ...(longitude === undefined ? {} : { longitude }),
+    latitude: gps.latitude,
+    longitude: gps.longitude,
   }
 }
 
-function readCoordinate(source: unknown, keys: string[]): number | undefined {
-  const coordinate = findValue(source, (key) => keys.includes(key))
-  const reference = findValue(
-    source,
-    (key) =>
-      (keys.includes('latitude') && key === 'gpslatituderef') ||
-      (keys.includes('longitude') && key === 'gpslongituderef'),
-  )
+async function loadPickedFileBlob(picked: PickedFile): Promise<{
+  blob: Blob
+  metadata?: PhotoMetadataOverride
+  mimeType?: string
+}> {
+  if (
+    Capacitor.getPlatform() === 'android' &&
+    picked.path !== undefined &&
+    picked.path.startsWith('content:')
+  ) {
+    const materialized = await materializeNativePhoto(picked.path)
 
-  return normalizeCoordinate(coordinate, reference)
-}
+    const response = await fetch(materialized.webPath)
 
-function findValue(
-  source: unknown,
-  matches: (normalizedKey: string) => boolean,
-): unknown {
-  if (source === null || typeof source !== 'object') {
-    return undefined
-  }
-
-  if (Array.isArray(source)) {
-    for (const item of source) {
-      const match = findValue(item, matches)
-      if (match !== undefined) {
-        return match
-      }
+    if (!response.ok) {
+      throw new Error(`Selected photo fetch failed (${response.status})`)
     }
-    return undefined
-  }
 
-  for (const [key, value] of Object.entries(source)) {
-    if (matches(key.toLowerCase())) {
-      return value
+    const blob = await response.blob()
+    if (blob.size === 0) {
+      throw new Error('Selected photo blob is empty')
     }
-    const nested = findValue(value, matches)
-    if (nested !== undefined) {
-      return nested
+
+    return {
+      blob,
+      metadata: readMaterializedPhotoMetadata(materialized),
+      mimeType: materialized.mimeType ?? picked.mimeType,
     }
   }
 
-  return undefined
-}
-
-function normalizeCoordinate(
-  value: unknown,
-  reference: unknown,
-): number | undefined {
-  const ref =
-    typeof reference === 'string' && reference.length > 0
-      ? reference.toUpperCase()
-      : undefined
-
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return applyCoordinateReference(value, ref)
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number(value)
-    if (Number.isFinite(parsed)) {
-      return applyCoordinateReference(parsed, ref)
-    }
-  }
-
-  if (Array.isArray(value) && value.length >= 3) {
-    const [degrees, minutes, seconds] = value as unknown[]
-    const decimal = convertDmsToDecimal(degrees, minutes, seconds)
-    return decimal === undefined
+  const sources = [
+    picked.path === undefined
       ? undefined
-      : applyCoordinateReference(decimal, ref)
+      : Capacitor.convertFileSrc(picked.path),
+    picked.path,
+  ].filter((source): source is string => source !== undefined && source !== '')
+
+  for (const source of sources) {
+    try {
+      const response = await fetch(source)
+      if (response.ok) {
+        const blob = await response.blob()
+        if (blob.size > 0) {
+          return {
+            blob,
+            mimeType:
+              picked.mimeType === '' ? inferMimeTypeFromName(picked.name) : picked.mimeType,
+          }
+        }
+      }
+    } catch {
+      // Try the next loading strategy.
+    }
   }
 
-  if (value !== null && typeof value === 'object') {
-    const source = value as Record<string, unknown>
-    const decimal = convertDmsToDecimal(
-      source.degrees ?? source.degree ?? source[0],
-      source.minutes ?? source.minute ?? source[1],
-      source.seconds ?? source.second ?? source[2],
-    )
-    return decimal === undefined
-      ? undefined
-      : applyCoordinateReference(decimal, ref)
-  }
-
-  return undefined
+  throw new Error('Selected photo could not be loaded from any source')
 }
 
-function convertDmsToDecimal(
-  degreesValue: unknown,
-  minutesValue: unknown,
-  secondsValue: unknown,
-) {
-  const degrees = normalizeNumber(degreesValue)
-  const minutes = normalizeNumber(minutesValue)
-  const seconds = normalizeNumber(secondsValue)
+async function loadCapacitorMediaBlob(
+  result: CapacitorGalleryResult,
+): Promise<Blob> {
+  const mimeType = inferMimeType(result.metadata?.format)
+  const sources = [
+    result.webPath,
+    result.uri === undefined ? undefined : Capacitor.convertFileSrc(result.uri),
+    result.uri,
+  ].filter((source): source is string => source !== undefined && source !== '')
 
-  if (degrees === undefined || minutes === undefined || seconds === undefined) {
+  for (const source of sources) {
+    try {
+      const response = await fetch(source)
+      if (response.ok) {
+        const blob = await response.blob()
+        if (blob.size > 0) {
+          return blob
+        }
+      }
+    } catch {
+      // Try the next loading strategy.
+    }
+  }
+
+  if (result.thumbnail !== undefined && result.thumbnail.length > 0) {
+    return base64ToBlob(result.thumbnail, mimeType)
+  }
+
+  throw new Error('Selected photo could not be loaded')
+}
+
+function normalizeCapturedAtFromTimestamp(timestamp: number | undefined) {
+  if (timestamp === undefined) {
     return undefined
   }
 
-  return Math.abs(degrees) + minutes / 60 + seconds / 3600
+  const date = new Date(timestamp)
+  return Number.isNaN(date.valueOf()) ? null : date.toISOString()
 }
 
-function normalizeNumber(value: unknown): number | undefined {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
-  }
-
-  if (typeof value === 'string') {
-    const trimmed = value.trim()
-    if (trimmed.includes('/')) {
-      const [numerator, denominator] = trimmed.split('/')
-      const top = Number(numerator)
-      const bottom = Number(denominator)
-      if (Number.isFinite(top) && Number.isFinite(bottom) && bottom !== 0) {
-        return top / bottom
-      }
-      return undefined
-    }
-
-    const parsed = Number(trimmed)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-
-  return undefined
-}
-
-function applyCoordinateReference(
-  value: number,
-  reference: string | undefined,
-) {
-  if (reference === 'S' || reference === 'W') {
-    return -Math.abs(value)
-  }
-
-  return value
-}
-
-function isValidLatitude(value: number | undefined): value is number {
-  return value !== undefined && Number.isFinite(value) && Math.abs(value) <= 90
-}
-
-function isValidLongitude(value: number | undefined): value is number {
-  return value !== undefined && Number.isFinite(value) && Math.abs(value) <= 180
-}
-
-function safeJsonParse(value: string): unknown {
+function deriveFileName(path: string, format: string | undefined) {
   try {
-    return JSON.parse(value)
+    const pathName = new URL(path, 'https://local.invalid').pathname
+    const baseName = pathName.split('/').pop()
+    if (baseName?.includes('.')) {
+      return decodeURIComponent(baseName)
+    }
   } catch {
-    return undefined
-  }
-}
-
-function deriveFileName(webPath: string, format: string | undefined) {
-  const pathName = new URL(webPath).pathname
-  const baseName = pathName.split('/').pop()
-  if (baseName?.includes('.')) {
-    return decodeURIComponent(baseName)
+    // Fall back to a generated name below.
   }
 
   return `photo-${crypto.randomUUID()}.${inferExtension(format)}`
@@ -332,6 +475,24 @@ function inferExtension(format: string | undefined) {
 function inferMimeType(format: string | undefined) {
   const extension = inferExtension(format)
   return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`
+}
+
+function inferMimeTypeFromName(name: string) {
+  const extension = name.split('.').pop()?.toLowerCase()
+  if (extension === undefined || extension === '') {
+    return 'image/jpeg'
+  }
+
+  return extension === 'jpg' ? 'image/jpeg' : `image/${extension}`
+}
+
+function base64ToBlob(base64: string, mimeType: string) {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return new Blob([bytes], { type: mimeType })
 }
 
 function normalizeCapturedAt(value: string | undefined) {

@@ -73,14 +73,29 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const applySession = async (session: Session | null) => {
       const currentRevision = ++revision
 
-      setState({
-        error: null,
-        loading: session !== null,
-        profile: null,
-        session,
+      if (session === null) {
+        setState({ error: null, loading: false, profile: null, session: null })
+        return
+      }
+
+      let shouldLoadProfile = true
+
+      setState((current) => {
+        const sameUser = current.session?.user.id === session.user.id
+        if (sameUser && current.profile !== null) {
+          shouldLoadProfile = false
+          return { ...current, error: null, loading: false, session }
+        }
+
+        return {
+          error: null,
+          loading: true,
+          profile: sameUser ? current.profile : null,
+          session,
+        }
       })
 
-      if (session === null) {
+      if (!shouldLoadProfile) {
         return
       }
 
@@ -104,12 +119,23 @@ export function SessionProvider({ children }: PropsWithChildren) {
 
     const {
       data: { subscription },
-    } = client.auth.onAuthStateChange((_event, session) => {
+    } = client.auth.onAuthStateChange((event, session) => {
       authEventReceived = true
       queueMicrotask(() => {
-        if (active) {
-          void applySession(session)
+        if (!active) {
+          return
         }
+
+        if (event === 'TOKEN_REFRESHED' && session !== null) {
+          setState((current) =>
+            current.session?.user.id === session.user.id
+              ? { ...current, error: null, session }
+              : current,
+          )
+          return
+        }
+
+        void applySession(session)
       })
     })
 

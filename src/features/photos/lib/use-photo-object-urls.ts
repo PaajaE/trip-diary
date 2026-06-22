@@ -1,40 +1,65 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  createPreviewUrl,
+  revokePreviewUrl,
+  schedulePreviewUrlRevoke,
+} from '@/shared/lib/preview-url'
 
-export function usePhotoObjectUrls<T extends { blob: Blob }>(
+export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
   photos: T[],
 ): (T & { url: string })[] {
   const pendingRevocations = useRef(new Map<string, number>())
-  const photosWithUrls = useMemo(
-    () =>
-      photos.map((photo) => ({
-        ...photo,
-        url: URL.createObjectURL(photo.blob),
-      })),
-    [photos],
-  )
+  const [urlsById, setUrlsById] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    const revocations = pendingRevocations.current
-    for (const photo of photosWithUrls) {
-      const pending = revocations.get(photo.url)
-      if (pending !== undefined) {
-        window.clearTimeout(pending)
-        revocations.delete(photo.url)
+    let cancelled = false
+
+    void (async () => {
+      const next: Record<string, string> = {}
+
+      await Promise.all(
+        photos.map(async (photo) => {
+          try {
+            next[photo.id] = await createPreviewUrl(photo.blob)
+          } catch {
+            // Skip previews that cannot be rendered.
+          }
+        }),
+      )
+
+      if (cancelled) {
+        for (const url of Object.values(next)) {
+          revokePreviewUrl(url)
+        }
+        return
       }
-    }
+
+      setUrlsById((previous) => {
+        for (const [id, url] of Object.entries(previous)) {
+          if (next[id] === undefined) {
+            schedulePreviewUrlRevoke(pendingRevocations.current, url)
+          }
+        }
+        return next
+      })
+    })()
 
     return () => {
-      for (const photo of photosWithUrls) {
-        revocations.set(
-          photo.url,
-          window.setTimeout(() => {
-            URL.revokeObjectURL(photo.url)
-            revocations.delete(photo.url)
-          }),
-        )
-      }
+      cancelled = true
     }
-  }, [photosWithUrls])
+  }, [photos])
 
-  return photosWithUrls
+  useEffect(
+    () => () => {
+      for (const url of Object.values(urlsById)) {
+        revokePreviewUrl(url)
+      }
+    },
+    [urlsById],
+  )
+
+  return photos.flatMap((photo) => {
+    const url = urlsById[photo.id]
+    return url === undefined ? [] : [{ ...photo, url }]
+  })
 }

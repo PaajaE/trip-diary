@@ -1,4 +1,7 @@
-import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
+import type {
+  getJourneyEntryPhotoPreviews,
+  PhotoPreview,
+} from '@/entities/photo/api/photo-gallery.repository'
 
 export interface JourneyGalleryMoment {
   entry: {
@@ -14,41 +17,36 @@ export interface JourneyGalleryPhoto extends PhotoPreview {
 
 export interface JourneyGalleryPreviews {
   failedMomentCount: number
-  previewsByMoment: (PhotoPreview[] | undefined)[]
+  previewsByMoment: PhotoPreview[][]
 }
+
+type LoadJourneyGalleryBatch = typeof getJourneyEntryPhotoPreviews
 
 export async function loadJourneyGalleryPreviews(
   moments: JourneyGalleryMoment[],
-  loadPreviews: (entryId: string) => Promise<PhotoPreview[]>,
+  loadBatch: LoadJourneyGalleryBatch,
 ): Promise<JourneyGalleryPreviews> {
-  const results = await Promise.allSettled(
-    moments.map((moment) => loadPreviews(moment.entry.id)),
-  )
-  const failedMomentCount = results.filter(
-    (result) => result.status === 'rejected',
-  ).length
-
-  if (results.length > 0 && failedMomentCount === results.length) {
-    const reasons: unknown[] = []
-    for (const result of results) {
-      if (result.status === 'rejected') {
-        reasons.push(result.reason as unknown)
-      }
-    }
-    throw new AggregateError(reasons, 'Journey gallery could not be loaded')
+  if (moments.length === 0) {
+    return { failedMomentCount: 0, previewsByMoment: [] }
   }
 
+  const { failedEntryIds, previewsByEntry } = await loadBatch(
+    moments.map((moment) => moment.entry.id),
+  )
+
   return {
-    failedMomentCount,
-    previewsByMoment: results.map((result) =>
-      result.status === 'fulfilled' ? result.value : undefined,
+    failedMomentCount: moments.filter((moment) =>
+      failedEntryIds.has(moment.entry.id),
+    ).length,
+    previewsByMoment: moments.map(
+      (moment) => previewsByEntry.get(moment.entry.id) ?? [],
     ),
   }
 }
 
 export function mergeJourneyGalleryPhotos(
   moments: JourneyGalleryMoment[],
-  previewsByMoment: (PhotoPreview[] | undefined)[],
+  previewsByMoment: PhotoPreview[][],
 ): JourneyGalleryPhoto[] {
   return moments.flatMap((moment, index) =>
     (previewsByMoment[index] ?? []).map((preview) => ({

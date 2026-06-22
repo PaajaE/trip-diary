@@ -39,7 +39,7 @@ export function CreateJourneyMemoryPage({
         </p>
       </div>
 
-      {loading ? (
+      {loading && user === null ? (
         <p className="mt-8 text-muted">{t('journey.loading')}</p>
       ) : user === null ? (
         <p className="mt-8 text-muted">

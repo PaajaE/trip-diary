@@ -43,7 +43,12 @@ describe('JourneyGuidesSection', () => {
     ])
 
     render(
-      <JourneyGuidesSection canEdit journey={journey} onChanged={vi.fn()} />,
+      <JourneyGuidesSection
+        canEdit
+        creatorId={crypto.randomUUID()}
+        journey={journey}
+        onChanged={vi.fn()}
+      />,
     )
 
     expect(screen.getByRole('heading', { name: 'Parking' })).toBeVisible()

@@ -1,8 +1,12 @@
 import { useEffect } from 'react'
 import { App as NativeApp } from '@capacitor/app'
 import { Network } from '@capacitor/network'
+import { getSupabaseClient } from '@/shared/api/supabase'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
-import { syncPendingOperations } from '@/shared/sync/sync.service'
+import {
+  recoverSyncOnAppResume,
+  syncPendingOperations,
+} from '@/shared/sync/sync.service'
 
 export function SyncManager() {
   useEffect(() => {
@@ -32,9 +36,21 @@ export function SyncManager() {
     const nativeListeners = Promise.all([
       Network.addListener('networkStatusChange', requestSync),
       NativeApp.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) {
-          requestSync()
+        if (!isActive) {
+          return
         }
+
+        void (async () => {
+          try {
+            const { data } = await getSupabaseClient().auth.getUser()
+            if (data.user?.id !== undefined) {
+              await recoverSyncOnAppResume(data.user.id)
+            }
+          } catch {
+            // Resume recovery is best-effort before the next sync attempt.
+          }
+          requestSync()
+        })()
       }),
     ])
     requestSync()

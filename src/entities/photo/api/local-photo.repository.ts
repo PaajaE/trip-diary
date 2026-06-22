@@ -4,6 +4,7 @@ import {
 } from '@/entities/photo/model/photo'
 import {
   processPhoto,
+  type ProcessedPhoto,
   type SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
 import { localDb } from '@/shared/lib/local-db'
@@ -13,6 +14,7 @@ export async function addLocalPhotos(
   creatorId: string,
   entryId: string,
   files: (File | SelectedPhotoFile)[],
+  processedPhotos?: ProcessedPhoto[],
 ): Promise<void> {
   const startingPosition = await localDb.photos
     .where('entryId')
@@ -20,7 +22,23 @@ export async function addLocalPhotos(
     .count()
 
   for (const [index, file] of files.entries()) {
-    const processed = await processPhoto(file)
+    const selectedFile = file instanceof File ? file : file.file
+
+    const preprocessed = processedPhotos?.[index]
+    let processed: ProcessedPhoto
+
+    if (
+      preprocessed !== undefined &&
+      preprocessed.variants.length > 0
+    ) {
+      processed = preprocessed
+    } else {
+      processed = await processPhoto(file)
+    }
+
+    if (processed.variants.length === 0) {
+      throw new Error(`Photo variants could not be created (${selectedFile.name})`)
+    }
     const photoId = crypto.randomUUID()
     const now = new Date().toISOString()
     const photo = localPhotoSchema.parse({

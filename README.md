@@ -52,6 +52,10 @@ persistent on-device storage inside the native WebView. Automatic native
 synchronization only runs over Wi-Fi; the explicit synchronization button can
 still be used on any connection.
 
+See [docs/native-build.md](docs/native-build.md) for install steps on physical
+devices. See [docs/native-testing.md](docs/native-testing.md) for the on-device
+verification checklist.
+
 After changing web code or Capacitor plugins, synchronize both projects:
 
 ```bash

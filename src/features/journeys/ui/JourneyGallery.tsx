@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { useMemo, useState } from 'react'
-import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import {
   loadJourneyGalleryPreviews,
@@ -54,7 +54,7 @@ function JourneyGalleryImage({
 
 export function JourneyGallery({ moments }: JourneyGalleryProps) {
   const previewsQuery = useQuery({
-    queryFn: () => loadJourneyGalleryPreviews(moments, getEntryPhotoPreviews),
+    queryFn: () => loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
     queryKey: ['journey-gallery', ...moments.map((moment) => moment.entry.id)],
   })
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)

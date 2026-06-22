@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
+import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 
 export interface PhotoPreview {
   blob: Blob
@@ -8,6 +9,81 @@ export interface PhotoPreview {
 
 interface PositionedPhotoPreview extends PhotoPreview {
   position: number
+}
+
+function pickLocalDisplayVariant(
+  variants: LocalPhotoVariant[],
+): LocalPhotoVariant | undefined {
+  return (
+    variants.find(({ kind }) => kind === 'thumb') ??
+    variants.find(({ kind }) => kind === 'preview') ??
+    variants.find(({ kind }) => kind === 'large')
+  )
+}
+
+function mergePositionedPreviews(
+  localResult: PromiseSettledResult<PositionedPhotoPreview[]>,
+  remoteResult: PromiseSettledResult<PositionedPhotoPreview[]>,
+): PhotoPreview[] {
+  if (localResult.status === 'rejected' && remoteResult.status === 'rejected') {
+    throw new AggregateError(
+      [localResult.reason, remoteResult.reason],
+      'Photo previews could not be loaded',
+    )
+  }
+  if (
+    localResult.status === 'rejected' &&
+    remoteResult.status === 'fulfilled' &&
+    remoteResult.value.length === 0
+  ) {
+    throw localResult.reason
+  }
+  if (
+    remoteResult.status === 'rejected' &&
+    localResult.status === 'fulfilled' &&
+    localResult.value.length === 0
+  ) {
+    throw remoteResult.reason
+  }
+
+  const previewsById = new Map<string, PositionedPhotoPreview>()
+  if (remoteResult.status === 'fulfilled') {
+    for (const preview of remoteResult.value) {
+      previewsById.set(preview.id, preview)
+    }
+  }
+  if (localResult.status === 'fulfilled') {
+    for (const preview of localResult.value) {
+      previewsById.set(preview.id, preview)
+    }
+  }
+
+  return [...previewsById.values()]
+    .sort((left, right) => left.position - right.position)
+    .map(({ blob, id }) => ({ blob, id }))
+}
+
+function mergeEntryPreviews(
+  localPreviews: PositionedPhotoPreview[],
+  remotePreviews: PositionedPhotoPreview[],
+  localFailed: boolean,
+  remoteFailed: boolean,
+): { failed: boolean; previews: PhotoPreview[] } {
+  try {
+    return {
+      failed: false,
+      previews: mergePositionedPreviews(
+        localFailed
+          ? { status: 'rejected', reason: new Error('local failed') }
+          : { status: 'fulfilled', value: localPreviews },
+        remoteFailed
+          ? { status: 'rejected', reason: new Error('remote failed') }
+          : { status: 'fulfilled', value: remotePreviews },
+      ),
+    }
+  } catch {
+    return { failed: true, previews: [] }
+  }
 }
 
 async function getLocalPhotoPreviews(
@@ -23,10 +99,7 @@ async function getLocalPhotoPreviews(
         .where('photoId')
         .equals(photo.id)
         .toArray()
-      const variant =
-        variants.find(({ kind }) => kind === 'thumb') ??
-        variants.find(({ kind }) => kind === 'preview') ??
-        variants.find(({ kind }) => kind === 'large')
+      const variant = pickLocalDisplayVariant(variants)
       return variant === undefined
         ? null
         : { blob: variant.blob, id: photo.id, position: photo.position }
@@ -38,6 +111,50 @@ async function getLocalPhotoPreviews(
       ? [preview.value]
       : [],
   )
+}
+
+async function getLocalPhotoPreviewsBatch(
+  entryIds: string[],
+): Promise<Map<string, PositionedPhotoPreview[]>> {
+  if (entryIds.length === 0) {
+    return new Map()
+  }
+
+  const photos = await localDb.photos
+    .where('entryId')
+    .anyOf(entryIds)
+    .toArray()
+  if (photos.length === 0) {
+    return new Map()
+  }
+
+  const variants = await localDb.photoVariants
+    .where('photoId')
+    .anyOf(photos.map((photo) => photo.id))
+    .toArray()
+  const variantsByPhotoId = new Map<string, LocalPhotoVariant[]>()
+  for (const variant of variants) {
+    const list = variantsByPhotoId.get(variant.photoId) ?? []
+    list.push(variant)
+    variantsByPhotoId.set(variant.photoId, list)
+  }
+
+  const result = new Map<string, PositionedPhotoPreview[]>()
+  for (const photo of photos) {
+    const variant = pickLocalDisplayVariant(variantsByPhotoId.get(photo.id) ?? [])
+    if (variant === undefined) {
+      continue
+    }
+    const previews = result.get(photo.entryId) ?? []
+    previews.push({ blob: variant.blob, id: photo.id, position: photo.position })
+    result.set(photo.entryId, previews)
+  }
+
+  for (const previews of result.values()) {
+    previews.sort((left, right) => left.position - right.position)
+  }
+
+  return result
 }
 
 async function getRemotePhotoPreviews(
@@ -79,6 +196,87 @@ async function getRemotePhotoPreviews(
   )
 }
 
+async function getRemotePhotoPreviewsBatch(
+  entryIds: string[],
+): Promise<Map<string, PositionedPhotoPreview[]>> {
+  if (entryIds.length === 0) {
+    return new Map()
+  }
+
+  const client = getSupabaseClient()
+  const { data: links, error: linksError } = await client
+    .from('entry_photos')
+    .select('entry_id, photo_id, position')
+    .in('entry_id', entryIds)
+    .order('position')
+  if (linksError !== null) {
+    throw linksError
+  }
+  if (links.length === 0) {
+    return new Map()
+  }
+
+  const photoIds = [...new Set(links.map((link) => link.photo_id))]
+  const { data: variantRows, error: variantError } = await client
+    .from('photo_variants')
+    .select('photo_id, storage_path')
+    .in('photo_id', photoIds)
+    .eq('variant', 'preview')
+  if (variantError !== null) {
+    throw variantError
+  }
+
+  const storagePathByPhotoId = new Map<string, string>()
+  for (const row of variantRows) {
+    storagePathByPhotoId.set(row.photo_id, row.storage_path)
+  }
+
+  const downloads = await Promise.allSettled(
+    links.map(async (link) => {
+      const storagePath = storagePathByPhotoId.get(link.photo_id)
+      if (storagePath === undefined) {
+        throw new Error('missing preview variant')
+      }
+      const { data: blob, error: downloadError } = await client.storage
+        .from('photos')
+        .download(storagePath)
+      if (downloadError !== null) {
+        throw downloadError
+      }
+      return {
+        blob,
+        entryId: link.entry_id,
+        id: link.photo_id,
+        position: link.position,
+      }
+    }),
+  )
+
+  const result = new Map<string, PositionedPhotoPreview[]>()
+  for (const [index, download] of downloads.entries()) {
+    if (download.status !== 'fulfilled') {
+      continue
+    }
+    const link = links[index]
+    if (link === undefined) {
+      continue
+    }
+    const previews = result.get(link.entry_id) ?? []
+    previews.push({
+      blob: download.value.blob,
+      id: link.photo_id,
+      position: link.position,
+    })
+    result.set(link.entry_id, previews)
+  }
+
+  for (const previews of result.values()) {
+    previews.sort((left, right) => left.position - right.position)
+  }
+
+  return result
+}
+
 export async function getEntryPhotoPreviews(
   entryId: string,
 ): Promise<PhotoPreview[]> {
@@ -87,40 +285,54 @@ export async function getEntryPhotoPreviews(
     getRemotePhotoPreviews(entryId),
   ])
 
-  if (localResult.status === 'rejected' && remoteResult.status === 'rejected') {
+  return mergePositionedPreviews(localResult, remoteResult)
+}
+
+export interface JourneyEntryPhotoPreviews {
+  failedEntryIds: Set<string>
+  previewsByEntry: Map<string, PhotoPreview[]>
+}
+
+export async function getJourneyEntryPhotoPreviews(
+  entryIds: string[],
+): Promise<JourneyEntryPhotoPreviews> {
+  const uniqueEntryIds = [...new Set(entryIds)]
+  const [localResult, remoteResult] = await Promise.allSettled([
+    getLocalPhotoPreviewsBatch(uniqueEntryIds),
+    getRemotePhotoPreviewsBatch(uniqueEntryIds),
+  ])
+
+  const localFailed = localResult.status === 'rejected'
+  const remoteFailed = remoteResult.status === 'rejected'
+  const localByEntry =
+    localResult.status === 'fulfilled' ? localResult.value : new Map()
+  const remoteByEntry =
+    remoteResult.status === 'fulfilled' ? remoteResult.value : new Map()
+
+  const previewsByEntry = new Map<string, PhotoPreview[]>()
+  const failedEntryIds = new Set<string>()
+  for (const entryId of uniqueEntryIds) {
+    const merged = mergeEntryPreviews(
+      localByEntry.get(entryId) ?? [],
+      remoteByEntry.get(entryId) ?? [],
+      localFailed,
+      remoteFailed,
+    )
+    previewsByEntry.set(entryId, merged.previews)
+    if (merged.failed) {
+      failedEntryIds.add(entryId)
+    }
+  }
+
+  if (uniqueEntryIds.length > 0 && failedEntryIds.size === uniqueEntryIds.length) {
     throw new AggregateError(
-      [localResult.reason, remoteResult.reason],
+      [
+        localFailed ? localResult.reason : null,
+        remoteFailed ? remoteResult.reason : null,
+      ].filter(Boolean),
       'Photo previews could not be loaded',
     )
   }
-  if (
-    localResult.status === 'rejected' &&
-    remoteResult.status === 'fulfilled' &&
-    remoteResult.value.length === 0
-  ) {
-    throw localResult.reason
-  }
-  if (
-    remoteResult.status === 'rejected' &&
-    localResult.status === 'fulfilled' &&
-    localResult.value.length === 0
-  ) {
-    throw remoteResult.reason
-  }
 
-  const previewsById = new Map<string, PositionedPhotoPreview>()
-  if (remoteResult.status === 'fulfilled') {
-    for (const preview of remoteResult.value) {
-      previewsById.set(preview.id, preview)
-    }
-  }
-  if (localResult.status === 'fulfilled') {
-    for (const preview of localResult.value) {
-      previewsById.set(preview.id, preview)
-    }
-  }
-
-  return [...previewsById.values()]
-    .sort((left, right) => left.position - right.position)
-    .map(({ blob, id }) => ({ blob, id }))
+  return { failedEntryIds, previewsByEntry }
 }

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { localDb } from '@/shared/lib/local-db'
 import { loadCurrentProfile } from '@/features/auth/session/load-current-profile'
 import * as network from '@/shared/lib/network'
 
@@ -30,8 +31,9 @@ function mockProfileResult(result: {
 }
 
 describe('loadCurrentProfile', () => {
-  afterEach(() => {
+  afterEach(async () => {
     sessionStorage.clear()
+    await localDb.cachedProfiles.clear()
     vi.mocked(getSupabaseClient).mockReset()
     vi.mocked(network.isBrowserOnline).mockReturnValue(true)
   })
@@ -85,6 +87,33 @@ describe('loadCurrentProfile', () => {
   it('returns the cached profile when offline', async () => {
     vi.mocked(getSupabaseClient).mockReset()
     vi.mocked(network.isBrowserOnline).mockReturnValue(false)
+    await localDb.cachedProfiles.put({
+      cachedAt: new Date().toISOString(),
+      profile: {
+        avatarUrl: null,
+        bio: 'Na cestě',
+        displayName: 'Ečerovi',
+        id: userId,
+        preferredLocale: 'cs',
+        username: 'ecerovi2016',
+      },
+      userId,
+    })
+
+    await expect(loadCurrentProfile(userId)).resolves.toEqual({
+      avatarUrl: null,
+      bio: 'Na cestě',
+      displayName: 'Ečerovi',
+      id: userId,
+      preferredLocale: 'cs',
+      username: 'ecerovi2016',
+    })
+    expect(getSupabaseClient).not.toHaveBeenCalled()
+  })
+
+  it('migrates sessionStorage profile cache into IndexedDB', async () => {
+    vi.mocked(getSupabaseClient).mockReset()
+    vi.mocked(network.isBrowserOnline).mockReturnValue(false)
     sessionStorage.setItem(
       `trip-diary:profile:${userId}`,
       JSON.stringify({
@@ -105,6 +134,8 @@ describe('loadCurrentProfile', () => {
       preferredLocale: 'cs',
       username: 'ecerovi2016',
     })
-    expect(getSupabaseClient).not.toHaveBeenCalled()
+
+    const cached = await localDb.cachedProfiles.get(userId)
+    expect(cached?.profile.username).toBe('ecerovi2016')
   })
 })

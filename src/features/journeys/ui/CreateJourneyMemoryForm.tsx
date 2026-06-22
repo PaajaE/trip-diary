@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, MapPin } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
@@ -14,6 +14,7 @@ import {
   type ProcessedPhoto,
   type SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
+import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
 import {
   choosePhotosFromFiles,
   choosePhotosFromGallery,
@@ -21,8 +22,18 @@ import {
   supportsFileSystemPhotoSelection,
   supportsNativePhotoSelection,
 } from '@/entities/photo/lib/photo-selection'
+import { useMemoryPhotoPreviews } from '@/features/journeys/lib/use-memory-photo-previews'
+import {
+  clearJourneyMemoryPhotoDraft,
+  getJourneyMemoryPhotoDraft,
+  setJourneyMemoryPhotoDraft,
+} from '@/features/journeys/lib/journey-memory-photo-draft'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
+import {
+  getCurrentDevicePosition,
+  isGeolocationAvailable,
+} from '@/shared/lib/geolocation'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
@@ -35,9 +46,12 @@ interface CreateJourneyMemoryFormProps {
   spaceId: string
 }
 
-const createJourneyMemorySchema = createEntrySchema.extend({
-  stageId: z.string(),
-})
+const createJourneyMemorySchema = createEntrySchema
+  .omit({ title: true })
+  .extend({
+    stageId: z.string(),
+    title: z.string().max(160),
+  })
 
 type CreateJourneyMemoryInput = z.infer<typeof createJourneyMemorySchema>
 
@@ -48,15 +62,20 @@ export function CreateJourneyMemoryForm({
   spaceId,
 }: CreateJourneyMemoryFormProps) {
   const { t, i18n } = useTranslation()
-  const [photos, setPhotos] = useState<SelectedPhotoFile[]>([])
-  const [detectedPhotos, setDetectedPhotos] = useState<ProcessedPhoto[]>([])
+  const restoredDraft = getJourneyMemoryPhotoDraft(journey.id)
+  const [photos, setPhotos] = useState<SelectedPhotoFile[]>(
+    () => restoredDraft?.photos ?? [],
+  )
+  const [detectedPhotos, setDetectedPhotos] = useState<ProcessedPhoto[]>(
+    () => restoredDraft?.detectedPhotos ?? [],
+  )
   const [selectedPoint, setSelectedPoint] = useState<{
     latitude: number
     longitude: number
-  } | null>(null)
+  } | null>(() => restoredDraft?.selectedPoint ?? null)
   const [locationSource, setLocationSource] = useState<
     'current' | 'map' | 'photo' | null
-  >(null)
+  >(() => restoredDraft?.locationSource ?? null)
   const [detectingPhotos, setDetectingPhotos] = useState(false)
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
@@ -76,33 +95,23 @@ export function CreateJourneyMemoryForm({
     resolver: zodResolver(createJourneyMemorySchema),
   })
   const title = useWatch({ control: form.control, name: 'title' })
-  const photoPreviewUrls = useMemo(
-    () =>
-      detectedPhotos.flatMap((photo, index) => {
-        const variant =
-          photo.variants.find(({ kind }) => kind === 'thumb') ??
-          photo.variants.find(({ kind }) => kind === 'preview') ??
-          photo.variants.find(({ kind }) => kind === 'large')
-        return variant === undefined
-          ? []
-          : [
-              {
-                id: `${String(index)}-${variant.kind}`,
-                url: URL.createObjectURL(variant.blob),
-              },
-            ]
-      }),
-    [detectedPhotos],
-  )
+  const photoPreviewUrls = useMemoryPhotoPreviews(photos, detectedPhotos)
 
-  useEffect(
-    () => () => {
-      for (const preview of photoPreviewUrls) {
-        URL.revokeObjectURL(preview.url)
-      }
-    },
-    [photoPreviewUrls],
-  )
+  function persistPhotoDraft(next: {
+    detectedPhotos?: ProcessedPhoto[]
+    locationSource?: 'current' | 'map' | 'photo' | null
+    photos?: SelectedPhotoFile[]
+    selectedPoint?: { latitude: number; longitude: number } | null
+  }) {
+    const draft = {
+      detectedPhotos: next.detectedPhotos ?? detectedPhotos,
+      locationSource: next.locationSource ?? locationSource,
+      photos: next.photos ?? photos,
+      selectedPoint: next.selectedPoint ?? selectedPoint,
+    }
+
+    setJourneyMemoryPhotoDraft(journey.id, draft)
+  }
 
   function handlePointSelected(
     point: { latitude: number; longitude: number },
@@ -110,6 +119,14 @@ export function CreateJourneyMemoryForm({
   ) {
     setSelectedPoint(point)
     setLocationSource(source)
+    if (photos.length > 0) {
+      setJourneyMemoryPhotoDraft(journey.id, {
+        detectedPhotos,
+        locationSource: source,
+        photos,
+        selectedPoint: point,
+      })
+    }
     const currentTitle = form.getValues('title').trim()
     if (currentTitle !== '' && currentTitle !== (suggestedTitle ?? '')) {
       setSuggestingTitle(false)
@@ -146,12 +163,22 @@ export function CreateJourneyMemoryForm({
 
   async function handlePhotoSelection(files: SelectedPhotoFile[]) {
     setPhotos(files)
+    setDetectedPhotos([])
+    setSelectedPoint(null)
+    setLocationSource(null)
+    setSuggestedTitle(null)
     setLinkError(null)
     setDetectingPhotos(true)
+    persistPhotoDraft({
+      detectedPhotos: [],
+      locationSource: null,
+      photos: files,
+      selectedPoint: null,
+    })
 
     try {
       const processed = await Promise.all(
-        files.map(async (file) => {
+        files.map(async (file, index) => {
           try {
             return await processPhoto(file)
           } catch {
@@ -174,25 +201,37 @@ export function CreateJourneyMemoryForm({
       }
 
       const firstGps = processed.find(hasValidGpsPoint)
+      let nextSelectedPoint: { latitude: number; longitude: number } | null =
+        null
+      let nextLocationSource: 'current' | 'map' | 'photo' | null = null
+
       if (firstGps !== undefined) {
-        handlePointSelected(
-          {
-            latitude: firstGps.latitude,
-            longitude: firstGps.longitude,
-          },
-          'photo',
-        )
+        nextSelectedPoint = {
+          latitude: firstGps.latitude,
+          longitude: firstGps.longitude,
+        }
+        nextLocationSource = 'photo'
+        handlePointSelected(nextSelectedPoint, 'photo')
       } else if (files.length > 0) {
         setSelectedPoint(null)
         setLocationSource(null)
         setSuggestedTitle(null)
       }
-    } catch {
+
+      persistPhotoDraft({
+        detectedPhotos: processed,
+        locationSource: nextLocationSource,
+        photos: files,
+        selectedPoint: nextSelectedPoint,
+      })
+    } catch (error) {
       setDetectedPhotos([])
       setSelectedPoint(null)
       setLocationSource(null)
       setSuggestedTitle(null)
-      setLinkError(t('journey.photoInsightsError'))
+      setLinkError(
+        `${t('journey.photoInsightsError')} (${formatPhotoError(error)})`,
+      )
     } finally {
       setDetectingPhotos(false)
     }
@@ -203,11 +242,13 @@ export function CreateJourneyMemoryForm({
 
     try {
       await handlePhotoSelection(await choosePhotosFromGallery())
-    } catch {
+    } catch (error) {
       setDetectedPhotos([])
       setSelectedPoint(null)
       setSuggestedTitle(null)
-      setLinkError(t('entry.photoPickerError'))
+      setLinkError(
+        `${t('entry.photoPickerError')} (${formatPhotoError(error)})`,
+      )
     }
   }
 
@@ -224,7 +265,7 @@ export function CreateJourneyMemoryForm({
   }
 
   async function handleUseCurrentLocation() {
-    if (!('geolocation' in navigator)) {
+    if (!isGeolocationAvailable()) {
       setLinkError(t('journey.currentLocationUnavailable'))
       return
     }
@@ -233,22 +274,12 @@ export function CreateJourneyMemoryForm({
     setLocatingUser(true)
 
     try {
-      const position = await new Promise<GeolocationPosition>(
-        (resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            maximumAge: 120000,
-            timeout: 12000,
-          })
-        },
-      )
-      handlePointSelected(
-        {
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        },
-        'current',
-      )
+      const position = await getCurrentDevicePosition({
+        enableHighAccuracy: true,
+        maximumAge: 120_000,
+        timeout: 12_000,
+      })
+      handlePointSelected(position, 'current')
     } catch {
       setLinkError(t('journey.currentLocationFailed'))
     } finally {
@@ -261,11 +292,16 @@ export function CreateJourneyMemoryForm({
 
   async function handleSubmit(input: CreateJourneyMemoryInput) {
     setLinkError(null)
+    const resolvedTitle =
+      input.title.trim() ||
+      suggestedTitle?.trim() ||
+      t('journey.photoStopFallback')
+
     const entry = await createLocalEntry(creatorId, spaceId, {
       body: input.body,
       eventAt: input.eventAt,
       language: input.language,
-      title: input.title,
+      title: resolvedTitle,
       type: input.type,
       visibility: input.visibility,
     })
@@ -280,9 +316,9 @@ export function CreateJourneyMemoryForm({
       locationTitle:
         selectedPoint === null
           ? null
-          : input.title === ''
+          : resolvedTitle === ''
             ? t('journey.photoStopFallback')
-            : input.title,
+            : resolvedTitle,
       longitude: selectedPoint?.longitude ?? null,
       stageId: input.stageId === '' ? null : input.stageId,
       stopId,
@@ -290,13 +326,14 @@ export function CreateJourneyMemoryForm({
 
     let photosFailed = false
     try {
-      await addLocalPhotos(creatorId, entry.id, photos)
+      await addLocalPhotos(creatorId, entry.id, photos, detectedPhotos)
     } catch {
       // Keep the moment in the journey even if photo processing fails.
       setLinkError(t('journey.photoProcessingFailed'))
       photosFailed = true
     }
     onCreated({ photosFailed })
+    clearJourneyMemoryPhotoDraft(journey.id)
 
     if (await canAutomaticallySync()) {
       void syncPendingOperations().catch(() => {
@@ -439,7 +476,22 @@ export function CreateJourneyMemoryForm({
           </div>
 
           <div className="mt-5 space-y-4">
-            {photoPreviewUrls.length === 0 ? null : (
+            {photoPreviewUrls.length === 0 ? (
+              detectingPhotos ? (
+                <div
+                  className="grid grid-cols-3 gap-2 sm:grid-cols-5"
+                  role="status"
+                >
+                  {photos.map((photo, index) => (
+                    <div
+                      aria-hidden="true"
+                      className="aspect-square w-full animate-pulse rounded-xl bg-background"
+                      key={`${photo.file.name}-${String(index)}`}
+                    />
+                  ))}
+                </div>
+              ) : null
+            ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
                 {photoPreviewUrls.map((preview) => (
                   <img
@@ -486,12 +538,17 @@ export function CreateJourneyMemoryForm({
           {linkError}
         </p>
       )}
+      {form.formState.errors.eventAt?.message === undefined ? null : (
+        <p className="text-sm text-destructive">{form.formState.errors.eventAt.message}</p>
+      )}
       <Button
         className="w-full"
-        disabled={form.formState.isSubmitting}
+        disabled={detectingPhotos || form.formState.isSubmitting}
         type="submit"
       >
-        {t('journey.saveMemory')}
+        {form.formState.isSubmitting
+          ? t('journey.savingMemory')
+          : t('journey.saveMemory')}
       </Button>
     </form>
   )
@@ -500,13 +557,17 @@ export function CreateJourneyMemoryForm({
 function hasValidGpsPoint(
   photo: Pick<ProcessedPhoto, 'latitude' | 'longitude'>,
 ): photo is ProcessedPhoto & { latitude: number; longitude: number } {
-  return isFiniteLatitude(photo.latitude) && isFiniteLongitude(photo.longitude)
+  return isMeaningfulGpsCoordinate(photo.latitude, photo.longitude)
 }
 
-function isFiniteLatitude(value: number | null): value is number {
-  return value !== null && Number.isFinite(value) && Math.abs(value) <= 90
-}
+function formatPhotoError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message
+  }
 
-function isFiniteLongitude(value: number | null): value is number {
-  return value !== null && Number.isFinite(value) && Math.abs(value) <= 180
+  if (typeof error === 'string') {
+    return error
+  }
+
+  return 'Unknown error'
 }

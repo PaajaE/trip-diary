@@ -19,7 +19,6 @@ describe('mergeJourneyGalleryPhotos', () => {
       [
         [{ blob: firstBlob, id: firstPhotoId }],
         [],
-        [{ blob: new Blob(['ignored']), id: crypto.randomUUID() }],
       ],
     )
 
@@ -37,10 +36,13 @@ describe('mergeJourneyGalleryPhotos', () => {
     const firstEntryId = crypto.randomUUID()
     const secondEntryId = crypto.randomUUID()
     const preview = { blob: new Blob(['lake']), id: crypto.randomUUID() }
-    const loadPreviews = vi
-      .fn<(entryId: string) => Promise<(typeof preview)[]>>()
-      .mockResolvedValueOnce([preview])
-      .mockRejectedValueOnce(new Error('offline'))
+    const loadBatch = vi.fn().mockResolvedValue({
+      failedEntryIds: new Set([secondEntryId]),
+      previewsByEntry: new Map([
+        [firstEntryId, [preview]],
+        [secondEntryId, []],
+      ]),
+    })
 
     await expect(
       loadJourneyGalleryPreviews(
@@ -48,11 +50,11 @@ describe('mergeJourneyGalleryPhotos', () => {
           { entry: { id: firstEntryId, title: 'Lake' } },
           { entry: { id: secondEntryId, title: 'Camp' } },
         ],
-        loadPreviews,
+        loadBatch,
       ),
     ).resolves.toEqual({
       failedMomentCount: 1,
-      previewsByMoment: [[preview], undefined],
+      previewsByMoment: [[preview], []],
     })
   })
 })
