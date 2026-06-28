@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import '@/app/i18n'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 
@@ -31,7 +32,11 @@ function renderGallery(
     moments,
     ...render(
       <QueryClientProvider client={queryClient}>
-        <JourneyGallery moments={moments} />
+        <JourneyGallery
+          locatedPhotoIds={new Set()}
+          moments={moments}
+          onShowOnMap={vi.fn()}
+        />
       </QueryClientProvider>,
     ),
   }
@@ -67,7 +72,9 @@ describe('JourneyGallery', () => {
     })
     renderGallery()
     expect(
-      await screen.findByText('V této cestě zatím nejsou žádné fotografie.'),
+      await screen.findByText(
+        'Fotky se tu objeví společně s prvními momenty cesty.',
+      ),
     ).toBeVisible()
   })
 

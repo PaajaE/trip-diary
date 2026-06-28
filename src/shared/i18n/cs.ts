@@ -4,6 +4,7 @@ export const cs: TranslationResources = {
   sync: {
     status: {
       failed: 'Synchronizace vyžaduje pozornost',
+      failedShort: 'Sync selhala',
       offline: 'Offline · uloženo v zařízení',
       pending: 'Čeká na synchronizaci',
       ready: 'Připraveno pro práci offline',
@@ -81,6 +82,7 @@ export const cs: TranslationResources = {
     greeting: 'Vítejte, {{name}}',
     journeys: 'Vaše cesty',
     loading: 'Načítání vašeho deníku…',
+    revalidating: 'Aktualizuji přehled…',
     noEntries: 'První vzpomínku můžete zachytit během několika sekund.',
     noJourneys: 'První cestu naplánujte, až vás zase zavolá cesta.',
     noSummary: 'Zatím bez popisu.',
@@ -213,6 +215,7 @@ export const cs: TranslationResources = {
       'Cesta zmizí z přehledu. Synchronizace proběhne, až budete online.',
     editTrip: 'Upravit cestu',
     saveTrip: 'Uložit cestu',
+    showOnMap: 'Na mapě',
     dateUnknown: 'Datum doplníš později',
     emptyRoute:
       'Přidejte první moment — fotky, místo nebo krátký příběh. Etapy a rady doplníte kdykoli později.',
@@ -224,6 +227,10 @@ export const cs: TranslationResources = {
     explore: 'Prohlížení cesty',
     gallery: 'Galerie',
     galleryEmpty: 'Fotky se tu objeví společně s prvními momenty cesty.',
+    galleryError: 'Galerii cesty se nepodařilo načíst.',
+    galleryLoading: 'Načítám galerii cesty…',
+    galleryPartialError: 'Některé fotografie se nepodařilo načíst.',
+    galleryUntitled: 'Moment cesty',
     galleryEyebrow: 'Všechny vzpomínky pohromadě',
     guide: 'Praktický průvodce',
     guideBody: 'Text rady',
@@ -237,6 +244,7 @@ export const cs: TranslationResources = {
     itemTitle: 'Název',
     latitude: 'Zeměpisná šířka',
     loading: 'Načítání cesty…',
+    revalidating: 'Aktualizuji cestu…',
     longitude: 'Zeměpisná délka',
     manageMembers: 'Spravovat členy',
     members: {
@@ -292,7 +300,10 @@ export const cs: TranslationResources = {
     },
     map: 'Mapa cesty',
     mapEmpty:
-      'Zatím tu není žádný moment s polohou. U dalšího můžeš použít aktuální polohu nebo bod vybrat na mapě.',
+      'Zatím tu není žádné místo z fotek ani momentů. U dalšího můžeš použít aktuální polohu, GPS ve fotkách nebo bod vybrat na mapě.',
+    mapLoadingLocations: 'Načítám polohy fotografií…',
+    mapLocatingPhoto: 'Hledám fotografii na mapě…',
+    mapPhotoTitle: 'Fotka: {{title}}',
     mapEyebrow: 'Celá cesta na jednom místě',
     mappedCount: '{{count}} na mapě',
     hasLocation: 'Moment má polohu',
@@ -315,6 +326,7 @@ export const cs: TranslationResources = {
     organizeEyebrow: 'Organizace',
     organizeTitle: 'Organizovat cestu',
     openMoment: 'Otevřít moment',
+    openPhoto: 'Otevřít fotku',
     organizeMoment: 'Zařadit do etapy',
     organizeMomentError: 'Přesun se nepovedl. Zkus to prosím znovu.',
     notFound: 'Tato cesta neexistuje.',

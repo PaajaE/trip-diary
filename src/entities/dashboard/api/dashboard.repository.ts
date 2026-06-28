@@ -10,13 +10,21 @@ import {
   getDashboardCache,
   saveDashboardCache,
 } from '@/entities/dashboard/api/local-dashboard-cache.repository'
-import { prefetchJourneySnapshots } from '@/entities/dashboard/api/prefetch-journey-snapshots'
+import { prefetchJourneySnapshot } from '@/entities/dashboard/api/prefetch-journey-snapshots'
+import { pickContinueJourney } from '@/entities/dashboard/lib/pick-continue-journey'
 import type { JourneySnapshotRecord } from '@/entities/journey/api/local-journey-cache.repository'
 import { listPendingLocalJourneys } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { listDeletedRecordIds } from '@/shared/lib/local-deleted-records'
 import { isBrowserOnline } from '@/shared/lib/network'
+
+export async function getCachedDashboardData(
+  input: DashboardQueryInput,
+): Promise<DashboardData> {
+  const query = dashboardQuerySchema.parse(input)
+  return buildOfflineDashboard(query)
+}
 
 export async function getDashboardData(
   input: DashboardQueryInput,
@@ -35,7 +43,7 @@ export async function getDashboardData(
       journeys: mergeDashboardJourneys(localJourneys, remote.journeys),
     })
     await saveDashboardCache(query.userId, data)
-    prefetchJourneySnapshots(data.journeys.map((journey) => journey.id))
+    prefetchJourneySnapshot(pickContinueJourney(data.journeys)?.id)
     return data
   } catch {
     return buildOfflineDashboard(query)

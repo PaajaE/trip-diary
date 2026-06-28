@@ -71,5 +71,13 @@ export async function resolveSyncOperationDetail(
       const entry = await localDb.entries.get(photo.entryId)
       return entry?.title ?? ''
     }
+    case 'photo.gps.update': {
+      const photo = await localDb.photos.get(operation.photoId)
+      if (photo === undefined) {
+        return ''
+      }
+      const entry = await localDb.entries.get(photo.entryId)
+      return entry?.title ?? ''
+    }
   }
 }

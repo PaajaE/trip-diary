@@ -50,6 +50,14 @@ export default defineConfig({
             },
             urlPattern: /^https:\/\/tile\.openstreetmap\.org\//,
           },
+          {
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'mapy-basemap-tiles',
+              expiration: { maxAgeSeconds: 604800, maxEntries: 500 },
+            },
+            urlPattern: /^https:\/\/api\.mapy\.com\/v1\/maptiles\//,
+          },
         ],
       },
     }),

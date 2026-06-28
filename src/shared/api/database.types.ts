@@ -552,6 +552,8 @@ export type Database = {
           created_at: string
           creator_id: string
           id: string
+          latitude: number | null
+          longitude: number | null
           updated_at: string
         }
         Insert: {
@@ -559,6 +561,8 @@ export type Database = {
           created_at?: string
           creator_id: string
           id: string
+          latitude?: number | null
+          longitude?: number | null
           updated_at?: string
         }
         Update: {
@@ -566,6 +570,8 @@ export type Database = {
           created_at?: string
           creator_id?: string
           id?: string
+          latitude?: number | null
+          longitude?: number | null
           updated_at?: string
         }
         Relationships: []

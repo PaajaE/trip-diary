@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { getDashboardData } from '@/entities/dashboard/api/dashboard.repository'
+import { prefetchJourneySnapshot } from '@/entities/dashboard/api/prefetch-journey-snapshots'
 
 const { getSupabaseClientMock } = vi.hoisted(() => ({
   getSupabaseClientMock: vi.fn(),
@@ -11,6 +12,10 @@ vi.mock('@/shared/api/supabase', () => ({
 
 vi.mock('@/shared/lib/network', () => ({
   isBrowserOnline: vi.fn(() => true),
+}))
+
+vi.mock('@/entities/dashboard/api/prefetch-journey-snapshots', () => ({
+  prefetchJourneySnapshot: vi.fn(),
 }))
 
 interface QueryResult {
@@ -42,6 +47,7 @@ function createQueryBuilder(result: QueryResult) {
 describe('getDashboardData', () => {
   beforeEach(() => {
     getSupabaseClientMock.mockReset()
+    vi.mocked(prefetchJourneySnapshot).mockReset()
   })
 
   it('loads and maps recent member journeys and authored entries', async () => {
@@ -126,6 +132,7 @@ describe('getDashboardData', () => {
     expect(entries.limit).toHaveBeenCalledWith(4)
     expect(journeys.in).toHaveBeenCalledWith('id', [journeyId])
     expect(journeys.limit).toHaveBeenCalledWith(3)
+    expect(prefetchJourneySnapshot).toHaveBeenCalledWith(journeyId)
   })
 
   it('does not query journeys when the user has no memberships', async () => {

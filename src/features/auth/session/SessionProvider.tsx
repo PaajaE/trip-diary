@@ -13,6 +13,7 @@ import {
   SessionContext,
   type SessionContextValue,
 } from '@/features/auth/session/session-context'
+import { getCachedProfile } from '@/entities/profile/api/local-profile-cache.repository'
 import { loadCurrentProfile } from '@/features/auth/session/load-current-profile'
 
 interface SessionState {
@@ -107,10 +108,11 @@ export function SessionProvider({ children }: PropsWithChildren) {
         }
       } catch (error) {
         if (active && currentRevision === revision) {
+          const cachedProfile = await getCachedProfile(session.user.id)
           setState({
-            error: toError(error),
+            error: cachedProfile === null ? toError(error) : null,
             loading: false,
-            profile: null,
+            profile: cachedProfile,
             session,
           })
         }

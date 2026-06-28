@@ -64,6 +64,28 @@ export async function createJourney(
   }
 }
 
+export async function getJourneyFromCache(
+  id: string,
+): Promise<JourneyDetail | null> {
+  if (await isRecordDeleted('journey', id)) {
+    return null
+  }
+
+  const snapshot = await getJourneySnapshot(id)
+  if (snapshot === null) {
+    return null
+  }
+
+  return applyLocalJourneyDeltas(snapshot.journey)
+}
+
+export async function getCachedCanContributeToJourney(
+  id: string,
+): Promise<boolean | undefined> {
+  const snapshot = await getJourneySnapshot(id)
+  return snapshot?.canContribute
+}
+
 export async function getJourney(id: string): Promise<JourneyDetail | null> {
   if (await isRecordDeleted('journey', id)) {
     return null
@@ -73,22 +95,18 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     try {
       const journey = await fetchJourneyFromRemote(id)
       if (journey === null) {
-        return null
+        return getJourneyFromCache(id)
       }
+      const merged = await applyLocalJourneyDeltas(journey)
       const canContribute = await resolveCanContributeForSnapshot(id)
-      await saveJourneySnapshot(journey, canContribute)
-      return journey
+      await saveJourneySnapshot(merged, canContribute)
+      return merged
     } catch {
       // Fall back to the last cached snapshot when the remote read fails.
     }
   }
 
-  const snapshot = await getJourneySnapshot(id)
-  if (snapshot === null) {
-    return null
-  }
-
-  return applyLocalJourneyDeltas(snapshot.journey)
+  return getJourneyFromCache(id)
 }
 
 async function fetchJourneyFromRemote(

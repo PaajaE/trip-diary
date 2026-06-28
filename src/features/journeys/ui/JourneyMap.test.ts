@@ -14,6 +14,7 @@ describe('getJourneyMapPoints', () => {
         id: `moment:${moment.entry.id}`,
         latitude: 50,
         longitude: 14,
+        photoId: null,
         title: 'Morning view',
         type: 'moment',
       },
@@ -22,8 +23,32 @@ describe('getJourneyMapPoints', () => {
         id: `planned:${plannedStop.id}`,
         latitude: 50,
         longitude: 14,
+        photoId: null,
         title: 'Next camp',
         type: 'planned',
+      },
+    ])
+  })
+
+  it('prefers photo pins over a moment marker for the same entry', () => {
+    const moment = createMoment()
+    const photo = {
+      entryId: moment.entry.id,
+      entryTitle: moment.entry.title,
+      id: crypto.randomUUID(),
+      latitude: 50.1,
+      longitude: 14.1,
+    }
+
+    expect(getJourneyMapPoints([moment], [], [photo])).toEqual([
+      {
+        entryId: moment.entry.id,
+        id: `photo:${photo.id}`,
+        latitude: 50.1,
+        longitude: 14.1,
+        photoId: photo.id,
+        title: 'Morning view',
+        type: 'photo',
       },
     ])
   })

@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
-import { getJourney } from '@/entities/journey/api/journey.repository'
+import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
 
@@ -16,10 +16,7 @@ export function CreateJourneyMemoryPage({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { loading, user } = useSession()
-  const journeyQuery = useQuery({
-    queryFn: () => getJourney(journeyId),
-    queryKey: ['journeys', journeyId, 'capture'],
-  })
+  const journeyQuery = useJourneyQuery(journeyId)
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-2xl px-5 py-8 sm:py-16">
@@ -48,9 +45,9 @@ export function CreateJourneyMemoryPage({
             {t('home.signIn')}
           </Link>
         </p>
-      ) : journeyQuery.isPending ? (
+      ) : journeyQuery.isLoading ? (
         <p className="mt-8 text-muted">{t('journey.loading')}</p>
-      ) : journeyQuery.isError || journeyQuery.data === null ? (
+      ) : journeyQuery.isError || journeyQuery.data == null ? (
         <p className="mt-8 text-destructive">{t('journey.error')}</p>
       ) : (
         <CreateJourneyMemoryForm
@@ -62,6 +59,9 @@ export function CreateJourneyMemoryPage({
             })
             void queryClient.invalidateQueries({
               queryKey: ['journey-gallery'],
+            })
+            void queryClient.invalidateQueries({
+              queryKey: ['journey-photo-locations', journeyId],
             })
             void navigate({
               params: { journeyId },

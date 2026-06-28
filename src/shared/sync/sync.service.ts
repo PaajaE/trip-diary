@@ -3,6 +3,7 @@ import { getJourneySnapshot } from '@/entities/journey/api/local-journey-cache.r
 import { getLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 import { SYNC_PHOTO_VARIANT_KINDS } from '@/entities/photo/lib/photo-variant-config'
+import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
 import { listMySpaces } from '@/entities/space/api/space.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
@@ -10,21 +11,206 @@ import { clearDeletedRecord } from '@/shared/lib/local-deleted-records'
 import { createPublicSlug } from '@/shared/lib/slug'
 import { resolveSyncOperationDetail } from '@/shared/sync/sync-operation-detail'
 import {
+  clearSyncError,
+  formatSyncError,
+  hasIncompleteCreateOperation,
+  reportSyncError,
+  shouldWaitForEntry,
+  shouldWaitForJourney,
+  shouldWaitForPhotoSync,
+  shouldWaitForPhotoUpload,
+} from '@/shared/sync/sync-last-error'
+import {
   clearSyncProgress,
   getSyncProgress,
   reportSyncProgress,
 } from '@/shared/sync/sync-progress'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
+import { syncOperationSchema } from '@/shared/sync/sync-operation'
 
 export const STALE_SYNCING_OPERATION_MS = 90_000
 export const APP_RESUME_STALE_SYNC_MS = 30_000
 
-export async function syncPendingOperations(): Promise<void> {
-  const { data } = await getSupabaseClient().auth.getUser()
-  const creatorId = data.user?.id
+export async function prepareManualSync(creatorId: string): Promise<void> {
+  await forceResetSyncingOperations(creatorId)
+  await repairSyncQueue(creatorId)
 
-  if (creatorId === undefined) {
-    return
+  const failedOperations = await localDb.syncOperations
+    .where('status')
+    .equals('failed')
+    .filter((operation) => operation.creatorId === creatorId)
+    .toArray()
+  if (failedOperations.length > 0) {
+    await localDb.syncOperations.bulkPut(
+      failedOperations.map((operation) => ({
+        ...operation,
+        status: 'pending' as const,
+      })),
+    )
+  }
+
+  const failedEntries = await localDb.entries
+    .where('creatorId')
+    .equals(creatorId)
+    .filter((entry) => entry.syncStatus === 'failed')
+    .toArray()
+  for (const entry of failedEntries) {
+    await localDb.entries.update(entry.id, { syncStatus: 'pending' })
+  }
+
+  const failedPhotos = await localDb.photos
+    .where('creatorId')
+    .equals(creatorId)
+    .filter((photo) => photo.syncStatus === 'failed')
+    .toArray()
+  for (const photo of failedPhotos) {
+    await localDb.photos.update(photo.id, { syncStatus: 'pending' })
+  }
+}
+
+async function repairSyncQueue(creatorId: string): Promise<void> {
+  const unsyncedEntries = await localDb.entries
+    .where('creatorId')
+    .equals(creatorId)
+    .filter((entry) => entry.syncStatus !== 'synced')
+    .toArray()
+
+  for (const entry of unsyncedEntries) {
+    const hasCreateOperation =
+      (await localDb.syncOperations
+        .filter(
+          (operation) =>
+            operation.type === 'entry.create' &&
+            operation.entryId === entry.id &&
+            operation.creatorId === creatorId,
+        )
+        .count()) > 0
+    if (hasCreateOperation) {
+      continue
+    }
+
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: new Date().toISOString(),
+        creatorId,
+        entryId: entry.id,
+        id: crypto.randomUUID(),
+        status: 'pending',
+        type: 'entry.create',
+      }),
+    )
+  }
+
+  const unsyncedPhotos = await localDb.photos
+    .where('creatorId')
+    .equals(creatorId)
+    .filter((photo) => photo.syncStatus !== 'synced')
+    .toArray()
+
+  for (const photo of unsyncedPhotos) {
+    const variantCount = await localDb.photoVariants
+      .where('photoId')
+      .equals(photo.id)
+      .count()
+    if (variantCount === 0) {
+      continue
+    }
+
+    const hasUploadOperation =
+      (await localDb.syncOperations
+        .filter(
+          (operation) =>
+            operation.type === 'photo.upload' &&
+            operation.photoId === photo.id &&
+            operation.creatorId === creatorId,
+        )
+        .count()) > 0
+    if (hasUploadOperation) {
+      continue
+    }
+
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: new Date().toISOString(),
+        creatorId,
+        id: crypto.randomUUID(),
+        photoId: photo.id,
+        status: 'pending',
+        type: 'photo.upload',
+      }),
+    )
+  }
+
+  const localLinks = await localDb.journeyLinks
+    .where('creatorId')
+    .equals(creatorId)
+    .toArray()
+
+  for (const link of localLinks) {
+    const hasAssignmentOperation =
+      (await localDb.syncOperations
+        .filter(
+          (operation) =>
+            operation.type === 'journey.assignment.upsert' &&
+            operation.entryId === link.entryId &&
+            operation.creatorId === creatorId,
+        )
+        .count()) > 0
+    if (hasAssignmentOperation) {
+      continue
+    }
+
+    const operationId = crypto.randomUUID()
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: new Date().toISOString(),
+        creatorId: link.creatorId,
+        entryId: link.entryId,
+        id: operationId,
+        journeyId: link.journeyId,
+        latitude: link.latitude,
+        locationTitle: link.locationTitle,
+        longitude: link.longitude,
+        stageId: link.stageId,
+        status: 'pending',
+        stopId: link.stopId,
+        type: 'journey.assignment.upsert',
+      }),
+    )
+    await localDb.journeyLinks.update(link.entryId, {
+      syncOperationId: operationId,
+    })
+  }
+}
+
+async function resolveSyncCreatorId(): Promise<string> {
+  const client = getSupabaseClient()
+  const {
+    data: { session },
+  } = await client.auth.getSession()
+  if (session?.user.id !== undefined) {
+    return session.user.id
+  }
+
+  const { data, error } = await client.auth.getUser()
+  if (error !== null) {
+    throw error
+  }
+  if (data.user?.id === undefined) {
+    throw new Error('Sign in is required before synchronizing')
+  }
+
+  return data.user.id
+}
+
+export async function syncPendingOperations(): Promise<void> {
+  let creatorId: string
+  try {
+    creatorId = await resolveSyncCreatorId()
+  } catch (error) {
+    const message = formatSyncError(error)
+    reportSyncError(message)
+    throw error
   }
 
   await recoverStaleSyncingOperations(creatorId)
@@ -45,8 +231,10 @@ export async function syncPendingOperations(): Promise<void> {
   })
 
   let processedCount = 0
+  let skippedCount = 0
   for (const operation of operations) {
     if (await hasUnfinishedDependency(operation)) {
+      skippedCount += 1
       continue
     }
 
@@ -115,8 +303,14 @@ export async function syncPendingOperations(): Promise<void> {
         case 'photo.upload':
           await syncPhotoUpload(operation, creatorId)
           break
+        case 'photo.gps.update':
+          await syncPhotoGpsUpdate(operation)
+          break
       }
     } catch (error) {
+      const message = `${operation.type}: ${formatSyncError(error)}`
+      console.error('[sync]', operation.type, message)
+      reportSyncError(message)
       await localDb.syncOperations.update(operation.id, { status: 'failed' })
       if (operation.type === 'entry.create') {
         await localDb.entries.update(operation.entryId, {
@@ -131,8 +325,18 @@ export async function syncPendingOperations(): Promise<void> {
       } else if (operation.type === 'entry.update') {
         await localDb.entries.update(operation.entryId, { syncStatus: 'failed' })
       }
-      errors.push(toSyncError(error))
+      errors.push(new Error(message))
     }
+  }
+
+  if (operations.length > 0 && processedCount === 0) {
+    const message =
+      skippedCount === operations.length
+        ? 'Sync is waiting for earlier steps to finish. Try again in a moment.'
+        : 'Sync could not start any pending work.'
+    reportSyncError(message)
+    clearSyncProgress()
+    throw new Error(message)
   }
 
   const firstError = errors[0]
@@ -141,6 +345,7 @@ export async function syncPendingOperations(): Promise<void> {
     throw firstError
   }
 
+  clearSyncError()
   clearSyncProgress()
 }
 
@@ -202,41 +407,21 @@ async function hasUnfinishedDependency(
     operation.type === 'entry.delete' ||
     operation.type === 'journey.assignment.upsert'
   ) {
-    const pendingEntryCreate =
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'entry.create' &&
-            candidate.entryId === operation.entryId,
-        )
-        .count()) > 0
-    if (pendingEntryCreate) {
+    if (await shouldWaitForEntry(operation.entryId)) {
       return true
     }
   }
 
   if (operation.type === 'journey.assignment.upsert') {
-    return (
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'journey.create' &&
-            candidate.journeyId === operation.journeyId,
-        )
-        .count()) > 0
-    )
+    if (await shouldWaitForJourney(operation.journeyId)) {
+      return true
+    }
   }
 
   if (operation.type === 'journey.delete') {
-    return (
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'journey.create' &&
-            candidate.journeyId === operation.journeyId,
-        )
-        .count()) > 0
-    )
+    if (await shouldWaitForJourney(operation.journeyId)) {
+      return true
+    }
   }
 
   if (
@@ -244,15 +429,7 @@ async function hasUnfinishedDependency(
     operation.type === 'stop.create' ||
     operation.type === 'guide.create'
   ) {
-    const pendingJourneyCreate =
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'journey.create' &&
-            candidate.journeyId === operation.journeyId,
-        )
-        .count()) > 0
-    if (pendingJourneyCreate) {
+    if (await shouldWaitForJourney(operation.journeyId)) {
       return true
     }
   }
@@ -261,15 +438,12 @@ async function hasUnfinishedDependency(
     const localStop = await localDb.localJourneyStops.get(operation.stopId)
     const stageId = localStop?.stageId
     if (stageId !== null && stageId !== undefined) {
-      const pendingStageCreate =
-        (await localDb.syncOperations
-          .filter(
-            (candidate) =>
-              candidate.type === 'stage.create' &&
-              candidate.stageId === stageId,
-          )
-          .count()) > 0
-      if (pendingStageCreate) {
+      if (
+        await hasIncompleteCreateOperation(
+          (candidate) =>
+            candidate.type === 'stage.create' && candidate.stageId === stageId,
+        )
+      ) {
         return true
       }
     }
@@ -279,15 +453,13 @@ async function hasUnfinishedDependency(
     operation.type === 'stage.update' ||
     operation.type === 'stage.delete'
   ) {
-    const pendingStageCreate =
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'stage.create' &&
-            candidate.stageId === operation.stageId,
-        )
-        .count()) > 0
-    if (pendingStageCreate) {
+    if (
+      await hasIncompleteCreateOperation(
+        (candidate) =>
+          candidate.type === 'stage.create' &&
+          candidate.stageId === operation.stageId,
+      )
+    ) {
       return true
     }
   }
@@ -296,15 +468,13 @@ async function hasUnfinishedDependency(
     operation.type === 'stop.update' ||
     operation.type === 'stop.delete'
   ) {
-    const pendingStopCreate =
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'stop.create' &&
-            candidate.stopId === operation.stopId,
-        )
-        .count()) > 0
-    if (pendingStopCreate) {
+    if (
+      await hasIncompleteCreateOperation(
+        (candidate) =>
+          candidate.type === 'stop.create' &&
+          candidate.stopId === operation.stopId,
+      )
+    ) {
       return true
     }
   }
@@ -313,35 +483,30 @@ async function hasUnfinishedDependency(
     operation.type === 'guide.update' ||
     operation.type === 'guide.delete'
   ) {
-    const pendingGuideCreate =
-      (await localDb.syncOperations
-        .filter(
-          (candidate) =>
-            candidate.type === 'guide.create' &&
-            candidate.guideId === operation.guideId,
-        )
-        .count()) > 0
-    if (pendingGuideCreate) {
+    if (
+      await hasIncompleteCreateOperation(
+        (candidate) =>
+          candidate.type === 'guide.create' &&
+          candidate.guideId === operation.guideId,
+      )
+    ) {
+      return true
+    }
+  }
+
+  if (operation.type === 'photo.upload') {
+    if (await shouldWaitForPhotoUpload(operation.photoId)) {
+      return true
+    }
+  }
+
+  if (operation.type === 'photo.gps.update') {
+    if (await shouldWaitForPhotoSync(operation.photoId)) {
       return true
     }
   }
 
   return false
-}
-
-function toSyncError(error: unknown): Error {
-  if (error instanceof Error) {
-    return error
-  }
-  if (
-    typeof error === 'object' &&
-    error !== null &&
-    'message' in error &&
-    typeof error.message === 'string'
-  ) {
-    return new Error(error.message)
-  }
-  return new Error('Synchronization failed')
 }
 
 type EntryCreateOperation = Extract<SyncOperation, { type: 'entry.create' }>
@@ -363,6 +528,7 @@ type JourneyAssignmentOperation = Extract<
   { type: 'journey.assignment.upsert' }
 >
 type PhotoUploadOperation = Extract<SyncOperation, { type: 'photo.upload' }>
+type PhotoGpsUpdateOperation = Extract<SyncOperation, { type: 'photo.gps.update' }>
 
 async function syncEntryCreate(
   operation: EntryCreateOperation,
@@ -377,36 +543,32 @@ async function syncEntryCreate(
   const spaceId = entry.spaceId ?? (await getFallbackSpaceId(creatorId))
   const slug = entry.slug ?? createPublicSlug(entry.title, entry.id)
 
-  const { error } = await getSupabaseClient().from('entries').upsert(
-    {
-      body: entry.body,
-      creator_id: entry.creatorId,
-      event_at: entry.eventAt,
-      id: entry.id,
-      language: entry.language,
-      slug,
-      space_id: spaceId,
-      status: 'published',
-      title: entry.title,
-      type: entry.type,
-      visibility: entry.visibility,
-    },
-    { ignoreDuplicates: true, onConflict: 'id' },
-  )
+  const { data: serverEntry, error } = await getSupabaseClient()
+    .from('entries')
+    .upsert(
+      {
+        body: entry.body,
+        creator_id: entry.creatorId,
+        event_at: entry.eventAt,
+        id: entry.id,
+        language: entry.language,
+        slug,
+        space_id: spaceId,
+        status: 'published',
+        title: entry.title,
+        type: entry.type,
+        visibility: entry.visibility,
+      },
+      { ignoreDuplicates: true, onConflict: 'id' },
+    )
+    .select('creator_id, published_at, status, updated_at, version')
+    .single()
 
   if (error !== null) {
     throw error
   }
 
-  const { data: serverEntry, error: confirmationError } =
-    await getSupabaseClient()
-      .from('entries')
-      .select('creator_id, published_at, status, updated_at, version')
-      .eq('id', entry.id)
-      .single()
-
   if (
-    confirmationError !== null ||
     serverEntry.creator_id !== creatorId ||
     serverEntry.status !== 'published' ||
     serverEntry.published_at === null
@@ -928,17 +1090,7 @@ async function syncPhotoUpload(
 
   await localDb.photos.update(photo.id, { syncStatus: 'syncing' })
   const client = getSupabaseClient()
-  const { error: photoError } = await client.from('photos').upsert(
-    {
-      captured_at: photo.capturedAt,
-      creator_id: creatorId,
-      id: photo.id,
-    },
-    { ignoreDuplicates: true, onConflict: 'id' },
-  )
-  if (photoError !== null) {
-    throw photoError
-  }
+  await syncPhotoMetadata(client, photo, creatorId)
 
   for (const variant of variantsToUpload) {
     const snapshot = getSyncProgress()
@@ -989,42 +1141,169 @@ async function syncPhotoUpload(
   )
 }
 
+async function syncPhotoGpsUpdate(
+  operation: PhotoGpsUpdateOperation,
+): Promise<void> {
+  const photo = await localDb.photos.get(operation.photoId)
+  if (photo === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  if (!isMeaningfulGpsCoordinate(photo.latitude, photo.longitude)) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  const { error } = await getSupabaseClient()
+    .from('photos')
+    .update({
+      latitude: photo.latitude,
+      longitude: photo.longitude,
+    })
+    .eq('id', photo.id)
+
+  if (error !== null) {
+    throw error
+  }
+
+  await localDb.syncOperations.delete(operation.id)
+}
+
+async function syncPhotoMetadata(
+  client: ReturnType<typeof getSupabaseClient>,
+  photo: {
+    capturedAt: string | null
+    id: string
+    latitude: number | null
+    longitude: number | null
+  },
+  creatorId: string,
+): Promise<void> {
+  const metadata = {
+    captured_at: photo.capturedAt,
+    creator_id: creatorId,
+    id: photo.id,
+    latitude: photo.latitude,
+    longitude: photo.longitude,
+  }
+  const { error: insertError } = await client.from('photos').insert(metadata)
+  if (insertError === null) {
+    return
+  }
+
+  if (!isDuplicateInsertError(insertError)) {
+    throw insertError
+  }
+
+  const { error: updateError } = await client
+    .from('photos')
+    .update({
+      captured_at: photo.capturedAt,
+      latitude: photo.latitude,
+      longitude: photo.longitude,
+    })
+    .eq('id', photo.id)
+    .eq('creator_id', creatorId)
+
+  if (updateError !== null) {
+    throw updateError
+  }
+}
+
 async function declareAndUploadVariant(
   variant: LocalPhotoVariant,
   creatorId: string,
 ): Promise<void> {
   const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.${variant.ext}`
   const client = getSupabaseClient()
-  const { error: declarationError } = await client
-    .from('photo_variants')
-    .upsert(
-      {
-        byte_size: variant.sizeBytes,
-        creator_id: creatorId,
-        height: variant.height,
-        mime_type: variant.mimeType,
-        photo_id: variant.photoId,
-        storage_path: storagePath,
-        variant: variant.kind,
-        width: variant.width,
-      },
-      { ignoreDuplicates: true, onConflict: 'photo_id,variant' },
-    )
-  if (declarationError !== null) {
-    throw declarationError
-  }
+  await declarePhotoVariant(client, variant, creatorId, storagePath)
+  await uploadPhotoVariantBlob(client, storagePath, variant.blob, variant.mimeType)
+}
 
+async function uploadPhotoVariantBlob(
+  client: ReturnType<typeof getSupabaseClient>,
+  storagePath: string,
+  blob: Blob,
+  mimeType: string,
+): Promise<void> {
   const { error: uploadError } = await client.storage
     .from('photos')
-    .upload(storagePath, variant.blob, {
-      contentType: variant.mimeType,
+    .upload(storagePath, blob, {
+      contentType: mimeType,
       upsert: false,
     })
+
+  if (uploadError === null) {
+    return
+  }
+
+  const message = uploadError.message.toLowerCase()
   if (
-    uploadError !== null &&
-    !uploadError.message.toLowerCase().includes('duplicate')
+    !message.includes('duplicate') &&
+    !message.includes('already exists')
   ) {
     throw uploadError
+  }
+
+  const { error: removeError } = await client.storage
+    .from('photos')
+    .remove([storagePath])
+  if (removeError !== null) {
+    throw uploadError
+  }
+
+  const { error: retryError } = await client.storage
+    .from('photos')
+    .upload(storagePath, blob, {
+      contentType: mimeType,
+      upsert: false,
+    })
+  if (retryError !== null) {
+    throw retryError
+  }
+}
+
+async function declarePhotoVariant(
+  client: ReturnType<typeof getSupabaseClient>,
+  variant: LocalPhotoVariant,
+  creatorId: string,
+  storagePath: string,
+): Promise<void> {
+  const metadata = {
+    byte_size: variant.sizeBytes,
+    creator_id: creatorId,
+    height: variant.height,
+    mime_type: variant.mimeType,
+    photo_id: variant.photoId,
+    storage_path: storagePath,
+    variant: variant.kind,
+    width: variant.width,
+  }
+  const { error: insertError } = await client
+    .from('photo_variants')
+    .insert(metadata)
+  if (insertError === null) {
+    return
+  }
+
+  if (!isDuplicateInsertError(insertError)) {
+    throw insertError
+  }
+
+  const { error: updateError } = await client
+    .from('photo_variants')
+    .update({
+      byte_size: variant.sizeBytes,
+      height: variant.height,
+      width: variant.width,
+    })
+    .eq('photo_id', variant.photoId)
+    .eq('variant', variant.kind)
+    .eq('creator_id', creatorId)
+
+  if (updateError !== null) {
+    throw updateError
   }
 }
 

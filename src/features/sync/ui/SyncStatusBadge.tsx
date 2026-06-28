@@ -25,12 +25,15 @@ export function SyncStatusBadge() {
   }
 
   const status = snapshot ?? 'synced'
-  const label = t(`sync.status.${status}`)
+  const label =
+    status === 'failed'
+      ? t('sync.status.failedShort')
+      : t(`sync.status.${status}`)
 
   return (
     <span
       className={cn(
-        'inline-flex max-w-[11rem] min-h-9 items-center gap-1.5 rounded-full px-2.5 py-2 text-xs font-medium shadow-soft sm:max-w-none sm:px-3',
+        'inline-flex min-h-9 max-w-[9.5rem] items-center gap-1.5 rounded-full px-2.5 py-2 text-xs font-medium shadow-soft sm:max-w-none sm:px-3',
         status === 'failed'
           ? 'bg-destructive/10 text-destructive'
           : status === 'synced'

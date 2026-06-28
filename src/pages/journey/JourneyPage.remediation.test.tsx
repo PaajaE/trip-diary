@@ -4,7 +4,8 @@ import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { JourneyPage } from '@/pages/journey/JourneyPage'
 import '@/app/i18n'
 
-const { useQueryMock } = vi.hoisted(() => ({
+const { useJourneyQueryMock, useQueryMock } = vi.hoisted(() => ({
+  useJourneyQueryMock: vi.fn(),
   useQueryMock: vi.fn(),
 }))
 
@@ -15,6 +16,24 @@ vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => (
     <a href="/">{children}</a>
   ),
+  useNavigate: () => vi.fn(),
+}))
+vi.mock('@/entities/journey/api/use-journey-query', () => ({
+  useJourneyContributionQuery: vi.fn(() => ({
+    data: false,
+    isError: false,
+    isLoading: false,
+  })),
+  useJourneyQuery: useJourneyQueryMock,
+}))
+vi.mock('@/entities/photo/api/backfill-photo-gps.repository', () => ({
+  backfillEntryPhotoGps: vi.fn().mockResolvedValue({ filledPhotoIds: [] }),
+}))
+vi.mock('@/shared/sync/sync.service', () => ({
+  syncPendingOperations: vi.fn().mockResolvedValue(undefined),
+}))
+vi.mock('@/features/journeys/ui/JourneyGallery', () => ({
+  JourneyGallery: () => null,
 }))
 vi.mock('@/features/auth/session', () => ({
   useSession: () => ({ loading: false, user: null }),
@@ -33,6 +52,7 @@ describe('JourneyPage remediation', () => {
   afterEach(() => {
     cleanup()
     useQueryMock.mockReset()
+    useJourneyQueryMock.mockReset()
   })
 
   it('counts a linked stop and entry as one visible moment', () => {
@@ -71,12 +91,22 @@ describe('JourneyPage remediation', () => {
       summary: '',
       title: 'Canada 2026',
     }
+    useJourneyQueryMock.mockReturnValue({
+      data: journey,
+      isError: false,
+      isLoading: false,
+      isRevalidating: false,
+      refetch: vi.fn(),
+    })
     useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
-      if (queryKey[0] === 'journeys') {
-        return { data: journey, isError: false, refetch: vi.fn() }
+      if (queryKey[0] === 'journey-photo-locations') {
+        return { data: [], isError: false, refetch: vi.fn() }
       }
       if (queryKey[0] === 'journey-my-role') {
         return { data: null, isError: false }
+      }
+      if (queryKey[0] === 'journey-owner') {
+        return { data: false, isError: false }
       }
       return { data: false, isError: false }
     })

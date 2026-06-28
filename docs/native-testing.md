@@ -12,9 +12,12 @@
 2. Run on a physical iPhone.
 3. Create an account, then create an offline entry with multiple photos.
 4. Confirm the photos are optimized locally and remain after restarting the app.
-5. Reconnect on cellular and confirm automatic sync does not start.
-6. Tap the manual sync button and confirm the entry uploads.
-7. Add another offline entry, reconnect on Wi-Fi, and confirm automatic sync.
+5. Reconnect on cellular and confirm automatic sync uploads pending entries.
+6. Disable “Sync over mobile data” in the sync panel, add another offline
+   entry, reconnect on cellular, and confirm automatic sync stays off until
+   you tap manual sync.
+7. Re-enable mobile-data sync (or reconnect on Wi-Fi) and confirm automatic
+   sync completes.
 
 ## Android
 

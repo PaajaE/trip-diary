@@ -78,6 +78,11 @@ function createAssignmentClient(input: {
     assignments,
     client: {
       auth: {
+        getSession: vi.fn(() =>
+          Promise.resolve({
+            data: { session: { user: { id: input.userId } } },
+          }),
+        ),
         getUser: vi.fn(() =>
           Promise.resolve({
             data: { user: { id: input.userId } },
@@ -242,6 +247,11 @@ describe('syncPendingOperations', () => {
 
     getSupabaseClientMock.mockReturnValue({
       auth: {
+        getSession: vi.fn(() =>
+          Promise.resolve({
+            data: { session: { user: { id: userId } } },
+          }),
+        ),
         getUser: vi.fn(() =>
           Promise.resolve({
             data: { user: { id: userId } },

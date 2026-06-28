@@ -2,6 +2,7 @@ export const en = {
   sync: {
     status: {
       failed: 'Synchronization needs attention',
+      failedShort: 'Sync failed',
       offline: 'Offline · saved on this device',
       pending: 'Waiting to synchronize',
       ready: 'Offline-ready foundation',
@@ -79,6 +80,7 @@ export const en = {
     greeting: 'Welcome, {{name}}',
     journeys: 'Your journeys',
     loading: 'Loading your diary…',
+    revalidating: 'Updating overview…',
     noEntries: 'Your first memory can be captured in a few seconds.',
     noJourneys: 'Plan the first journey whenever the road starts calling.',
     noSummary: 'No summary yet.',
@@ -212,6 +214,7 @@ export const en = {
       'The journey will disappear from your overview and sync when you are back online.',
     editTrip: 'Edit journey',
     saveTrip: 'Save journey',
+    showOnMap: 'On map',
     dateUnknown: 'Add dates later',
     emptyRoute:
       'Add the first moment — photos, a place, or a short story. Stages and advice can wait.',
@@ -224,6 +227,10 @@ export const en = {
     gallery: 'Gallery',
     galleryEmpty:
       'Photos will appear here together with the first journey moments.',
+    galleryError: 'The journey gallery could not be loaded.',
+    galleryLoading: 'Loading journey gallery…',
+    galleryPartialError: 'Some photos could not be loaded.',
+    galleryUntitled: 'Journey moment',
     galleryEyebrow: 'Every memory in one place',
     guide: 'Practical guide',
     guideBody: 'Advice text',
@@ -237,6 +244,7 @@ export const en = {
     itemTitle: 'Title',
     latitude: 'Latitude',
     loading: 'Loading journey…',
+    revalidating: 'Updating journey…',
     longitude: 'Longitude',
     manageMembers: 'Manage members',
     members: {
@@ -292,7 +300,10 @@ export const en = {
     },
     map: 'Journey map',
     mapEmpty:
-      'There are no located moments yet. For the next one, use your current location or pick a point on the map.',
+      'No photo or moment locations yet. For the next one, use current location, photo GPS, or pick a point on the map.',
+    mapLoadingLocations: 'Loading photo locations…',
+    mapLocatingPhoto: 'Locating photo on map…',
+    mapPhotoTitle: 'Photo: {{title}}',
     mapEyebrow: 'The whole journey in one place',
     mappedCount: '{{count}} on map',
     hasLocation: 'Moment has a location',
@@ -315,6 +326,7 @@ export const en = {
     organizeEyebrow: 'Organization',
     organizeTitle: 'Organize trip',
     openMoment: 'Open moment',
+    openPhoto: 'Open photo',
     organizeMoment: 'Move to stage',
     organizeMomentError: 'The move failed. Please try again.',
     notFound: 'This journey does not exist.',

@@ -49,8 +49,8 @@ See [docs/architecture.md](docs/architecture.md).
 
 The Capacitor projects live in `ios/` and `android/`. IndexedDB provides
 persistent on-device storage inside the native WebView. Automatic native
-synchronization only runs over Wi-Fi; the explicit synchronization button can
-still be used on any connection.
+synchronization runs over Wi-Fi and mobile data by default; disable “Sync over
+mobile data” in the sync panel to opt out on cellular.
 
 See [docs/native-build.md](docs/native-build.md) for install steps on physical
 devices. See [docs/native-testing.md](docs/native-testing.md) for the on-device

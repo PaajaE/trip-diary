@@ -178,7 +178,7 @@ export function CreateJourneyMemoryForm({
 
     try {
       const processed = await Promise.all(
-        files.map(async (file, index) => {
+        files.map(async (file) => {
           try {
             return await processPhoto(file)
           } catch {

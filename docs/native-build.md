@@ -111,9 +111,9 @@ Run through [native-testing.md](./native-testing.md):
 2. Create a journey moment with multiple **gallery** photos that have GPS.
 3. Confirm capture time and location are detected automatically.
 4. Force-quit and reopen the app — photos and drafts should remain.
-5. On cellular, confirm auto-sync does **not** start; tap the manual sync
-   badge and confirm upload works.
-6. On Wi-Fi, confirm automatic sync runs.
+5. On cellular, confirm automatic sync runs (disable “Sync over mobile data”
+   in the sync panel to opt out).
+6. On Wi-Fi, confirm automatic sync runs as well.
 
 ## Troubleshooting
 

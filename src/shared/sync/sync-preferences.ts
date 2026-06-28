@@ -2,10 +2,15 @@ const cellularSyncKey = 'trip-diary:sync-on-cellular'
 
 export function isCellularSyncEnabled(): boolean {
   if (typeof localStorage === 'undefined') {
-    return false
+    return true
   }
 
-  return localStorage.getItem(cellularSyncKey) === '1'
+  const preference = localStorage.getItem(cellularSyncKey)
+  if (preference === null) {
+    return true
+  }
+
+  return preference === '1'
 }
 
 export function setCellularSyncEnabled(enabled: boolean): void {
@@ -13,10 +18,5 @@ export function setCellularSyncEnabled(enabled: boolean): void {
     return
   }
 
-  if (enabled) {
-    localStorage.setItem(cellularSyncKey, '1')
-    return
-  }
-
-  localStorage.removeItem(cellularSyncKey)
+  localStorage.setItem(cellularSyncKey, enabled ? '1' : '0')
 }

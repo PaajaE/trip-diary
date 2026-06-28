@@ -1,21 +1,17 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, BookOpen, MapPinned, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { getDashboardData } from '@/entities/dashboard/api/dashboard.repository'
+import { useDashboardQuery } from '@/entities/dashboard/api/use-dashboard-query'
 import { pickContinueJourney } from '@/entities/dashboard/lib/pick-continue-journey'
 import type { DashboardJourneyCard } from '@/entities/dashboard/model/dashboard'
 import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
 import { useSession } from '@/features/auth/session'
+import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
 
 export function DashboardPage() {
   const { t } = useTranslation()
   const { loading, profile, user } = useSession()
-  const dashboardQuery = useQuery({
-    enabled: user !== null,
-    queryFn: () => getDashboardData({ userId: user?.id ?? '' }),
-    queryKey: ['dashboard', user?.id],
-  })
+  const dashboardQuery = useDashboardQuery(user?.id)
 
   if (loading) {
     return <DashboardMessage>{t('dashboard.loading')}</DashboardMessage>
@@ -48,6 +44,10 @@ export function DashboardPage() {
                 t('dashboard.traveler'),
             })}
           </h1>
+          <RevalidatingIndicator
+            label={t('dashboard.revalidating')}
+            visible={dashboardQuery.isRevalidating}
+          />
           <p className="mt-4 max-w-xl leading-7 text-muted">
             {t('dashboard.description')}
           </p>
@@ -71,6 +71,8 @@ export function DashboardPage() {
         <p className="py-12 text-destructive" role="alert">
           {t('dashboard.error')}
         </p>
+      ) : dashboardQuery.isLoading ? (
+        <p className="py-12 text-muted">{t('dashboard.loading')}</p>
       ) : dashboardQuery.data === undefined ? (
         <p className="py-12 text-muted">{t('dashboard.loading')}</p>
       ) : (

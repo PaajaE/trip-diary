@@ -1,0 +1,50 @@
+---
+description: Android native testing workflow for Capacitor hybrid app
+globs: android/**/*
+alwaysApply: false
+---
+
+# Android native workflow (Capacitor)
+
+Trip Diary is a **Capacitor hybrid app**: React/TypeScript UI in a WebView, thin Java shell (`MainActivity`, `PhotoMetadataPlugin`). Package: `cz.tripdiary.app`.
+
+## What the agent CAN do
+
+- Build, install, and launch via CLI (no Android Studio GUI required)
+- Tail filtered `adb logcat` while the **user operates the app on device**
+- Capture screenshots: `adb exec-out screencap -p > /tmp/android-screen.png`
+- Read crash stacks, permission errors, Capacitor/JS console output
+
+## What the agent CANNOT do
+
+- Operate Android Studio GUI or click through the app UI
+- Reliably inspect WebView DOM (user can use Chrome → `chrome://inspect`)
+
+## Environment
+
+```bash
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+export PATH="$ANDROID_HOME/platform-tools:$PATH"
+export JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home"
+```
+
+## Standard workflow
+
+1. Web changes: `pnpm check` (or `pnpm test`)
+2. Sync + install + launch: `pnpm native:android:run`
+3. User operates app on phone; agent runs: `pnpm native:android:logs` (background)
+4. On error reports: `pnpm native:android:logs:dump` for recent buffer
+
+## Testing priorities on device
+
+- Gallery photo GPS (EXIF + `ACCESS_MEDIA_LOCATION`)
+- Location fallback and map picker
+- Offline drafts; auto-sync on Wi-Fi and cellular (opt out via sync panel)
+- Android back gesture navigation
+
+## Do NOT
+
+- Skip `pnpm native:sync` before Gradle builds
+- Treat `./gradlew test` as main app test gate (use `pnpm test`)
+- Rewrite UI in Jetpack Compose
+- Use localhost Supabase URLs on physical devices

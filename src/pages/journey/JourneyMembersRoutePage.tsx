@@ -11,7 +11,7 @@ import {
   removeJourneyMember,
   revokeJourneyInvite,
 } from '@/entities/journey/api/journey-member.repository'
-import { getJourney } from '@/entities/journey/api/journey.repository'
+import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { JourneyMembersPage } from '@/pages/journey/JourneyMembersPage'
 
@@ -19,11 +19,7 @@ export function JourneyMembersRoutePage() {
   const { t } = useTranslation()
   const { journeyId } = useParams({ from: '/j/$journeyId/members' })
   const { loading, user } = useSession()
-  const journeyQuery = useQuery({
-    enabled: user !== null,
-    queryFn: () => getJourney(journeyId),
-    queryKey: ['journeys', journeyId],
-  })
+  const journeyQuery = useJourneyQuery(journeyId)
   const ownerQuery = useQuery({
     enabled: user !== null,
     queryFn: () => isJourneyOwner(journeyId),
@@ -46,7 +42,7 @@ export function JourneyMembersRoutePage() {
   if (user === null) {
     return <Message>{t('journey.signInRequired')}</Message>
   }
-  if (journeyQuery.data === null || journeyQuery.isError) {
+  if (journeyQuery.data == null || journeyQuery.isError) {
     return <Message>{t('journey.notFound')}</Message>
   }
   if (ownerQuery.data !== true) {

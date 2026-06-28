@@ -24,8 +24,17 @@ interface PhotoMetadataPlugin {
 
 const PhotoMetadata = registerPlugin<PhotoMetadataPlugin>('PhotoMetadata')
 
+function isNativePhotoPlatform() {
+  if (!Capacitor.isNativePlatform()) {
+    return false
+  }
+
+  const platform = Capacitor.getPlatform()
+  return platform === 'android' || platform === 'ios'
+}
+
 export async function requestNativePhotoPermissions() {
-  if (Capacitor.getPlatform() !== 'android' || !Capacitor.isNativePlatform()) {
+  if (!isNativePhotoPlatform()) {
     return null
   }
 
@@ -41,12 +50,7 @@ export async function materializeNativePhoto(uri: string) {
 }
 
 export async function readNativePhotoGps(uri: string | undefined) {
-  if (
-    uri === undefined ||
-    uri === '' ||
-    Capacitor.getPlatform() !== 'android' ||
-    !Capacitor.isNativePlatform()
-  ) {
+  if (uri === undefined || uri === '' || !isNativePhotoPlatform()) {
     return null
   }
 

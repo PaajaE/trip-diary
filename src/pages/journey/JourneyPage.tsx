@@ -11,15 +11,20 @@ import {
   Signpost,
   UsersRound,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { JourneyDetail } from '@/entities/journey/model/journey'
 import {
-  canContributeToJourney,
   deleteJourneyStage,
   deleteJourneyStop,
-  getJourney,
   moveJourneyMomentToStage,
 } from '@/entities/journey/api/journey.repository'
+import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
+import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
+import {
+  useJourneyContributionQuery,
+  useJourneyQuery,
+} from '@/entities/journey/api/use-journey-query'
 import {
   getMyJourneyRole,
   isJourneyOwner,
@@ -34,10 +39,14 @@ import {
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
+import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
 import { JourneyOrganizePanel } from '@/features/journeys/ui/JourneyOrganizePanel'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { CopyShareLink } from '@/features/sharing'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
+import { canAutomaticallySync } from '@/shared/sync/auto-sync'
+import { syncPendingOperations } from '@/shared/sync/sync.service'
+import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
 
 interface JourneyPageProps {
   journeyId: string
@@ -50,14 +59,14 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
   const navigate = useNavigate()
   const { user } = useSession()
   const [guideFormOpen, setGuideFormOpen] = useState(false)
-  const query = useQuery({
-    queryFn: () => getJourney(journeyId),
-    queryKey: ['journeys', journeyId],
-  })
-  const contributionQuery = useQuery({
-    queryFn: () => canContributeToJourney(journeyId),
-    queryKey: ['journey-contribution', journeyId],
-  })
+  const [focusedMapPointId, setFocusedMapPointId] = useState<string | null>(
+    null,
+  )
+  const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
+    null,
+  )
+  const query = useJourneyQuery(journeyId)
+  const contributionQuery = useJourneyContributionQuery(journeyId)
   const ownerQuery = useQuery({
     queryFn: () => isJourneyOwner(journeyId),
     queryKey: ['journey-owner', journeyId],
@@ -72,8 +81,77 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
     journey === null || journey === undefined
       ? null
       : composeJourneyContent(journey)
+  const photoLocationsQuery = useQuery({
+    enabled: content !== null && content.moments.length > 0,
+    queryFn: () => getJourneyPhotoLocations(content?.moments ?? []),
+    queryKey: [
+      'journey-photo-locations',
+      journeyId,
+      ...(content?.moments.map((moment) => moment.entry.id) ?? []),
+    ],
+  })
+  const { refetch: refetchPhotoLocations } = photoLocationsQuery
+  const mapPoints = useMemo(
+    () =>
+      content === null
+        ? []
+        : getJourneyMapPoints(
+            content.moments,
+            content.plannedStops,
+            photoLocationsQuery.data ?? [],
+          ),
+    [content, photoLocationsQuery.data],
+  )
   const canEdit = contributionQuery.data === true
   const canManageMembers = ownerQuery.data === true
+  const locatedPhotoIds = useMemo(
+    () => new Set((photoLocationsQuery.data ?? []).map((photo) => photo.id)),
+    [photoLocationsQuery.data],
+  )
+  const momentEntryIdsKey = useMemo(
+    () => (content?.moments ?? []).map((moment) => moment.entry.id).join(','),
+    [content?.moments],
+  )
+
+  useEffect(() => {
+    if (momentEntryIdsKey === '') {
+      return
+    }
+
+    void backfillEntryPhotoGps(momentEntryIdsKey.split(',')).then((result) => {
+      if (result.filledPhotoIds.length === 0) {
+        return
+      }
+
+      void refetchPhotoLocations()
+      void canAutomaticallySync().then((canSync) => {
+        if (!canSync) {
+          return
+        }
+        void syncPendingOperations().catch(() => {
+          // GPS backfill sync can retry later.
+        })
+      })
+    })
+  }, [momentEntryIdsKey, refetchPhotoLocations])
+
+  useEffect(() => {
+    if (pendingMapPhotoId === null) {
+      return
+    }
+
+    const pointId = `photo:${pendingMapPhotoId}`
+    if (mapPoints.some((point) => point.id === pointId)) {
+      setFocusedMapPointId(pointId)
+      setPendingMapPhotoId(null)
+    }
+  }, [mapPoints, pendingMapPhotoId])
+
+  function handleShowPhotoOnMap(photoId: string) {
+    setPendingMapPhotoId(photoId)
+    setFocusedMapPointId(`photo:${photoId}`)
+    document.getElementById('map')?.scrollIntoView({ behavior: 'smooth' })
+  }
 
   useEffect(() => {
     if (!guideFormOpen) {
@@ -92,9 +170,9 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
     >
       {query.isError ? (
         <p className="mt-16 text-destructive">{t('journey.error')}</p>
-      ) : journey === undefined ? (
+      ) : query.isLoading ? (
         <p className="mt-16 text-muted">{t('journey.loading')}</p>
-      ) : journey === null ? (
+      ) : journey == null ? (
         <p className="mt-16 text-muted">{t('journey.notFound')}</p>
       ) : (
         <>
@@ -120,6 +198,10 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
               <h1 className="mt-4 max-w-3xl text-3xl font-semibold tracking-[-0.04em] sm:text-6xl">
                 {journey.title}
               </h1>
+              <RevalidatingIndicator
+                label={t('journey.revalidating')}
+                visible={query.isRevalidating}
+              />
               {journey.summary === '' ? (
                 <p className="mt-6 max-w-2xl leading-8 text-muted">
                   {t('journey.summaryFallback')}
@@ -139,7 +221,7 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
                   )}
                 </span>
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
-                  <MapPin aria-hidden="true" size={16} />
+                  <Images aria-hidden="true" size={16} />
                   {t('journey.momentsCount', {
                     count: content?.moments.length ?? 0,
                   })}
@@ -147,7 +229,7 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
                 <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
                   <MapPin aria-hidden="true" size={16} />
                   {t('journey.mappedCount', {
-                    count: content?.locatedMomentCount ?? 0,
+                    count: mapPoints.length,
                   })}
                 </span>
               </div>
@@ -272,13 +354,24 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
               eyebrow={t('journey.mapEyebrow')}
               title={t('journey.map')}
             />
+            {photoLocationsQuery.isPending &&
+            (content?.moments.length ?? 0) > 0 ? (
+              <p className="mt-4 text-sm text-muted" role="status">
+                {t('journey.mapLoadingLocations')}
+              </p>
+            ) : null}
+            {pendingMapPhotoId !== null ? (
+              <p className="mt-4 text-sm text-muted" role="status">
+                {t('journey.mapLocatingPhoto')}
+              </p>
+            ) : null}
             <JourneyMap
+              focusPointId={focusedMapPointId}
               moments={content?.moments ?? []}
+              photoLocations={photoLocationsQuery.data ?? []}
               plannedStops={content?.plannedStops ?? []}
             />
-            {journey.stops.every(
-              (stop) => stop.mapLatitude === null || stop.mapLongitude === null,
-            ) ? (
+            {mapPoints.length === 0 ? (
               <p className="mt-6 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">
                 {t('journey.mapEmpty')}
               </p>
@@ -290,7 +383,11 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
               eyebrow={t('journey.galleryEyebrow')}
               title={t('journey.gallery')}
             />
-            <JourneyGallery moments={content?.moments ?? []} />
+            <JourneyGallery
+              locatedPhotoIds={locatedPhotoIds}
+              moments={content?.moments ?? []}
+              onShowOnMap={handleShowPhotoOnMap}
+            />
           </section>
 
           <JourneyGuidesSection
@@ -367,7 +464,7 @@ function StageContent({
   canEdit: boolean
   content: JourneyStageContent
   creatorId: string
-  journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
+  journey: JourneyDetail
   onChanged: () => void
 }) {
   const { t } = useTranslation()
@@ -468,7 +565,7 @@ function MomentCard({
 }: {
   canEdit: boolean
   creatorId: string
-  journey: NonNullable<Awaited<ReturnType<typeof getJourney>>>
+  journey: JourneyDetail
   moment: JourneyMoment
   onChanged: () => void
 }) {

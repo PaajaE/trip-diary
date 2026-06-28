@@ -2,6 +2,7 @@ import maplibregl from 'maplibre-gl'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
+import { getAppMapStyle } from '@/shared/lib/map-style'
 
 interface LocationPickerMapProps {
   heightClassName?: string
@@ -23,7 +24,7 @@ export function LocationPickerMap({
   selectedPoint,
   stops,
 }: LocationPickerMapProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
 
   if (import.meta.env.VITE_E2E === '1') {
     return (
@@ -74,22 +75,11 @@ export function LocationPickerMap({
       attributionControl: false,
       center: initialCenter,
       container,
-      style: {
-        glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-        layers: [{ id: 'osm', source: 'osm', type: 'raster' }],
-        sources: {
-          osm: {
-            attribution: '© OpenStreetMap contributors',
-            tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-            tileSize: 256,
-            type: 'raster',
-          },
-        },
-        version: 8,
-      },
+      style: getAppMapStyle(i18n.language),
       zoom: mappedStops.length > 0 ? 5 : 4,
     })
 
+    map.addControl(new maplibregl.AttributionControl({ compact: true }))
     map.addControl(new maplibregl.NavigationControl(), 'top-right')
     mapRef.current = map
 
@@ -157,7 +147,7 @@ export function LocationPickerMap({
       mapRef.current = null
       map.remove()
     }
-  }, [mappedStops])
+  }, [i18n.language, mappedStops])
 
   useEffect(() => {
     const map = mapRef.current
