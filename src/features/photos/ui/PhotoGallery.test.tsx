@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import '@/app/i18n'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
   getEntryPhotoPreviews: vi.fn(),
+  getPhotoDetailPreview: vi.fn().mockResolvedValue(null),
 }))
 
 function renderGallery() {
@@ -46,6 +48,21 @@ describe('PhotoGallery', () => {
     expect(await screen.findByText('Zatím žádné fotografie.')).toBeVisible()
   })
 
+  it('opens the lightbox when a thumbnail is clicked', async () => {
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:thumb'),
+      revokeObjectURL: vi.fn(),
+    })
+    vi.mocked(getEntryPhotoPreviews).mockResolvedValueOnce([
+      { blob: new Blob(['thumb']), id: crypto.randomUUID() },
+    ])
+    renderGallery()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Výlet' }))
+    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.getByText('1 / 1')).toBeVisible()
+  })
+
   it('hides only a broken image and keeps the rest of the gallery', async () => {
     vi.stubGlobal('URL', {
       createObjectURL: vi
@@ -60,13 +77,13 @@ describe('PhotoGallery', () => {
     ])
     renderGallery()
 
-    const images = await screen.findAllByRole('img', { name: 'Výlet' })
-    const brokenImage = images[0]
-    expect(brokenImage).toBeDefined()
-    if (brokenImage !== undefined) {
-      fireEvent.error(brokenImage)
+    const buttons = await screen.findAllByRole('button', { name: 'Výlet' })
+    const brokenButton = buttons[0]
+    expect(brokenButton).toBeDefined()
+    if (brokenButton !== undefined) {
+      fireEvent.error(brokenButton.querySelector('img')!)
     }
 
-    expect(screen.getAllByRole('img', { name: 'Výlet' })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: 'Výlet' })).toHaveLength(1)
   })
 })

@@ -45,7 +45,14 @@ function createVariantLookup(
   return {
     select: vi.fn(() => ({
       eq: vi.fn((_field: string, photoId: string) => ({
-        eq: vi.fn(() => variants.get(photoId)),
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(async () => variants.get(photoId)),
+        })),
+      })),
+      in: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          maybeSingle: vi.fn(async () => ({ data: [], error: null })),
+        })),
       })),
     })),
   }

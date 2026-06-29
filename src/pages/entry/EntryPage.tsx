@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
@@ -17,10 +18,16 @@ import { Button } from '@/shared/ui/Button'
 interface EntryPageProps {
   entryId: string
   notice?: 'photos_failed'
+  returnTo?: string
   shareUrl?: string
 }
 
-export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
+export function EntryPage({
+  entryId,
+  notice,
+  returnTo,
+  shareUrl,
+}: EntryPageProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -41,6 +48,15 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
+      {returnTo !== undefined ? (
+        <Link
+          className="mt-8 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
+          to={returnTo}
+        >
+          <ArrowLeft aria-hidden="true" size={16} />
+          {t('entry.back')}
+        </Link>
+      ) : null}
       {entry === undefined ? (
         <p className="mt-16 text-muted">{t('entry.loading')}</p>
       ) : entryQuery.isError ? (
@@ -65,7 +81,7 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
           />
         </article>
       ) : (
-        <article className="mt-16">
+        <article className={returnTo === undefined ? 'mt-16' : 'mt-8'}>
           {notice === 'photos_failed' ? (
             <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('entry.photosFailedNotice')}
@@ -82,7 +98,12 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
               onCopy={() => sharePublicUrl(shareUrl, entry.title)}
             />
           )}
-          <PhotoGallery alt={entry.title} entryId={entry.id} />
+          <PhotoGallery
+            alt={entry.title}
+            canDelete={canManage}
+            {...(canManage ? { creatorId: user.id } : {})}
+            entryId={entry.id}
+          />
           <p className="mt-10 text-sm text-muted">
             {t(`entry.sync.${entry.syncStatus}`)}
           </p>
@@ -106,6 +127,10 @@ export function EntryPage({ entryId, notice, shareUrl }: EntryPageProps) {
                   void deleteEntry(entry.id, user.id)
                     .then(async () => {
                       await queryClient.invalidateQueries()
+                      if (returnTo !== undefined) {
+                        await navigate({ to: returnTo })
+                        return
+                      }
                       await navigate({ to: '/' })
                     })
                     .finally(() => {

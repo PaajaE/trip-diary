@@ -4,12 +4,14 @@ import {
   BookOpen,
   CalendarDays,
   Circle,
+  Expand,
   Images,
   Lightbulb,
   MapPin,
   Plus,
   Signpost,
   UsersRound,
+  X,
 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -48,17 +50,26 @@ import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
 
+type JourneySection = 'story' | 'map' | 'gallery' | 'guides'
+
 interface JourneyPageProps {
   journeyId: string
   notice?: 'photos_failed'
+  section?: JourneySection
   shareUrl?: string
 }
 
-export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
+export function JourneyPage({
+  journeyId,
+  notice,
+  section,
+  shareUrl,
+}: JourneyPageProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { user } = useSession()
   const [guideFormOpen, setGuideFormOpen] = useState(false)
+  const [mapExpanded, setMapExpanded] = useState(false)
   const [focusedMapPointId, setFocusedMapPointId] = useState<string | null>(
     null,
   )
@@ -112,6 +123,41 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
     () => (content?.moments ?? []).map((moment) => moment.entry.id).join(','),
     [content?.moments],
   )
+
+  function openEntryFromJourney(
+    entryId: string,
+    fromSection: JourneySection = 'story',
+  ) {
+    void navigate({
+      params: { entryId },
+      search: { returnTo: `/j/${journeyId}?section=${fromSection}` },
+      to: '/e/$entryId',
+    })
+  }
+
+  useEffect(() => {
+    if (section === undefined) {
+      return
+    }
+    const target = document.getElementById(section)
+    if (target === null) {
+      return
+    }
+    target.scrollIntoView({ behavior: 'auto' })
+  }, [journeyId, section])
+
+  useEffect(() => {
+    function restoreSectionScroll() {
+      if (section === undefined) {
+        return
+      }
+      document.getElementById(section)?.scrollIntoView({ behavior: 'auto' })
+    }
+    window.addEventListener('pageshow', restoreSectionScroll)
+    return () => {
+      window.removeEventListener('pageshow', restoreSectionScroll)
+    }
+  }, [section])
 
   useEffect(() => {
     if (momentEntryIdsKey === '') {
@@ -329,6 +375,9 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
                     journey={journey}
                     key={stageContent.stage?.id ?? 'unassigned'}
                     onChanged={() => void query.refetch()}
+                    onOpenEntry={(entryId) => {
+                      openEntryFromJourney(entryId, 'story')
+                    }}
                   />
                 ))}
               </div>
@@ -350,10 +399,25 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
           </section>
 
           <section className="scroll-mt-28 py-12 sm:scroll-mt-24" id="map">
-            <SectionHeading
-              eyebrow={t('journey.mapEyebrow')}
-              title={t('journey.map')}
-            />
+            <div className="flex items-end justify-between gap-4">
+              <SectionHeading
+                eyebrow={t('journey.mapEyebrow')}
+                title={t('journey.map')}
+              />
+              {mapPoints.length > 0 ? (
+                <button
+                  aria-label={t('journey.mapExpand')}
+                  className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-semibold shadow-soft transition hover:bg-background"
+                  onClick={() => {
+                    setMapExpanded(true)
+                  }}
+                  type="button"
+                >
+                  <Expand aria-hidden="true" size={16} />
+                  {t('journey.mapExpand')}
+                </button>
+              ) : null}
+            </div>
             {photoLocationsQuery.isPending &&
             (content?.moments.length ?? 0) > 0 ? (
               <p className="mt-4 text-sm text-muted" role="status">
@@ -365,12 +429,18 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
                 {t('journey.mapLocatingPhoto')}
               </p>
             ) : null}
-            <JourneyMap
-              focusPointId={focusedMapPointId}
-              moments={content?.moments ?? []}
-              photoLocations={photoLocationsQuery.data ?? []}
-              plannedStops={content?.plannedStops ?? []}
-            />
+            {mapExpanded ? null : (
+              <JourneyMap
+                focusPointId={focusedMapPointId}
+                moments={content?.moments ?? []}
+                onFocusPointChange={setFocusedMapPointId}
+                onOpenEntry={(entryId) => {
+                  openEntryFromJourney(entryId, 'map')
+                }}
+                photoLocations={photoLocationsQuery.data ?? []}
+                plannedStops={content?.plannedStops ?? []}
+              />
+            )}
             {mapPoints.length === 0 ? (
               <p className="mt-6 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">
                 {t('journey.mapEmpty')}
@@ -378,14 +448,49 @@ export function JourneyPage({ journeyId, notice, shareUrl }: JourneyPageProps) {
             ) : null}
           </section>
 
+          {mapExpanded ? (
+            <div className="fixed inset-0 z-50 flex flex-col bg-background">
+              <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+                <p className="text-sm font-semibold">{t('journey.map')}</p>
+                <button
+                  aria-label={t('journey.mapCollapse')}
+                  className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border bg-surface"
+                  onClick={() => {
+                    setMapExpanded(false)
+                  }}
+                  type="button"
+                >
+                  <X aria-hidden="true" size={18} />
+                </button>
+              </div>
+              <JourneyMap
+                className="min-h-0 flex-1"
+                focusPointId={focusedMapPointId}
+                moments={content?.moments ?? []}
+                onFocusPointChange={setFocusedMapPointId}
+                onOpenEntry={(entryId) => {
+                  setMapExpanded(false)
+                  openEntryFromJourney(entryId, 'map')
+                }}
+                photoLocations={photoLocationsQuery.data ?? []}
+                plannedStops={content?.plannedStops ?? []}
+              />
+            </div>
+          ) : null}
+
           <section className="scroll-mt-28 py-12 sm:scroll-mt-24" id="gallery">
             <SectionHeading
               eyebrow={t('journey.galleryEyebrow')}
               title={t('journey.gallery')}
             />
             <JourneyGallery
+              canDelete={canEdit}
+              {...(user?.id !== undefined ? { creatorId: user.id } : {})}
               locatedPhotoIds={locatedPhotoIds}
               moments={content?.moments ?? []}
+              onOpenMoment={(entryId) => {
+                openEntryFromJourney(entryId, 'gallery')
+              }}
               onShowOnMap={handleShowPhotoOnMap}
             />
           </section>
@@ -460,12 +565,14 @@ function StageContent({
   creatorId,
   journey,
   onChanged,
+  onOpenEntry,
 }: {
   canEdit: boolean
   content: JourneyStageContent
   creatorId: string
   journey: JourneyDetail
   onChanged: () => void
+  onOpenEntry: (entryId: string) => void
 }) {
   const { t } = useTranslation()
 
@@ -506,6 +613,7 @@ function StageContent({
             key={moment.entry.id}
             moment={moment}
             onChanged={onChanged}
+            onOpenEntry={onOpenEntry}
           />
         ))}
         {content.plannedStops.length === 0 ? null : (
@@ -562,12 +670,14 @@ function MomentCard({
   journey,
   moment,
   onChanged,
+  onOpenEntry,
 }: {
   canEdit: boolean
   creatorId: string
   journey: JourneyDetail
   moment: JourneyMoment
   onChanged: () => void
+  onOpenEntry: (entryId: string) => void
 }) {
   const { t } = useTranslation()
   const title = moment.entry.title ?? t('dashboard.untitled')
@@ -597,7 +707,14 @@ function MomentCard({
           {moment.entry.body}
         </p>
       )}
-      <PhotoGallery alt={title} entryId={moment.entry.id} />
+      <PhotoGallery
+        alt={title}
+        canDelete={canEdit}
+        {...(canEdit ? { creatorId } : {})}
+        entryId={moment.entry.id}
+        onOpenMoment={onOpenEntry}
+        showEmpty={false}
+      />
       {!canEdit || journey.stages.length === 0 ? null : (
         <label className="mt-5 block text-sm font-medium text-muted">
           {t('journey.organizeMoment')}
@@ -638,13 +755,15 @@ function MomentCard({
           ) : null}
         </label>
       )}
-      <Link
+      <button
         className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
-        params={{ entryId: moment.entry.id }}
-        to="/e/$entryId"
+        onClick={() => {
+          onOpenEntry(moment.entry.id)
+        }}
+        type="button"
       >
         {t('journey.openMoment')}
-      </Link>
+      </button>
     </article>
   )
 }

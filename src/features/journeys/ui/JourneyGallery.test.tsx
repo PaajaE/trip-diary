@@ -7,6 +7,7 @@ import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
   getJourneyEntryPhotoPreviews: vi.fn(),
+  getPhotoDetailPreview: vi.fn().mockResolvedValue(null),
 }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -78,7 +79,7 @@ describe('JourneyGallery', () => {
     ).toBeVisible()
   })
 
-  it('renders photos from all moments in one grid and links each to its entry', async () => {
+  it('renders photos from all moments in one grid and opens the lightbox', async () => {
     const firstEntryId = crypto.randomUUID()
     const secondEntryId = crypto.randomUUID()
     vi.stubGlobal('URL', {
@@ -103,16 +104,10 @@ describe('JourneyGallery', () => {
       { entry: { id: secondEntryId, title: 'Druhý moment' } },
     ])
 
-    const images = await screen.findAllByRole('img')
-    expect(images).toHaveLength(2)
-    expect(images[0]?.closest('a')).toHaveAttribute(
-      'href',
-      `/e/${firstEntryId}`,
-    )
-    expect(images[1]?.closest('a')).toHaveAttribute(
-      'href',
-      `/e/${secondEntryId}`,
-    )
+    const buttons = await screen.findAllByRole('button', { name: /moment/i })
+    expect(buttons).toHaveLength(2)
+    fireEvent.click(buttons[0]!)
+    expect(screen.getByRole('dialog')).toBeVisible()
   })
 
   it('keeps available photos when another moment fails and hides broken images', async () => {
@@ -137,11 +132,13 @@ describe('JourneyGallery', () => {
       { entry: { id: secondEntryId, title: 'Druhý moment' } },
     ])
 
-    const image = await screen.findByRole('img')
+    const image = await screen.findByRole('button', { name: 'První moment' })
     expect(screen.getByRole('status')).toHaveTextContent(
       'Některé fotografie se nepodařilo načíst',
     )
-    fireEvent.error(image)
-    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+    fireEvent.error(image.querySelector('img')!)
+    expect(
+      screen.queryByRole('button', { name: 'První moment' }),
+    ).not.toBeInTheDocument()
   })
 })

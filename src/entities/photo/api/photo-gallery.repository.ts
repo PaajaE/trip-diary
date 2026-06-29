@@ -11,7 +11,7 @@ interface PositionedPhotoPreview extends PhotoPreview {
   position: number
 }
 
-function pickLocalDisplayVariant(
+function pickLocalThumbVariant(
   variants: LocalPhotoVariant[],
 ): LocalPhotoVariant | undefined {
   return (
@@ -19,6 +19,21 @@ function pickLocalDisplayVariant(
     variants.find(({ kind }) => kind === 'preview') ??
     variants.find(({ kind }) => kind === 'large')
   )
+}
+
+function pickLocalDetailVariant(
+  variants: LocalPhotoVariant[],
+): LocalPhotoVariant | undefined {
+  return (
+    variants.find(({ kind }) => kind === 'preview') ??
+    variants.find(({ kind }) => kind === 'large') ??
+    variants.find(({ kind }) => kind === 'thumb')
+  )
+}
+
+/** @deprecated use pickLocalThumbVariant */
+function pickLocalDisplayVariant(variants: LocalPhotoVariant[]) {
+  return pickLocalThumbVariant(variants)
 }
 
 function mergePositionedPreviews(
@@ -86,8 +101,9 @@ function mergeEntryPreviews(
   }
 }
 
-async function getLocalPhotoPreviews(
+async function getLocalPhotoPreviewsForPicker(
   entryId: string,
+  pickVariant: (variants: LocalPhotoVariant[]) => LocalPhotoVariant | undefined,
 ): Promise<PositionedPhotoPreview[]> {
   const photos = await localDb.photos
     .where('entryId')
@@ -99,7 +115,7 @@ async function getLocalPhotoPreviews(
         .where('photoId')
         .equals(photo.id)
         .toArray()
-      const variant = pickLocalDisplayVariant(variants)
+      const variant = pickVariant(variants)
       return variant === undefined
         ? null
         : { blob: variant.blob, id: photo.id, position: photo.position }
@@ -111,6 +127,18 @@ async function getLocalPhotoPreviews(
       ? [preview.value]
       : [],
   )
+}
+
+async function getLocalPhotoPreviews(
+  entryId: string,
+): Promise<PositionedPhotoPreview[]> {
+  return getLocalPhotoPreviewsForPicker(entryId, pickLocalThumbVariant)
+}
+
+async function getLocalPhotoDetailPreviews(
+  entryId: string,
+): Promise<PositionedPhotoPreview[]> {
+  return getLocalPhotoPreviewsForPicker(entryId, pickLocalDetailVariant)
 }
 
 async function getLocalPhotoPreviewsBatch(
@@ -157,8 +185,9 @@ async function getLocalPhotoPreviewsBatch(
   return result
 }
 
-async function getRemotePhotoPreviews(
+async function getRemotePhotoPreviewsForVariant(
   entryId: string,
+  variantKind: 'thumb' | 'preview',
 ): Promise<PositionedPhotoPreview[]> {
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
@@ -176,10 +205,13 @@ async function getRemotePhotoPreviews(
         .from('photo_variants')
         .select('storage_path')
         .eq('photo_id', link.photo_id)
-        .eq('variant', 'preview')
-        .single()
+        .eq('variant', variantKind)
+        .maybeSingle()
       if (variantError !== null) {
         throw variantError
+      }
+      if (variant === null) {
+        throw new Error('missing variant')
       }
       const { data: blob, error: downloadError } = await client.storage
         .from('photos')
@@ -194,6 +226,22 @@ async function getRemotePhotoPreviews(
   return previews.flatMap((preview) =>
     preview.status === 'fulfilled' ? [preview.value] : [],
   )
+}
+
+async function getRemotePhotoPreviews(
+  entryId: string,
+): Promise<PositionedPhotoPreview[]> {
+  return getRemotePhotoPreviewsForVariant(entryId, 'preview')
+}
+
+async function getRemotePhotoThumbPreviews(
+  entryId: string,
+): Promise<PositionedPhotoPreview[]> {
+  const thumbPreviews = await getRemotePhotoPreviewsForVariant(entryId, 'thumb')
+  if (thumbPreviews.length > 0) {
+    return thumbPreviews
+  }
+  return getRemotePhotoPreviewsForVariant(entryId, 'preview')
 }
 
 async function getRemotePhotoPreviewsBatch(
@@ -282,10 +330,66 @@ export async function getEntryPhotoPreviews(
 ): Promise<PhotoPreview[]> {
   const [localResult, remoteResult] = await Promise.allSettled([
     getLocalPhotoPreviews(entryId),
+    getRemotePhotoThumbPreviews(entryId),
+  ])
+
+  return mergePositionedPreviews(localResult, remoteResult)
+}
+
+export async function getEntryPhotoDetailPreviews(
+  entryId: string,
+): Promise<PhotoPreview[]> {
+  const [localResult, remoteResult] = await Promise.allSettled([
+    getLocalPhotoDetailPreviews(entryId),
     getRemotePhotoPreviews(entryId),
   ])
 
   return mergePositionedPreviews(localResult, remoteResult)
+}
+
+export async function getPhotoDetailPreview(
+  photoId: string,
+): Promise<PhotoPreview | null> {
+  const photo = await localDb.photos.get(photoId)
+  if (photo === undefined) {
+    return getRemotePhotoDetailPreview(photoId)
+  }
+
+  const variants = await localDb.photoVariants
+    .where('photoId')
+    .equals(photoId)
+    .toArray()
+  const variant = pickLocalDetailVariant(variants)
+  if (variant !== undefined) {
+    return { blob: variant.blob, id: photoId }
+  }
+
+  return getRemotePhotoDetailPreview(photoId)
+}
+
+async function getRemotePhotoDetailPreview(
+  photoId: string,
+): Promise<PhotoPreview | null> {
+  const client = getSupabaseClient()
+  for (const variantKind of ['preview', 'thumb'] as const) {
+    const { data: variant, error: variantError } = await client
+      .from('photo_variants')
+      .select('storage_path')
+      .eq('photo_id', photoId)
+      .eq('variant', variantKind)
+      .maybeSingle()
+    if (variantError !== null || variant === null) {
+      continue
+    }
+    const { data: blob, error: downloadError } = await client.storage
+      .from('photos')
+      .download(variant.storage_path)
+    if (downloadError !== null) {
+      continue
+    }
+    return { blob, id: photoId }
+  }
+  return null
 }
 
 export interface JourneyEntryPhotoPreviews {

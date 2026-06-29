@@ -2,6 +2,7 @@ import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getJourneySnapshot } from '@/entities/journey/api/local-journey-cache.repository'
 import { getLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
+import { deletePhotoOnRemote } from '@/entities/photo/api/photo-mutation.repository'
 import { SYNC_PHOTO_VARIANT_KINDS } from '@/entities/photo/lib/photo-variant-config'
 import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
 import { listMySpaces } from '@/entities/space/api/space.repository'
@@ -306,6 +307,9 @@ export async function syncPendingOperations(): Promise<void> {
         case 'photo.gps.update':
           await syncPhotoGpsUpdate(operation)
           break
+        case 'photo.delete':
+          await syncPhotoDelete(operation)
+          break
       }
     } catch (error) {
       const message = `${operation.type}: ${formatSyncError(error)}`
@@ -506,6 +510,12 @@ async function hasUnfinishedDependency(
     }
   }
 
+  if (operation.type === 'photo.delete') {
+    if (await shouldWaitForPhotoSync(operation.photoId)) {
+      return true
+    }
+  }
+
   return false
 }
 
@@ -529,6 +539,7 @@ type JourneyAssignmentOperation = Extract<
 >
 type PhotoUploadOperation = Extract<SyncOperation, { type: 'photo.upload' }>
 type PhotoGpsUpdateOperation = Extract<SyncOperation, { type: 'photo.gps.update' }>
+type PhotoDeleteOperation = Extract<SyncOperation, { type: 'photo.delete' }>
 
 async function syncEntryCreate(
   operation: EntryCreateOperation,
@@ -1168,6 +1179,12 @@ async function syncPhotoGpsUpdate(
   }
 
   await localDb.syncOperations.delete(operation.id)
+}
+
+async function syncPhotoDelete(operation: PhotoDeleteOperation): Promise<void> {
+  await deletePhotoOnRemote(operation.photoId)
+  await localDb.syncOperations.delete(operation.id)
+  await clearDeletedRecord(operation.photoId)
 }
 
 async function syncPhotoMetadata(

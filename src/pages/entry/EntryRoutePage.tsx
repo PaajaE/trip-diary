@@ -8,6 +8,7 @@ export function EntryRoutePage() {
     <EntryPage
       entryId={entryId}
       {...(search.notice !== undefined ? { notice: search.notice } : {})}
+      {...(search.returnTo !== undefined ? { returnTo: search.returnTo } : {})}
     />
   )
 }

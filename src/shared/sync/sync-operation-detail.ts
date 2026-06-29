@@ -79,5 +79,9 @@ export async function resolveSyncOperationDetail(
       const entry = await localDb.entries.get(photo.entryId)
       return entry?.title ?? ''
     }
+    case 'photo.delete': {
+      const entry = await localDb.entries.get(operation.entryId)
+      return entry?.title ?? ''
+    }
   }
 }

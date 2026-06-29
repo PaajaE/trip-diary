@@ -46,7 +46,7 @@ interface DeletedRecord {
   creatorId: string
   deletedAt: string
   id: string
-  kind: 'entry' | 'guide' | 'journey' | 'stage' | 'stop'
+  kind: 'entry' | 'guide' | 'journey' | 'photo' | 'stage' | 'stop'
 }
 
 class TripDiaryDatabase extends Dexie {

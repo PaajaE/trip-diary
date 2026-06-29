@@ -102,6 +102,7 @@ const entryRoute = createRoute({
   validateSearch: z
     .object({
       notice: z.enum(['photos_failed']).optional(),
+      returnTo: z.string().optional(),
     })
     .parse,
   component: LazyEntryRoutePage,
@@ -120,6 +121,7 @@ const journeyRoute = createRoute({
   validateSearch: z
     .object({
       notice: z.enum(['photos_failed']).optional(),
+      section: z.enum(['story', 'map', 'gallery', 'guides']).optional(),
     })
     .parse,
   component: LazyJourneyRoutePage,

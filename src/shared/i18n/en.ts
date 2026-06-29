@@ -33,6 +33,8 @@ export const en = {
         'guide.delete': 'Deleting guide',
         'journey.assignment.upsert': 'Assigning to journey',
         'photo.upload': 'Uploading photos',
+        'photo.gps.update': 'Updating photo location',
+        'photo.delete': 'Deleting photo',
       },
       detail: {
         thumb: 'Thumbnail',
@@ -159,6 +161,7 @@ export const en = {
     deleteAction: 'Delete',
     deleteConfirm: 'Are you sure you want to delete this memory?',
     deleting: 'Deleting…',
+    back: 'Back',
     typeLabel: 'Type',
     title: 'Title',
     type: {
@@ -304,7 +307,10 @@ export const en = {
     mapLoadingLocations: 'Loading photo locations…',
     mapLocatingPhoto: 'Locating photo on map…',
     mapPhotoTitle: 'Photo: {{title}}',
+    mapCollocatedTitle: '{{count}} at this place',
     mapEyebrow: 'The whole journey in one place',
+    mapExpand: 'Full screen',
+    mapCollapse: 'Close map',
     mappedCount: '{{count}} on map',
     hasLocation: 'Moment has a location',
     mapHint: 'no manual GPS',
@@ -391,6 +397,18 @@ export const en = {
       completed: 'Completed journey',
       planning: 'Planned journey',
     },
+  },
+  photos: {
+    deleteAction: 'Delete photo',
+    deleteConfirm: 'Are you sure you want to delete this photo?',
+    empty: 'No photos yet.',
+    error: 'Photos could not be loaded.',
+    lightboxClose: 'Close photo viewer',
+    lightboxCounter: '{{current}} / {{total}}',
+    lightboxNext: 'Next photo',
+    lightboxPrevious: 'Previous photo',
+    loading: 'Loading photos…',
+    openMoment: 'Open moment',
   },
 } as const
 

@@ -8,6 +8,7 @@ export function JourneyRoutePage() {
     <JourneyPage
       journeyId={journeyId}
       {...(search.notice !== undefined ? { notice: search.notice } : {})}
+      {...(search.section !== undefined ? { section: search.section } : {})}
     />
   )
 }

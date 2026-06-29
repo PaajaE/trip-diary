@@ -1,26 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link } from '@tanstack/react-router'
 import { MapPin } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
-import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import {
   loadJourneyGalleryPreviews,
   mergeJourneyGalleryPhotos,
   type JourneyGalleryMoment,
   type JourneyGalleryPreviews,
 } from '@/features/journeys/lib/journey-gallery'
+import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
+import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 
 interface JourneyGalleryProps {
+  canDelete?: boolean
+  creatorId?: string
   locatedPhotoIds: ReadonlySet<string>
   moments: JourneyGalleryMoment[]
+  onOpenMoment?: (entryId: string) => void
   onShowOnMap: (photoId: string) => void
 }
 
 function JourneyGalleryImage({
   alt,
-  entryId,
+  onOpen,
   onShowOnMap,
   photoId,
   showOnMap,
@@ -28,7 +31,7 @@ function JourneyGalleryImage({
   src,
 }: {
   alt: string
-  entryId: string
+  onOpen: () => void
   onShowOnMap: (photoId: string) => void
   photoId: string
   showOnMap: boolean
@@ -43,14 +46,15 @@ function JourneyGalleryImage({
 
   return (
     <div className="group relative overflow-hidden rounded-2xl bg-surface shadow-soft">
-      <Link
+      <button
         aria-label={alt}
-        className="block"
-        params={{ entryId }}
-        to="/e/$entryId"
+        className="block w-full"
+        onClick={onOpen}
+        type="button"
       >
         <img
-          alt={alt}
+          alt=""
+          aria-hidden="true"
           className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           loading="lazy"
           onError={() => {
@@ -61,12 +65,13 @@ function JourneyGalleryImage({
         <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-8 text-sm font-semibold text-white">
           {alt}
         </span>
-      </Link>
+      </button>
       {showOnMap ? (
         <button
           aria-label={showOnMapLabel}
           className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/90 px-2.5 py-1.5 text-xs font-semibold text-foreground shadow-sm backdrop-blur transition hover:bg-background"
-          onClick={() => {
+          onClick={(event) => {
+            event.stopPropagation()
             onShowOnMap(photoId)
           }}
           type="button"
@@ -80,8 +85,11 @@ function JourneyGalleryImage({
 }
 
 export function JourneyGallery({
+  canDelete = false,
+  creatorId,
   locatedPhotoIds,
   moments,
+  onOpenMoment,
   onShowOnMap,
 }: JourneyGalleryProps) {
   const { t } = useTranslation()
@@ -98,6 +106,11 @@ export function JourneyGallery({
     [moments, previewData?.previewsByMoment],
   )
   const urls = usePhotoObjectUrls(photos)
+  const { lightboxElement, openLightbox } = usePhotoLightbox({
+    canDelete,
+    ...(creatorId !== undefined ? { creatorId } : {}),
+    ...(onOpenMoment !== undefined ? { onOpenMoment } : {}),
+  })
 
   const hasPartialError = (previewData?.failedMomentCount ?? 0) > 0
 
@@ -123,6 +136,13 @@ export function JourneyGallery({
     )
   }
 
+  const lightboxPhotos = urls.map((photo) => ({
+    alt: photo.entryTitle ?? t('journey.galleryUntitled'),
+    entryId: photo.entryId,
+    id: photo.id,
+    thumbUrl: photo.url,
+  }))
+
   return (
     <>
       {hasPartialError ? (
@@ -131,11 +151,13 @@ export function JourneyGallery({
         </p>
       ) : null}
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {urls.map((photo) => (
+        {urls.map((photo, photoIndex) => (
           <JourneyGalleryImage
             alt={photo.entryTitle ?? t('journey.galleryUntitled')}
-            entryId={photo.entryId}
             key={`${photo.entryId}:${photo.id}`}
+            onOpen={() => {
+              openLightbox(lightboxPhotos, photoIndex)
+            }}
             onShowOnMap={onShowOnMap}
             photoId={photo.id}
             showOnMap={locatedPhotoIds.has(photo.id)}
@@ -144,6 +166,7 @@ export function JourneyGallery({
           />
         ))}
       </div>
+      {lightboxElement}
     </>
   )
 }

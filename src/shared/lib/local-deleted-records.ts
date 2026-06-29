@@ -1,6 +1,12 @@
 import { localDb } from '@/shared/lib/local-db'
 
-export type DeletedRecordKind = 'entry' | 'guide' | 'journey' | 'stage' | 'stop'
+export type DeletedRecordKind =
+  | 'entry'
+  | 'guide'
+  | 'journey'
+  | 'photo'
+  | 'stage'
+  | 'stop'
 
 export interface DeletedRecord {
   creatorId: string

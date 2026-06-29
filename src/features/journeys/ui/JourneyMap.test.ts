@@ -70,6 +70,44 @@ describe('getJourneyMapPoints', () => {
     ])
   })
 
+  it('keeps separate photo pins at the same coordinates', () => {
+    const photoA = {
+      entryId: crypto.randomUUID(),
+      entryTitle: 'First shot',
+      id: crypto.randomUUID(),
+      latitude: 50,
+      longitude: 14,
+    }
+    const photoB = {
+      entryId: crypto.randomUUID(),
+      entryTitle: 'Second shot',
+      id: crypto.randomUUID(),
+      latitude: 50,
+      longitude: 14,
+    }
+
+    expect(getJourneyMapPoints([], [], [photoA, photoB])).toEqual([
+      {
+        entryId: photoA.entryId,
+        id: `photo:${photoA.id}`,
+        latitude: 50,
+        longitude: 14,
+        photoId: photoA.id,
+        title: 'First shot',
+        type: 'photo',
+      },
+      {
+        entryId: photoB.entryId,
+        id: `photo:${photoB.id}`,
+        latitude: 50,
+        longitude: 14,
+        photoId: photoB.id,
+        title: 'Second shot',
+        type: 'photo',
+      },
+    ])
+  })
+
   it('ignores points without finite coordinates', () => {
     const invalidMoment = createMoment({
       location: { latitude: Number.NaN, longitude: 14 },
