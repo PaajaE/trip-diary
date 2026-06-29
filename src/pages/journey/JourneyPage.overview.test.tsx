@@ -14,6 +14,9 @@ const { useJourneyQueryMock, useQueryMock } = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: useQueryMock,
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
 }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
@@ -57,6 +60,16 @@ vi.mock('@/features/journeys/ui/JourneyMap', () => ({
 vi.mock('@/features/photos/ui/PhotoGallery', () => ({
   PhotoGallery: () => null,
 }))
+vi.mock('@/features/engagement/ui/ContentEngagement', () => ({
+  ContentEngagement: () => null,
+}))
+vi.mock('@/features/sharing/hooks/use-journey-public-share', () => ({
+  useJourneyPublicShare: () => ({
+    isLoading: false,
+    paths: null,
+    tripShare: null,
+  }),
+}))
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
   getJourneyEntryPhotoPreviews: vi.fn().mockResolvedValue({
     failedEntryIds: new Set<string>(),
@@ -96,6 +109,7 @@ describe('JourneyPage overview hub', () => {
           body: 'Glacier hike',
           eventAt: '2026-06-01T12:00:00+00:00',
           id: 'entry-1',
+          slug: null,
           stageId: null,
           stopId: null,
           title: 'Skaftafell',
@@ -121,6 +135,9 @@ describe('JourneyPage overview hub', () => {
           isError: false,
           isPending: false,
         }
+      }
+      if (queryKey[0] === 'journey-photo-tags') {
+        return { data: [], isError: false, isPending: false }
       }
       if (queryKey[0] === 'journey-my-role') {
         return { data: 'owner', isError: false }

@@ -8,8 +8,12 @@ import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
 import { useSession } from '@/features/auth/session'
 import { EditEntryForm } from '@/features/entries/ui/EditEntryForm'
+import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
+import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messages'
+import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { CopyShareLink } from '@/features/sharing'
+import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repository'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
@@ -43,7 +47,16 @@ export function EntryPage({
       return (await getLocalEntry(entryId)) ?? getPublicEntry(entryId)
     },
   })
+  const publicShareQuery = useQuery({
+    enabled: entryQuery.data !== undefined && entryQuery.data !== null,
+    queryFn: () => getEntryPublicShare(entryId),
+    queryKey: ['entry-public-share', entryId],
+  })
   const entry = entryQuery.data
+  const publicShare =
+    publicShareQuery.data === null || publicShareQuery.data === undefined
+      ? null
+      : buildEntryPublicShare(publicShareQuery.data, entry?.title ?? '')
   const canManage = user !== null && entry?.creatorId === user.id
 
   return (
@@ -92,17 +105,29 @@ export function EntryPage({
             {entry.title}
           </h1>
           <p className="mt-8 whitespace-pre-wrap leading-8">{entry.body}</p>
-          {shareUrl === undefined ? null : (
+          {publicShare !== null ? (
+            <ShareActions
+              className="mt-6"
+              shareText={publicShare.shareText}
+              shareUrl={publicShare.shareUrl}
+              title={entry.title}
+            />
+          ) : shareUrl === undefined ? null : (
             <CopyShareLink
               className="mt-6"
               onCopy={() => sharePublicUrl(shareUrl, entry.title)}
             />
           )}
+          <ContentEngagement
+            className="mt-8 border-t border-border pt-8"
+            target={{ id: entry.id, type: 'entry' }}
+          />
           <PhotoGallery
             alt={entry.title}
             canDelete={canManage}
             {...(canManage ? { creatorId: user.id } : {})}
             entryId={entry.id}
+            showPhotoEngagement={publicShare !== null}
           />
           <p className="mt-10 text-sm text-muted">
             {t(`entry.sync.${entry.syncStatus}`)}

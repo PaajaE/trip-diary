@@ -1,8 +1,9 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { LogOut, MapPinned } from 'lucide-react'
 import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
+import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
 
@@ -10,6 +11,8 @@ export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { loading, profile, signOut, user } = useSession()
+  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const minimalPublicShell = isPublicSharePath(pathname)
   const identity =
     profile?.displayName ?? profile?.username ?? user?.email ?? t('brand')
 
@@ -24,7 +27,7 @@ export function AppShell({ children }: PropsWithChildren) {
             aria-label={t('navigation.account')}
             className="flex items-center gap-2"
           >
-            <SyncStatusControl />
+            {minimalPublicShell ? null : <SyncStatusControl />}
             {loading ? (
               <span
                 aria-label={t('navigation.loading')}

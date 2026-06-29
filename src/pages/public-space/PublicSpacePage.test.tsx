@@ -1,3 +1,4 @@
+import '@/app/i18n'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -30,6 +31,11 @@ const space: PublicSpaceViewModel = {
   ],
 }
 
+const share = {
+  shareText: 'Cestovní deník: Ečerovi\nhttps://example.com/ecerovi2016',
+  shareUrl: 'https://example.com/ecerovi2016',
+}
+
 describe('PublicSpacePage', () => {
   afterEach(cleanup)
 
@@ -39,9 +45,10 @@ describe('PublicSpacePage', () => {
     const onOpenEntry = vi.fn()
     render(
       <PublicSpacePage
-        onCopyShareLink={vi.fn()}
         onOpenEntry={onOpenEntry}
         onOpenJourney={onOpenJourney}
+        shareText={share.shareText}
+        shareUrl={share.shareUrl}
         space={space}
       />,
     )
@@ -63,9 +70,10 @@ describe('PublicSpacePage', () => {
   it('shows independent empty states for journeys and entries', () => {
     render(
       <PublicSpacePage
-        onCopyShareLink={vi.fn()}
         onOpenEntry={vi.fn()}
         onOpenJourney={vi.fn()}
+        shareText={share.shareText}
+        shareUrl={share.shareUrl}
         space={{ ...space, journeys: [], standaloneEntries: [] }}
       />,
     )
@@ -74,22 +82,20 @@ describe('PublicSpacePage', () => {
     expect(screen.getByText('Zatím žádné veřejné příspěvky')).toBeVisible()
   })
 
-  it('delegates sharing to its callback', async () => {
-    const user = userEvent.setup()
-    const onCopyShareLink = vi.fn().mockResolvedValue(undefined)
+  it('renders share actions for the public diary', () => {
     render(
       <PublicSpacePage
-        onCopyShareLink={onCopyShareLink}
         onOpenEntry={vi.fn()}
         onOpenJourney={vi.fn()}
+        shareText={share.shareText}
+        shareUrl={share.shareUrl}
         space={space}
       />,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Sdílet deník' }))
-    expect(onCopyShareLink).toHaveBeenCalledOnce()
     expect(
-      await screen.findByRole('button', { name: 'Odkaz zkopírován' }),
+      screen.getByRole('button', { name: 'Sdílet na WhatsApp' }),
     ).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Kopírovat odkaz' })).toBeVisible()
   })
 })

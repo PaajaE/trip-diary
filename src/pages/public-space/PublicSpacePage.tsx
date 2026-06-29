@@ -5,16 +5,18 @@ import { PublicSpaceHeader } from '@/pages/public-space/PublicSpaceHeader'
 import type { PublicSpaceViewModel } from '@/pages/public-space/model'
 
 interface PublicSpacePageProps {
-  onCopyShareLink: () => Promise<void> | void
   onOpenEntry: (entryId: string) => void
   onOpenJourney: (journeyId: string) => void
+  shareText: string
+  shareUrl: string
   space: PublicSpaceViewModel
 }
 
 export function PublicSpacePage({
-  onCopyShareLink,
   onOpenEntry,
   onOpenJourney,
+  shareText,
+  shareUrl,
   space,
 }: PublicSpacePageProps) {
   return (
@@ -26,7 +28,8 @@ export function PublicSpacePage({
         {...(space.bio === undefined ? {} : { bio: space.bio })}
         handle={space.handle}
         name={space.name}
-        onCopyShareLink={onCopyShareLink}
+        shareText={shareText}
+        shareUrl={shareUrl}
       />
 
       <PublicSection

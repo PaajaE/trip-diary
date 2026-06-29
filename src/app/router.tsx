@@ -177,6 +177,11 @@ const publicJourneyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle/$journeySlug',
   component: LazyPublicJourneyRoutePage,
+  validateSearch: z.object({
+    section: z
+      .enum(['overview', 'story', 'map', 'gallery', 'collections', 'guides'])
+      .optional(),
+  }),
 })
 
 const publicStandaloneEntryRoute = createRoute({

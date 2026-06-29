@@ -170,7 +170,7 @@ async function fetchJourneyFromRemote(
       ? { data: [], error: null }
       : await client
           .from('entries')
-          .select('id, title, body, type, event_at')
+          .select('id, title, body, type, event_at, slug')
           .in('id', entryIds)
 
   if (entriesResult.error !== null) {
@@ -225,6 +225,7 @@ async function fetchJourneyFromRemote(
           body: entry.body,
           eventAt: entry.event_at,
           id: entry.id,
+          slug: entry.slug,
           stageId: link?.stage_id ?? null,
           stopId: link?.stop_id ?? null,
           title: entry.title,
@@ -237,6 +238,7 @@ async function fetchJourneyFromRemote(
           body: entry.body,
           eventAt: entry.eventAt,
           id: entry.id,
+          slug: entry.slug,
           stageId: link?.stageId ?? null,
           stopId: link?.stopId ?? null,
           title: entry.title,

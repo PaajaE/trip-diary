@@ -3,8 +3,9 @@ import { useParams } from '@tanstack/react-router'
 import {
   resolvePublicEntry,
   resolvePublicJourneyEntry,
+  resolvePublicJourneyMeta,
 } from '@/entities/sharing/api/public-sharing.repository'
-import { EntryPage } from '@/pages/entry/EntryPage'
+import { MomentReaderPage } from '@/pages/reader/MomentReaderPage'
 
 export function PublicStandaloneEntryRoutePage() {
   const { entrySlug, spaceHandle } = useParams({
@@ -22,8 +23,17 @@ export function PublicJourneyEntryRoutePage() {
   const { entrySlug, journeySlug, spaceHandle } = useParams({
     from: '/$spaceHandle/$journeySlug/$entrySlug',
   })
+  const journeyMetaQuery = useQuery({
+    queryFn: () => resolvePublicJourneyMeta(spaceHandle, journeySlug),
+    queryKey: ['public-journey-meta', spaceHandle, journeySlug],
+  })
+
   return (
     <ResolvedEntry
+      {...(journeyMetaQuery.data?.id !== undefined
+        ? { journeyId: journeyMetaQuery.data.id }
+        : {})}
+      publicPaths={{ journeySlug, spaceHandle }}
       queryFn={() =>
         resolvePublicJourneyEntry(spaceHandle, journeySlug, entrySlug)
       }
@@ -33,9 +43,13 @@ export function PublicJourneyEntryRoutePage() {
 }
 
 function ResolvedEntry({
+  journeyId,
+  publicPaths,
   queryFn,
   queryKey,
 }: {
+  journeyId?: string
+  publicPaths?: { journeySlug: string; spaceHandle: string }
   queryFn: () => Promise<string | null>
   queryKey: string[]
 }) {
@@ -44,7 +58,13 @@ function ResolvedEntry({
   if (query.isError || query.data === null) {
     return <Message>Tato veřejná vzpomínka neexistuje.</Message>
   }
-  return <EntryPage entryId={query.data} shareUrl={window.location.href} />
+  return (
+    <MomentReaderPage
+      entryId={query.data}
+      {...(journeyId !== undefined ? { journeyId } : {})}
+      {...(publicPaths !== undefined ? { publicPaths } : {})}
+    />
+  )
 }
 
 function Message({ children }: { children: React.ReactNode }) {

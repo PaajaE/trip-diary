@@ -1,9 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
+import { ShareMomentPrompt } from '@/features/sharing/ui/ShareMomentPrompt'
 
 interface CreateJourneyMemoryPageProps {
   journeyId: string
@@ -17,6 +19,24 @@ export function CreateJourneyMemoryPage({
   const queryClient = useQueryClient()
   const { loading, user } = useSession()
   const journeyQuery = useJourneyQuery(journeyId)
+  const [sharePrompt, setSharePrompt] = useState<{
+    entrySlug: string
+    entryTitle: string
+    photosFailed?: boolean
+  } | null>(null)
+
+  function continueToJourney(photosFailed?: boolean) {
+    void queryClient.invalidateQueries({ queryKey: ['journeys', journeyId] })
+    void queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-photo-locations', journeyId],
+    })
+    void navigate({
+      params: { journeyId },
+      search: photosFailed === true ? { notice: 'photos_failed' } : {},
+      to: '/j/$journeyId',
+    })
+  }
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-2xl px-5 py-8 sm:py-16">
@@ -54,23 +74,33 @@ export function CreateJourneyMemoryPage({
           creatorId={user.id}
           journey={journeyQuery.data}
           onCreated={(meta) => {
-            void queryClient.invalidateQueries({
-              queryKey: ['journeys', journeyId],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ['journey-gallery'],
-            })
-            void queryClient.invalidateQueries({
-              queryKey: ['journey-photo-locations', journeyId],
-            })
-            void navigate({
-              params: { journeyId },
-              search:
-                meta?.photosFailed === true ? { notice: 'photos_failed' } : {},
-              to: '/j/$journeyId',
+            setSharePrompt({
+              entrySlug: meta.entrySlug,
+              entryTitle: meta.entryTitle,
+              ...(meta.photosFailed === true
+                ? { photosFailed: true }
+                : {}),
             })
           }}
           spaceId={journeyQuery.data.spaceId}
+        />
+      )}
+
+      {journeyQuery.data === null || journeyQuery.data === undefined ? null : (
+        <ShareMomentPrompt
+          entrySlug={sharePrompt?.entrySlug ?? ''}
+          entryTitle={sharePrompt?.entryTitle ?? ''}
+          journeyId={journeyId}
+          journeyTitle={journeyQuery.data.title}
+          onClose={() => {
+            const photosFailed = sharePrompt?.photosFailed
+            setSharePrompt(null)
+            continueToJourney(photosFailed)
+          }}
+          open={sharePrompt !== null}
+          {...(sharePrompt?.photosFailed === true
+            ? { photosFailed: true }
+            : {})}
         />
       )}
     </main>

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
@@ -85,8 +85,7 @@ describe('JourneyGallery', () => {
     vi.stubGlobal('URL', {
       createObjectURL: vi
         .fn()
-        .mockReturnValueOnce('blob:first')
-        .mockReturnValueOnce('blob:second'),
+        .mockImplementation(() => `blob:${crypto.randomUUID()}`),
       revokeObjectURL: vi.fn(),
     })
     vi.mocked(getJourneyEntryPhotoPreviews).mockResolvedValue({
@@ -107,7 +106,9 @@ describe('JourneyGallery', () => {
     const buttons = await screen.findAllByRole('button', { name: /moment/i })
     expect(buttons).toHaveLength(2)
     fireEvent.click(buttons[0]!)
-    expect(screen.getByRole('dialog')).toBeVisible()
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeVisible()
+    })
   })
 
   it('keeps available photos when another moment fails and hides broken images', async () => {

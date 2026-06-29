@@ -36,13 +36,19 @@ import {
 } from '@/shared/lib/geolocation'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
+import { createPublicSlug } from '@/shared/lib/slug'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
 
 interface CreateJourneyMemoryFormProps {
   creatorId: string
   journey: JourneyDetail
-  onCreated: (meta?: { photosFailed?: boolean }) => void
+  onCreated: (meta: {
+    entryId: string
+    entrySlug: string
+    entryTitle: string
+    photosFailed?: boolean
+  }) => void
   spaceId: string
 }
 
@@ -332,7 +338,12 @@ export function CreateJourneyMemoryForm({
       setLinkError(t('journey.photoProcessingFailed'))
       photosFailed = true
     }
-    onCreated({ photosFailed })
+    onCreated({
+      entryId: entry.id,
+      entrySlug: entry.slug ?? createPublicSlug(resolvedTitle, entry.id),
+      entryTitle: resolvedTitle,
+      photosFailed,
+    })
     clearJourneyMemoryPhotoDraft(journey.id)
 
     if (await canAutomaticallySync()) {

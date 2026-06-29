@@ -1,5 +1,6 @@
 import { Check, Copy } from 'lucide-react'
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/shared/ui/Button'
 
 interface CopyShareLinkProps {
@@ -10,10 +11,12 @@ interface CopyShareLinkProps {
 
 export function CopyShareLink({
   className,
-  label = 'Sdílet',
+  label,
   onCopy,
 }: CopyShareLinkProps) {
+  const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+  const shareLabel = label ?? t('reader.share')
 
   return (
     <Button
@@ -30,7 +33,7 @@ export function CopyShareLink({
       ) : (
         <Copy aria-hidden="true" size={17} />
       )}
-      {copied ? 'Odkaz zkopírován' : label}
+      {copied ? t('reader.linkCopied') : shareLabel}
     </Button>
   )
 }

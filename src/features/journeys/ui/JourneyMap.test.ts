@@ -126,6 +126,7 @@ function createMoment(overrides: Partial<JourneyMoment> = {}): JourneyMoment {
       body: '',
       eventAt: null,
       id: crypto.randomUUID(),
+      slug: null,
       stageId: null,
       stopId: stop.id,
       title: 'Morning view',

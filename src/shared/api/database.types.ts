@@ -34,6 +34,71 @@ export type Database = {
   }
   public: {
     Tables: {
+      content_comments: {
+        Row: {
+          body: string
+          created_at: string
+          hidden_at: string | null
+          hidden_by: string | null
+          id: string
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          id?: string
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          id?: string
+          target_id?: string
+          target_type?: Database['public']['Enums']['content_target_type']
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'content_comments_user_profile_fk'
+            columns: ['user_id']
+            isOneToOne: false
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      content_hearts: {
+        Row: {
+          created_at: string
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          target_id?: string
+          target_type?: Database['public']['Enums']['content_target_type']
+          user_id?: string
+        }
+        Relationships: []
+      }
       entries: {
         Row: {
           body: string
@@ -374,6 +439,38 @@ export type Database = {
           },
         ]
       }
+      journey_photo_tags: {
+        Row: {
+          created_at: string
+          id: string
+          journey_id: string
+          label: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          journey_id: string
+          label: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          journey_id?: string
+          label?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'journey_photo_tags_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       journey_stops: {
         Row: {
           created_at: string
@@ -495,6 +592,42 @@ export type Database = {
             columns: ['space_id']
             isOneToOne: false
             referencedRelation: 'spaces'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      photo_tag_assignments: {
+        Row: {
+          created_at: string
+          creator_id: string
+          photo_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          creator_id: string
+          photo_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          creator_id?: string
+          photo_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'photo_tag_assignments_photo_creator_fk'
+            columns: ['photo_id', 'creator_id']
+            isOneToOne: false
+            referencedRelation: 'photos'
+            referencedColumns: ['id', 'creator_id']
+          },
+          {
+            foreignKeyName: 'photo_tag_assignments_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'journey_photo_tags'
             referencedColumns: ['id']
           },
         ]
@@ -734,6 +867,14 @@ export type Database = {
     Functions: {
       accept_journey_invite: { Args: { p_raw_token: string }; Returns: string }
       accept_space_invite: { Args: { p_raw_token: string }; Returns: string }
+      can_moderate_target: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database['public']['Enums']['content_target_type']
+          p_user_id: string
+        }
+        Returns: boolean
+      }
       change_space_member_role: {
         Args: {
           p_role: Database['public']['Enums']['space_role']
@@ -798,6 +939,13 @@ export type Database = {
         }[]
       }
       has_space_publish_role: { Args: { p_space_id: string }; Returns: boolean }
+      is_interactable_target: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database['public']['Enums']['content_target_type']
+        }
+        Returns: boolean
+      }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
@@ -941,6 +1089,7 @@ export type Database = {
       }
     }
     Enums: {
+      content_target_type: 'journey' | 'entry' | 'photo'
       entry_language: 'cs' | 'en'
       entry_status: 'draft' | 'published'
       entry_type: 'story' | 'tip' | 'note' | 'place'
@@ -1082,6 +1231,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      content_target_type: ['journey', 'entry', 'photo'],
       entry_language: ['cs', 'en'],
       entry_status: ['draft', 'published'],
       entry_type: ['story', 'tip', 'note', 'place'],

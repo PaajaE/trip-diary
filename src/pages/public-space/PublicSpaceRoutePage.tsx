@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { getPublicSpace } from '@/entities/sharing/api/public-sharing.repository'
+import { buildPublicSpaceShare } from '@/features/sharing/lib/build-share-messages'
 import { PublicSpacePage } from '@/pages/public-space'
-import { shareUrl } from '@/shared/lib/share'
 
 export function PublicSpaceRoutePage() {
   const { spaceHandle } = useParams({ from: '/$spaceHandle' })
@@ -18,9 +18,9 @@ export function PublicSpaceRoutePage() {
     return <Message>Tento cestovní deník neexistuje.</Message>
 
   const space = query.data
+  const spaceShare = buildPublicSpaceShare(space.handle, space.name)
   return (
     <PublicSpacePage
-      onCopyShareLink={() => shareUrl(window.location.href, space.name)}
       onOpenEntry={(entryId) => {
         const entry = space.standaloneEntries.find(({ id }) => id === entryId)
         if (entry !== undefined) {
@@ -39,6 +39,8 @@ export function PublicSpaceRoutePage() {
           })
         }
       }}
+      shareText={spaceShare.shareText}
+      shareUrl={spaceShare.shareUrl}
       space={{
         avatarUrl: space.avatarUrl,
         bio: space.bio,

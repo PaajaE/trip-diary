@@ -1,0 +1,101 @@
+import { useQuery } from '@tanstack/react-query'
+import { Images, MapPin } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { listJourneyPhotoTags } from '@/entities/photo/api/photo-tag.repository'
+import type { JourneyPhotoTag } from '@/entities/photo/model/photo-tag'
+import { cn } from '@/shared/lib/cn'
+
+interface JourneyTagCollectionsProps {
+  journeyId: string
+  onSelectTag: (slug: string) => void
+  selectedTagSlug: string | null
+}
+
+export function JourneyTagCollections({
+  journeyId,
+  onSelectTag,
+  selectedTagSlug,
+}: JourneyTagCollectionsProps) {
+  const { t } = useTranslation()
+  const tagsQuery = useQuery({
+    queryFn: () => listJourneyPhotoTags(journeyId),
+    queryKey: ['journey-photo-tags', journeyId],
+  })
+
+  if (tagsQuery.isPending) {
+    return (
+      <p className="mt-8 text-sm text-muted" role="status">
+        {t('reader.collectionsLoading')}
+      </p>
+    )
+  }
+
+  if (tagsQuery.isError) {
+    return (
+      <p className="mt-8 text-sm text-destructive" role="alert">
+        {t('reader.collectionsError')}
+      </p>
+    )
+  }
+
+  const tags = tagsQuery.data ?? []
+  if (tags.length === 0) {
+    return (
+      <p className="mt-8 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">
+        {t('reader.collectionsEmpty')}
+      </p>
+    )
+  }
+
+  return (
+    <div className="mt-8 grid gap-3 sm:grid-cols-2">
+      {tags.map((tag) => (
+        <CollectionCard
+          active={selectedTagSlug === tag.slug}
+          key={tag.id}
+          onSelect={() => {
+            onSelectTag(tag.slug)
+          }}
+          tag={tag}
+        />
+      ))}
+    </div>
+  )
+}
+
+function CollectionCard({
+  active,
+  onSelect,
+  tag,
+}: {
+  active: boolean
+  onSelect: () => void
+  tag: JourneyPhotoTag
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <button
+      className={cn(
+        'rounded-2xl border p-5 text-left shadow-soft transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+        active
+          ? 'border-primary bg-primary/5'
+          : 'border-border bg-surface hover:bg-white',
+      )}
+      onClick={onSelect}
+      type="button"
+    >
+      <p className="text-lg font-semibold">{tag.label}</p>
+      <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted">
+        <span className="inline-flex items-center gap-1.5">
+          <Images aria-hidden="true" size={15} />
+          {t('reader.collectionPhotos', { count: tag.photoCount })}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <MapPin aria-hidden="true" size={15} />
+          {t('reader.collectionMapHint')}
+        </span>
+      </div>
+    </button>
+  )
+}

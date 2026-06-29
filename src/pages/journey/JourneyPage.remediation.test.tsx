@@ -11,6 +11,9 @@ const { useJourneyQueryMock, useQueryMock } = vi.hoisted(() => ({
 
 vi.mock('@tanstack/react-query', () => ({
   useQuery: useQueryMock,
+  useQueryClient: () => ({
+    invalidateQueries: vi.fn(),
+  }),
 }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: React.ReactNode }) => (
@@ -47,6 +50,16 @@ vi.mock('@/features/journeys/ui/JourneyMap', () => ({
 vi.mock('@/features/photos/ui/PhotoGallery', () => ({
   PhotoGallery: () => null,
 }))
+vi.mock('@/features/engagement/ui/ContentEngagement', () => ({
+  ContentEngagement: () => null,
+}))
+vi.mock('@/features/sharing/hooks/use-journey-public-share', () => ({
+  useJourneyPublicShare: () => ({
+    isLoading: false,
+    paths: null,
+    tripShare: null,
+  }),
+}))
 
 describe('JourneyPage remediation', () => {
   afterEach(() => {
@@ -65,6 +78,7 @@ describe('JourneyPage remediation', () => {
           body: 'One user-visible moment',
           eventAt: '2026-06-01T12:00:00+00:00',
           id: crypto.randomUUID(),
+          slug: null,
           stageId,
           stopId,
           title: 'Lake Louise',
@@ -107,6 +121,9 @@ describe('JourneyPage remediation', () => {
       }
       if (queryKey[0] === 'journey-owner') {
         return { data: false, isError: false }
+      }
+      if (queryKey[0] === 'journey-photo-tags') {
+        return { data: [], isError: false, isPending: false }
       }
       return { data: false, isError: false }
     })

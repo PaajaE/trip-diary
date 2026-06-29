@@ -1,5 +1,5 @@
 import { UsersRound } from 'lucide-react'
-import { CopyShareLink } from '@/features/sharing'
+import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { Avatar } from '@/shared/ui/Avatar'
 
 interface PublicSpaceHeaderProps {
@@ -7,7 +7,8 @@ interface PublicSpaceHeaderProps {
   bio?: string | null
   handle: string
   name: string
-  onCopyShareLink: () => Promise<void> | void
+  shareText: string
+  shareUrl: string
 }
 
 export function PublicSpaceHeader({
@@ -15,7 +16,8 @@ export function PublicSpaceHeader({
   bio,
   handle,
   name,
-  onCopyShareLink,
+  shareText,
+  shareUrl,
 }: PublicSpaceHeaderProps) {
   return (
     <header className="flex flex-col gap-7 border-b border-border pb-10 sm:flex-row sm:items-end sm:justify-between">
@@ -35,10 +37,11 @@ export function PublicSpaceHeader({
           <p className="mt-5 max-w-2xl leading-7 text-muted">{bio}</p>
         )}
       </div>
-      <CopyShareLink
+      <ShareActions
         className="w-full shrink-0 sm:w-auto"
-        label="Sdílet deník"
-        onCopy={onCopyShareLink}
+        shareText={shareText}
+        shareUrl={shareUrl}
+        title={name}
       />
     </header>
   )

@@ -19,6 +19,8 @@ import {
   moveJourneyMomentToStage,
 } from '@/entities/journey/api/journey.repository'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
+import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
+import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
 import {
   useJourneyContributionQuery,
@@ -47,7 +49,14 @@ import {
   type JourneySection,
 } from '@/features/journeys/ui/JourneySectionTabs'
 import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
+import { groupTagsByPhotoId } from '@/features/journeys/lib/journey-tag-collections'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
+import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
+import { useJourneyPublicShare } from '@/features/sharing/hooks/use-journey-public-share'
+import {
+  buildPublicJourneyPath,
+} from '@/features/sharing/lib/public-paths'
+import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { CopyShareLink } from '@/features/sharing'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
@@ -107,6 +116,18 @@ export function JourneyPage({
       ...(content?.moments.map((moment) => moment.entry.id) ?? []),
     ],
   })
+  const tagAssignmentsQuery = useQuery({
+    enabled: journey !== null && journey !== undefined,
+    queryFn: () => listJourneyPhotoTagAssignments(journeyId),
+    queryKey: ['journey-photo-tags', journeyId, 'assignments'],
+  })
+  const tagAssignments = Array.isArray(tagAssignmentsQuery.data)
+    ? tagAssignmentsQuery.data
+    : []
+  const tagsByPhotoId = useMemo(
+    () => groupTagsByPhotoId(tagAssignments),
+    [tagAssignments],
+  )
   const { refetch: refetchPhotoLocations } = photoLocationsQuery
   const mapPoints = useMemo(
     () =>
@@ -121,6 +142,10 @@ export function JourneyPage({
   )
   const canEdit = contributionQuery.data === true
   const canManageMembers = ownerQuery.data === true
+  const { paths: publicPaths, tripShare } = useJourneyPublicShare(
+    journeyId,
+    journey?.title ?? '',
+  )
   const locatedPhotoIds = useMemo(
     () => new Set((photoLocationsQuery.data ?? []).map((photo) => photo.id)),
     [photoLocationsQuery.data],
@@ -274,7 +299,7 @@ export function JourneyPage({
                   {dateLabel}
                 </span>
               </div>
-              {canEdit || shareUrl !== undefined ? (
+              {canEdit || shareUrl !== undefined || tripShare !== null ? (
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
                   {canEdit ? (
                     <>
@@ -298,9 +323,23 @@ export function JourneyPage({
                           {t('journey.manageMembers')}
                         </Link>
                       ) : null}
+                      {publicPaths === null || publicPaths === undefined ? null : (
+                        <Link
+                          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-white/80 px-5 text-sm font-semibold text-primary transition-colors hover:bg-white sm:w-auto"
+                          to={buildPublicJourneyPath(publicPaths)}
+                        >
+                          {t('reader.viewPublicTrip')}
+                        </Link>
+                      )}
                     </>
                   ) : null}
-                  {shareUrl === undefined ? null : (
+                  {tripShare !== null ? (
+                    <ShareActions
+                      shareText={tripShare.shareText}
+                      shareUrl={tripShare.shareUrl}
+                      title={journey.title}
+                    />
+                  ) : shareUrl === undefined ? null : (
                     <CopyShareLink
                       className="bg-white/80 sm:min-h-11"
                       onCopy={() => sharePublicUrl(shareUrl, journey.title)}
@@ -308,6 +347,10 @@ export function JourneyPage({
                   )}
                 </div>
               ) : null}
+              <ContentEngagement
+                className="mt-8 border-t border-white/40 pt-8"
+                target={{ id: journeyId, type: 'journey' }}
+              />
             </div>
           </header>
 
@@ -361,6 +404,7 @@ export function JourneyPage({
                     onOpenEntry={(entryId) => {
                       openEntryFromJourney(entryId, 'story')
                     }}
+                    tagsByPhotoId={tagsByPhotoId}
                   />
                 ))}
               </div>
@@ -430,12 +474,16 @@ export function JourneyPage({
             <JourneyGallery
               canDelete={canEdit}
               {...(user?.id !== undefined ? { creatorId: user.id } : {})}
+              journeyId={journeyId}
               locatedPhotoIds={locatedPhotoIds}
               moments={content?.moments ?? []}
               onOpenMoment={(entryId) => {
                 openEntryFromJourney(entryId, 'gallery')
               }}
               onShowOnMap={handleShowPhotoOnMap}
+              showPhotoEngagement={publicPaths !== null && publicPaths !== undefined}
+              tagAssignments={tagAssignments}
+              tagsByPhotoId={tagsByPhotoId}
             />
           </section>
           ) : null}
@@ -534,6 +582,7 @@ function StageContent({
   journey,
   onChanged,
   onOpenEntry,
+  tagsByPhotoId,
 }: {
   canEdit: boolean
   content: JourneyStageContent
@@ -541,6 +590,7 @@ function StageContent({
   journey: JourneyDetail
   onChanged: () => void
   onOpenEntry: (entryId: string) => void
+  tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }) {
   const { t } = useTranslation()
 
@@ -582,6 +632,7 @@ function StageContent({
             moment={moment}
             onChanged={onChanged}
             onOpenEntry={onOpenEntry}
+            tagsByPhotoId={tagsByPhotoId}
           />
         ))}
         {content.plannedStops.length === 0 ? null : (
@@ -639,6 +690,7 @@ function MomentCard({
   moment,
   onChanged,
   onOpenEntry,
+  tagsByPhotoId,
 }: {
   canEdit: boolean
   creatorId: string
@@ -646,6 +698,7 @@ function MomentCard({
   moment: JourneyMoment
   onChanged: () => void
   onOpenEntry: (entryId: string) => void
+  tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }) {
   const { t } = useTranslation()
   const title = moment.entry.title ?? t('dashboard.untitled')
@@ -678,10 +731,14 @@ function MomentCard({
       <PhotoGallery
         alt={title}
         canDelete={canEdit}
+        canEditTags={canEdit}
         {...(canEdit ? { creatorId } : {})}
         entryId={moment.entry.id}
+        journeyId={journey.id}
         onOpenMoment={onOpenEntry}
         showEmpty={false}
+        showPhotoEngagement
+        tagsByPhotoId={tagsByPhotoId}
       />
       {!canEdit || journey.stages.length === 0 ? null : (
         <label className="mt-5 block text-sm font-medium text-muted">

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { MapPin } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import {
   loadJourneyGalleryPreviews,
@@ -9,16 +10,23 @@ import {
   type JourneyGalleryMoment,
   type JourneyGalleryPreviews,
 } from '@/features/journeys/lib/journey-gallery'
+import { filterGalleryPhotosByTag } from '@/features/journeys/lib/journey-tag-collections'
+import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 
 interface JourneyGalleryProps {
   canDelete?: boolean
   creatorId?: string
+  filterTagSlug?: string | null
+  journeyId?: string
   locatedPhotoIds: ReadonlySet<string>
   moments: JourneyGalleryMoment[]
   onOpenMoment?: (entryId: string) => void
   onShowOnMap: (photoId: string) => void
+  showPhotoEngagement?: boolean
+  tagAssignments?: PhotoTagAssignment[]
+  tagsByPhotoId?: Map<string, PhotoTagAssignment[]>
 }
 
 function JourneyGalleryImage({
@@ -29,6 +37,7 @@ function JourneyGalleryImage({
   showOnMap,
   showOnMapLabel,
   src,
+  tags,
 }: {
   alt: string
   onOpen: () => void
@@ -37,6 +46,7 @@ function JourneyGalleryImage({
   showOnMap: boolean
   showOnMapLabel: string
   src: string
+  tags?: PhotoTagAssignment[]
 }) {
   const [isBroken, setIsBroken] = useState(false)
 
@@ -65,6 +75,11 @@ function JourneyGalleryImage({
         <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-8 text-sm font-semibold text-white">
           {alt}
         </span>
+        {tags !== undefined && tags.length > 0 ? (
+          <div className="pointer-events-none absolute left-2 top-2 max-w-[calc(100%-3rem)]">
+            <PhotoTagList tags={tags} />
+          </div>
+        ) : null}
       </button>
       {showOnMap ? (
         <button
@@ -87,10 +102,15 @@ function JourneyGalleryImage({
 export function JourneyGallery({
   canDelete = false,
   creatorId,
+  filterTagSlug = null,
+  journeyId,
   locatedPhotoIds,
   moments,
   onOpenMoment,
   onShowOnMap,
+  showPhotoEngagement = false,
+  tagAssignments = [],
+  tagsByPhotoId,
 }: JourneyGalleryProps) {
   const { t } = useTranslation()
   const previewsQuery = useQuery({
@@ -100,16 +120,22 @@ export function JourneyGallery({
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)
     ? previewsQuery.data
     : null
-  const photos = useMemo(
-    () =>
-      mergeJourneyGalleryPhotos(moments, previewData?.previewsByMoment ?? []),
-    [moments, previewData?.previewsByMoment],
-  )
+  const photos = useMemo(() => {
+    const merged = mergeJourneyGalleryPhotos(
+      moments,
+      previewData?.previewsByMoment ?? [],
+    )
+    return filterGalleryPhotosByTag(merged, tagAssignments, filterTagSlug)
+  }, [filterTagSlug, moments, previewData?.previewsByMoment, tagAssignments])
   const urls = usePhotoObjectUrls(photos)
   const { lightboxElement, openLightbox } = usePhotoLightbox({
     canDelete,
+    canEditTags: canDelete && journeyId !== undefined,
     ...(creatorId !== undefined ? { creatorId } : {}),
+    ...(journeyId !== undefined ? { journeyId } : {}),
     ...(onOpenMoment !== undefined ? { onOpenMoment } : {}),
+    photoEngagement: showPhotoEngagement,
+    ...(tagsByPhotoId !== undefined ? { tagsByPhotoId } : {}),
   })
 
   const hasPartialError = (previewData?.failedMomentCount ?? 0) > 0
@@ -163,6 +189,7 @@ export function JourneyGallery({
             showOnMap={locatedPhotoIds.has(photo.id)}
             showOnMapLabel={t('journey.showOnMap')}
             src={photo.url}
+            tags={tagsByPhotoId?.get(photo.id) ?? []}
           />
         ))}
       </div>

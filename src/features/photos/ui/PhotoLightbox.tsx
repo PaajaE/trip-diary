@@ -1,7 +1,11 @@
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { getPhotoDetailPreview } from '@/entities/photo/api/photo-gallery.repository'
+import { PhotoTagEditor } from '@/features/photos/ui/PhotoTagEditor'
+import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
+import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import {
   createPreviewUrl,
   revokePreviewUrl,
@@ -17,20 +21,32 @@ export interface PhotoLightboxItem {
 
 interface PhotoLightboxProps {
   canDelete?: boolean
+  canEditTags?: boolean
+  creatorId?: string
   initialIndex?: number
+  journeyId?: string
   onClose: () => void
   onDelete?: (photoId: string) => Promise<void>
   onOpenMoment?: (entryId: string) => void
+  onTagsChanged?: () => void
+  photoEngagement?: boolean
   photos: PhotoLightboxItem[]
+  tagsByPhotoId?: Map<string, PhotoTagAssignment[]>
 }
 
 export function PhotoLightbox({
   canDelete = false,
+  canEditTags = false,
+  creatorId,
   initialIndex = 0,
+  journeyId,
   onClose,
   onDelete,
   onOpenMoment,
+  onTagsChanged,
+  photoEngagement = false,
   photos,
+  tagsByPhotoId,
 }: PhotoLightboxProps) {
   const { t } = useTranslation()
   const [index, setIndex] = useState(initialIndex)
@@ -108,6 +124,7 @@ export function PhotoLightbox({
   }
 
   const displayUrl = detailUrls[activePhoto.id] ?? activePhoto.thumbUrl
+  const activeTags = tagsByPhotoId?.get(activePhoto.id) ?? []
 
   return (
     <div
@@ -215,8 +232,22 @@ export function PhotoLightbox({
         ) : null}
       </div>
 
-      <div className="flex flex-col items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white">
+      <div className="flex w-full max-w-2xl flex-col items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white">
         <p className="max-w-xl truncate text-sm text-white/80">{activePhoto.alt}</p>
+        {activeTags.length > 0 ? (
+          <PhotoTagList className="justify-center" tags={activeTags} />
+        ) : null}
+        {canEditTags &&
+        creatorId !== undefined &&
+        journeyId !== undefined ? (
+          <PhotoTagEditor
+            assignedTags={activeTags}
+            creatorId={creatorId}
+            journeyId={journeyId}
+            {...(onTagsChanged !== undefined ? { onChanged: onTagsChanged } : {})}
+            photoId={activePhoto.id}
+          />
+        ) : null}
         {activePhoto.entryId !== undefined && onOpenMoment !== undefined ? (
           <button
             className="text-sm font-semibold text-white underline-offset-4 hover:underline"
@@ -227,6 +258,13 @@ export function PhotoLightbox({
           >
             {t('photos.openMoment')}
           </button>
+        ) : null}
+        {photoEngagement ? (
+          <ContentEngagement
+            compact
+            target={{ id: activePhoto.id, type: 'photo' }}
+            tone="inverse"
+          />
         ) : null}
       </div>
     </div>

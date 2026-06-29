@@ -45,6 +45,7 @@ export const journeyEntrySchema = z.object({
   body: z.string(),
   eventAt: z.iso.datetime({ offset: true }).nullable(),
   id: z.uuid(),
+  slug: z.string().nullable(),
   stageId: z.uuid().nullable(),
   stopId: z.uuid().nullable(),
   title: z.string().nullable(),
