@@ -325,6 +325,17 @@ export const cs: TranslationResources = {
     memoryNeedsConnection:
       'Aby se vzpomínka připojila přímo k cestě, potřebujeme ji teď synchronizovat. Připoj se a zkus to prosím znovu.',
     memoryTitle: 'Přidat moment do cesty',
+    manageTrip: 'Spravovat cestu',
+    manageClose: 'Zavřít',
+    overview: 'Přehled',
+    overviewEyebrow: 'Cesta na první pohled',
+    photosCount: '{{count}} fotek',
+    guidesCount: '{{count}} rad',
+    recentMoments: 'Poslední momenty',
+    recentPhotos: 'Poslední fotky',
+    viewFullStory: 'Celý příběh',
+    viewGallery: 'Všechny fotky',
+    viewMap: 'Otevřít mapu',
     momentsCount: '{{count}} momentů',
     noStage: 'Bez etapy',
     organizeDescription:

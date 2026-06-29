@@ -44,6 +44,15 @@ export function composeJourneyContent(journey: JourneyDetail) {
   const plannedStops = journey.stops.filter(
     (stop) => !linkedStopIds.has(stop.id),
   )
+  const validStageIds = new Set(journey.stages.map((stage) => stage.id))
+  const unassignedMoments = moments.filter(
+    (moment) =>
+      moment.entry.stageId === null ||
+      !validStageIds.has(moment.entry.stageId),
+  )
+  const unassignedPlannedStops = plannedStops.filter(
+    (stop) => stop.stageId === null || !validStageIds.has(stop.stageId),
+  )
   const stageContents: JourneyStageContent[] = [
     ...journey.stages.map((stage) => ({
       moments: moments.filter((moment) => moment.entry.stageId === stage.id),
@@ -51,8 +60,8 @@ export function composeJourneyContent(journey: JourneyDetail) {
       stage,
     })),
     {
-      moments: moments.filter((moment) => moment.entry.stageId === null),
-      plannedStops: plannedStops.filter((stop) => stop.stageId === null),
+      moments: unassignedMoments,
+      plannedStops: unassignedPlannedStops,
       stage: null,
     },
   ].filter(

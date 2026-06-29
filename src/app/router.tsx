@@ -121,7 +121,7 @@ const journeyRoute = createRoute({
   validateSearch: z
     .object({
       notice: z.enum(['photos_failed']).optional(),
-      section: z.enum(['story', 'map', 'gallery', 'guides']).optional(),
+      section: z.enum(['overview', 'story', 'map', 'gallery', 'guides']).optional(),
     })
     .parse,
   component: LazyJourneyRoutePage,

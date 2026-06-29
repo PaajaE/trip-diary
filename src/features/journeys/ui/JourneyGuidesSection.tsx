@@ -31,7 +31,7 @@ export function JourneyGuidesSection({
   const formOpen = showAddForm || formOpenLocal
 
   return (
-    <section className="scroll-mt-24 py-12" id="guides">
+    <section className="py-8 sm:py-10" id="guides">
       <div>
         <p className="text-sm font-medium text-accent">
           {t('journey.guidesEyebrow')}

@@ -63,4 +63,37 @@ describe('composeJourneyContent', () => {
       plannedStops: [{ title: 'Jasper' }],
     })
   })
+
+  it('keeps moments with unknown stage ids in the unassigned bucket', () => {
+    const missingStageId = crypto.randomUUID()
+    const journey: JourneyDetail = {
+      endsAt: null,
+      entries: [
+        {
+          body: 'Still visible',
+          eventAt: null,
+          id: crypto.randomUUID(),
+          stageId: missingStageId,
+          stopId: null,
+          title: 'Hidden stop',
+          type: 'story',
+        },
+      ],
+      guides: [],
+      id: crypto.randomUUID(),
+      spaceId: crypto.randomUUID(),
+      stages: [],
+      startsAt: null,
+      status: 'active',
+      stops: [],
+      summary: '',
+      title: 'Orphans',
+    }
+
+    const content = composeJourneyContent(journey)
+
+    expect(content.stageContents).toHaveLength(1)
+    expect(content.stageContents[0]?.stage).toBeNull()
+    expect(content.stageContents[0]?.moments).toHaveLength(1)
+  })
 })

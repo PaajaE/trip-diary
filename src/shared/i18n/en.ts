@@ -325,6 +325,17 @@ export const en = {
     memoryNeedsConnection:
       'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
     memoryTitle: 'Add a moment to this trip',
+    manageTrip: 'Manage trip',
+    manageClose: 'Close',
+    overview: 'Overview',
+    overviewEyebrow: 'Trip at a glance',
+    photosCount: '{{count}} photos',
+    guidesCount: '{{count}} tips',
+    recentMoments: 'Recent moments',
+    recentPhotos: 'Recent photos',
+    viewFullStory: 'View full story',
+    viewGallery: 'View all photos',
+    viewMap: 'Open full map',
     momentsCount: '{{count}} moments',
     noStage: 'No stage',
     organizeDescription:

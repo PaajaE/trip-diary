@@ -116,11 +116,17 @@ export function JourneyMap({
       activePopupRef.current = null
       highlightMarkerRef.current?.remove()
       highlightMarkerRef.current = null
-      map.remove()
-      mapRef.current = null
       layersReadyRef.current = false
       hasAutoFitRef.current = false
       lastFocusedPointIdRef.current = null
+      mapRef.current = null
+      window.setTimeout(() => {
+        try {
+          map.remove()
+        } catch {
+          // WebView may already have torn down the map surface.
+        }
+      }, 0)
     }
   }, [i18n.language])
 
