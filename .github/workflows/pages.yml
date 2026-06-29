@@ -39,6 +39,11 @@ jobs:
         run: |
           supabase link --project-ref "$SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD" --yes
           supabase db push --password "$SUPABASE_DB_PASSWORD" --yes
+      - name: Deploy og-share edge function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy og-share --no-verify-jwt --project-ref "$SUPABASE_PROJECT_ID"
 
   deploy:
     needs: migrate
@@ -64,6 +69,7 @@ jobs:
       - run: pnpm build
         env:
           VITE_BASE_PATH: /
+          VITE_SITE_URL: https://cestovni-denik.cz
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       - uses: actions/configure-pages@v5

@@ -1,4 +1,8 @@
 import type { JourneyReaderSection } from '@/features/journeys/ui/JourneyReaderSectionTabs'
+import {
+  buildAppAbsoluteUrl,
+  buildSharePreviewUrl,
+} from '@/features/sharing/lib/site-url'
 
 export interface PublicJourneyPaths {
   journeySlug: string
@@ -28,8 +32,7 @@ export function buildPublicSpacePath(spaceHandle: string): string {
 }
 
 export function buildAbsoluteUrl(path: string): string {
-  if (typeof window === 'undefined') {
-    return path
-  }
-  return new URL(path, window.location.origin).href
+  return buildAppAbsoluteUrl(path)
 }
+
+export { buildSharePreviewUrl }

@@ -31,4 +31,15 @@ export const SUGGESTED_PHOTO_TAG_SLUGS = [
   'city',
 ] as const
 
-export type SuggestedPhotoTagSlug = (typeof SUGGESTED_PHOTO_TAG_SLUGS)[number]
+export const localPhotoTagAssignmentSchema = z.object({
+  creatorId: z.uuid(),
+  journeyId: z.uuid(),
+  key: z.string(),
+  label: z.string(),
+  photoId: z.uuid(),
+  slug: z.string(),
+  syncStatus: z.enum(['pending', 'synced']),
+  tagId: z.uuid(),
+})
+
+export type LocalPhotoTagAssignment = z.infer<typeof localPhotoTagAssignmentSchema>

@@ -3,6 +3,14 @@ import { getJourneySnapshot } from '@/entities/journey/api/local-journey-cache.r
 import { getLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 import { deletePhotoOnRemote } from '@/entities/photo/api/photo-mutation.repository'
+import {
+  assignPhotoTagRemote,
+  removePhotoTagRemote,
+} from '@/entities/photo/api/photo-tag.repository'
+import {
+  clearLocalPhotoTagAssignment,
+  markLocalPhotoTagAssignmentSynced,
+} from '@/entities/photo/api/local-photo-tag.repository'
 import { SYNC_PHOTO_VARIANT_KINDS } from '@/entities/photo/lib/photo-variant-config'
 import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
 import { listMySpaces } from '@/entities/space/api/space.repository'
@@ -182,6 +190,43 @@ async function repairSyncQueue(creatorId: string): Promise<void> {
       syncOperationId: operationId,
     })
   }
+
+  const pendingTagAssignments = await localDb.localPhotoTagAssignments
+    .where('creatorId')
+    .equals(creatorId)
+    .filter((assignment) => assignment.syncStatus === 'pending')
+    .toArray()
+
+  for (const assignment of pendingTagAssignments) {
+    const hasAssignOperation =
+      (await localDb.syncOperations
+        .filter(
+          (operation) =>
+            operation.type === 'photo.tag.assign' &&
+            operation.photoId === assignment.photoId &&
+            operation.slug === assignment.slug &&
+            operation.creatorId === creatorId,
+        )
+        .count()) > 0
+    if (hasAssignOperation) {
+      continue
+    }
+
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: new Date().toISOString(),
+        creatorId: assignment.creatorId,
+        id: crypto.randomUUID(),
+        journeyId: assignment.journeyId,
+        label: assignment.label,
+        photoId: assignment.photoId,
+        slug: assignment.slug,
+        status: 'pending',
+        tagId: assignment.tagId,
+        type: 'photo.tag.assign',
+      }),
+    )
+  }
 }
 
 async function resolveSyncCreatorId(): Promise<string> {
@@ -309,6 +354,12 @@ export async function syncPendingOperations(): Promise<void> {
           break
         case 'photo.delete':
           await syncPhotoDelete(operation)
+          break
+        case 'photo.tag.assign':
+          await syncPhotoTagAssign(operation)
+          break
+        case 'photo.tag.remove':
+          await syncPhotoTagRemove(operation)
           break
       }
     } catch (error) {
@@ -516,6 +567,15 @@ async function hasUnfinishedDependency(
     }
   }
 
+  if (
+    operation.type === 'photo.tag.assign' ||
+    operation.type === 'photo.tag.remove'
+  ) {
+    if (await shouldWaitForPhotoSync(operation.photoId)) {
+      return true
+    }
+  }
+
   return false
 }
 
@@ -540,6 +600,8 @@ type JourneyAssignmentOperation = Extract<
 type PhotoUploadOperation = Extract<SyncOperation, { type: 'photo.upload' }>
 type PhotoGpsUpdateOperation = Extract<SyncOperation, { type: 'photo.gps.update' }>
 type PhotoDeleteOperation = Extract<SyncOperation, { type: 'photo.delete' }>
+type PhotoTagAssignOperation = Extract<SyncOperation, { type: 'photo.tag.assign' }>
+type PhotoTagRemoveOperation = Extract<SyncOperation, { type: 'photo.tag.remove' }>
 
 async function syncEntryCreate(
   operation: EntryCreateOperation,
@@ -1185,6 +1247,36 @@ async function syncPhotoDelete(operation: PhotoDeleteOperation): Promise<void> {
   await deletePhotoOnRemote(operation.photoId)
   await localDb.syncOperations.delete(operation.id)
   await clearDeletedRecord(operation.photoId)
+}
+
+async function syncPhotoTagAssign(
+  operation: PhotoTagAssignOperation,
+): Promise<void> {
+  const tag = await assignPhotoTagRemote({
+    creatorId: operation.creatorId,
+    journeyId: operation.journeyId,
+    label: operation.label,
+    photoId: operation.photoId,
+  })
+  await markLocalPhotoTagAssignmentSynced(
+    operation.photoId,
+    operation.slug,
+    tag.id,
+  )
+  await localDb.syncOperations.delete(operation.id)
+}
+
+async function syncPhotoTagRemove(
+  operation: PhotoTagRemoveOperation,
+): Promise<void> {
+  await removePhotoTagRemote({
+    creatorId: operation.creatorId,
+    journeyId: operation.journeyId,
+    photoId: operation.photoId,
+    slug: operation.slug,
+  })
+  await clearLocalPhotoTagAssignment(operation.photoId, operation.slug)
+  await localDb.syncOperations.delete(operation.id)
 }
 
 async function syncPhotoMetadata(

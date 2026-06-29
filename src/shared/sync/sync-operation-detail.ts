@@ -83,5 +83,9 @@ export async function resolveSyncOperationDetail(
       const entry = await localDb.entries.get(operation.entryId)
       return entry?.title ?? ''
     }
+    case 'photo.tag.assign':
+      return operation.label
+    case 'photo.tag.remove':
+      return operation.slug
   }
 }

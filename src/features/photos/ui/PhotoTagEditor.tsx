@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   assignPhotoTag,
   removePhotoTag,
-} from '@/entities/photo/api/photo-tag.repository'
+} from '@/entities/photo/api/photo-tag-mutation.repository'
 import {
   SUGGESTED_PHOTO_TAG_SLUGS,
   type PhotoTagAssignment,

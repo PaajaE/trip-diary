@@ -20,7 +20,10 @@ describe('build-share-messages', () => {
   it('builds trip share payload from localized message', () => {
     const result = buildPublicTripShare(paths, 'Follow our trip: Iceland')
 
-    expect(result.shareUrl).toContain('/ecerovi/iceland-2026')
+    expect(result.shareUrl).toContain('og-share')
+    expect(result.shareUrl).toContain(
+      encodeURIComponent('/ecerovi/iceland-2026'),
+    )
     expect(result.shareText).toBe(
       `Follow our trip: Iceland\n${result.shareUrl}`,
     )
@@ -33,7 +36,10 @@ describe('build-share-messages', () => {
       'New moment: Glacier hike',
     )
 
-    expect(result.shareUrl).toContain('/ecerovi/iceland-2026/glacier-hike')
+    expect(result.shareUrl).toContain('og-share')
+    expect(result.shareUrl).toContain(
+      encodeURIComponent('/ecerovi/iceland-2026/glacier-hike'),
+    )
     expect(result.shareText).toBe(
       `New moment: Glacier hike\n${result.shareUrl}`,
     )

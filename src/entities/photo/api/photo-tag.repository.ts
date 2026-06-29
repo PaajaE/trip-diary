@@ -1,53 +1,58 @@
 import { normalizePhotoTagSlug } from '@/entities/photo/lib/normalize-photo-tag'
 import {
+  listLocalPhotoTagAssignments,
+  listPendingPhotoTagRemoveKeys,
+} from '@/entities/photo/api/local-photo-tag.repository'
+import {
   journeyPhotoTagSchema,
   photoTagAssignmentSchema,
   type JourneyPhotoTag,
   type PhotoTagAssignment,
 } from '@/entities/photo/model/photo-tag'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { isBrowserOnline } from '@/shared/lib/network'
+
+function mergePhotoTagAssignments(
+  remote: PhotoTagAssignment[],
+  local: PhotoTagAssignment[],
+  pendingRemoveKeys: Set<string>,
+): PhotoTagAssignment[] {
+  const merged = new Map<string, PhotoTagAssignment>()
+
+  for (const assignment of remote) {
+    merged.set(`${assignment.photoId}:${assignment.slug}`, assignment)
+  }
+  for (const assignment of local) {
+    merged.set(`${assignment.photoId}:${assignment.slug}`, assignment)
+  }
+  for (const key of pendingRemoveKeys) {
+    merged.delete(key)
+  }
+
+  return Array.from(merged.values())
+}
 
 export async function listJourneyPhotoTags(
   journeyId: string,
 ): Promise<JourneyPhotoTag[]> {
-  const { data: tags, error: tagsError } = await getSupabaseClient()
-    .from('journey_photo_tags')
-    .select('id, slug, label')
-    .eq('journey_id', journeyId)
-    .order('label')
+  const assignments = await listJourneyPhotoTagAssignments(journeyId)
+  const countsBySlug = new Map<string, { label: string; photoCount: number }>()
 
-  if (tagsError !== null) {
-    throw tagsError
-  }
-  if (tags.length === 0) {
-    return []
+  for (const assignment of assignments) {
+    const current = countsBySlug.get(assignment.slug)
+    countsBySlug.set(assignment.slug, {
+      label: assignment.label,
+      photoCount: (current?.photoCount ?? 0) + 1,
+    })
   }
 
-  const tagIds = tags.map((tag) => tag.id)
-  const { data: assignments, error: assignmentsError } = await getSupabaseClient()
-    .from('photo_tag_assignments')
-    .select('tag_id')
-    .in('tag_id', tagIds)
-
-  if (assignmentsError !== null) {
-    throw assignmentsError
-  }
-
-  const countsByTagId = new Map<string, number>()
-  for (const assignment of assignments ?? []) {
-    countsByTagId.set(
-      assignment.tag_id,
-      (countsByTagId.get(assignment.tag_id) ?? 0) + 1,
-    )
-  }
-
-  return tags
-    .map((tag) =>
+  return Array.from(countsBySlug.entries())
+    .map(([slug, value]) =>
       journeyPhotoTagSchema.parse({
-        id: tag.id,
-        label: tag.label,
-        photoCount: countsByTagId.get(tag.id) ?? 0,
-        slug: tag.slug,
+        id: crypto.randomUUID(),
+        label: value.label,
+        photoCount: value.photoCount,
+        slug,
       }),
     )
     .filter((tag) => tag.photoCount > 0)
@@ -55,6 +60,24 @@ export async function listJourneyPhotoTags(
 }
 
 export async function listJourneyPhotoTagAssignments(
+  journeyId: string,
+): Promise<PhotoTagAssignment[]> {
+  const local = await listLocalPhotoTagAssignments(journeyId)
+  const pendingRemoveKeys = await listPendingPhotoTagRemoveKeys(journeyId)
+
+  if (!isBrowserOnline()) {
+    return mergePhotoTagAssignments([], local, pendingRemoveKeys)
+  }
+
+  try {
+    const remote = await listJourneyPhotoTagAssignmentsRemote(journeyId)
+    return mergePhotoTagAssignments(remote, local, pendingRemoveKeys)
+  } catch {
+    return mergePhotoTagAssignments([], local, pendingRemoveKeys)
+  }
+}
+
+async function listJourneyPhotoTagAssignmentsRemote(
   journeyId: string,
 ): Promise<PhotoTagAssignment[]> {
   const { data: tags, error: tagsError } = await getSupabaseClient()
@@ -146,12 +169,12 @@ async function ensureJourneyPhotoTag(journeyId: string, label: string) {
   return created
 }
 
-export async function assignPhotoTag(input: {
+export async function assignPhotoTagRemote(input: {
   creatorId: string
   journeyId: string
   label: string
   photoId: string
-}): Promise<void> {
+}): Promise<{ id: string; label: string; slug: string }> {
   const tag = await ensureJourneyPhotoTag(input.journeyId, input.label)
   const { error } = await getSupabaseClient()
     .from('photo_tag_assignments')
@@ -161,15 +184,17 @@ export async function assignPhotoTag(input: {
         photo_id: input.photoId,
         tag_id: tag.id,
       },
-      { onConflict: 'photo_id,tag_id', ignoreDuplicates: true },
+      { ignoreDuplicates: true, onConflict: 'photo_id,tag_id' },
     )
 
   if (error !== null) {
     throw error
   }
+
+  return tag
 }
 
-export async function removePhotoTag(input: {
+export async function removePhotoTagRemote(input: {
   creatorId: string
   journeyId: string
   photoId: string

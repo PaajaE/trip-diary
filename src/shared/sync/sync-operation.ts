@@ -189,6 +189,30 @@ export const syncOperationSchema = z.discriminatedUnion('type', [
     status: z.enum(['pending', 'syncing', 'failed']),
     type: z.literal('photo.delete'),
   }),
+  z.object({
+    createdAt: z.iso.datetime({ offset: true }),
+    creatorId: z.uuid(),
+    id: z.uuid(),
+    journeyId: z.uuid(),
+    label: z.string(),
+    lastAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    photoId: z.uuid(),
+    slug: z.string(),
+    status: z.enum(['pending', 'syncing', 'failed']),
+    tagId: z.uuid(),
+    type: z.literal('photo.tag.assign'),
+  }),
+  z.object({
+    createdAt: z.iso.datetime({ offset: true }),
+    creatorId: z.uuid(),
+    id: z.uuid(),
+    journeyId: z.uuid(),
+    lastAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    photoId: z.uuid(),
+    slug: z.string(),
+    status: z.enum(['pending', 'syncing', 'failed']),
+    type: z.literal('photo.tag.remove'),
+  }),
 ])
 
 export type SyncOperation = z.infer<typeof syncOperationSchema>
