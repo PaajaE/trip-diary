@@ -30,12 +30,13 @@ export function ContentEngagement({
   target,
   tone = 'default',
 }: ContentEngagementProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const { user } = useSession()
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingBody, setEditingBody] = useState('')
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const queryKey = ['engagement', target.type, target.id, user?.id ?? 'anon']
   const engagementQuery = useQuery({
@@ -49,12 +50,22 @@ export function ContentEngagement({
 
   const heartMutation = useMutation({
     mutationFn: () => toggleContentHeart(target),
-    onSuccess: invalidate,
+    onError: () => {
+      setActionError(t('engagement.actionError'))
+    },
+    onSuccess: () => {
+      setActionError(null)
+      invalidate()
+    },
   })
 
   const commentMutation = useMutation({
     mutationFn: (body: string) => addContentComment(target, body),
+    onError: () => {
+      setActionError(t('engagement.actionError'))
+    },
     onSuccess: () => {
+      setActionError(null)
       setDraft('')
       invalidate()
     },
@@ -63,7 +74,11 @@ export function ContentEngagement({
   const updateMutation = useMutation({
     mutationFn: ({ body, commentId }: { body: string; commentId: string }) =>
       updateContentComment(commentId, body),
+    onError: () => {
+      setActionError(t('engagement.actionError'))
+    },
     onSuccess: () => {
+      setActionError(null)
       setEditingId(null)
       setEditingBody('')
       invalidate()
@@ -72,12 +87,24 @@ export function ContentEngagement({
 
   const deleteMutation = useMutation({
     mutationFn: deleteContentComment,
-    onSuccess: invalidate,
+    onError: () => {
+      setActionError(t('engagement.actionError'))
+    },
+    onSuccess: () => {
+      setActionError(null)
+      invalidate()
+    },
   })
 
   const hideMutation = useMutation({
     mutationFn: hideContentComment,
-    onSuccess: invalidate,
+    onError: () => {
+      setActionError(t('engagement.actionError'))
+    },
+    onSuccess: () => {
+      setActionError(null)
+      invalidate()
+    },
   })
 
   if (engagementQuery.isPending) {
@@ -89,7 +116,11 @@ export function ContentEngagement({
   }
 
   if (engagementQuery.isError || engagementQuery.data === undefined) {
-    return null
+    return (
+      <p className={cn('text-sm text-destructive', className)} role="alert">
+        {t('engagement.error')}
+      </p>
+    )
   }
 
   const engagement = engagementQuery.data
@@ -104,6 +135,11 @@ export function ContentEngagement({
 
   return (
     <section className={cn(compact ? 'space-y-3' : 'space-y-5', className)}>
+      {actionError === null ? null : (
+        <p className="text-sm text-destructive" role="alert">
+          {actionError}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-3">
         {user === null ? (
           <Link
@@ -209,9 +245,15 @@ export function ContentEngagement({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="font-semibold">{comment.authorName}</p>
+                      <p className="font-semibold">
+                        {comment.authorName === 'Guest'
+                          ? t('engagement.guestAuthor')
+                          : comment.authorName}
+                      </p>
                       <p className="text-xs text-muted">
-                        {new Date(comment.createdAt).toLocaleString('cs')}
+                        {new Date(comment.createdAt).toLocaleString(
+                          i18n.language === 'cs' ? 'cs-CZ' : 'en-US',
+                        )}
                       </p>
                     </div>
                     {comment.hiddenAt !== null ? (

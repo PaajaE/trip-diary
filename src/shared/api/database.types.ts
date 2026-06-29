@@ -948,6 +948,7 @@ export type Database = {
       }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
+      is_public_photo: { Args: { p_photo_id: string }; Returns: boolean }
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }

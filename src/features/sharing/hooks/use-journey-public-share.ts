@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { getJourneyPublicPaths } from '@/entities/sharing/api/public-sharing.repository'
 import {
   buildPublicMomentShare,
@@ -6,6 +7,7 @@ import {
 } from '@/features/sharing/lib/build-share-messages'
 
 export function useJourneyPublicShare(journeyId: string, title: string) {
+  const { t } = useTranslation()
   const pathsQuery = useQuery({
     enabled: journeyId !== '',
     queryFn: () => getJourneyPublicPaths(journeyId),
@@ -16,11 +18,16 @@ export function useJourneyPublicShare(journeyId: string, title: string) {
   const tripShare =
     paths === null || paths === undefined
       ? null
-      : buildPublicTripShare(paths, title)
+      : buildPublicTripShare(
+          paths,
+          t('reader.shareTripMessage', { title }),
+        )
 
   return {
+    isError: pathsQuery.isError,
     isLoading: pathsQuery.isPending,
     paths,
+    refetch: pathsQuery.refetch,
     tripShare,
   }
 }
@@ -29,6 +36,11 @@ export function momentShareFromPaths(
   paths: NonNullable<Awaited<ReturnType<typeof getJourneyPublicPaths>>>,
   entrySlug: string,
   title: string,
+  formatMomentMessage: (title: string) => string,
 ) {
-  return buildPublicMomentShare(paths, entrySlug, title)
+  return buildPublicMomentShare(
+    paths,
+    entrySlug,
+    formatMomentMessage(title),
+  )
 }

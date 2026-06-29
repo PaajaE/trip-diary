@@ -92,6 +92,7 @@ export function CreateJourneyMemoryPage({
           entryTitle={sharePrompt?.entryTitle ?? ''}
           journeyId={journeyId}
           journeyTitle={journeyQuery.data.title}
+          momentPendingSync
           onClose={() => {
             const photosFailed = sharePrompt?.photosFailed
             setSharePrompt(null)

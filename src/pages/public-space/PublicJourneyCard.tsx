@@ -1,4 +1,5 @@
 import { ArrowRight, MapPinned } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { PublicJourneyViewModel } from '@/pages/public-space/model'
 
 interface PublicJourneyCardProps {
@@ -7,6 +8,8 @@ interface PublicJourneyCardProps {
 }
 
 export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
+  const { t } = useTranslation()
+
   return (
     <button
       className="group overflow-hidden rounded-md bg-surface text-left shadow-soft transition-colors hover:bg-white"
@@ -44,7 +47,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
           </p>
         )}
         <span className="mt-5 flex items-center gap-2 text-sm font-semibold text-primary">
-          Projít cestu
+          {t('publicSpace.openJourney')}
           <ArrowRight
             aria-hidden="true"
             className="transition-transform group-hover:translate-x-1"

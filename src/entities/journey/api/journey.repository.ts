@@ -109,6 +109,129 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
   return getJourneyFromCache(id)
 }
 
+export async function getPublicJourney(
+  id: string,
+): Promise<JourneyDetail | null> {
+  if (!isBrowserOnline()) {
+    return null
+  }
+
+  return fetchPublicJourneyFromRemote(id)
+}
+
+async function fetchPublicJourneyFromRemote(
+  id: string,
+): Promise<JourneyDetail | null> {
+  const client = getSupabaseClient()
+  const [
+    journeyResult,
+    stagesResult,
+    stopsResult,
+    guidesResult,
+    linksResult,
+  ] = await Promise.all([
+    client
+      .from('journeys')
+      .select('id, title, summary, status, starts_at, ends_at, space_id')
+      .eq('id', id)
+      .eq('visibility', 'public')
+      .maybeSingle(),
+    client
+      .from('journey_stages')
+      .select('id, title, summary')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('journey_stops')
+      .select('id, stage_id, title, notes, status, map_latitude, map_longitude')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('journey_guide_sections')
+      .select('id, title, body')
+      .eq('journey_id', id)
+      .order('position'),
+    client
+      .from('entry_journey_links')
+      .select('entry_id, stage_id, stop_id')
+      .eq('journey_id', id),
+  ])
+
+  const error =
+    journeyResult.error ??
+    stagesResult.error ??
+    stopsResult.error ??
+    guidesResult.error ??
+    linksResult.error
+  if (error !== null) {
+    throw error
+  }
+  if (journeyResult.data === null) {
+    return null
+  }
+
+  const links = linksResult.data ?? []
+  const entryIds = links.map((link) => link.entry_id)
+  const entriesResult =
+    entryIds.length === 0
+      ? { data: [], error: null }
+      : await client
+          .from('entries')
+          .select('id, title, body, type, event_at, slug')
+          .in('id', entryIds)
+          .eq('status', 'published')
+          .eq('visibility', 'public')
+
+  if (entriesResult.error !== null) {
+    throw entriesResult.error
+  }
+
+  const linksByEntryId = new Map(links.map((link) => [link.entry_id, link]))
+  const publishedEntries = entriesResult.data ?? []
+
+  return journeyDetailSchema.parse({
+    entries: publishedEntries
+      .map((entry) => {
+        const link = linksByEntryId.get(entry.id)
+        return {
+          body: entry.body,
+          eventAt: entry.event_at,
+          id: entry.id,
+          slug: entry.slug,
+          stageId: link?.stage_id ?? null,
+          stopId: link?.stop_id ?? null,
+          title: entry.title,
+          type: entry.type,
+        }
+      })
+      .sort((left, right) => {
+        const leftTime =
+          left.eventAt === null ? 0 : new Date(left.eventAt).valueOf()
+        const rightTime =
+          right.eventAt === null ? 0 : new Date(right.eventAt).valueOf()
+        return rightTime - leftTime
+      }),
+    endsAt: journeyResult.data.ends_at,
+    guides: guidesResult.data,
+    id: journeyResult.data.id,
+    stages: stagesResult.data,
+    startsAt: journeyResult.data.starts_at,
+    status: journeyResult.data.status,
+    stops: (stopsResult.data ?? []).map((stop) => ({
+      id: stop.id,
+      mapLatitude: stop.map_latitude,
+      mapLongitude: stop.map_longitude,
+      notes: stop.notes,
+      stageId: stop.stage_id,
+      status: stop.status,
+      title: stop.title,
+    })),
+    spaceId: journeyResult.data.space_id,
+    summary: journeyResult.data.summary,
+    title: journeyResult.data.title,
+  })
+}
+
 async function fetchJourneyFromRemote(
   id: string,
 ): Promise<JourneyDetail | null> {

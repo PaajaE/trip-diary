@@ -56,7 +56,10 @@ export function EntryPage({
   const publicShare =
     publicShareQuery.data === null || publicShareQuery.data === undefined
       ? null
-      : buildEntryPublicShare(publicShareQuery.data, entry?.title ?? '')
+      : buildEntryPublicShare(
+          publicShareQuery.data,
+          t('reader.shareMomentMessage', { title: entry?.title ?? '' }),
+        )
   const canManage = user !== null && entry?.creatorId === user.id
 
   return (

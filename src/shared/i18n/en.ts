@@ -437,6 +437,7 @@ export const en = {
       sunset: 'Sunset',
       wildlife: 'Wildlife',
     },
+    saveError: 'Tags could not be saved. Please try again.',
   },
   reader: {
     backToCollections: 'All collections',
@@ -478,6 +479,32 @@ export const en = {
     sharePromptUnavailable:
       'Public links are not ready yet. Open the trip and try again after sync.',
     viewPublicTrip: 'View public page',
+    shareSpaceMessage: 'Travel diary: {{name}}',
+    sharePromptError: 'Share links could not be loaded.',
+    sharePromptRetry: 'Try again',
+  },
+  publicSpace: {
+    entriesEmptyDescription:
+      'Standalone memories and tips appear here after publishing.',
+    entriesEmptyTitle: 'No public posts yet',
+    entriesTitle: 'From the diary',
+    error: 'The diary could not be loaded.',
+    journeysEmptyDescription:
+      'When the first trip is published, you will find it here.',
+    journeysEmptyTitle: 'No public trips yet',
+    journeysTitle: 'Trips',
+    loading: 'Loading travel diary…',
+    notFound: 'This travel diary does not exist.',
+    openEntry: 'Open',
+    openJourney: 'Explore trip',
+  },
+  publicReader: {
+    journeyError: 'This public trip could not be loaded.',
+    journeyLoading: 'Loading trip…',
+    journeyNotFound: 'This public trip does not exist.',
+    momentError: 'This public moment could not be loaded.',
+    momentLoading: 'Loading moment…',
+    momentNotFound: 'This public moment does not exist.',
   },
   engagement: {
     addComment: 'Add a comment',
@@ -496,6 +523,9 @@ export const en = {
     postComment: 'Post comment',
     saveComment: 'Save',
     signInToComment: 'Sign in to leave a comment.',
+    error: 'Reactions could not be loaded.',
+    actionError: 'Something went wrong. Please try again.',
+    guestAuthor: 'Guest',
   },
 } as const
 

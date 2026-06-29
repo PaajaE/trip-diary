@@ -436,6 +436,7 @@ export const cs: TranslationResources = {
       sunset: 'Západ slunce',
       wildlife: 'Zvířata',
     },
+    saveError: 'Štítky se nepodařilo uložit. Zkuste to prosím znovu.',
   },
   reader: {
     backToCollections: 'Všechny kolekce',
@@ -477,6 +478,32 @@ export const cs: TranslationResources = {
     sharePromptUnavailable:
       'Veřejné odkazy ještě nejsou připravené. Otevřete cestu a zkuste to po synchronizaci.',
     viewPublicTrip: 'Veřejná stránka',
+    shareSpaceMessage: 'Cestovní deník: {{name}}',
+    sharePromptError: 'Odkazy ke sdílení se nepodařilo načíst.',
+    sharePromptRetry: 'Zkusit znovu',
+  },
+  publicSpace: {
+    entriesEmptyDescription:
+      'Samostatné vzpomínky a tipy se tu objeví po zveřejnění.',
+    entriesEmptyTitle: 'Zatím žádné veřejné příspěvky',
+    entriesTitle: 'Z deníku',
+    error: 'Deník se nepodařilo načíst.',
+    journeysEmptyDescription:
+      'Jakmile tu přibude první cesta, najdete ji právě tady.',
+    journeysEmptyTitle: 'Zatím žádné veřejné cesty',
+    journeysTitle: 'Cesty',
+    loading: 'Načítám cestovní deník…',
+    notFound: 'Tento cestovní deník neexistuje.',
+    openEntry: 'Otevřít',
+    openJourney: 'Projít cestu',
+  },
+  publicReader: {
+    journeyError: 'Veřejnou cestu se nepodařilo načíst.',
+    journeyLoading: 'Načítám cestu…',
+    journeyNotFound: 'Tato veřejná cesta neexistuje.',
+    momentError: 'Veřejný moment se nepodařilo načíst.',
+    momentLoading: 'Načítám vzpomínku…',
+    momentNotFound: 'Tato veřejná vzpomínka neexistuje.',
   },
   engagement: {
     addComment: 'Přidat komentář',
@@ -495,5 +522,8 @@ export const cs: TranslationResources = {
     postComment: 'Odeslat komentář',
     saveComment: 'Uložit',
     signInToComment: 'Pro komentář se přihlaste.',
+    error: 'Reakce se nepodařilo načíst.',
+    actionError: 'Něco se pokazilo. Zkuste to prosím znovu.',
+    guestAuthor: 'Host',
   },
 }

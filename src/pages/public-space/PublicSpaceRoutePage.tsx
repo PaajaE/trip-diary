@@ -1,24 +1,41 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { getPublicSpace } from '@/entities/sharing/api/public-sharing.repository'
 import { buildPublicSpaceShare } from '@/features/sharing/lib/build-share-messages'
 import { PublicSpacePage } from '@/pages/public-space'
+import {
+  PublicRouteError,
+  PublicRouteLoading,
+  PublicRouteNotFound,
+} from '@/pages/public-space/PublicRouteMessage'
 
 export function PublicSpaceRoutePage() {
   const { spaceHandle } = useParams({ from: '/$spaceHandle' })
+  const { i18n, t } = useTranslation()
   const navigate = useNavigate()
   const query = useQuery({
     queryFn: () => getPublicSpace(spaceHandle),
     queryKey: ['public-space', spaceHandle],
   })
 
-  if (query.isPending) return <Message>Načítám cestovní deník…</Message>
-  if (query.isError) return <Message error>Deník se nepodařilo načíst.</Message>
-  if (query.data === null)
-    return <Message>Tento cestovní deník neexistuje.</Message>
+  if (query.isPending) {
+    return <PublicRouteLoading labelKey="publicSpace.loading" />
+  }
+  if (query.isError) {
+    return <PublicRouteError labelKey="publicSpace.error" />
+  }
+  if (query.data === null) {
+    return <PublicRouteNotFound labelKey="publicSpace.notFound" />
+  }
 
   const space = query.data
-  const spaceShare = buildPublicSpaceShare(space.handle, space.name)
+  const spaceShare = buildPublicSpaceShare(
+    space.handle,
+    t('reader.shareSpaceMessage', { name: space.name }),
+  )
+  const dateLocale = i18n.language === 'cs' ? 'cs-CZ' : 'en-US'
+
   return (
     <PublicSpacePage
       onOpenEntry={(entryId) => {
@@ -48,7 +65,7 @@ export function PublicSpaceRoutePage() {
         journeys: space.journeys.map((journey) => ({
           dateLabel: journey.starts_at,
           id: journey.id,
-          statusLabel: journey.status,
+          statusLabel: t(`journey.status.${journey.status}`),
           summary: journey.summary,
           title: journey.title,
         })),
@@ -56,29 +73,13 @@ export function PublicSpaceRoutePage() {
         standaloneEntries: space.standaloneEntries.map((entry) => ({
           dateLabel: new Date(
             entry.event_at ?? entry.published_at ?? 0,
-          ).toLocaleDateString('cs'),
+          ).toLocaleDateString(dateLocale),
           excerpt: entry.body.slice(0, 180),
           id: entry.id,
-          title: entry.title ?? 'Vzpomínka bez názvu',
-          typeLabel: entry.type,
+          title: entry.title ?? t('dashboard.untitled'),
+          typeLabel: t(`entry.type.${entry.type}`),
         })),
       }}
     />
-  )
-}
-
-function Message({
-  children,
-  error = false,
-}: {
-  children: React.ReactNode
-  error?: boolean
-}) {
-  return (
-    <main
-      className={`mx-auto max-w-3xl px-5 py-16 ${error ? 'text-destructive' : 'text-muted'}`}
-    >
-      {children}
-    </main>
   )
 }

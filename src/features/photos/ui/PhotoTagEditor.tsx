@@ -31,6 +31,7 @@ export function PhotoTagEditor({
   const queryClient = useQueryClient()
   const [customTag, setCustomTag] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const assignedSlugs = new Set(assignedTags.map((tag) => tag.slug))
 
   async function invalidate() {
@@ -42,6 +43,7 @@ export function PhotoTagEditor({
 
   async function toggleTag(slug: string, label: string) {
     setSaving(true)
+    setSaveError(null)
     try {
       if (assignedSlugs.has(slug)) {
         await removePhotoTag({ creatorId, journeyId, photoId, slug })
@@ -49,6 +51,8 @@ export function PhotoTagEditor({
         await assignPhotoTag({ creatorId, journeyId, label, photoId })
       }
       await invalidate()
+    } catch {
+      setSaveError(t('photoTag.saveError'))
     } finally {
       setSaving(false)
     }
@@ -60,6 +64,7 @@ export function PhotoTagEditor({
       return
     }
     setSaving(true)
+    setSaveError(null)
     try {
       await assignPhotoTag({
         creatorId,
@@ -69,6 +74,8 @@ export function PhotoTagEditor({
       })
       setCustomTag('')
       await invalidate()
+    } catch {
+      setSaveError(t('photoTag.saveError'))
     } finally {
       setSaving(false)
     }
@@ -76,6 +83,11 @@ export function PhotoTagEditor({
 
   return (
     <div className="space-y-3">
+      {saveError === null ? null : (
+        <p className="text-sm text-destructive" role="alert">
+          {saveError}
+        </p>
+      )}
       <p className="text-sm font-semibold">{t('photoTag.editTitle')}</p>
       <div className="flex flex-wrap gap-2">
         {SUGGESTED_PHOTO_TAG_SLUGS.map((slug) => {

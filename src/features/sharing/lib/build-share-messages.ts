@@ -6,45 +6,37 @@ import {
   buildPublicSpacePath,
 } from '@/features/sharing/lib/public-paths'
 
-export function buildTripShareText(title: string, url: string): string {
-  return `Sledujte naši cestu: ${title}\n${url}`
-}
-
-export function buildMomentShareText(title: string, url: string): string {
-  return `Nový moment: ${title}\n${url}`
-}
-
-export function buildSpaceShareText(name: string, url: string): string {
-  return `Cestovní deník: ${name}\n${url}`
+export function composeShareText(message: string, url: string): string {
+  return `${message}\n${url}`
 }
 
 export function buildPublicTripShare(
   paths: PublicJourneyPaths,
-  title: string,
+  tripMessage: string,
 ) {
   const url = buildAbsoluteUrl(buildPublicJourneyPath(paths))
-  return { shareText: buildTripShareText(title, url), shareUrl: url }
+  return { shareText: composeShareText(tripMessage, url), shareUrl: url }
 }
 
 export function buildPublicMomentShare(
   paths: PublicJourneyPaths,
   entrySlug: string,
-  title: string,
+  momentMessage: string,
 ) {
   const url = buildAbsoluteUrl(buildPublicMomentPath(paths, entrySlug))
-  return { shareText: buildMomentShareText(title, url), shareUrl: url }
+  return { shareText: composeShareText(momentMessage, url), shareUrl: url }
 }
 
 export function buildEntryPublicShare(
   data: { momentPath: string | null; standalonePath: string },
-  title: string,
+  momentMessage: string,
 ) {
   const path = data.momentPath ?? data.standalonePath
   const url = buildAbsoluteUrl(path)
-  return { shareText: buildMomentShareText(title, url), shareUrl: url }
+  return { shareText: composeShareText(momentMessage, url), shareUrl: url }
 }
 
-export function buildPublicSpaceShare(spaceHandle: string, name: string) {
+export function buildPublicSpaceShare(spaceHandle: string, spaceMessage: string) {
   const url = buildAbsoluteUrl(buildPublicSpacePath(spaceHandle))
-  return { shareText: buildSpaceShareText(name, url), shareUrl: url }
+  return { shareText: composeShareText(spaceMessage, url), shareUrl: url }
 }

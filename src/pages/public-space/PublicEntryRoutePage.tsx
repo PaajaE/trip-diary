@@ -6,6 +6,11 @@ import {
   resolvePublicJourneyMeta,
 } from '@/entities/sharing/api/public-sharing.repository'
 import { MomentReaderPage } from '@/pages/reader/MomentReaderPage'
+import {
+  PublicRouteError,
+  PublicRouteLoading,
+  PublicRouteNotFound,
+} from '@/pages/public-space/PublicRouteMessage'
 
 export function PublicStandaloneEntryRoutePage() {
   const { entrySlug, spaceHandle } = useParams({
@@ -54,21 +59,22 @@ function ResolvedEntry({
   queryKey: string[]
 }) {
   const query = useQuery({ queryFn, queryKey })
-  if (query.isPending) return <Message>Načítám vzpomínku…</Message>
-  if (query.isError || query.data === null) {
-    return <Message>Tato veřejná vzpomínka neexistuje.</Message>
+
+  if (query.isPending) {
+    return <PublicRouteLoading labelKey="publicReader.momentLoading" />
   }
+  if (query.isError) {
+    return <PublicRouteError labelKey="publicReader.momentError" />
+  }
+  if (query.data === null) {
+    return <PublicRouteNotFound labelKey="publicReader.momentNotFound" />
+  }
+
   return (
     <MomentReaderPage
       entryId={query.data}
       {...(journeyId !== undefined ? { journeyId } : {})}
       {...(publicPaths !== undefined ? { publicPaths } : {})}
     />
-  )
-}
-
-function Message({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-3xl px-5 py-16 text-muted">{children}</main>
   )
 }

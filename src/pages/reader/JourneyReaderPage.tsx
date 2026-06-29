@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
-import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
+import { usePublicJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
 import {
   filterPhotoLocationsByTag,
@@ -43,7 +43,7 @@ export function JourneyReaderPage({
 }: JourneyReaderPageProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const query = useJourneyQuery(journeyId)
+  const query = usePublicJourneyQuery(journeyId)
   const journey = query.data
   const content =
     journey === null || journey === undefined

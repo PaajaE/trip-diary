@@ -14,6 +14,7 @@ interface ShareMomentPromptProps {
   entryTitle: string
   journeyId: string
   journeyTitle: string
+  momentPendingSync?: boolean
   onClose: () => void
   open: boolean
   photosFailed?: boolean
@@ -24,6 +25,7 @@ export function ShareMomentPrompt({
   entryTitle,
   journeyId,
   journeyTitle,
+  momentPendingSync = false,
   onClose,
   open,
   photosFailed = false,
@@ -39,11 +41,18 @@ export function ShareMomentPrompt({
   const tripShare =
     paths === null || paths === undefined
       ? null
-      : buildPublicTripShare(paths, journeyTitle)
+      : buildPublicTripShare(
+          paths,
+          t('reader.shareTripMessage', { title: journeyTitle }),
+        )
   const momentShare =
     paths === null || paths === undefined
       ? null
-      : buildPublicMomentShare(paths, entrySlug, entryTitle)
+      : buildPublicMomentShare(
+          paths,
+          entrySlug,
+          t('reader.shareMomentMessage', { title: entryTitle }),
+        )
 
   return (
     <FullScreenSheet
@@ -63,6 +72,21 @@ export function ShareMomentPrompt({
         ) : null}
         {pathsQuery.isPending ? (
           <p className="text-sm text-muted">{t('reader.sharePromptLoading')}</p>
+        ) : pathsQuery.isError ? (
+          <div className="space-y-3">
+            <p className="rounded-2xl border border-destructive/20 bg-destructive/5 px-5 py-4 text-sm text-destructive">
+              {t('reader.sharePromptError')}
+            </p>
+            <Button
+              onClick={() => {
+                void pathsQuery.refetch()
+              }}
+              type="button"
+              variant="secondary"
+            >
+              {t('reader.sharePromptRetry')}
+            </Button>
+          </div>
         ) : tripShare === null ? (
           <p className="rounded-2xl border border-dashed border-border bg-surface px-5 py-4 text-sm text-muted">
             {t('reader.sharePromptUnavailable')}
@@ -74,9 +98,11 @@ export function ShareMomentPrompt({
                 <h3 className="text-lg font-semibold">
                   {t('reader.sharePromptMoment')}
                 </h3>
-                <p className="mt-2 text-sm text-muted">
-                  {t('reader.shareMomentPendingSync')}
-                </p>
+                {momentPendingSync ? (
+                  <p className="mt-2 text-sm text-muted">
+                    {t('reader.shareMomentPendingSync')}
+                  </p>
+                ) : null}
                 <ShareActions
                   className="mt-4"
                   shareText={momentShare.shareText}

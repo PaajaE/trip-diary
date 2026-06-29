@@ -1,4 +1,5 @@
 import { ArrowRight, BookOpen } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import type { PublicEntryViewModel } from '@/pages/public-space/model'
 
 interface PublicEntryCardProps {
@@ -7,6 +8,8 @@ interface PublicEntryCardProps {
 }
 
 export function PublicEntryCard({ entry, onOpen }: PublicEntryCardProps) {
+  const { t } = useTranslation()
+
   return (
     <button
       className="group flex w-full gap-4 rounded-md bg-surface p-4 text-left shadow-soft transition-colors hover:bg-white sm:p-5"
@@ -41,7 +44,7 @@ export function PublicEntryCard({ entry, onOpen }: PublicEntryCardProps) {
           </span>
         )}
         <span className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary">
-          Otevřít
+          {t('publicSpace.openEntry')}
           <ArrowRight
             aria-hidden="true"
             className="transition-transform group-hover:translate-x-1"

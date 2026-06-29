@@ -4,7 +4,15 @@ import {
   getCachedCanContributeToJourney,
   getJourney,
   getJourneyFromCache,
+  getPublicJourney,
 } from '@/entities/journey/api/journey.repository'
+
+export function usePublicJourneyQuery(journeyId: string) {
+  return useQuery({
+    queryFn: () => getPublicJourney(journeyId),
+    queryKey: ['public-journeys', journeyId],
+  })
+}
 
 export function useJourneyQuery(journeyId: string) {
   const cacheQuery = useQuery({

@@ -1,4 +1,5 @@
 import { BookOpen, MapPinned } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { PublicEntryCard } from '@/pages/public-space/PublicEntryCard'
 import { PublicJourneyCard } from '@/pages/public-space/PublicJourneyCard'
 import { PublicSpaceHeader } from '@/pages/public-space/PublicSpaceHeader'
@@ -19,6 +20,8 @@ export function PublicSpacePage({
   shareUrl,
   space,
 }: PublicSpacePageProps) {
+  const { t } = useTranslation()
+
   return (
     <main className="mx-auto min-h-svh w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-16">
       <PublicSpaceHeader
@@ -33,10 +36,10 @@ export function PublicSpacePage({
       />
 
       <PublicSection
-        emptyDescription="Jakmile tu přibude první cesta, najdete ji právě tady."
-        emptyTitle="Zatím žádné veřejné cesty"
+        emptyDescription={t('publicSpace.journeysEmptyDescription')}
+        emptyTitle={t('publicSpace.journeysEmptyTitle')}
         icon={MapPinned}
-        title="Cesty"
+        title={t('publicSpace.journeysTitle')}
       >
         {space.journeys.map((journey) => (
           <PublicJourneyCard
@@ -48,10 +51,10 @@ export function PublicSpacePage({
       </PublicSection>
 
       <PublicSection
-        emptyDescription="Samostatné vzpomínky a tipy se tu objeví po zveřejnění."
-        emptyTitle="Zatím žádné veřejné příspěvky"
+        emptyDescription={t('publicSpace.entriesEmptyDescription')}
+        emptyTitle={t('publicSpace.entriesEmptyTitle')}
         icon={BookOpen}
-        title="Z deníku"
+        title={t('publicSpace.entriesTitle')}
       >
         {space.standaloneEntries.map((entry) => (
           <PublicEntryCard entry={entry} key={entry.id} onOpen={onOpenEntry} />
