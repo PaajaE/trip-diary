@@ -6,7 +6,7 @@ import { App } from '@/app/App'
 import '@/app/i18n'
 import './index.css'
 
-if (!Capacitor.isNativePlatform()) {
+if (!Capacitor.isNativePlatform() && import.meta.env.VITE_E2E !== '1') {
   registerSW({ immediate: true })
 }
 
