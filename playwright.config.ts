@@ -62,9 +62,12 @@ export default defineConfig({
       name: 'desktop-chromium',
       use: {
         ...devices['Desktop Chrome'],
-        ...(chromiumExecutablePath !== undefined
-          ? { launchOptions: { executablePath: chromiumExecutablePath } }
-          : {}),
+        launchOptions: {
+          ...(chromiumExecutablePath !== undefined
+            ? { executablePath: chromiumExecutablePath }
+            : {}),
+          ...(process.env.CI ? { args: ['--disable-dev-shm-usage'] } : {}),
+        },
       },
     },
   ],
