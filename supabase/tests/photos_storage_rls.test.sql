@@ -12,8 +12,8 @@ select has_trigger('public', 'photos', 'set_photos_updated_at', 'photos has upda
 select results_eq(
   $$ select id, public, file_size_limit, allowed_mime_types
      from storage.buckets where id = 'photos' $$,
-  $$ values ('photos'::text, false, 8388608::bigint, array['image/webp']::text[]) $$,
-  'photos bucket is private and WebP-only'
+  $$ values ('photos'::text, false, 8388608::bigint, array['image/webp', 'image/jpeg']::text[]) $$,
+  'photos bucket is private and accepts WebP and JPEG'
 );
 
 insert into auth.users (
@@ -80,17 +80,17 @@ select throws_ok(
      ) $$,
   '23514', null, 'variant paths must use the canonical owner/photo/variant path'
 );
-select throws_ok(
+select lives_ok(
   $$ insert into public.photo_variants (
        photo_id, creator_id, variant, storage_path, width, height, byte_size, mime_type
      ) values (
        '40000000-0000-4000-8000-000000000001',
        '00000000-0000-4000-8000-000000000031',
        'preview',
-       '00000000-0000-4000-8000-000000000031/40000000-0000-4000-8000-000000000001/preview.webp',
+       '00000000-0000-4000-8000-000000000031/40000000-0000-4000-8000-000000000001/preview.jpg',
        1000, 750, 50000, 'image/jpeg'
      ) $$,
-  '23514', null, 'only WebP variants are accepted'
+  'JPEG variants with canonical jpg paths are accepted'
 );
 select throws_ok(
   $$ insert into public.entry_photos (entry_id, photo_id, creator_id, position)
@@ -114,10 +114,10 @@ select results_eq(
   'anonymous users only read photos attached to public published entries'
 );
 select results_eq(
-  $$ select photo_id from public.photo_variants
+  $$ select variant::text from public.photo_variants
      where creator_id = '00000000-0000-4000-8000-000000000031'
-     order by photo_id $$,
-  $$ values ('40000000-0000-4000-8000-000000000001'::uuid) $$,
+     order by photo_id, variant $$,
+  $$ values ('preview'::text), ('thumb'::text) $$,
   'anonymous users only read variants attached to public published entries'
 );
 select results_eq(
