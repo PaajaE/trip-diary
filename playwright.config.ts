@@ -30,7 +30,6 @@ function resolveChromiumExecutable(): string | undefined {
 }
 
 const chromiumExecutablePath = resolveChromiumExecutable()
-const offlineAuthFile = 'playwright/.auth/offline-user.json'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -43,28 +42,13 @@ export default defineConfig({
     trace: 'on-first-retry',
   },
   webServer: {
-    command: 'VITE_E2E=1 pnpm dev --host 127.0.0.1',
+    command:
+      'node scripts/prepare-e2e-env.mjs && VITE_E2E=1 pnpm dev --host 127.0.0.1',
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,
     timeout: process.env.CI ? 120_000 : 60_000,
   },
   projects: [
-    {
-      name: 'offline-setup',
-      testMatch: /offline-auth\.setup\.ts/,
-    },
-    {
-      name: 'offline-chromium',
-      dependencies: ['offline-setup'],
-      testMatch: /offline-capture\.spec\.ts/,
-      use: {
-        ...devices['Desktop Chrome'],
-        storageState: offlineAuthFile,
-        ...(chromiumExecutablePath !== undefined
-          ? { launchOptions: { executablePath: chromiumExecutablePath } }
-          : {}),
-      },
-    },
     {
       name: 'mobile-chromium',
       use: {

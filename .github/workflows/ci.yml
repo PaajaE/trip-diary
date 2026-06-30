@@ -61,12 +61,17 @@ jobs:
         run: |
           supabase status --output json > /tmp/supabase-status.json
           node --input-type=module -e "
-            import { writeFileSync } from 'node:fs';
-            const status = JSON.parse(await import('node:fs').then((fs) => fs.promises.readFile('/tmp/supabase-status.json', 'utf8')));
+            import { readFileSync, writeFileSync } from 'node:fs';
+            const status = JSON.parse(readFileSync('/tmp/supabase-status.json', 'utf8'));
             writeFileSync('.env.local', \`VITE_SUPABASE_URL=\${status.API_URL}\\nVITE_SUPABASE_ANON_KEY=\${status.ANON_KEY}\\n\`);
+            writeFileSync(
+              process.env.GITHUB_ENV,
+              \`VITE_SUPABASE_URL=\${status.API_URL}\\nVITE_SUPABASE_ANON_KEY=\${status.ANON_KEY}\\n\`,
+              { flag: 'a' },
+            );
           "
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e --project=offline-chromium tests/e2e/offline-capture.spec.ts
+      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
