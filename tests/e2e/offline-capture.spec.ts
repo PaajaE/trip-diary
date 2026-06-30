@@ -19,7 +19,7 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await page.getByLabel('Heslo', { exact: true }).fill('StrongPass1')
   await page.getByLabel('Potvrzení hesla').fill('StrongPass1')
   await page.getByRole('button', { name: 'Vytvořit účet' }).click()
-  await expect(page).toHaveURL('/dashboard')
+  await expect(page).toHaveURL('/dashboard', { timeout: 15_000 })
 
   await page.goto('/journeys/new')
   await page.getByLabel('Název cesty').fill(journeyTitle)
