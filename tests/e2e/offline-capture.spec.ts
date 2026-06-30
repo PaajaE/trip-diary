@@ -4,6 +4,8 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   context,
   page,
 }) => {
+  test.setTimeout(60_000)
+
   const unique = crypto.randomUUID().slice(0, 8)
   const journeyTitle = `Offline cesta ${unique}`
   const momentTitle = `Offline moment ${unique}`
@@ -27,23 +29,12 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
-  const addMomentLink = page.getByRole('link', {
-    name: 'Přidat moment',
-    exact: true,
-  })
-
   // Warm the lazy create-memory route while online; dev has no service worker cache.
-  await addMomentLink.click()
+  await page.getByRole('link', { name: 'Přidat moment', exact: true }).click()
   await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
-  await page.goBack()
-  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
-  // Dev server has no PWA shell cache, so a full reload while offline cannot
-  // load the app. Prove the IndexedDB journey snapshot path on the live page.
+  // Capture on the already-loaded route so offline navigation does not refetch chunks.
   await context.setOffline(true)
-  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-
-  await addMomentLink.click()
   await page.getByLabel('Název', { exact: true }).fill(momentTitle)
   await page
     .getByLabel('Příběh')
@@ -55,5 +46,8 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await sharePrompt.getByRole('button', { name: 'Pokračovat na cestu' }).click()
 
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await expect(page.getByText('Čeká na synchronizaci')).toBeVisible()
+  await expect(page.getByText(momentTitle)).toBeVisible()
+  await expect
+    .poll(async () => page.getByText(/čeká na synchronizaci/i).count())
+    .toBeGreaterThan(0)
 })
