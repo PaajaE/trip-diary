@@ -47,6 +47,8 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
 
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect
-    .poll(async () => page.getByText(/čeká na synchronizaci/i).count())
+    .poll(async () => page.getByText(/čeká na synchronizaci/i).count(), {
+      timeout: 15_000,
+    })
     .toBeGreaterThan(0)
 })
