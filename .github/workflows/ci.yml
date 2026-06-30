@@ -70,7 +70,7 @@ jobs:
               { flag: 'a' },
             );
           "
-      - run: pnpm exec playwright install --with-deps chromium
+      - run: PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts
       - name: Print Playwright failure context
         if: failure()

@@ -6,9 +6,16 @@ function getSupabaseStatus() {
     return JSON.parse(readFileSync('/tmp/supabase-status.json', 'utf8'))
   }
 
-  return JSON.parse(
-    execSync('supabase status --output json', { encoding: 'utf8' }),
-  )
+  try {
+    return JSON.parse(
+      execSync('supabase status --output json', { encoding: 'utf8' }),
+    )
+  } catch {
+    if (existsSync('.env.local')) {
+      process.exit(0)
+    }
+    throw new Error('Supabase is not running and .env.local is missing')
+  }
 }
 
 const status = getSupabaseStatus()
