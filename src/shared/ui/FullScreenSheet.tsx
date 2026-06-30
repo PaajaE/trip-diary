@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import { useEffect, useId, type ReactNode } from 'react'
+import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
 
 interface FullScreenSheetProps {
@@ -20,12 +20,15 @@ export function FullScreenSheet({
   title,
 }: FullScreenSheetProps) {
   const titleId = useId()
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
   useBodyScrollLock(open)
 
   useEffect(() => {
     if (!open) {
       return
     }
+
+    closeButtonRef.current?.focus()
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
@@ -56,9 +59,9 @@ export function FullScreenSheet({
         </p>
         <button
           aria-label={closeLabel}
-          autoFocus
           className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border bg-surface"
           onClick={onClose}
+          ref={closeButtonRef}
           type="button"
         >
           <X aria-hidden="true" size={18} />

@@ -4,14 +4,12 @@ test('saving a journey moment still succeeds when photo processing fails', async
   page,
 }) => {
   // Force photo processing to fail by disabling workers and breaking canvas encoding.
-  await page.addInitScript(() => {
-    // @ts-expect-error test-only
-    window.Worker = undefined
-    // @ts-expect-error test-only
-    HTMLCanvasElement.prototype.toBlob = function toBlob(cb: BlobCallback) {
-      cb(null)
-    }
-  })
+  await page.addInitScript(`
+    window.Worker = undefined;
+    HTMLCanvasElement.prototype.toBlob = function (cb) {
+      cb(null);
+    };
+  `)
 
   const unique = crypto.randomUUID().slice(0, 8)
   const journeyTitle = `Foto fail cesta ${unique}`

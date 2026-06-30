@@ -275,7 +275,7 @@ async function updateEntryOnRemote(
     throw error
   }
 
-  const row = data?.[0]
+  const row = data[0]
   if (row === undefined) {
     throw new Error('Entry update could not be confirmed')
   }

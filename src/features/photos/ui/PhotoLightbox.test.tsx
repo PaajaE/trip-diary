@@ -19,10 +19,12 @@ describe('PhotoLightbox', () => {
       createObjectURL: vi.fn().mockReturnValue('blob:detail'),
       revokeObjectURL: vi.fn(),
     })
-    vi.mocked(getPhotoDetailPreview).mockImplementation(async (photoId) =>
-      photoId === 'photo-2'
-        ? { blob: new Blob(['detail']), id: photoId }
-        : null,
+    vi.mocked(getPhotoDetailPreview).mockImplementation((photoId) =>
+      Promise.resolve(
+        photoId === 'photo-2'
+          ? { blob: new Blob(['detail']), id: photoId }
+          : null,
+      ),
     )
 
     render(

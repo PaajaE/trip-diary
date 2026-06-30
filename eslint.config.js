@@ -10,6 +10,7 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'coverage',
+    'android/**/build/**',
     'src/shared/api/database.types.ts',
     'supabase/functions/**',
   ]),

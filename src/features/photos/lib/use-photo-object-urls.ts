@@ -9,17 +9,18 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
   photos: T[],
 ): (T & { url: string })[] {
   const pendingRevocations = useRef(new Map<string, number>())
+  const effectGenerationRef = useRef(0)
   const [urlsById, setUrlsById] = useState<Record<string, string>>({})
 
   useEffect(() => {
-    let cancelled = false
+    const generation = ++effectGenerationRef.current
 
     void (async () => {
       const next: Record<string, string> = {}
       const batchSize = 3
 
       for (let index = 0; index < photos.length; index += batchSize) {
-        if (cancelled) {
+        if (generation !== effectGenerationRef.current) {
           return
         }
 
@@ -34,7 +35,7 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
           }),
         )
 
-        if (cancelled) {
+        if (generation !== effectGenerationRef.current) {
           for (const url of Object.values(next)) {
             revokePreviewUrl(url)
           }
@@ -60,7 +61,7 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
     })()
 
     return () => {
-      cancelled = true
+      effectGenerationRef.current += 1
     }
   }, [photos])
 

@@ -135,6 +135,7 @@ export function JourneyPage({
   const [activeSection, setActiveSection] = useState<JourneySection>(
     section ?? 'overview',
   )
+  const [syncedRoute, setSyncedRoute] = useState({ journeyId, section })
   const dateLabel = formatDateRange(
     journey?.startsAt ?? null,
     journey?.endsAt ?? null,
@@ -143,11 +144,33 @@ export function JourneyPage({
 
   function selectSection(next: JourneySection) {
     setActiveSection(next)
+    if (next === 'guides' && openGuideOnGuidesRef.current) {
+      setGuideFormOpen(true)
+      openGuideOnGuidesRef.current = false
+    } else if (next !== 'guides') {
+      setGuideFormOpen(false)
+    }
+    if (next !== 'map') {
+      setMapExpanded(false)
+    }
   }
 
-  useEffect(() => {
+  if (syncedRoute.journeyId !== journeyId || syncedRoute.section !== section) {
+    setSyncedRoute({ journeyId, section })
     setActiveSection(section ?? 'overview')
-  }, [journeyId, section])
+    setManageOpen(false)
+    setPlaceCaptureOpen(false)
+    setMapExpanded(false)
+    setGuideFormOpen(false)
+  }
+
+  const pendingMapPointId =
+    pendingMapPhotoId !== null ? `photo:${pendingMapPhotoId}` : null
+  const mapFocusPointId =
+    pendingMapPointId !== null &&
+    mapPoints.some((point) => point.id === pendingMapPointId)
+      ? pendingMapPointId
+      : focusedMapPointId
 
   useEffect(() => {
     scrollToJourneySectionNav()
@@ -165,30 +188,6 @@ export function JourneyPage({
       to: '/e/$entryId',
     })
   }
-
-  useEffect(() => {
-    setManageOpen(false)
-    setPlaceCaptureOpen(false)
-    setMapExpanded(false)
-    setGuideFormOpen(false)
-  }, [journeyId])
-
-  useEffect(() => {
-    if (activeSection === 'guides') {
-      if (openGuideOnGuidesRef.current) {
-        setGuideFormOpen(true)
-        openGuideOnGuidesRef.current = false
-      }
-      return
-    }
-    setGuideFormOpen(false)
-  }, [activeSection])
-
-  useEffect(() => {
-    if (activeSection !== 'map') {
-      setMapExpanded(false)
-    }
-  }, [activeSection])
 
   useEffect(() => {
     if (momentEntryIdsKey === '') {
@@ -211,18 +210,6 @@ export function JourneyPage({
       })
     })
   }, [momentEntryIdsKey, refetchPhotoLocations])
-
-  useEffect(() => {
-    if (pendingMapPhotoId === null) {
-      return
-    }
-
-    const pointId = `photo:${pendingMapPhotoId}`
-    if (mapPoints.some((point) => point.id === pointId)) {
-      setFocusedMapPointId(pointId)
-      setPendingMapPhotoId(null)
-    }
-  }, [mapPoints, pendingMapPhotoId])
 
   function handleShowPhotoOnMap(photoId: string) {
     setPendingMapPhotoId(photoId)
@@ -397,14 +384,18 @@ export function JourneyPage({
                   {t('journey.mapLoadingLocations')}
                 </p>
               ) : null}
-              {pendingMapPhotoId !== null ? (
+              {pendingMapPhotoId !== null &&
+              !(
+                pendingMapPointId !== null &&
+                mapPoints.some((point) => point.id === pendingMapPointId)
+              ) ? (
                 <p className="mt-4 text-sm text-muted" role="status">
                   {t('journey.mapLocatingPhoto')}
                 </p>
               ) : null}
               {mapPoints.length > 0 && !mapExpanded ? (
                 <JourneyMap
-                  focusPointId={focusedMapPointId}
+                  focusPointId={mapFocusPointId}
                   moments={content?.moments ?? []}
                   onFocusPointChange={setFocusedMapPointId}
                   onOpenEntry={(entryId) => {
@@ -461,7 +452,7 @@ export function JourneyPage({
           >
             <JourneyMap
               className="min-h-0 flex-1"
-              focusPointId={focusedMapPointId}
+              focusPointId={mapFocusPointId}
               moments={content?.moments ?? []}
               onFocusPointChange={setFocusedMapPointId}
               onOpenEntry={(entryId) => {

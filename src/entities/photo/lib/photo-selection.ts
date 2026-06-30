@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core'
 import { FilePicker, type PickedFile } from '@capawesome/capacitor-file-picker'
 import exifr from 'exifr'
 import {
+  getMeaningfulGpsCoordinates,
   isMeaningfulGpsCoordinate,
   parseNativeExifGps,
 } from '@/entities/photo/lib/photo-exif-gps'
@@ -303,15 +304,10 @@ async function buildSelectedPhotoMetadata(options: {
   longitude?: number
   sourceUri?: string
 }): Promise<PhotoMetadataOverride | undefined> {
-  const gpsFromPreloaded = isMeaningfulGpsCoordinate(
+  const gpsFromPreloaded = getMeaningfulGpsCoordinates(
     options.latitude,
     options.longitude,
   )
-    ? {
-        latitude: options.latitude,
-        longitude: options.longitude!,
-      }
-    : null
   const gpsFromNative =
     gpsFromPreloaded ?? (await readNativePhotoGps(options.sourceUri))
   const gpsFromExif = parseNativeExifGps(options.exif)
@@ -330,18 +326,15 @@ async function buildSelectedPhotoMetadata(options: {
 
   const capturedAt = options.capturedAt
 
-  if (
-    capturedAt === undefined &&
-    !isMeaningfulGpsCoordinate(latitude, longitude)
-  ) {
+  const gps = getMeaningfulGpsCoordinates(latitude, longitude)
+
+  if (capturedAt === undefined && gps === null) {
     return undefined
   }
 
   return {
     ...(capturedAt === undefined ? {} : { capturedAt }),
-    ...(isMeaningfulGpsCoordinate(latitude, longitude)
-      ? { latitude: latitude, longitude: longitude! }
-      : {}),
+    ...(gps ?? {}),
   }
 }
 
@@ -368,15 +361,16 @@ async function loadPickedFileBlob(picked: PickedFile): Promise<{
 }> {
   if (
     Capacitor.getPlatform() === 'android' &&
-    picked.path !== undefined &&
-    picked.path.startsWith('content:')
+    picked.path?.startsWith('content:')
   ) {
     const materialized = await materializeNativePhoto(picked.path)
 
     const response = await fetch(materialized.webPath)
 
     if (!response.ok) {
-      throw new Error(`Selected photo fetch failed (${response.status})`)
+      throw new Error(
+        `Selected photo fetch failed (${String(response.status)})`,
+      )
     }
 
     const blob = await response.blob()

@@ -65,7 +65,7 @@ export async function getEngagementSummary(
   const heartCount = heartCountResult.count ?? 0
   const viewerHasHearted = viewerHeartResult.data !== null
 
-  const comments = (commentsResult.data ?? []).flatMap((row) => {
+  const comments = commentsResult.data.flatMap((row) => {
     if (row.hidden_at !== null && viewerId === null) {
       return []
     }

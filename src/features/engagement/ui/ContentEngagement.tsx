@@ -117,7 +117,7 @@ export function ContentEngagement({
     )
   }
 
-  if (engagementQuery.isError || engagementQuery.data === undefined) {
+  if (engagementQuery.isError) {
     return (
       <p className={cn('text-sm text-destructive', className)} role="alert">
         {t('engagement.error')}

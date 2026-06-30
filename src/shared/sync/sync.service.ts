@@ -242,10 +242,6 @@ async function resolveSyncCreatorId(): Promise<string> {
   if (error !== null) {
     throw error
   }
-  if (data.user?.id === undefined) {
-    throw new Error('Sign in is required before synchronizing')
-  }
-
   return data.user.id
 }
 
@@ -324,6 +320,9 @@ export async function syncPendingOperations(): Promise<void> {
           break
         case 'stop.create':
           await syncStopCreate(operation)
+          break
+        case 'stop.update':
+          await syncStopUpdate(operation)
           break
         case 'guide.create':
           await syncGuideCreate(operation)
@@ -580,6 +579,7 @@ type JourneyUpdateOperation = Extract<SyncOperation, { type: 'journey.update' }>
 type JourneyDeleteOperation = Extract<SyncOperation, { type: 'journey.delete' }>
 type StageCreateOperation = Extract<SyncOperation, { type: 'stage.create' }>
 type StopCreateOperation = Extract<SyncOperation, { type: 'stop.create' }>
+type StopUpdateOperation = Extract<SyncOperation, { type: 'stop.update' }>
 type GuideCreateOperation = Extract<SyncOperation, { type: 'guide.create' }>
 type StageUpdateOperation = Extract<SyncOperation, { type: 'stage.update' }>
 type StageDeleteOperation = Extract<SyncOperation, { type: 'stage.delete' }>
@@ -696,7 +696,7 @@ async function syncEntryUpdate(operation: EntryUpdateOperation): Promise<void> {
     throw error
   }
 
-  const row = data?.[0]
+  const row = data[0]
   if (row === undefined) {
     throw new Error('Entry update could not be confirmed')
   }
@@ -993,6 +993,43 @@ async function syncStageDelete(operation: StageDeleteOperation): Promise<void> {
       await localDb.syncOperations.delete(operation.id)
     },
   )
+}
+
+async function syncStopUpdate(operation: StopUpdateOperation): Promise<void> {
+  const snapshot = await getJourneySnapshot(operation.journeyId)
+  const stop = snapshot?.journey.stops.find(
+    (item) => item.id === operation.stopId,
+  )
+  if (stop === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  const { error } = await getSupabaseClient()
+    .from('journey_stops')
+    .update({
+      latitude: stop.mapLatitude,
+      longitude: stop.mapLongitude,
+      map_latitude:
+        stop.mapLatitude === null
+          ? null
+          : Math.round(stop.mapLatitude * 100) / 100,
+      map_longitude:
+        stop.mapLongitude === null
+          ? null
+          : Math.round(stop.mapLongitude * 100) / 100,
+      notes: stop.notes,
+      stage_id: stop.stageId,
+      status: stop.status,
+      title: stop.title,
+    })
+    .eq('id', operation.stopId)
+
+  if (error !== null) {
+    throw error
+  }
+
+  await localDb.syncOperations.delete(operation.id)
 }
 
 async function syncStopDelete(operation: StopDeleteOperation): Promise<void> {

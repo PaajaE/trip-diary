@@ -2,35 +2,13 @@ import {
   useEffect,
   useLayoutEffect,
   useRef,
-  useState,
-  type CSSProperties,
   type PropsWithChildren,
   type RefObject,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { clampPanelPosition } from '@/shared/ui/anchored-panel-position'
 
-const VIEWPORT_PADDING_PX = 20
-const PANEL_GAP_PX = 8
 const MAX_PANEL_WIDTH_PX = 320
-
-export function clampPanelPosition(
-  trigger: DOMRect,
-  panelWidth: number,
-): { left: number; top: number; width: number } {
-  const width = Math.min(
-    MAX_PANEL_WIDTH_PX,
-    panelWidth,
-    window.innerWidth - VIEWPORT_PADDING_PX * 2,
-  )
-  const preferredLeft = trigger.right - width
-  const left = Math.min(
-    Math.max(VIEWPORT_PADDING_PX, preferredLeft),
-    window.innerWidth - width - VIEWPORT_PADDING_PX,
-  )
-  const top = trigger.bottom + PANEL_GAP_PX
-
-  return { left, top, width }
-}
 
 interface AnchoredPanelProps extends PropsWithChildren {
   anchorRef: RefObject<HTMLElement | null>
@@ -49,17 +27,16 @@ export function AnchoredPanel({
   role = 'dialog',
 }: AnchoredPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null)
-  const [style, setStyle] = useState<CSSProperties | null>(null)
 
   useLayoutEffect(() => {
-    if (!open) {
-      setStyle(null)
+    if (!open || panelRef.current === null) {
       return
     }
 
     function updatePosition() {
+      const panelElement = panelRef.current
       const trigger = anchorRef.current?.getBoundingClientRect()
-      if (trigger === undefined) {
+      if (panelElement === null || trigger === undefined) {
         return
       }
 
@@ -67,13 +44,11 @@ export function AnchoredPanel({
         trigger,
         MAX_PANEL_WIDTH_PX,
       )
-      setStyle({
-        left: `${left}px`,
-        position: 'fixed',
-        top: `${top}px`,
-        width: `${width}px`,
-        zIndex: 50,
-      })
+      panelElement.style.position = 'fixed'
+      panelElement.style.left = `${String(left)}px`
+      panelElement.style.top = `${String(top)}px`
+      panelElement.style.width = `${String(width)}px`
+      panelElement.style.zIndex = '50'
     }
 
     updatePosition()
@@ -118,12 +93,12 @@ export function AnchoredPanel({
     }
   }, [anchorRef, onClose, open])
 
-  if (!open || style === null) {
+  if (!open) {
     return null
   }
 
   return createPortal(
-    <div className={className} ref={panelRef} role={role} style={style}>
+    <div className={className} ref={panelRef} role={role}>
       {children}
     </div>,
     document.body,

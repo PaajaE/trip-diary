@@ -38,7 +38,7 @@ export function JourneyTagCollections({
     )
   }
 
-  const tags = tagsQuery.data ?? []
+  const tags = tagsQuery.data
   if (tags.length === 0) {
     return (
       <p className="mt-8 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">

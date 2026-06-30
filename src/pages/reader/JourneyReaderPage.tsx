@@ -53,6 +53,7 @@ export function JourneyReaderPage({
   const [activeSection, setActiveSection] = useState<JourneyReaderSection>(
     section ?? 'overview',
   )
+  const [syncedRoute, setSyncedRoute] = useState({ journeyId, section })
   const [selectedCollectionTag, setSelectedCollectionTag] = useState<
     string | null
   >(null)
@@ -143,29 +144,32 @@ export function JourneyReaderPage({
     t('journey.dateUnknown'),
   )
 
-  useEffect(() => {
+  if (syncedRoute.journeyId !== journeyId || syncedRoute.section !== section) {
+    setSyncedRoute({ journeyId, section })
     setActiveSection(section ?? 'overview')
-  }, [journeyId, section])
+    setSelectedCollectionTag(null)
+    setMapExpanded(false)
+  }
+
+  const pendingMapPointId =
+    pendingMapPhotoId !== null ? `photo:${pendingMapPhotoId}` : null
+  const mapFocusPointId =
+    pendingMapPointId !== null &&
+    mapPoints.some((point) => point.id === pendingMapPointId)
+      ? pendingMapPointId
+      : focusedMapPointId
 
   useEffect(() => {
     scrollToJourneySectionNav()
   }, [activeSection, selectedCollectionTag])
 
-  useEffect(() => {
-    if (pendingMapPhotoId === null) {
-      return
-    }
-    const pointId = `photo:${pendingMapPhotoId}`
-    if (mapPoints.some((point) => point.id === pointId)) {
-      setFocusedMapPointId(pointId)
-      setPendingMapPhotoId(null)
-    }
-  }, [mapPoints, pendingMapPhotoId])
-
   function selectSection(next: JourneyReaderSection) {
     setActiveSection(next)
     if (next !== 'collections') {
       setSelectedCollectionTag(null)
+    }
+    if (next !== 'map') {
+      setMapExpanded(false)
     }
   }
 
@@ -259,7 +263,9 @@ export function JourneyReaderPage({
               onAddAdvice={() => {
                 selectSection('guides')
               }}
-              onAddPlace={() => {}}
+              onAddPlace={() => {
+                // Read-only journey view has no place capture.
+              }}
               onNavigateSection={(next) => {
                 selectSection(next)
               }}
@@ -304,7 +310,7 @@ export function JourneyReaderPage({
               </div>
               {mapPoints.length > 0 && !mapExpanded ? (
                 <JourneyMap
-                  focusPointId={focusedMapPointId}
+                  focusPointId={mapFocusPointId}
                   moments={content?.moments ?? []}
                   onFocusPointChange={setFocusedMapPointId}
                   onOpenEntry={openMoment}
@@ -393,7 +399,7 @@ export function JourneyReaderPage({
                     {mapPoints.length > 0 ? (
                       <JourneyMap
                         className="mt-4"
-                        focusPointId={focusedMapPointId}
+                        focusPointId={mapFocusPointId}
                         moments={content?.moments ?? []}
                         onFocusPointChange={setFocusedMapPointId}
                         onOpenEntry={openMoment}
@@ -416,7 +422,9 @@ export function JourneyReaderPage({
               canEdit={false}
               creatorId=""
               journey={journey}
-              onChanged={() => {}}
+              onChanged={() => {
+                // Read-only journey view has no local edits to sync.
+              }}
             />
           ) : null}
 
@@ -431,7 +439,7 @@ export function JourneyReaderPage({
           >
             <JourneyMap
               className="min-h-0 flex-1"
-              focusPointId={focusedMapPointId}
+              focusPointId={mapFocusPointId}
               moments={content?.moments ?? []}
               onFocusPointChange={setFocusedMapPointId}
               onOpenEntry={(entryId) => {

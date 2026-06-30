@@ -55,7 +55,7 @@ export function useMemoryPhotoPreviews(
   const pendingRevocations = useRef(new Map<string, number>())
 
   useEffect(() => {
-    let cancelled = false
+    const cancelledRef = { current: false }
 
     void (async () => {
       const next = (
@@ -79,7 +79,7 @@ export function useMemoryPhotoPreviews(
         )
       ).flatMap((preview) => (preview === null ? [] : [preview]))
 
-      if (cancelled) {
+      if (cancelledRef.current) {
         for (const preview of next) {
           revokePreviewUrl(preview.url)
         }
@@ -97,7 +97,7 @@ export function useMemoryPhotoPreviews(
     })()
 
     return () => {
-      cancelled = true
+      cancelledRef.current = true
     }
   }, [detectedPhotos, photos])
 

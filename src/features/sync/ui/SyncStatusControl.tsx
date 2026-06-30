@@ -118,7 +118,7 @@ export function SyncStatusControl() {
             >
               <div
                 className="h-full rounded-full bg-primary transition-[width]"
-                style={{ width: `${progressRatio * 100}%` }}
+                style={{ width: `${String(progressRatio * 100)}%` }}
               />
             </div>
             {progress.label ? (

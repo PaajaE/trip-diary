@@ -31,11 +31,6 @@ function pickLocalDetailVariant(
   )
 }
 
-/** @deprecated use pickLocalThumbVariant */
-function pickLocalDisplayVariant(variants: LocalPhotoVariant[]) {
-  return pickLocalThumbVariant(variants)
-}
-
 function mergePositionedPreviews(
   localResult: PromiseSettledResult<PositionedPhotoPreview[]>,
   remoteResult: PromiseSettledResult<PositionedPhotoPreview[]>,
@@ -166,9 +161,7 @@ async function getLocalPhotoPreviewsBatch(
 
   const result = new Map<string, PositionedPhotoPreview[]>()
   for (const photo of photos) {
-    const variant = pickLocalDisplayVariant(
-      variantsByPhotoId.get(photo.id) ?? [],
-    )
+    const variant = pickLocalThumbVariant(variantsByPhotoId.get(photo.id) ?? [])
     if (variant === undefined) {
       continue
     }
@@ -412,9 +405,13 @@ export async function getJourneyEntryPhotoPreviews(
   const localFailed = localResult.status === 'rejected'
   const remoteFailed = remoteResult.status === 'rejected'
   const localByEntry =
-    localResult.status === 'fulfilled' ? localResult.value : new Map()
+    localResult.status === 'fulfilled'
+      ? localResult.value
+      : new Map<string, PositionedPhotoPreview[]>()
   const remoteByEntry =
-    remoteResult.status === 'fulfilled' ? remoteResult.value : new Map()
+    remoteResult.status === 'fulfilled'
+      ? remoteResult.value
+      : new Map<string, PositionedPhotoPreview[]>()
 
   const previewsByEntry = new Map<string, PhotoPreview[]>()
   const failedEntryIds = new Set<string>()

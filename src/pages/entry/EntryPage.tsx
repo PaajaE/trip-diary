@@ -91,7 +91,7 @@ export function EntryPage({
             }}
             onUpdated={(updated) => {
               setEditing(false)
-              entryQuery.refetch()
+              void entryQuery.refetch()
               void queryClient.invalidateQueries({
                 queryKey: ['entries', updated.id],
               })

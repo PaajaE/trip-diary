@@ -70,7 +70,7 @@ describe('preview-url', () => {
   it('only revokes blob URLs', () => {
     const revokeObjectURL = vi
       .spyOn(URL, 'revokeObjectURL')
-      .mockImplementation(() => {})
+      .mockImplementation(vi.fn())
 
     revokePreviewUrl('blob:test')
     revokePreviewUrl('data:image/jpeg;base64,abc')

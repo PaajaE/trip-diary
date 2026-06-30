@@ -1,15 +1,16 @@
 import type { StyleSpecification } from 'maplibre-gl'
+import { publicEnv } from '@/shared/config/env'
 
 const MAPY_OUTDOOR_TILEJSON =
   'https://api.mapy.com/v1/maptiles/outdoor/tiles.json'
 
 export function isMapyBasemapEnabled(): boolean {
-  const apiKey = import.meta.env.VITE_MAPY_API_KEY
-  return typeof apiKey === 'string' && apiKey.trim().length > 0
+  const apiKey = publicEnv.VITE_MAPY_API_KEY
+  return apiKey !== undefined && apiKey.trim().length > 0
 }
 
 export function getAppMapStyle(language?: string): StyleSpecification {
-  const apiKey = import.meta.env.VITE_MAPY_API_KEY?.trim()
+  const apiKey = publicEnv.VITE_MAPY_API_KEY?.trim()
   if (apiKey !== undefined && apiKey.length > 0) {
     const params = new URLSearchParams({ apikey: apiKey })
     if (language !== undefined && language.length > 0) {

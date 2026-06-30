@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react'
@@ -36,6 +37,8 @@ function toError(error: unknown): Error {
 
 export function SessionProvider({ children }: PropsWithChildren) {
   const [state, setState] = useState<SessionState>(initialState)
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   const refreshProfile = useCallback(async () => {
     const userId = state.session?.user.id
@@ -79,26 +82,19 @@ export function SessionProvider({ children }: PropsWithChildren) {
         return
       }
 
-      let shouldLoadProfile = true
-
-      setState((current) => {
-        const sameUser = current.session?.user.id === session.user.id
-        if (sameUser && current.profile !== null) {
-          shouldLoadProfile = false
-          return { ...current, error: null, loading: false, session }
-        }
-
-        return {
-          error: null,
-          loading: true,
-          profile: sameUser ? current.profile : null,
-          session,
-        }
-      })
-
-      if (!shouldLoadProfile) {
+      const current = stateRef.current
+      const sameUser = current.session?.user.id === session.user.id
+      if (sameUser && current.profile !== null) {
+        setState({ ...current, error: null, loading: false, session })
         return
       }
+
+      setState({
+        error: null,
+        loading: true,
+        profile: sameUser ? current.profile : null,
+        session,
+      })
 
       try {
         const profile = await loadCurrentProfile(session.user.id)

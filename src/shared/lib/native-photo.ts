@@ -58,11 +58,7 @@ export async function readNativePhotoGps(uri: string | undefined) {
 
   try {
     const result = await PhotoMetadata.readGpsFromUri({ uri })
-    if (
-      !isMeaningfulGpsCoordinate(result.latitude, result.longitude) ||
-      result.latitude === undefined ||
-      result.longitude === undefined
-    ) {
+    if (!isMeaningfulGpsCoordinate(result.latitude, result.longitude)) {
       return null
     }
 
@@ -85,7 +81,7 @@ export function readMaterializedPhotoMetadata(
     ...(isMeaningfulGpsCoordinate(materialized.latitude, materialized.longitude)
       ? {
           latitude: materialized.latitude,
-          longitude: materialized.longitude!,
+          longitude: materialized.longitude,
         }
       : {}),
   }

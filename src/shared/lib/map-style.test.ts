@@ -1,13 +1,26 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getAppMapStyle, isMapyBasemapEnabled } from '@/shared/lib/map-style'
+
+const { publicEnvMock } = vi.hoisted(() => ({
+  publicEnvMock: {
+    VITE_MAPY_API_KEY: undefined as string | undefined,
+  },
+}))
+
+vi.mock('@/shared/config/env', () => ({
+  publicEnv: publicEnvMock,
+}))
 
 describe('map-style', () => {
   afterEach(() => {
-    vi.unstubAllEnvs()
+    publicEnvMock.VITE_MAPY_API_KEY = undefined
+    vi.resetModules()
   })
 
-  it('uses Mapy.com outdoor tiles when an API key is configured', () => {
-    vi.stubEnv('VITE_MAPY_API_KEY', 'test-map-key')
+  it('uses Mapy.com outdoor tiles when an API key is configured', async () => {
+    publicEnvMock.VITE_MAPY_API_KEY = 'test-map-key'
+
+    const { getAppMapStyle, isMapyBasemapEnabled } =
+      await import('@/shared/lib/map-style')
 
     expect(isMapyBasemapEnabled()).toBe(true)
     expect(getAppMapStyle('cs')).toEqual({
@@ -23,8 +36,11 @@ describe('map-style', () => {
     })
   })
 
-  it('falls back to OpenStreetMap tiles without an API key', () => {
-    vi.stubEnv('VITE_MAPY_API_KEY', '')
+  it('falls back to OpenStreetMap tiles without an API key', async () => {
+    publicEnvMock.VITE_MAPY_API_KEY = undefined
+
+    const { getAppMapStyle, isMapyBasemapEnabled } =
+      await import('@/shared/lib/map-style')
 
     expect(isMapyBasemapEnabled()).toBe(false)
     expect(getAppMapStyle()).toEqual({

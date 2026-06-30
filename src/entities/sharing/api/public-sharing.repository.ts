@@ -112,7 +112,7 @@ export async function getJourneyPublicPaths(
   if (error !== null) {
     throw error
   }
-  if (data === null || data.slug === null) {
+  if (data?.slug == null) {
     return null
   }
 
@@ -181,7 +181,7 @@ export async function getEntryPublicShare(entryId: string): Promise<{
   if (entryError !== null) {
     throw entryError
   }
-  if (entry === null || entry.slug === null) {
+  if (entry?.slug == null) {
     return null
   }
 

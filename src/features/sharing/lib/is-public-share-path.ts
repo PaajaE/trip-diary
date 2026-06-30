@@ -18,5 +18,9 @@ export function isPublicSharePath(pathname: string): boolean {
   if (segments.length === 0) {
     return false
   }
-  return !RESERVED_ROOT_SEGMENTS.has(segments[0]!)
+  const firstSegment = segments[0]
+  if (firstSegment === undefined) {
+    return false
+  }
+  return !RESERVED_ROOT_SEGMENTS.has(firstSegment)
 }

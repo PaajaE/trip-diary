@@ -114,7 +114,12 @@ describe('JourneyGallery', () => {
 
     const buttons = await screen.findAllByRole('button', { name: /moment/i })
     expect(buttons).toHaveLength(2)
-    fireEvent.click(buttons[0]!)
+    const firstButton = buttons[0]
+    expect(firstButton).toBeDefined()
+    if (firstButton === undefined) {
+      throw new Error('Expected first moment button')
+    }
+    fireEvent.click(firstButton)
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeVisible()
     })
@@ -146,7 +151,11 @@ describe('JourneyGallery', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Některé fotografie se nepodařilo načíst',
     )
-    fireEvent.error(image.querySelector('img')!)
+    const img = image.querySelector('img')
+    expect(img).toBeInstanceOf(HTMLImageElement)
+    if (img instanceof HTMLImageElement) {
+      fireEvent.error(img)
+    }
     expect(
       screen.queryByRole('button', { name: 'První moment' }),
     ).not.toBeInTheDocument()

@@ -86,10 +86,13 @@ describe('local journey structure offline', () => {
     await addJourneyStage(creatorId, journeyId, 'Temporary stage')
     const stageId = (await localDb.localJourneyStages.toArray())[0]?.id
     expect(stageId).toBeDefined()
+    if (stageId === undefined) {
+      throw new Error('Expected stage id')
+    }
 
     const { deleteJourneyStage } =
       await import('@/entities/journey/api/local-journey-structure.repository')
-    await deleteJourneyStage(creatorId, journeyId, stageId!)
+    await deleteJourneyStage(creatorId, journeyId, stageId)
 
     expect(await localDb.syncOperations.toArray()).toHaveLength(0)
     const merged = await applyLocalJourneyDeltas(journey)

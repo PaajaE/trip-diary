@@ -299,9 +299,9 @@ export function CreateJourneyMemoryForm({
   async function handleSubmit(input: CreateJourneyMemoryInput) {
     setLinkError(null)
     const resolvedTitle =
-      input.title.trim() ||
-      suggestedTitle?.trim() ||
-      t('journey.photoStopFallback')
+      [input.title.trim(), suggestedTitle?.trim() ?? ''].find(
+        (value) => value !== '',
+      ) ?? t('journey.photoStopFallback')
 
     const entry = await createLocalEntry(creatorId, spaceId, {
       body: input.body,

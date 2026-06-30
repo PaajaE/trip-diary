@@ -33,24 +33,24 @@ export function usePhotoLightbox(options?: {
     setLightbox(null)
   }, [])
 
+  const creatorId = options?.creatorId
+
   const lightboxElement =
     lightbox === null ? null : (
       <PhotoLightbox
-        canDelete={
-          options?.canDelete === true && options.creatorId !== undefined
-        }
+        canDelete={options?.canDelete === true && creatorId !== undefined}
         canEditTags={
           options?.canEditTags === true &&
-          options.creatorId !== undefined &&
+          creatorId !== undefined &&
           options.journeyId !== undefined
         }
         initialIndex={lightbox.index}
         onClose={closeLightbox}
-        {...(options?.creatorId !== undefined
+        {...(creatorId !== undefined
           ? {
-              creatorId: options.creatorId,
+              creatorId,
               onDelete: async (photoId: string) => {
-                await deletePhoto(photoId, options.creatorId!)
+                await deletePhoto(photoId, creatorId)
                 await queryClient.invalidateQueries()
                 setLightbox((current) => {
                   if (current === null) {

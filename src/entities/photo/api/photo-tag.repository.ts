@@ -106,7 +106,7 @@ async function listJourneyPhotoTagAssignmentsRemote(
     throw assignmentsError
   }
 
-  return (assignments ?? []).flatMap((assignment) => {
+  return assignments.flatMap((assignment) => {
     const tag = tagsById.get(assignment.tag_id)
     if (tag === undefined) {
       return []

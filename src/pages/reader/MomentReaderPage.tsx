@@ -44,11 +44,16 @@ export function MomentReaderPage({
 
   const tagsQuery = useQuery({
     enabled: journeyId !== undefined && (previewsQuery.data?.length ?? 0) > 0,
-    queryFn: () =>
-      listPhotoTagAssignmentsForPhotos(
-        journeyId!,
+    queryFn: () => {
+      if (journeyId === undefined) {
+        throw new Error('journeyId is required for photo tag lookup')
+      }
+
+      return listPhotoTagAssignmentsForPhotos(
+        journeyId,
         (previewsQuery.data ?? []).map((preview) => preview.id),
-      ),
+      )
+    },
     queryKey: [
       'journey-photo-tags',
       journeyId,

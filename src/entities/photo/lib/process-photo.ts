@@ -1,6 +1,9 @@
 import exifr from 'exifr'
 import { Capacitor } from '@capacitor/core'
-import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
+import {
+  getMeaningfulGpsCoordinates,
+  isMeaningfulGpsCoordinate,
+} from '@/entities/photo/lib/photo-exif-gps'
 import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
 import { LOCAL_PHOTO_VARIANT_SIZES } from '@/entities/photo/lib/photo-variant-config'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
@@ -57,18 +60,18 @@ export async function processPhoto(
     metadataOverrides?.capturedAt !== undefined
       ? metadataOverrides.capturedAt
       : (metadata?.DateTimeOriginal?.toISOString() ?? null)
+  const metadataGps = getMeaningfulGpsCoordinates(
+    metadata?.latitude,
+    metadata?.longitude,
+  )
   const latitude =
     metadataOverrides?.latitude !== undefined
       ? metadataOverrides.latitude
-      : isMeaningfulGpsCoordinate(metadata?.latitude, metadata?.longitude)
-        ? (metadata?.latitude ?? null)
-        : null
+      : (metadataGps?.latitude ?? null)
   const longitude =
     metadataOverrides?.longitude !== undefined
       ? metadataOverrides.longitude
-      : isMeaningfulGpsCoordinate(metadata?.latitude, metadata?.longitude)
-        ? (metadata?.longitude ?? null)
-        : null
+      : (metadataGps?.longitude ?? null)
 
   return {
     capturedAt,
@@ -118,8 +121,8 @@ async function extractPhotoMetadata(
       fullMetadata?.longitude,
     )
       ? {
-          latitude: fullMetadata?.latitude,
-          longitude: fullMetadata?.longitude,
+          latitude: fullMetadata.latitude,
+          longitude: fullMetadata.longitude,
         }
       : {}),
   }

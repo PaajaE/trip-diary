@@ -18,36 +18,42 @@ type MappedStop = JourneyDetail['stops'][number] & {
 
 const SELECTED_POINT_ZOOM = 13
 
-export function LocationPickerMap({
+function LocationPickerMapE2E({
+  heightClassName = 'h-72',
+}: Pick<LocationPickerMapProps, 'heightClassName'>) {
+  const { t } = useTranslation()
+
+  return (
+    <div>
+      <div
+        aria-label={t('journey.mapPicker')}
+        className={`${heightClassName} flex items-center justify-center overflow-hidden rounded-xl border border-border bg-surface text-sm text-muted`}
+        role="region"
+      >
+        {t('journey.mapPicker')}
+      </div>
+      <p className="mt-3 text-sm text-muted">{t('journey.mapPickerHelp')}</p>
+    </div>
+  )
+}
+
+function LocationPickerMapInteractive({
   heightClassName = 'h-72',
   onSelectPoint,
   selectedPoint,
   stops,
 }: LocationPickerMapProps) {
   const { i18n, t } = useTranslation()
-
-  if (import.meta.env.VITE_E2E === '1') {
-    return (
-      <div>
-        <div
-          aria-label={t('journey.mapPicker')}
-          className={`${heightClassName} flex items-center justify-center overflow-hidden rounded-xl border border-border bg-surface text-sm text-muted`}
-          role="region"
-        >
-          {t('journey.mapPicker')}
-        </div>
-        <p className="mt-3 text-sm text-muted">{t('journey.mapPickerHelp')}</p>
-      </div>
-    )
-  }
-
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const draftMarkerRef = useRef<maplibregl.Marker | null>(null)
   const onSelectPointRef = useRef(onSelectPoint)
   const selectedPointRef = useRef(selectedPoint)
-  onSelectPointRef.current = onSelectPoint
-  selectedPointRef.current = selectedPoint
+
+  useEffect(() => {
+    onSelectPointRef.current = onSelectPoint
+    selectedPointRef.current = selectedPoint
+  })
 
   const mappedStops = useMemo(
     () =>
@@ -119,7 +125,7 @@ export function LocationPickerMap({
 
       const center: [number, number] = [point.longitude, point.latitude]
       marker.setLngLat(center).addTo(activeMap)
-      activeMap.flyTo({
+      void activeMap.flyTo({
         center,
         essential: true,
         zoom: SELECTED_POINT_ZOOM,
@@ -138,7 +144,7 @@ export function LocationPickerMap({
     if (map.isStyleLoaded()) {
       applySelectedPointFromRef()
     } else {
-      map.once('load', applySelectedPointFromRef)
+      void map.once('load', applySelectedPointFromRef)
     }
 
     return () => {
@@ -178,7 +184,7 @@ export function LocationPickerMap({
       ]
 
       marker.setLngLat(center).addTo(activeMap)
-      activeMap.flyTo({
+      void activeMap.flyTo({
         center,
         essential: true,
         zoom: SELECTED_POINT_ZOOM,
@@ -190,7 +196,7 @@ export function LocationPickerMap({
       return
     }
 
-    map.once('load', applySelectedPoint)
+    void map.once('load', applySelectedPoint)
     return () => {
       map.off('load', applySelectedPoint)
     }
@@ -207,4 +213,14 @@ export function LocationPickerMap({
       <p className="mt-3 text-sm text-muted">{t('journey.mapPickerHelp')}</p>
     </div>
   )
+}
+
+export function LocationPickerMap(props: LocationPickerMapProps) {
+  if (import.meta.env.VITE_E2E === '1') {
+    return (
+      <LocationPickerMapE2E heightClassName={props.heightClassName ?? 'h-72'} />
+    )
+  }
+
+  return <LocationPickerMapInteractive {...props} />
 }

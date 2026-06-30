@@ -2,7 +2,12 @@ import type { TFunction } from 'i18next'
 import type { RefObject } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import type { FeatureCollection, Point } from 'geojson'
+import type {
+  Feature,
+  FeatureCollection,
+  GeoJsonProperties,
+  Point,
+} from 'geojson'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTranslation } from 'react-i18next'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
@@ -32,6 +37,11 @@ const POINT_COLORS: Record<JourneyMapPoint['type'], string> = {
 }
 
 const CLICK_RADIUS_PX = 22
+
+interface JourneyPointFeatureProperties {
+  cluster_id?: number
+  id?: string
+}
 
 interface MapInteractionContext {
   onFocusPointChange?: ((pointId: string | null) => void) | undefined
@@ -70,13 +80,15 @@ export function JourneyMap({
   )
   const geoJson = useMemo(() => pointsToFeatureCollection(points), [points])
 
-  interactionRef.current = {
-    onFocusPointChange,
-    onOpenEntry,
-    photoThumbUrls,
-    points,
-    t,
-  }
+  useEffect(() => {
+    interactionRef.current = {
+      onFocusPointChange,
+      onOpenEntry,
+      photoThumbUrls,
+      points,
+      t,
+    }
+  }, [onFocusPointChange, onOpenEntry, photoThumbUrls, points, t])
 
   useEffect(() => {
     const container = containerRef.current
@@ -108,7 +120,7 @@ export function JourneyMap({
     if (map.loaded()) {
       onLoad()
     } else {
-      map.once('load', onLoad)
+      void map.once('load', onLoad)
     }
 
     return () => {
@@ -136,8 +148,10 @@ export function JourneyMap({
       return
     }
 
-    const source = map.getSource('journey-points')
-    source?.setData(geoJson)
+    const source = getJourneyPointsSource(map)
+    if (source !== null) {
+      source.setData(geoJson)
+    }
 
     if (focusPointId === null && !hasAutoFitRef.current && points.length > 0) {
       fitMapToPoints(map, points)
@@ -319,18 +333,24 @@ function ensureJourneyMapLayers(
   }
 
   map.on('click', ['journey-clusters', 'journey-cluster-count'], (event) => {
-    const feature = event.features?.[0]
-    const clusterId = feature?.properties?.cluster_id
-    const mapSource = map.getSource('journey-points')!
-    if (clusterId === undefined) {
+    const feature = event.features?.[0] as
+      | Feature<Point, JourneyPointFeatureProperties>
+      | undefined
+    const clusterId = feature?.properties.cluster_id
+    const mapSource = getJourneyPointsSource(map)
+    if (
+      clusterId === undefined ||
+      mapSource === null ||
+      feature === undefined
+    ) {
       return
     }
 
     void mapSource.getClusterLeaves(clusterId, 100, 0).then((leaves) => {
       const pointIds = new Set<string>()
       for (const leaf of leaves) {
-        const id = leaf.properties?.id
-        if (typeof id === 'string') {
+        const id = readJourneyPointFeatureId(leaf.properties)
+        if (id !== undefined) {
           pointIds.add(id)
         }
       }
@@ -355,10 +375,9 @@ function ensureJourneyMapLayers(
       }
 
       void mapSource.getClusterExpansionZoom(clusterId).then((zoom) => {
-        const coordinates = (feature?.geometry as Point | undefined)
-          ?.coordinates
-        const longitude = coordinates?.[0]
-        const latitude = coordinates?.[1]
+        const coordinates = feature.geometry.coordinates
+        const longitude = coordinates[0]
+        const latitude = coordinates[1]
         if (longitude === undefined || latitude === undefined) {
           return
         }
@@ -469,7 +488,9 @@ function createStyledPopup(
       point.type === 'photo' ? t('journey.openPhoto') : t('journey.openMoment')
     action.type = 'button'
     action.addEventListener('click', () => {
-      onOpenEntry?.(point.entryId!)
+      if (point.entryId !== null) {
+        onOpenEntry?.(point.entryId)
+      }
     })
     content.append(action)
   }
@@ -496,8 +517,8 @@ function getPointsAtClick(
   })
   const ids = new Set<string>()
   for (const feature of features) {
-    const id = feature.properties?.id
-    if (typeof id === 'string') {
+    const id = readJourneyPointFeatureId(feature.properties)
+    if (id !== undefined) {
       ids.add(id)
     }
   }
@@ -599,4 +620,26 @@ function createPopupListItem(
   })
 
   return item
+}
+
+function getJourneyPointsSource(
+  map: maplibregl.Map,
+): maplibregl.GeoJSONSource | null {
+  const source = map.getSource('journey-points')
+  if (source?.type !== 'geojson') {
+    return null
+  }
+
+  return source as maplibregl.GeoJSONSource
+}
+
+function readJourneyPointFeatureId(
+  properties: GeoJsonProperties,
+): string | undefined {
+  if (properties === null || typeof properties !== 'object') {
+    return undefined
+  }
+
+  const id = (properties as JourneyPointFeatureProperties).id
+  return typeof id === 'string' ? id : undefined
 }

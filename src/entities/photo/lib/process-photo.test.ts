@@ -11,14 +11,16 @@ describe('processPhoto', () => {
       postMessage() {
         queueMicrotask(() => this.onerror?.(new Event('error')))
       }
-      terminate() {}
+      terminate(): void {
+        // Worker stub — nothing to clean up.
+      }
     }
     vi.stubGlobal('Worker', FailingWorker)
 
     const bitmap = { width: 2000, height: 1000, close: vi.fn() }
     vi.stubGlobal(
       'createImageBitmap',
-      vi.fn(async () => bitmap),
+      vi.fn(() => Promise.resolve(bitmap)),
     )
 
     const drawImage = vi.fn()
@@ -40,11 +42,10 @@ describe('processPhoto', () => {
 
     const createElementSpy = vi
       .spyOn(document, 'createElement')
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .mockImplementation(((tagName: any) => {
+      .mockImplementation((tagName: string) => {
         if (tagName === 'canvas') return canvas as HTMLCanvasElement
-        return document.createElement(tagName)
-      }) as typeof document.createElement)
+        throw new Error(`Unexpected createElement call: ${tagName}`)
+      })
 
     const file = new File([new Uint8Array([1, 2, 3])], 'photo.jpg', {
       type: 'image/jpeg',

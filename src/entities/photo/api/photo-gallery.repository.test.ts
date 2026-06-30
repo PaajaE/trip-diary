@@ -54,7 +54,7 @@ function createVariantLookup(
       })),
       in: vi.fn(() => ({
         eq: vi.fn(() => ({
-          maybeSingle: vi.fn(async () => ({ data: [], error: null })),
+          maybeSingle: vi.fn(() => ({ data: [], error: null })),
         })),
       })),
     })),

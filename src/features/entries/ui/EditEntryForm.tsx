@@ -53,9 +53,9 @@ export function EditEntryForm({
   return (
     <form
       className="mt-8 space-y-5 rounded-2xl border border-border bg-surface p-5"
-      onSubmit={form.handleSubmit((input) => {
-        void handleSubmit(input)
-      })}
+      onSubmit={(event) => {
+        void form.handleSubmit(handleSubmit)(event)
+      }}
     >
       <h2 className="text-lg font-semibold">{t('entry.editTitle')}</h2>
       <Input

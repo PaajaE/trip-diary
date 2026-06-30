@@ -1,4 +1,4 @@
-import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
+import { getMeaningfulGpsCoordinates } from '@/entities/photo/lib/photo-exif-gps'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { isBrowserOnline } from '@/shared/lib/network'
@@ -63,7 +63,8 @@ async function listLocalPhotoLocations(
   const photos = await localDb.photos.where('entryId').anyOf(entryIds).toArray()
 
   return photos.flatMap((photo) => {
-    if (!isMeaningfulGpsCoordinate(photo.latitude, photo.longitude)) {
+    const coords = getMeaningfulGpsCoordinates(photo.latitude, photo.longitude)
+    if (coords === null) {
       return []
     }
 
@@ -72,8 +73,7 @@ async function listLocalPhotoLocations(
         entryId: photo.entryId,
         entryTitle: titlesByEntryId.get(photo.entryId) ?? null,
         id: photo.id,
-        latitude: photo.latitude,
-        longitude: photo.longitude!,
+        ...coords,
       },
     ]
   })
@@ -112,10 +112,8 @@ async function listRemotePhotoLocations(
 
   return photos.flatMap((photo) => {
     const entryId = entryIdByPhotoId.get(photo.id)
-    if (
-      entryId === undefined ||
-      !isMeaningfulGpsCoordinate(photo.latitude, photo.longitude)
-    ) {
+    const coords = getMeaningfulGpsCoordinates(photo.latitude, photo.longitude)
+    if (entryId === undefined || coords === null) {
       return []
     }
 
@@ -124,8 +122,7 @@ async function listRemotePhotoLocations(
         entryId,
         entryTitle: titlesByEntryId.get(entryId) ?? null,
         id: photo.id,
-        latitude: photo.latitude,
-        longitude: photo.longitude!,
+        ...coords,
       },
     ]
   })

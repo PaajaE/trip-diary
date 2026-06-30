@@ -53,33 +53,38 @@ export function PhotoLightbox({
   const touchStartX = useRef<number | null>(null)
   const activePhoto = photos[index]
 
-  const loadDetail = useCallback(async (photoId: string) => {
+  const fetchDetailUrl = useCallback(async (photoId: string) => {
     if (loadedIdsRef.current.has(photoId)) {
-      return
+      return null
     }
     loadedIdsRef.current.add(photoId)
     const preview = await getPhotoDetailPreview(photoId)
-    if (preview === null || preview === undefined) {
-      return
+    if (preview === null) {
+      return null
     }
-    const url = await createPreviewUrl(preview.blob)
-    setDetailUrls((previous) => ({ ...previous, [photoId]: url }))
+    return createPreviewUrl(preview.blob)
   }, [])
 
   useEffect(() => {
     if (activePhoto === undefined) {
       return
     }
-    void loadDetail(activePhoto.id)
-    const next = photos[index + 1]
-    const previous = photos[index - 1]
-    if (next !== undefined) {
-      void loadDetail(next.id)
+
+    const photoIds = [
+      activePhoto.id,
+      photos[index + 1]?.id,
+      photos[index - 1]?.id,
+    ].filter((photoId): photoId is string => photoId !== undefined)
+
+    for (const photoId of photoIds) {
+      void fetchDetailUrl(photoId).then((url) => {
+        if (url === null) {
+          return
+        }
+        setDetailUrls((previous) => ({ ...previous, [photoId]: url }))
+      })
     }
-    if (previous !== undefined) {
-      void loadDetail(previous.id)
-    }
-  }, [activePhoto, index, loadDetail, photos])
+  }, [activePhoto, fetchDetailUrl, index, photos])
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -122,6 +127,7 @@ export function PhotoLightbox({
 
   const displayUrl = detailUrls[activePhoto.id] ?? activePhoto.thumbUrl
   const activeTags = tagsByPhotoId?.get(activePhoto.id) ?? []
+  const momentEntryId = activePhoto.entryId
 
   return (
     <div
@@ -247,11 +253,11 @@ export function PhotoLightbox({
             photoId={activePhoto.id}
           />
         ) : null}
-        {activePhoto.entryId !== undefined && onOpenMoment !== undefined ? (
+        {momentEntryId !== undefined && onOpenMoment !== undefined ? (
           <button
             className="text-sm font-semibold text-white underline-offset-4 hover:underline"
             onClick={() => {
-              onOpenMoment(activePhoto.entryId!)
+              onOpenMoment(momentEntryId)
             }}
             type="button"
           >

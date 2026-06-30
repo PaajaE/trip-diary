@@ -81,7 +81,11 @@ describe('PhotoGallery', () => {
     const brokenButton = buttons[0]
     expect(brokenButton).toBeDefined()
     if (brokenButton !== undefined) {
-      fireEvent.error(brokenButton.querySelector('img')!)
+      const img = brokenButton.querySelector('img')
+      expect(img).toBeInstanceOf(HTMLImageElement)
+      if (img instanceof HTMLImageElement) {
+        fireEvent.error(img)
+      }
     }
 
     expect(screen.getAllByRole('button', { name: 'Výlet' })).toHaveLength(1)

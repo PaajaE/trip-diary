@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { clampPanelPosition } from '@/shared/ui/AnchoredPanel'
+import { clampPanelPosition } from '@/shared/ui/anchored-panel-position'
 
 describe('clampPanelPosition', () => {
   it('keeps the panel inside the viewport when the trigger is near the left edge', () => {

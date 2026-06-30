@@ -95,7 +95,7 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
     try {
       const journey = await fetchJourneyFromRemote(id)
       if (journey === null) {
-        return getJourneyFromCache(id)
+        return await getJourneyFromCache(id)
       }
       const merged = await applyLocalJourneyDeltas(journey)
       const canContribute = await resolveCanContributeForSnapshot(id)
@@ -184,7 +184,7 @@ async function fetchPublicJourneyFromRemote(
   }
 
   const linksByEntryId = new Map(links.map((link) => [link.entry_id, link]))
-  const publishedEntries = entriesResult.data ?? []
+  const publishedEntries = entriesResult.data
 
   return journeyDetailSchema.parse({
     entries: publishedEntries

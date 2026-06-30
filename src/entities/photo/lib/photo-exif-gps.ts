@@ -25,17 +25,17 @@ export function parseNativeExifGps(
   }
 }
 
-export function isMeaningfulGpsCoordinate(
+export function getMeaningfulGpsCoordinates(
   latitude: number | null | undefined,
   longitude: number | null | undefined,
-): latitude is number {
+): { latitude: number; longitude: number } | null {
   if (
     latitude === null ||
     latitude === undefined ||
     longitude === null ||
     longitude === undefined
   ) {
-    return false
+    return null
   }
 
   if (
@@ -44,10 +44,21 @@ export function isMeaningfulGpsCoordinate(
     Math.abs(latitude) > 90 ||
     Math.abs(longitude) > 180
   ) {
-    return false
+    return null
   }
 
-  return !(latitude === 0 && longitude === 0)
+  if (latitude === 0 && longitude === 0) {
+    return null
+  }
+
+  return { latitude, longitude }
+}
+
+export function isMeaningfulGpsCoordinate(
+  latitude: number | null | undefined,
+  longitude: number | null | undefined,
+): latitude is number {
+  return getMeaningfulGpsCoordinates(latitude, longitude) !== null
 }
 
 function parseNativeExifInput(
