@@ -26,7 +26,7 @@
     "db:reset": "supabase db reset",
     "db:lint": "supabase db lint",
     "db:test": "supabase test db",
-    "db:types": "supabase gen types typescript --local | prettier --parser typescript > src/shared/api/database.types.ts",
+    "db:types": "supabase gen types typescript --local | node scripts/patch-database-types.mjs | prettier --parser typescript > src/shared/api/database.types.ts",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "preview": "vite preview",
     "backfill:photo-gps": "node --env-file=.env.local scripts/backfill-photo-gps.mjs"

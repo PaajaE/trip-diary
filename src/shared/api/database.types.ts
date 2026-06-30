@@ -392,6 +392,38 @@ export type Database = {
           },
         ]
       }
+      journey_photo_tags: {
+        Row: {
+          created_at: string
+          id: string
+          journey_id: string
+          label: string
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          journey_id: string
+          label: string
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          journey_id?: string
+          label?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'journey_photo_tags_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       journey_stages: {
         Row: {
           created_at: string
@@ -432,38 +464,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'journey_stages_journey_id_fkey'
-            columns: ['journey_id']
-            isOneToOne: false
-            referencedRelation: 'journeys'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      journey_photo_tags: {
-        Row: {
-          created_at: string
-          id: string
-          journey_id: string
-          label: string
-          slug: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          journey_id: string
-          label: string
-          slug: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          journey_id?: string
-          label?: string
-          slug?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'journey_photo_tags_journey_id_fkey'
             columns: ['journey_id']
             isOneToOne: false
             referencedRelation: 'journeys'
