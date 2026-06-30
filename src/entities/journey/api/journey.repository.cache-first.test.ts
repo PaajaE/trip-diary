@@ -84,7 +84,9 @@ function mockRemoteJourneyFetch() {
       if (table === 'journeys') {
         return {
           eq: vi.fn().mockReturnThis(),
-          maybeSingle: vi.fn().mockResolvedValue({ data: journeyRow, error: null }),
+          maybeSingle: vi
+            .fn()
+            .mockResolvedValue({ data: journeyRow, error: null }),
           select: vi.fn().mockReturnThis(),
         }
       }

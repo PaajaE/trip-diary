@@ -8,9 +8,13 @@ import {
 export function useSyncProgress(): SyncProgressSnapshot {
   const [snapshot, setSnapshot] = useState(getSyncProgress)
 
-  useEffect(() => subscribeSyncProgress(() => {
-    setSnapshot(getSyncProgress())
-  }), [])
+  useEffect(
+    () =>
+      subscribeSyncProgress(() => {
+        setSnapshot(getSyncProgress())
+      }),
+    [],
+  )
 
   return snapshot
 }

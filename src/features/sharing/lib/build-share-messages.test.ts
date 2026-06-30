@@ -1,9 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import {
-  buildPublicMomentShare,
-  buildPublicTripShare,
-  composeShareText,
-} from '@/features/sharing/lib/build-share-messages'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { composeShareText } from '@/features/sharing/lib/build-share-messages'
 
 describe('build-share-messages', () => {
   const paths = {
@@ -11,13 +7,22 @@ describe('build-share-messages', () => {
     spaceHandle: 'ecerovi',
   }
 
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.resetModules()
+  })
+
   it('composes share text with message and url on separate lines', () => {
     expect(composeShareText('Hello trip', 'https://example.com/trip')).toBe(
       'Hello trip\nhttps://example.com/trip',
     )
   })
 
-  it('builds trip share payload from localized message', () => {
+  it('builds trip share payload from localized message', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
+    const { buildPublicTripShare } =
+      await import('@/features/sharing/lib/build-share-messages')
+
     const result = buildPublicTripShare(paths, 'Follow our trip: Iceland')
 
     expect(result.shareUrl).toContain('og-share')
@@ -29,7 +34,11 @@ describe('build-share-messages', () => {
     )
   })
 
-  it('builds moment share payload from localized message', () => {
+  it('builds moment share payload from localized message', async () => {
+    vi.stubEnv('VITE_SUPABASE_URL', 'https://example.supabase.co')
+    const { buildPublicMomentShare } =
+      await import('@/features/sharing/lib/build-share-messages')
+
     const result = buildPublicMomentShare(
       paths,
       'glacier-hike',

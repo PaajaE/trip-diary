@@ -41,7 +41,10 @@ export function buildEntryPublicShare(
   return { shareText: composeShareText(momentMessage, shareUrl), shareUrl }
 }
 
-export function buildPublicSpaceShare(spaceHandle: string, spaceMessage: string) {
+export function buildPublicSpaceShare(
+  spaceHandle: string,
+  spaceMessage: string,
+) {
   const path = buildPublicSpacePath(spaceHandle)
   const shareUrl = buildSharePreviewUrl(path)
   return { shareText: composeShareText(spaceMessage, shareUrl), shareUrl }

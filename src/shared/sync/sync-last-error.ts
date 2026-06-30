@@ -62,7 +62,9 @@ export async function shouldWaitForEntry(entryId: string): Promise<boolean> {
   return entry !== undefined && entry.syncStatus !== 'synced'
 }
 
-export async function shouldWaitForJourney(journeyId: string): Promise<boolean> {
+export async function shouldWaitForJourney(
+  journeyId: string,
+): Promise<boolean> {
   const activeJourneyCreate =
     (await localDb.syncOperations
       .filter(
@@ -80,7 +82,9 @@ export async function shouldWaitForJourney(journeyId: string): Promise<boolean> 
   return journey !== undefined && journey.syncStatus !== 'synced'
 }
 
-export async function shouldWaitForPhotoUpload(photoId: string): Promise<boolean> {
+export async function shouldWaitForPhotoUpload(
+  photoId: string,
+): Promise<boolean> {
   const photo = await localDb.photos.get(photoId)
   if (photo === undefined) {
     return false
@@ -89,7 +93,9 @@ export async function shouldWaitForPhotoUpload(photoId: string): Promise<boolean
   return shouldWaitForEntry(photo.entryId)
 }
 
-export async function shouldWaitForPhotoSync(photoId: string): Promise<boolean> {
+export async function shouldWaitForPhotoSync(
+  photoId: string,
+): Promise<boolean> {
   const activePhotoUpload =
     (await localDb.syncOperations
       .filter(

@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
@@ -91,7 +97,10 @@ describe('JourneyGallery', () => {
     vi.mocked(getJourneyEntryPhotoPreviews).mockResolvedValue({
       failedEntryIds: new Set(),
       previewsByEntry: new Map([
-        [firstEntryId, [{ blob: new Blob(['first']), id: crypto.randomUUID() }]],
+        [
+          firstEntryId,
+          [{ blob: new Blob(['first']), id: crypto.randomUUID() }],
+        ],
         [
           secondEntryId,
           [{ blob: new Blob(['second']), id: crypto.randomUUID() }],

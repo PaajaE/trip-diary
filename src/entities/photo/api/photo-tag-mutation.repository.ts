@@ -26,16 +26,14 @@ export async function assignPhotoTag(input: {
 
   try {
     const tag = await assignPhotoTagRemote(input)
-    await upsertSyncedLocalPhotoTagAssignment(
-      {
-        creatorId: input.creatorId,
-        journeyId: input.journeyId,
-        label: input.label.trim(),
-        photoId: input.photoId,
-        slug,
-        tagId: tag.id,
-      },
-    )
+    await upsertSyncedLocalPhotoTagAssignment({
+      creatorId: input.creatorId,
+      journeyId: input.journeyId,
+      label: input.label.trim(),
+      photoId: input.photoId,
+      slug,
+      tagId: tag.id,
+    })
   } catch {
     await assignLocalPhotoTag(input)
   }

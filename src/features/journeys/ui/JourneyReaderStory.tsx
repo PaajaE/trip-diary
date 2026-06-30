@@ -1,11 +1,14 @@
 import { MapPin, Signpost } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import type {
   JourneyMoment,
   JourneyStageContent,
 } from '@/features/journeys/lib/journey-content'
-import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
+import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
+import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
 
 interface JourneyReaderStoryProps {
   onOpenEntry: (entryId: string) => void
@@ -19,6 +22,11 @@ export function JourneyReaderStory({
   tagsByPhotoId,
 }: JourneyReaderStoryProps) {
   const { t } = useTranslation()
+  const moments = useMemo(
+    () => stageContents.flatMap((content) => content.moments),
+    [stageContents],
+  )
+  const { isPending, photosByEntryId } = useJourneyMomentPhotos(moments, true)
   const hasContent = stageContents.some(
     (content) => content.moments.length > 0 || content.plannedStops.length > 0,
   )
@@ -35,57 +43,67 @@ export function JourneyReaderStory({
   }
 
   return (
-    <div className="mt-8 space-y-8">
-      {stageContents.map((stageContent) => (
-        <section
-          className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
-          key={stageContent.stage?.id ?? 'unassigned'}
-        >
-          {shouldShowStageHeader(stageContent) ? (
-            <h3 className="flex items-center gap-3 text-xl font-semibold">
-              <Signpost aria-hidden="true" size={18} />
-              {stageContent.stage?.title ?? t('journey.freeMoments')}
-            </h3>
-          ) : null}
-          <div
-            className={
-              shouldShowStageHeader(stageContent) ? 'mt-6 space-y-4' : 'space-y-4'
-            }
+    <>
+      {isPending ? (
+        <p className="mt-8 text-sm text-muted" role="status">
+          {t('journey.galleryLoading')}
+        </p>
+      ) : null}
+      <div className="mt-8 space-y-8">
+        {stageContents.map((stageContent) => (
+          <section
+            className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
+            key={stageContent.stage?.id ?? 'unassigned'}
           >
-            {stageContent.moments.map((moment) => (
-              <ReaderMomentCard
-                key={moment.entry.id}
-                moment={moment}
-                onOpenEntry={onOpenEntry}
-                tagsByPhotoId={tagsByPhotoId}
-              />
-            ))}
-            {stageContent.plannedStops.length === 0 ? null : (
-              <div className="pt-3">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                  {t('journey.plannedPlaces')}
-                </p>
-                <div className="space-y-3">
-                  {stageContent.plannedStops.map((stop) => (
-                    <article
-                      className="rounded-xl border border-dashed border-border bg-background/60 p-4"
-                      key={stop.id}
-                    >
-                      <p className="font-semibold">{stop.title}</p>
-                      {stop.notes === '' ? null : (
-                        <p className="mt-2 text-sm leading-6 text-muted">
-                          {stop.notes}
-                        </p>
-                      )}
-                    </article>
-                  ))}
+            {shouldShowStageHeader(stageContent) ? (
+              <h3 className="flex items-center gap-3 text-xl font-semibold">
+                <Signpost aria-hidden="true" size={18} />
+                {stageContent.stage?.title ?? t('journey.freeMoments')}
+              </h3>
+            ) : null}
+            <div
+              className={
+                shouldShowStageHeader(stageContent)
+                  ? 'mt-6 space-y-4'
+                  : 'space-y-4'
+              }
+            >
+              {stageContent.moments.map((moment) => (
+                <ReaderMomentCard
+                  key={moment.entry.id}
+                  moment={moment}
+                  onOpenEntry={onOpenEntry}
+                  photos={photosByEntryId.get(moment.entry.id) ?? []}
+                  tagsByPhotoId={tagsByPhotoId}
+                />
+              ))}
+              {stageContent.plannedStops.length === 0 ? null : (
+                <div className="pt-3">
+                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {t('journey.plannedPlaces')}
+                  </p>
+                  <div className="space-y-3">
+                    {stageContent.plannedStops.map((stop) => (
+                      <article
+                        className="rounded-xl border border-dashed border-border bg-background/60 p-4"
+                        key={stop.id}
+                      >
+                        <p className="font-semibold">{stop.title}</p>
+                        {stop.notes === '' ? null : (
+                          <p className="mt-2 text-sm leading-6 text-muted">
+                            {stop.notes}
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </section>
-      ))}
-    </div>
+              )}
+            </div>
+          </section>
+        ))}
+      </div>
+    </>
   )
 }
 
@@ -99,10 +117,12 @@ function shouldShowStageHeader(content: JourneyStageContent) {
 function ReaderMomentCard({
   moment,
   onOpenEntry,
+  photos,
   tagsByPhotoId,
 }: {
   moment: JourneyMoment
   onOpenEntry: (entryId: string) => void
+  photos: PhotoPreview[]
   tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }) {
   const { t } = useTranslation()
@@ -131,11 +151,11 @@ function ReaderMomentCard({
           {moment.entry.body}
         </p>
       )}
-      <PhotoGallery
+      <EntryPhotoGrid
         alt={title}
         entryId={moment.entry.id}
         onOpenMoment={onOpenEntry}
-        showEmpty={false}
+        photos={photos}
         tagsByPhotoId={tagsByPhotoId}
       />
       <button

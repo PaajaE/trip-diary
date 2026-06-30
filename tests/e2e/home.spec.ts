@@ -23,7 +23,9 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await expect(
     page.getByRole('heading', { name: new RegExp(username) }),
   ).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Rychlá poznámka' })).toBeVisible()
+  await expect(
+    page.getByRole('link', { name: 'Rychlá poznámka' }),
+  ).toBeVisible()
 
   const familyHandle = `family-${crypto.randomUUID().slice(0, 8)}`
   await page.goto('/spaces')

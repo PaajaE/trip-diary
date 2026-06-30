@@ -13,17 +13,22 @@ describe('processPhoto', () => {
       }
       terminate() {}
     }
-    vi.stubGlobal('Worker', FailingWorker as unknown as typeof Worker)
+    vi.stubGlobal('Worker', FailingWorker)
 
     const bitmap = { width: 2000, height: 1000, close: vi.fn() }
-    vi.stubGlobal('createImageBitmap', vi.fn(async () => bitmap) as unknown as typeof createImageBitmap)
+    vi.stubGlobal(
+      'createImageBitmap',
+      vi.fn(async () => bitmap),
+    )
 
     const drawImage = vi.fn()
     const canvas: Partial<HTMLCanvasElement> = {
       width: 0,
       height: 0,
       getContext: (() =>
-        ({ drawImage }) as unknown as CanvasRenderingContext2D) as unknown as HTMLCanvasElement['getContext'],
+        ({
+          drawImage,
+        }) as unknown as CanvasRenderingContext2D) as unknown as HTMLCanvasElement['getContext'],
       toBlob: (cb: BlobCallback, type?: string) => {
         if (type === 'image/webp') {
           cb(null)
@@ -48,9 +53,10 @@ describe('processPhoto', () => {
 
     expect(result.variants.length).toBeGreaterThan(0)
     expect(result.variants.every((variant) => variant.ext === 'jpg')).toBe(true)
-    expect(result.variants.every((variant) => variant.mimeType === 'image/jpeg')).toBe(true)
+    expect(
+      result.variants.every((variant) => variant.mimeType === 'image/jpeg'),
+    ).toBe(true)
 
     createElementSpy.mockRestore()
   })
 })
-

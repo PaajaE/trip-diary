@@ -114,7 +114,8 @@ export function JourneyGallery({
 }: JourneyGalleryProps) {
   const { t } = useTranslation()
   const previewsQuery = useQuery({
-    queryFn: () => loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
+    queryFn: () =>
+      loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
     queryKey: ['journey-gallery', ...moments.map((moment) => moment.entry.id)],
   })
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)

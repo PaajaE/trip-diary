@@ -7,6 +7,8 @@ describe('buildJourneyReturnPath', () => {
   })
 
   it('includes section for other tabs', () => {
-    expect(buildJourneyReturnPath('abc', 'gallery')).toBe('/j/abc?section=gallery')
+    expect(buildJourneyReturnPath('abc', 'gallery')).toBe(
+      '/j/abc?section=gallery',
+    )
   })
 })

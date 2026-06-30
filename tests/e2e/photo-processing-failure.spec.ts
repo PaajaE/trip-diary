@@ -50,9 +50,7 @@ test('saving a journey moment still succeeds when photo processing fails', async
     name: 'tiny.png',
   })
 
-  await page
-    .getByRole('button', { name: 'Uložit moment do cesty' })
-    .click()
+  await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
 
   // We should still be redirected back to the journey page.
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
@@ -67,4 +65,3 @@ test('saving a journey moment still succeeds when photo processing fails', async
   // The moment should exist in the journey content.
   await expect(page.getByText(momentTitle)).toBeVisible()
 })
-

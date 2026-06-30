@@ -16,10 +16,7 @@ describe('mergeJourneyGalleryPhotos', () => {
         { entry: { id: firstEntryId, title: 'Lake' } },
         { entry: { id: secondEntryId, title: null } },
       ],
-      [
-        [{ blob: firstBlob, id: firstPhotoId }],
-        [],
-      ],
+      [[{ blob: firstBlob, id: firstPhotoId }], []],
     )
 
     expect(photos).toEqual([

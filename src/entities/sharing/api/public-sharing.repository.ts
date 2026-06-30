@@ -163,9 +163,7 @@ export async function resolvePublicJourneyMeta(
   }
 }
 
-export async function getEntryPublicShare(
-  entryId: string,
-): Promise<{
+export async function getEntryPublicShare(entryId: string): Promise<{
   entrySlug: string
   journeySlug: string | null
   momentPath: string | null
@@ -210,11 +208,7 @@ export async function getEntryPublicShare(
       | { slug: string | null; visibility: string }
       | { slug: string | null; visibility: string }[]
     const journeyRow = Array.isArray(journey) ? journey[0] : journey
-    if (
-      journeyRow !== undefined &&
-      journeyRow.visibility === 'public' &&
-      journeyRow.slug !== null
-    ) {
+    if (journeyRow?.visibility === 'public' && journeyRow.slug !== null) {
       journeySlug = journeyRow.slug
       momentPath = `/${spaceHandle}/${journeyRow.slug}/${entry.slug}`
     }

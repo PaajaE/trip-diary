@@ -1,11 +1,7 @@
 import { Check, Copy, MessageCircle, Share2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  copyText,
-  openWhatsAppShare,
-  shareUrl,
-} from '@/shared/lib/share'
+import { copyText, openWhatsAppShare, shareUrl } from '@/shared/lib/share'
 import { Button } from '@/shared/ui/Button'
 
 interface ShareActionsProps {

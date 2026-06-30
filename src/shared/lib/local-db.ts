@@ -15,9 +15,7 @@ import type {
   LocalPhoto,
   LocalPhotoVariant,
 } from '@/entities/photo/model/photo'
-import type {
-  LocalPhotoTagAssignment,
-} from '@/entities/photo/model/photo-tag'
+import type { LocalPhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
 
 interface JourneySnapshotRecord {

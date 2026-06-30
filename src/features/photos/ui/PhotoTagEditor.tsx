@@ -140,9 +140,7 @@ export function PhotoTagEditor({
         <p className="text-xs text-white/70">
           {assignedTags
             .map((tag) => tag.label)
-            .filter(
-              (label, index, labels) => labels.indexOf(label) === index,
-            )
+            .filter((label, index, labels) => labels.indexOf(label) === index)
             .join(' · ')}
         </p>
       ) : null}

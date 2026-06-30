@@ -17,10 +17,7 @@ export async function saveCachedProfile(
   })
 
   if (typeof sessionStorage !== 'undefined') {
-    sessionStorage.setItem(
-      profileCacheKey(parsed.id),
-      JSON.stringify(parsed),
-    )
+    sessionStorage.setItem(profileCacheKey(parsed.id), JSON.stringify(parsed))
   }
 }
 

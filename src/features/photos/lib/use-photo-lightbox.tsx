@@ -36,7 +36,9 @@ export function usePhotoLightbox(options?: {
   const lightboxElement =
     lightbox === null ? null : (
       <PhotoLightbox
-        canDelete={options?.canDelete === true && options.creatorId !== undefined}
+        canDelete={
+          options?.canDelete === true && options.creatorId !== undefined
+        }
         canEditTags={
           options?.canEditTags === true &&
           options.creatorId !== undefined &&

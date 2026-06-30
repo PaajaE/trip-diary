@@ -87,9 +87,8 @@ describe('local journey structure offline', () => {
     const stageId = (await localDb.localJourneyStages.toArray())[0]?.id
     expect(stageId).toBeDefined()
 
-    const { deleteJourneyStage } = await import(
-      '@/entities/journey/api/local-journey-structure.repository'
-    )
+    const { deleteJourneyStage } =
+      await import('@/entities/journey/api/local-journey-structure.repository')
     await deleteJourneyStage(creatorId, journeyId, stageId!)
 
     expect(await localDb.syncOperations.toArray()).toHaveLength(0)

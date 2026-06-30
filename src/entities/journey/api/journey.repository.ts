@@ -123,39 +123,36 @@ async function fetchPublicJourneyFromRemote(
   id: string,
 ): Promise<JourneyDetail | null> {
   const client = getSupabaseClient()
-  const [
-    journeyResult,
-    stagesResult,
-    stopsResult,
-    guidesResult,
-    linksResult,
-  ] = await Promise.all([
-    client
-      .from('journeys')
-      .select('id, title, summary, status, starts_at, ends_at, space_id')
-      .eq('id', id)
-      .eq('visibility', 'public')
-      .maybeSingle(),
-    client
-      .from('journey_stages')
-      .select('id, title, summary')
-      .eq('journey_id', id)
-      .order('position'),
-    client
-      .from('journey_stops')
-      .select('id, stage_id, title, notes, status, map_latitude, map_longitude')
-      .eq('journey_id', id)
-      .order('position'),
-    client
-      .from('journey_guide_sections')
-      .select('id, title, body')
-      .eq('journey_id', id)
-      .order('position'),
-    client
-      .from('entry_journey_links')
-      .select('entry_id, stage_id, stop_id')
-      .eq('journey_id', id),
-  ])
+  const [journeyResult, stagesResult, stopsResult, guidesResult, linksResult] =
+    await Promise.all([
+      client
+        .from('journeys')
+        .select('id, title, summary, status, starts_at, ends_at, space_id')
+        .eq('id', id)
+        .eq('visibility', 'public')
+        .maybeSingle(),
+      client
+        .from('journey_stages')
+        .select('id, title, summary')
+        .eq('journey_id', id)
+        .order('position'),
+      client
+        .from('journey_stops')
+        .select(
+          'id, stage_id, title, notes, status, map_latitude, map_longitude',
+        )
+        .eq('journey_id', id)
+        .order('position'),
+      client
+        .from('journey_guide_sections')
+        .select('id, title, body')
+        .eq('journey_id', id)
+        .order('position'),
+      client
+        .from('entry_journey_links')
+        .select('entry_id, stage_id, stop_id')
+        .eq('journey_id', id),
+    ])
 
   const error =
     journeyResult.error ??

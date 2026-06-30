@@ -90,7 +90,10 @@ export function JourneyOverview({
   const summaryIsFallback = journey.summary === ''
 
   return (
-    <section className="py-8 sm:py-10" id="overview">
+    <section
+      className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
+      id="overview"
+    >
       <div>
         <p className="text-sm font-medium text-accent">
           {t('journey.overviewEyebrow')}

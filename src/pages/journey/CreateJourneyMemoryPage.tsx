@@ -77,9 +77,7 @@ export function CreateJourneyMemoryPage({
             setSharePrompt({
               entrySlug: meta.entrySlug,
               entryTitle: meta.entryTitle,
-              ...(meta.photosFailed === true
-                ? { photosFailed: true }
-                : {}),
+              ...(meta.photosFailed === true ? { photosFailed: true } : {}),
             })
           }}
           spaceId={journeyQuery.data.spaceId}

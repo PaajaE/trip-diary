@@ -102,7 +102,9 @@ async function requestAndroidPhotoPermissions() {
   }
 }
 
-async function choosePhotosFromAndroidFilePicker(): Promise<SelectedPhotoFile[]> {
+async function choosePhotosFromAndroidFilePicker(): Promise<
+  SelectedPhotoFile[]
+> {
   let files: PickedFile[]
 
   try {
@@ -146,13 +148,17 @@ async function choosePhotosFromAndroidFilePicker(): Promise<SelectedPhotoFile[]>
     const firstFailure = settled.find(
       (result): result is PromiseRejectedResult => result.status === 'rejected',
     )
-    throw firstFailure?.reason ?? new Error('Selected photo could not be loaded')
+    throw (
+      firstFailure?.reason ?? new Error('Selected photo could not be loaded')
+    )
   }
 
   return photos
 }
 
-async function choosePhotosFromCapacitorGallery(): Promise<SelectedPhotoFile[]> {
+async function choosePhotosFromCapacitorGallery(): Promise<
+  SelectedPhotoFile[]
+> {
   let results: CapacitorGalleryResult[]
 
   try {
@@ -233,7 +239,9 @@ async function pickedFileToSelectedPhoto(
   const loaded = await loadPickedFileBlob(picked)
   const mimeType =
     loaded.mimeType ??
-    (picked.mimeType === '' ? inferMimeTypeFromName(picked.name) : picked.mimeType)
+    (picked.mimeType === ''
+      ? inferMimeTypeFromName(picked.name)
+      : picked.mimeType)
   const file = new File([loaded.blob], picked.name, {
     lastModified: picked.modifiedAt ?? Date.now(),
     type: mimeType,
@@ -269,8 +277,7 @@ async function mediaResultToSelectedPhoto(
   )
   const file = new File([blob], name, {
     lastModified: parseCapturedAt(result.metadata?.creationDate) ?? Date.now(),
-    type:
-      blob.type === '' ? inferMimeType(result.metadata?.format) : blob.type,
+    type: blob.type === '' ? inferMimeType(result.metadata?.format) : blob.type,
   })
 
   const capturedAt = normalizeCapturedAt(result.metadata?.creationDate)
@@ -280,7 +287,7 @@ async function mediaResultToSelectedPhoto(
     ...(result.metadata?.exif === undefined
       ? {}
       : {
-          exif: result.metadata.exif as string | Record<string, unknown>,
+          exif: result.metadata.exif,
         }),
     ...(result.uri === undefined ? {} : { sourceUri: result.uri }),
   })
@@ -296,13 +303,15 @@ async function buildSelectedPhotoMetadata(options: {
   longitude?: number
   sourceUri?: string
 }): Promise<PhotoMetadataOverride | undefined> {
-  const gpsFromPreloaded =
-    isMeaningfulGpsCoordinate(options.latitude, options.longitude)
-      ? {
-          latitude: options.latitude as number,
-          longitude: options.longitude as number,
-        }
-      : null
+  const gpsFromPreloaded = isMeaningfulGpsCoordinate(
+    options.latitude,
+    options.longitude,
+  )
+    ? {
+        latitude: options.latitude,
+        longitude: options.longitude!,
+      }
+    : null
   const gpsFromNative =
     gpsFromPreloaded ?? (await readNativePhotoGps(options.sourceUri))
   const gpsFromExif = parseNativeExifGps(options.exif)
@@ -331,7 +340,7 @@ async function buildSelectedPhotoMetadata(options: {
   return {
     ...(capturedAt === undefined ? {} : { capturedAt }),
     ...(isMeaningfulGpsCoordinate(latitude, longitude)
-      ? { latitude: latitude as number, longitude: longitude as number }
+      ? { latitude: latitude, longitude: longitude! }
       : {}),
   }
 }
@@ -398,7 +407,9 @@ async function loadPickedFileBlob(picked: PickedFile): Promise<{
           return {
             blob,
             mimeType:
-              picked.mimeType === '' ? inferMimeTypeFromName(picked.name) : picked.mimeType,
+              picked.mimeType === ''
+                ? inferMimeTypeFromName(picked.name)
+                : picked.mimeType,
           }
         }
       }

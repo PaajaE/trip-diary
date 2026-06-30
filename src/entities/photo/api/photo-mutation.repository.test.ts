@@ -67,7 +67,9 @@ describe('photo mutations offline', () => {
     await deletePhoto(photoId, userId)
 
     expect(await localDb.photos.get(photoId)).toBeUndefined()
-    expect(await localDb.photoVariants.where('photoId').equals(photoId).count()).toBe(0)
+    expect(
+      await localDb.photoVariants.where('photoId').equals(photoId).count(),
+    ).toBe(0)
     expect(await localDb.syncOperations.toArray()).toHaveLength(0)
   })
 

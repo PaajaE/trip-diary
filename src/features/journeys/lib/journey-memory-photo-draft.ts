@@ -1,4 +1,7 @@
-import type { ProcessedPhoto, SelectedPhotoFile } from '@/entities/photo/lib/process-photo'
+import type {
+  ProcessedPhoto,
+  SelectedPhotoFile,
+} from '@/entities/photo/lib/process-photo'
 
 export interface JourneyMemoryPhotoDraft {
   detectedPhotos: ProcessedPhoto[]

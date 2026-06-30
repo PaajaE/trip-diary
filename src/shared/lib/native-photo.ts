@@ -12,7 +12,9 @@ interface MaterializedNativePhoto {
 }
 
 interface PhotoMetadataPlugin {
-  materializePhotoFromUri(options: { uri: string }): Promise<MaterializedNativePhoto>
+  materializePhotoFromUri(options: {
+    uri: string
+  }): Promise<MaterializedNativePhoto>
   readGpsFromUri(options: { uri: string }): Promise<{
     latitude?: number
     longitude?: number
@@ -80,13 +82,10 @@ export function readMaterializedPhotoMetadata(
     ...(materialized.capturedAt === undefined
       ? {}
       : { capturedAt: materialized.capturedAt }),
-    ...(isMeaningfulGpsCoordinate(
-      materialized.latitude,
-      materialized.longitude,
-    )
+    ...(isMeaningfulGpsCoordinate(materialized.latitude, materialized.longitude)
       ? {
-          latitude: materialized.latitude as number,
-          longitude: materialized.longitude as number,
+          latitude: materialized.latitude,
+          longitude: materialized.longitude!,
         }
       : {}),
   }

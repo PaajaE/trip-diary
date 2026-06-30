@@ -47,8 +47,7 @@ export function composeJourneyContent(journey: JourneyDetail) {
   const validStageIds = new Set(journey.stages.map((stage) => stage.id))
   const unassignedMoments = moments.filter(
     (moment) =>
-      moment.entry.stageId === null ||
-      !validStageIds.has(moment.entry.stageId),
+      moment.entry.stageId === null || !validStageIds.has(moment.entry.stageId),
   )
   const unassignedPlannedStops = plannedStops.filter(
     (stop) => stop.stageId === null || !validStageIds.has(stop.stageId),

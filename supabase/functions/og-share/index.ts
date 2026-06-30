@@ -171,8 +171,7 @@ async function resolveOgMeta(
     return {
       canonicalUrl,
       description:
-        space.description?.trim() ||
-        `Cestovní deník rodiny ${space.name}`,
+        space.description?.trim() || `Cestovní deník rodiny ${space.name}`,
       imageUrl: space.avatar_url,
       title: space.name,
     }
@@ -226,8 +225,7 @@ async function resolveOgMeta(
     return {
       canonicalUrl,
       description:
-        journey.summary.trim() ||
-        `Sledujte naši cestu: ${journey.title}`,
+        journey.summary.trim() || `Sledujte naši cestu: ${journey.title}`,
       imageUrl,
       title: journey.title,
     }
@@ -295,10 +293,9 @@ Deno.serve(async (request) => {
   const rawPath = url.searchParams.get('path') ?? '/'
   const pathname = rawPath.startsWith('/') ? rawPath : `/${rawPath}`
 
-  const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://cestovni-denik.cz').replace(
-    /\/$/,
-    '',
-  )
+  const siteUrl = (
+    Deno.env.get('SITE_URL') ?? 'https://cestovni-denik.cz'
+  ).replace(/\/$/, '')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 

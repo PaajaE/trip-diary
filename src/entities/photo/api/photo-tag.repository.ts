@@ -93,13 +93,14 @@ async function listJourneyPhotoTagAssignmentsRemote(
   }
 
   const tagsById = new Map(tags.map((tag) => [tag.id, tag]))
-  const { data: assignments, error: assignmentsError } = await getSupabaseClient()
-    .from('photo_tag_assignments')
-    .select('photo_id, tag_id')
-    .in(
-      'tag_id',
-      tags.map((tag) => tag.id),
-    )
+  const { data: assignments, error: assignmentsError } =
+    await getSupabaseClient()
+      .from('photo_tag_assignments')
+      .select('photo_id, tag_id')
+      .in(
+        'tag_id',
+        tags.map((tag) => tag.id),
+      )
 
   if (assignmentsError !== null) {
     throw assignmentsError

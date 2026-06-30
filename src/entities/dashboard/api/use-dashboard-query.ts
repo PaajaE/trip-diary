@@ -12,8 +12,7 @@ export function useDashboardQuery(userId: string | undefined) {
   })
 
   const dashboardQuery = useQuery({
-    enabled:
-      userId !== undefined && userId !== '' && cacheQuery.isFetched,
+    enabled: userId !== undefined && userId !== '' && cacheQuery.isFetched,
     placeholderData: () => cacheQuery.data ?? undefined,
     queryFn: () => getDashboardData({ userId: userId ?? '' }),
     queryKey: ['dashboard', userId],

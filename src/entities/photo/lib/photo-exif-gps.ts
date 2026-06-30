@@ -11,11 +11,7 @@ export function parseNativeExifGps(
     return {}
   }
 
-  const latitude = readCoordinate(parsed, [
-    'latitude',
-    'gpslatitude',
-    'gpslat',
-  ])
+  const latitude = readCoordinate(parsed, ['latitude', 'gpslatitude', 'gpslat'])
   const longitude = readCoordinate(parsed, [
     'longitude',
     'gpslongitude',

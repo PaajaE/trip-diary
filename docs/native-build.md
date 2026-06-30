@@ -117,15 +117,15 @@ Run through [native-testing.md](./native-testing.md):
 
 ## Troubleshooting
 
-| Problem | Likely cause | Fix |
-| ------- | ------------ | --- |
-| Cannot sign in | `.env.local` points to localhost | Use production `VITE_SUPABASE_*` values, then `pnpm native:sync` |
-| No GPS from photos | Using mobile browser, not native app | Install via Xcode or Android Studio |
+| Problem                       | Likely cause                                                   | Fix                                                                 |
+| ----------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| Cannot sign in                | `.env.local` points to localhost                               | Use production `VITE_SUPABASE_*` values, then `pnpm native:sync`    |
+| No GPS from photos            | Using mobile browser, not native app                           | Install via Xcode or Android Studio                                 |
 | No GPS from photos on Android | Missing media-location permission or using system photo picker | Rebuild after update; allow location + media location when prompted |
-| “Use current location” fails | Location permission missing or denied | Allow location in Android/iOS settings for Trip Diary |
-| Xcode signing error | No team selected | Signing & Capabilities → pick your Team |
-| Android install blocked | Unknown sources disabled | Allow installs from your file manager or adb |
-| Stale UI after web changes | Native project not synced | Run `pnpm native:sync` before building |
+| “Use current location” fails  | Location permission missing or denied                          | Allow location in Android/iOS settings for Trip Diary               |
+| Xcode signing error           | No team selected                                               | Signing & Capabilities → pick your Team                             |
+| Android install blocked       | Unknown sources disabled                                       | Allow installs from your file manager or adb                        |
+| Stale UI after web changes    | Native project not synced                                      | Run `pnpm native:sync` before building                              |
 
 ## Useful commands
 

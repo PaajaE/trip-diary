@@ -73,7 +73,9 @@ describe('PhotoLightbox', () => {
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: 'Zavřít prohlížeč fotek' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Zavřít prohlížeč fotek' }),
+    )
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 })

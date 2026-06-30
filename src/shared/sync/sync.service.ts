@@ -378,7 +378,9 @@ export async function syncPendingOperations(): Promise<void> {
       } else if (operation.type === 'photo.upload') {
         await localDb.photos.update(operation.photoId, { syncStatus: 'failed' })
       } else if (operation.type === 'entry.update') {
-        await localDb.entries.update(operation.entryId, { syncStatus: 'failed' })
+        await localDb.entries.update(operation.entryId, {
+          syncStatus: 'failed',
+        })
       }
       errors.push(new Error(message))
     }
@@ -504,10 +506,7 @@ async function hasUnfinishedDependency(
     }
   }
 
-  if (
-    operation.type === 'stage.update' ||
-    operation.type === 'stage.delete'
-  ) {
+  if (operation.type === 'stage.update' || operation.type === 'stage.delete') {
     if (
       await hasIncompleteCreateOperation(
         (candidate) =>
@@ -519,10 +518,7 @@ async function hasUnfinishedDependency(
     }
   }
 
-  if (
-    operation.type === 'stop.update' ||
-    operation.type === 'stop.delete'
-  ) {
+  if (operation.type === 'stop.update' || operation.type === 'stop.delete') {
     if (
       await hasIncompleteCreateOperation(
         (candidate) =>
@@ -534,10 +530,7 @@ async function hasUnfinishedDependency(
     }
   }
 
-  if (
-    operation.type === 'guide.update' ||
-    operation.type === 'guide.delete'
-  ) {
+  if (operation.type === 'guide.update' || operation.type === 'guide.delete') {
     if (
       await hasIncompleteCreateOperation(
         (candidate) =>
@@ -598,10 +591,19 @@ type JourneyAssignmentOperation = Extract<
   { type: 'journey.assignment.upsert' }
 >
 type PhotoUploadOperation = Extract<SyncOperation, { type: 'photo.upload' }>
-type PhotoGpsUpdateOperation = Extract<SyncOperation, { type: 'photo.gps.update' }>
+type PhotoGpsUpdateOperation = Extract<
+  SyncOperation,
+  { type: 'photo.gps.update' }
+>
 type PhotoDeleteOperation = Extract<SyncOperation, { type: 'photo.delete' }>
-type PhotoTagAssignOperation = Extract<SyncOperation, { type: 'photo.tag.assign' }>
-type PhotoTagRemoveOperation = Extract<SyncOperation, { type: 'photo.tag.remove' }>
+type PhotoTagAssignOperation = Extract<
+  SyncOperation,
+  { type: 'photo.tag.assign' }
+>
+type PhotoTagRemoveOperation = Extract<
+  SyncOperation,
+  { type: 'photo.tag.remove' }
+>
 
 async function syncEntryCreate(
   operation: EntryCreateOperation,
@@ -668,9 +670,7 @@ async function syncEntryCreate(
   )
 }
 
-async function syncEntryUpdate(
-  operation: EntryUpdateOperation,
-): Promise<void> {
+async function syncEntryUpdate(operation: EntryUpdateOperation): Promise<void> {
   const entry = await getLocalEntry(operation.entryId)
   if (entry === null) {
     await localDb.syncOperations.delete(operation.id)
@@ -716,9 +716,7 @@ async function syncEntryUpdate(
   )
 }
 
-async function syncEntryDelete(
-  operation: EntryDeleteOperation,
-): Promise<void> {
+async function syncEntryDelete(operation: EntryDeleteOperation): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('entries')
     .delete()
@@ -882,26 +880,28 @@ async function syncStopCreate(operation: StopCreateOperation): Promise<void> {
   }
 
   await localDb.localJourneyStops.update(stop.id, { syncStatus: 'syncing' })
-  const { error } = await getSupabaseClient().from('journey_stops').insert({
-    creator_id: stop.creatorId,
-    id: stop.id,
-    journey_id: stop.journeyId,
-    latitude: stop.mapLatitude,
-    longitude: stop.mapLongitude,
-    map_latitude:
-      stop.mapLatitude === null
-        ? null
-        : Math.round(stop.mapLatitude * 100) / 100,
-    map_longitude:
-      stop.mapLongitude === null
-        ? null
-        : Math.round(stop.mapLongitude * 100) / 100,
-    notes: stop.notes,
-    position: stop.position,
-    stage_id: stop.stageId,
-    status: stop.status,
-    title: stop.title,
-  })
+  const { error } = await getSupabaseClient()
+    .from('journey_stops')
+    .insert({
+      creator_id: stop.creatorId,
+      id: stop.id,
+      journey_id: stop.journeyId,
+      latitude: stop.mapLatitude,
+      longitude: stop.mapLongitude,
+      map_latitude:
+        stop.mapLatitude === null
+          ? null
+          : Math.round(stop.mapLatitude * 100) / 100,
+      map_longitude:
+        stop.mapLongitude === null
+          ? null
+          : Math.round(stop.mapLongitude * 100) / 100,
+      notes: stop.notes,
+      position: stop.position,
+      stage_id: stop.stageId,
+      status: stop.status,
+      title: stop.title,
+    })
 
   if (error !== null && !isDuplicateInsertError(error)) {
     throw error
@@ -918,9 +918,7 @@ async function syncStopCreate(operation: StopCreateOperation): Promise<void> {
   )
 }
 
-async function syncGuideCreate(
-  operation: GuideCreateOperation,
-): Promise<void> {
+async function syncGuideCreate(operation: GuideCreateOperation): Promise<void> {
   const guide = await localDb.localJourneyGuides.get(operation.guideId)
   if (guide === undefined) {
     await localDb.syncOperations.delete(operation.id)
@@ -954,9 +952,7 @@ async function syncGuideCreate(
   )
 }
 
-async function syncStageUpdate(
-  operation: StageUpdateOperation,
-): Promise<void> {
+async function syncStageUpdate(operation: StageUpdateOperation): Promise<void> {
   const snapshot = await getJourneySnapshot(operation.journeyId)
   const stage = snapshot?.journey.stages.find(
     (item) => item.id === operation.stageId,
@@ -978,9 +974,7 @@ async function syncStageUpdate(
   await localDb.syncOperations.delete(operation.id)
 }
 
-async function syncStageDelete(
-  operation: StageDeleteOperation,
-): Promise<void> {
+async function syncStageDelete(operation: StageDeleteOperation): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('journey_stages')
     .delete()
@@ -1022,9 +1016,7 @@ async function syncStopDelete(operation: StopDeleteOperation): Promise<void> {
   )
 }
 
-async function syncGuideUpdate(
-  operation: GuideUpdateOperation,
-): Promise<void> {
+async function syncGuideUpdate(operation: GuideUpdateOperation): Promise<void> {
   const snapshot = await getJourneySnapshot(operation.journeyId)
   const guide = snapshot?.journey.guides.find(
     (item) => item.id === operation.guideId,
@@ -1046,9 +1038,7 @@ async function syncGuideUpdate(
   await localDb.syncOperations.delete(operation.id)
 }
 
-async function syncGuideDelete(
-  operation: GuideDeleteOperation,
-): Promise<void> {
+async function syncGuideDelete(operation: GuideDeleteOperation): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('journey_guide_sections')
     .delete()
@@ -1327,7 +1317,12 @@ async function declareAndUploadVariant(
   const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.${variant.ext}`
   const client = getSupabaseClient()
   await declarePhotoVariant(client, variant, creatorId, storagePath)
-  await uploadPhotoVariantBlob(client, storagePath, variant.blob, variant.mimeType)
+  await uploadPhotoVariantBlob(
+    client,
+    storagePath,
+    variant.blob,
+    variant.mimeType,
+  )
 }
 
 async function uploadPhotoVariantBlob(
@@ -1348,10 +1343,7 @@ async function uploadPhotoVariantBlob(
   }
 
   const message = uploadError.message.toLowerCase()
-  if (
-    !message.includes('duplicate') &&
-    !message.includes('already exists')
-  ) {
+  if (!message.includes('duplicate') && !message.includes('already exists')) {
     throw uploadError
   }
 

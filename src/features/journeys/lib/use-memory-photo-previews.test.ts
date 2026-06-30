@@ -38,7 +38,8 @@ describe('useMemoryPhotoPreviews', () => {
     const file = new File(['original'], 'photo.jpg', { type: 'image/jpeg' })
 
     const { result, rerender } = renderHook(
-      ({ detectedPhotos }) => useMemoryPhotoPreviews([{ file }], detectedPhotos),
+      ({ detectedPhotos }) =>
+        useMemoryPhotoPreviews([{ file }], detectedPhotos),
       {
         initialProps: {
           detectedPhotos: [] as ProcessedPhoto[],

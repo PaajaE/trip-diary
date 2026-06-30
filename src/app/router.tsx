@@ -99,12 +99,10 @@ const createEntryRoute = createRoute({
 const entryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/e/$entryId',
-  validateSearch: z
-    .object({
-      notice: z.enum(['photos_failed']).optional(),
-      returnTo: z.string().optional(),
-    })
-    .parse,
+  validateSearch: z.object({
+    notice: z.enum(['photos_failed']).optional(),
+    returnTo: z.string().optional(),
+  }).parse,
   component: LazyEntryRoutePage,
 })
 
@@ -118,12 +116,12 @@ const createJourneyRoute = createRoute({
 const journeyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId',
-  validateSearch: z
-    .object({
-      notice: z.enum(['photos_failed']).optional(),
-      section: z.enum(['overview', 'story', 'map', 'gallery', 'guides']).optional(),
-    })
-    .parse,
+  validateSearch: z.object({
+    notice: z.enum(['photos_failed']).optional(),
+    section: z
+      .enum(['overview', 'story', 'map', 'gallery', 'guides'])
+      .optional(),
+  }).parse,
   component: LazyJourneyRoutePage,
 })
 

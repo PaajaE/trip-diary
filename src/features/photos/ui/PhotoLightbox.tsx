@@ -6,10 +6,7 @@ import { getPhotoDetailPreview } from '@/entities/photo/api/photo-gallery.reposi
 import { PhotoTagEditor } from '@/features/photos/ui/PhotoTagEditor'
 import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
-import {
-  createPreviewUrl,
-  revokePreviewUrl,
-} from '@/shared/lib/preview-url'
+import { createPreviewUrl, revokePreviewUrl } from '@/shared/lib/preview-url'
 import { Button } from '@/shared/ui/Button'
 
 export interface PhotoLightboxItem {
@@ -233,18 +230,20 @@ export function PhotoLightbox({
       </div>
 
       <div className="flex w-full max-w-2xl flex-col items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white">
-        <p className="max-w-xl truncate text-sm text-white/80">{activePhoto.alt}</p>
+        <p className="max-w-xl truncate text-sm text-white/80">
+          {activePhoto.alt}
+        </p>
         {activeTags.length > 0 ? (
           <PhotoTagList className="justify-center" tags={activeTags} />
         ) : null}
-        {canEditTags &&
-        creatorId !== undefined &&
-        journeyId !== undefined ? (
+        {canEditTags && creatorId !== undefined && journeyId !== undefined ? (
           <PhotoTagEditor
             assignedTags={activeTags}
             creatorId={creatorId}
             journeyId={journeyId}
-            {...(onTagsChanged !== undefined ? { onChanged: onTagsChanged } : {})}
+            {...(onTagsChanged !== undefined
+              ? { onChanged: onTagsChanged }
+              : {})}
             photoId={activePhoto.id}
           />
         ) : null}

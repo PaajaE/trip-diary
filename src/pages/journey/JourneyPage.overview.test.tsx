@@ -19,13 +19,9 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    to,
-  }: {
-    children: React.ReactNode
-    to: string
-  }) => <a href={to}>{children}</a>,
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
   useNavigate: () => navigateMock,
 }))
 vi.mock('@/entities/journey/api/use-journey-query', () => ({

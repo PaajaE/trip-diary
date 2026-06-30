@@ -163,7 +163,9 @@ export async function applyLocalJourneyDeltas(
     ...journey.stops
       .filter((stop) => !deletedStopIds.has(stop.id))
       .map((stop) => {
-        const localStop = localStops.find((candidate) => candidate.id === stop.id)
+        const localStop = localStops.find(
+          (candidate) => candidate.id === stop.id,
+        )
         if (localStop === undefined) {
           return stop
         }
@@ -195,7 +197,9 @@ export async function applyLocalJourneyDeltas(
     ...newGuides,
   ]
 
-  const withEntries = [...mergedEntries, ...newEntries].sort(sortEntriesByEventAt)
+  const withEntries = [...mergedEntries, ...newEntries].sort(
+    sortEntriesByEventAt,
+  )
 
   if (
     localEntries.length === 0 &&

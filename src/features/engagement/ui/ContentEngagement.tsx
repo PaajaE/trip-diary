@@ -45,7 +45,9 @@ export function ContentEngagement({
   })
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: ['engagement', target.type, target.id] })
+    void queryClient.invalidateQueries({
+      queryKey: ['engagement', target.type, target.id],
+    })
   }
 
   const heartMutation = useMutation({
@@ -171,13 +173,15 @@ export function ContentEngagement({
             )}
             disabled={heartMutation.isPending}
             onClick={() => {
-              void heartMutation.mutate()
+              heartMutation.mutate()
             }}
             type="button"
           >
             <Heart
               aria-hidden="true"
-              className={engagement.viewerHasHearted ? 'fill-current' : undefined}
+              className={
+                engagement.viewerHasHearted ? 'fill-current' : undefined
+              }
               size={16}
             />
             {t('engagement.heartCount', { count: engagement.heartCount })}
@@ -186,7 +190,9 @@ export function ContentEngagement({
         {!compact ? (
           <span className="inline-flex items-center gap-2 text-sm text-muted">
             <MessageCircle aria-hidden="true" size={16} />
-            {t('engagement.commentCount', { count: engagement.comments.length })}
+            {t('engagement.commentCount', {
+              count: engagement.comments.length,
+            })}
           </span>
         ) : null}
       </div>
@@ -212,7 +218,7 @@ export function ContentEngagement({
                 if (draft.trim() === '') {
                   return
                 }
-                void commentMutation.mutate(draft)
+                commentMutation.mutate(draft)
               }}
             >
               <label className="block text-sm font-medium">
@@ -226,7 +232,10 @@ export function ContentEngagement({
                   value={draft}
                 />
               </label>
-              <Button disabled={commentMutation.isPending || draft.trim() === ''} type="submit">
+              <Button
+                disabled={commentMutation.isPending || draft.trim() === ''}
+                type="submit"
+              >
                 {t('engagement.postComment')}
               </Button>
             </form>
@@ -267,7 +276,7 @@ export function ContentEngagement({
                       className="mt-3 space-y-3"
                       onSubmit={(event) => {
                         event.preventDefault()
-                        void updateMutation.mutate({
+                        updateMutation.mutate({
                           body: editingBody,
                           commentId: comment.id,
                         })
@@ -318,10 +327,12 @@ export function ContentEngagement({
                           <button
                             className="text-destructive hover:underline"
                             onClick={() => {
-                              if (!window.confirm(t('engagement.deleteConfirm'))) {
+                              if (
+                                !window.confirm(t('engagement.deleteConfirm'))
+                              ) {
                                 return
                               }
-                              void deleteMutation.mutate(comment.id)
+                              deleteMutation.mutate(comment.id)
                             }}
                             type="button"
                           >
@@ -333,7 +344,7 @@ export function ContentEngagement({
                         <button
                           className="text-muted hover:underline"
                           onClick={() => {
-                            void hideMutation.mutate(comment.id)
+                            hideMutation.mutate(comment.id)
                           }}
                           type="button"
                         >

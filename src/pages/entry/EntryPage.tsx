@@ -92,7 +92,9 @@ export function EntryPage({
             onUpdated={(updated) => {
               setEditing(false)
               entryQuery.refetch()
-              void queryClient.invalidateQueries({ queryKey: ['entries', updated.id] })
+              void queryClient.invalidateQueries({
+                queryKey: ['entries', updated.id],
+              })
             }}
           />
         </article>

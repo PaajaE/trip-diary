@@ -23,8 +23,8 @@ describe('local-photo-tag.repository', () => {
     expect(assignments[0]?.slug).toBe('wildlife')
 
     const operations = await localDb.syncOperations.toArray()
-    expect(operations.some((operation) => operation.type === 'photo.tag.assign')).toBe(
-      true,
-    )
+    expect(
+      operations.some((operation) => operation.type === 'photo.tag.assign'),
+    ).toBe(true)
   })
 })

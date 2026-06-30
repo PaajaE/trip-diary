@@ -27,17 +27,16 @@ export async function addLocalPhotos(
     const preprocessed = processedPhotos?.[index]
     let processed: ProcessedPhoto
 
-    if (
-      preprocessed !== undefined &&
-      preprocessed.variants.length > 0
-    ) {
+    if (preprocessed !== undefined && preprocessed.variants.length > 0) {
       processed = preprocessed
     } else {
       processed = await processPhoto(file)
     }
 
     if (processed.variants.length === 0) {
-      throw new Error(`Photo variants could not be created (${selectedFile.name})`)
+      throw new Error(
+        `Photo variants could not be created (${selectedFile.name})`,
+      )
     }
     const photoId = crypto.randomUUID()
     const now = new Date().toISOString()

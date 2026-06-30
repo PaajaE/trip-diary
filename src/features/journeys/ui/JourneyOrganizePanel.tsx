@@ -10,7 +10,10 @@ import {
   deleteJourney,
   updateJourney,
 } from '@/entities/journey/api/journey-mutation.repository'
-import type { JourneyDetail, JourneyStage } from '@/entities/journey/model/journey'
+import type {
+  JourneyDetail,
+  JourneyStage,
+} from '@/entities/journey/model/journey'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
 import { cn } from '@/shared/lib/cn'
@@ -57,7 +60,13 @@ export function JourneyOrganizePanel({
   }
 
   const content = (
-    <div className={embedded ? 'space-y-5' : 'space-y-5 border-t border-border px-5 py-5 sm:px-6'}>
+    <div
+      className={
+        embedded
+          ? 'space-y-5'
+          : 'space-y-5 border-t border-border px-5 py-5 sm:px-6'
+      }
+    >
       {failed ? (
         <p className="text-sm text-destructive" role="alert">
           {t('journey.addError')}
@@ -138,11 +147,7 @@ export function JourneyOrganizePanel({
         className="rounded-[1.25rem] border border-border bg-background/70 p-5"
         onSubmit={(event) => {
           void submit(event, async (form) => {
-            await addJourneyStage(
-              creatorId,
-              journey.id,
-              getText(form, 'title'),
-            )
+            await addJourneyStage(creatorId, journey.id, getText(form, 'title'))
           })
         }}
       >

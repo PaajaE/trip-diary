@@ -1,5 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getEntryPhotoPreviews, getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import {
+  getEntryPhotoPreviews,
+  getJourneyEntryPhotoPreviews,
+} from '@/entities/photo/api/photo-gallery.repository'
 import type {
   LocalPhoto,
   LocalPhotoVariant,

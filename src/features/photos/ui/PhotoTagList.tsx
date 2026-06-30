@@ -7,7 +7,11 @@ interface PhotoTagListProps {
   tags: PhotoTagAssignment[]
 }
 
-export function PhotoTagList({ className, onTagClick, tags }: PhotoTagListProps) {
+export function PhotoTagList({
+  className,
+  onTagClick,
+  tags,
+}: PhotoTagListProps) {
   if (tags.length === 0) {
     return null
   }

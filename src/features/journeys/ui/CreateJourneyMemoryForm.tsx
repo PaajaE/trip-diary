@@ -550,7 +550,9 @@ export function CreateJourneyMemoryForm({
         </p>
       )}
       {form.formState.errors.eventAt?.message === undefined ? null : (
-        <p className="text-sm text-destructive">{form.formState.errors.eventAt.message}</p>
+        <p className="text-sm text-destructive">
+          {form.formState.errors.eventAt.message}
+        </p>
       )}
       <Button
         className="w-full"

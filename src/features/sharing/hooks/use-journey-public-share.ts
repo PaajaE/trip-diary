@@ -18,10 +18,7 @@ export function useJourneyPublicShare(journeyId: string, title: string) {
   const tripShare =
     paths === null || paths === undefined
       ? null
-      : buildPublicTripShare(
-          paths,
-          t('reader.shareTripMessage', { title }),
-        )
+      : buildPublicTripShare(paths, t('reader.shareTripMessage', { title }))
 
   return {
     isError: pathsQuery.isError,
@@ -38,9 +35,5 @@ export function momentShareFromPaths(
   title: string,
   formatMomentMessage: (title: string) => string,
 ) {
-  return buildPublicMomentShare(
-    paths,
-    entrySlug,
-    formatMomentMessage(title),
-  )
+  return buildPublicMomentShare(paths, entrySlug, formatMomentMessage(title))
 }

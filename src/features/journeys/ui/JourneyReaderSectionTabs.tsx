@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
+import { JOURNEY_SECTION_NAV_ID } from '@/features/journeys/lib/scroll-to-journey-section-nav'
 
 export type JourneyReaderSection =
   | 'overview'
@@ -55,6 +56,7 @@ export function JourneyReaderSectionTabs({
     <nav
       aria-label={t('journey.explore')}
       className="sticky top-[calc(4rem-0.25rem)] z-10 mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-surface/95 p-1.5 shadow-soft backdrop-blur snap-x snap-mandatory sm:top-3 sm:snap-none"
+      id={JOURNEY_SECTION_NAV_ID}
     >
       {visibleTabs.map(({ icon: Icon, labelKey, section }) => {
         const active = activeSection === section

@@ -15,9 +15,7 @@ export interface DeletedRecord {
   kind: DeletedRecordKind
 }
 
-export async function markDeletedRecord(
-  record: DeletedRecord,
-): Promise<void> {
+export async function markDeletedRecord(record: DeletedRecord): Promise<void> {
   await localDb.deletedRecords.put(record)
 }
 

@@ -12,7 +12,11 @@ const variants = LOCAL_PHOTO_VARIANT_SIZES
 async function encodeVariant(
   canvas: OffscreenCanvas,
   quality: number,
-): Promise<{ blob: Blob; ext: 'jpg' | 'webp'; mimeType: 'image/jpeg' | 'image/webp' }> {
+): Promise<{
+  blob: Blob
+  ext: 'jpg' | 'webp'
+  mimeType: 'image/jpeg' | 'image/webp'
+}> {
   try {
     const blob = await canvas.convertToBlob({ quality, type: 'image/webp' })
     return { blob, ext: 'webp', mimeType: 'image/webp' }

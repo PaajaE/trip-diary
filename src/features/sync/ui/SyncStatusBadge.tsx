@@ -1,9 +1,4 @@
-import {
-  AlertCircle,
-  CloudOff,
-  LoaderCircle,
-  Wifi,
-} from 'lucide-react'
+import { AlertCircle, CloudOff, LoaderCircle, Wifi } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { cn } from '@/shared/lib/cn'

@@ -17,7 +17,7 @@ export async function deletePhoto(
   }
 
   const photo = await localDb.photos.get(photoId)
-  if (photo === undefined || photo.creatorId !== creatorId) {
+  if (photo?.creatorId !== creatorId) {
     throw new Error('Photo is unavailable')
   }
 

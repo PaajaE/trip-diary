@@ -6,7 +6,11 @@ interface DocumentMeta {
   title: string
 }
 
-function setMetaTag(attribute: 'name' | 'property', key: string, content: string) {
+function setMetaTag(
+  attribute: 'name' | 'property',
+  key: string,
+  content: string,
+) {
   const selector = `meta[${attribute}="${key}"]`
   let element = document.head.querySelector(selector)
   if (element === null) {

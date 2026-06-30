@@ -11,6 +11,7 @@ import {
   filterPhotoLocationsByTag,
   groupTagsByPhotoId,
 } from '@/features/journeys/lib/journey-tag-collections'
+import { scrollToJourneySectionNav } from '@/features/journeys/lib/scroll-to-journey-section-nav'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
@@ -147,7 +148,7 @@ export function JourneyReaderPage({
   }, [journeyId, section])
 
   useEffect(() => {
-    window.scrollTo({ behavior: 'instant', top: 0 })
+    scrollToJourneySectionNav()
   }, [activeSection, selectedCollectionTag])
 
   useEffect(() => {
@@ -234,10 +235,6 @@ export function JourneyReaderPage({
                 shareUrl={shareUrl}
                 title={journey.title}
               />
-              <ContentEngagement
-                className="mt-8 border-t border-border/70 pt-8"
-                target={{ id: journeyId, type: 'journey' }}
-              />
             </div>
           </header>
 
@@ -245,6 +242,11 @@ export function JourneyReaderPage({
             activeSection={activeSection}
             onSelect={selectSection}
             showCollections={hasCollections || tagAssignmentsQuery.isPending}
+          />
+
+          <ContentEngagement
+            className="mt-6 rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
+            target={{ id: journeyId, type: 'journey' }}
           />
 
           {activeSection === 'overview' && content !== null ? (
@@ -259,7 +261,7 @@ export function JourneyReaderPage({
               }}
               onAddPlace={() => {}}
               onNavigateSection={(next) => {
-                selectSection(next as JourneyReaderSection)
+                selectSection(next)
               }}
               onOpenEntry={openMoment}
             />

@@ -131,7 +131,9 @@ function processVariants(file: File): Promise<ProcessedVariant[]> {
   }
 
   try {
-    return processVariantsInWorker(file).catch(() => processVariantsOnPage(file))
+    return processVariantsInWorker(file).catch(() =>
+      processVariantsOnPage(file),
+    )
   } catch {
     return processVariantsOnPage(file)
   }
@@ -199,7 +201,11 @@ async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
 async function canvasToEncodedBlob(
   canvas: HTMLCanvasElement,
   quality: number,
-): Promise<{ blob: Blob; ext: 'jpg' | 'webp'; mimeType: 'image/jpeg' | 'image/webp' }> {
+): Promise<{
+  blob: Blob
+  ext: 'jpg' | 'webp'
+  mimeType: 'image/jpeg' | 'image/webp'
+}> {
   // iOS/WKWebView commonly can't encode WebP via canvas. Prefer WebP, but
   // fall back to JPEG so saving moments on mobile doesn't fail.
   const webp = await canvasToBlob(canvas, 'image/webp', quality).catch(

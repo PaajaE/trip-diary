@@ -83,7 +83,10 @@ export function EditEntryForm({
         </select>
       </label>
       <div className="flex flex-col gap-3 sm:flex-row">
-        <Button className="w-full sm:w-auto" disabled={form.formState.isSubmitting}>
+        <Button
+          className="w-full sm:w-auto"
+          disabled={form.formState.isSubmitting}
+        >
           {t('entry.saveChanges')}
         </Button>
         <Button

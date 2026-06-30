@@ -72,8 +72,8 @@ async function listLocalPhotoLocations(
         entryId: photo.entryId,
         entryTitle: titlesByEntryId.get(photo.entryId) ?? null,
         id: photo.id,
-        latitude: photo.latitude as number,
-        longitude: photo.longitude as number,
+        latitude: photo.latitude,
+        longitude: photo.longitude!,
       },
     ]
   })
@@ -124,8 +124,8 @@ async function listRemotePhotoLocations(
         entryId,
         entryTitle: titlesByEntryId.get(entryId) ?? null,
         id: photo.id,
-        latitude: photo.latitude as number,
-        longitude: photo.longitude as number,
+        latitude: photo.latitude,
+        longitude: photo.longitude!,
       },
     ]
   })

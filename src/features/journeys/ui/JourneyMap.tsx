@@ -136,16 +136,10 @@ export function JourneyMap({
       return
     }
 
-    const source = map.getSource('journey-points') as
-      | maplibregl.GeoJSONSource
-      | undefined
+    const source = map.getSource('journey-points')
     source?.setData(geoJson)
 
-    if (
-      focusPointId === null &&
-      !hasAutoFitRef.current &&
-      points.length > 0
-    ) {
+    if (focusPointId === null && !hasAutoFitRef.current && points.length > 0) {
       fitMapToPoints(map, points)
       hasAutoFitRef.current = true
     }
@@ -281,7 +275,11 @@ function ensureJourneyMapLayers(
   })
 
   function showPointsAtClick(event: maplibregl.MapMouseEvent) {
-    const clickedPoints = getPointsAtClick(map, event, interactionRef.current.points)
+    const clickedPoints = getPointsAtClick(
+      map,
+      event,
+      interactionRef.current.points,
+    )
     if (clickedPoints.length === 0) {
       return
     }
@@ -323,7 +321,7 @@ function ensureJourneyMapLayers(
   map.on('click', ['journey-clusters', 'journey-cluster-count'], (event) => {
     const feature = event.features?.[0]
     const clusterId = feature?.properties?.cluster_id
-    const mapSource = map.getSource('journey-points') as maplibregl.GeoJSONSource
+    const mapSource = map.getSource('journey-points')!
     if (clusterId === undefined) {
       return
     }
@@ -357,7 +355,8 @@ function ensureJourneyMapLayers(
       }
 
       void mapSource.getClusterExpansionZoom(clusterId).then((zoom) => {
-        const coordinates = (feature?.geometry as Point | undefined)?.coordinates
+        const coordinates = (feature?.geometry as Point | undefined)
+          ?.coordinates
         const longitude = coordinates?.[0]
         const latitude = coordinates?.[1]
         if (longitude === undefined || latitude === undefined) {
@@ -527,14 +526,16 @@ function showCollocatedPointsPopup(
   photoThumbUrls: Record<string, string>,
   onOpenEntry: ((entryId: string) => void) | undefined,
   setActivePopup: (popup: maplibregl.Popup) => void,
-  onFocusPointChange?: ((pointId: string | null) => void) | undefined,
+  onFocusPointChange?: (pointId: string | null) => void,
 ) {
   const content = document.createElement('div')
   content.className = 'journey-map-popup journey-map-popup--stack'
 
   const heading = document.createElement('p')
   heading.className = 'journey-map-popup__title'
-  heading.textContent = t('journey.mapCollocatedTitle', { count: points.length })
+  heading.textContent = t('journey.mapCollocatedTitle', {
+    count: points.length,
+  })
   content.append(heading)
 
   const list = document.createElement('div')

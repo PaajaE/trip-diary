@@ -96,6 +96,8 @@ describe('PublicSpacePage', () => {
     expect(
       screen.getByRole('button', { name: 'Sdílet na WhatsApp' }),
     ).toBeVisible()
-    expect(screen.getByRole('button', { name: 'Kopírovat odkaz' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Kopírovat odkaz' }),
+    ).toBeVisible()
   })
 })

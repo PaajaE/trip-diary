@@ -148,10 +148,7 @@ async function getLocalPhotoPreviewsBatch(
     return new Map()
   }
 
-  const photos = await localDb.photos
-    .where('entryId')
-    .anyOf(entryIds)
-    .toArray()
+  const photos = await localDb.photos.where('entryId').anyOf(entryIds).toArray()
   if (photos.length === 0) {
     return new Map()
   }
@@ -169,12 +166,18 @@ async function getLocalPhotoPreviewsBatch(
 
   const result = new Map<string, PositionedPhotoPreview[]>()
   for (const photo of photos) {
-    const variant = pickLocalDisplayVariant(variantsByPhotoId.get(photo.id) ?? [])
+    const variant = pickLocalDisplayVariant(
+      variantsByPhotoId.get(photo.id) ?? [],
+    )
     if (variant === undefined) {
       continue
     }
     const previews = result.get(photo.entryId) ?? []
-    previews.push({ blob: variant.blob, id: photo.id, position: photo.position })
+    previews.push({
+      blob: variant.blob,
+      id: photo.id,
+      position: photo.position,
+    })
     result.set(photo.entryId, previews)
   }
 
@@ -428,7 +431,10 @@ export async function getJourneyEntryPhotoPreviews(
     }
   }
 
-  if (uniqueEntryIds.length > 0 && failedEntryIds.size === uniqueEntryIds.length) {
+  if (
+    uniqueEntryIds.length > 0 &&
+    failedEntryIds.size === uniqueEntryIds.length
+  ) {
     throw new AggregateError(
       [
         localFailed ? localResult.reason : null,

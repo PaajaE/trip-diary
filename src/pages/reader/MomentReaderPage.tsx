@@ -62,7 +62,9 @@ export function MomentReaderPage({
   const allTags = tagsQuery.data ?? []
 
   const sharePath =
-    publicPaths !== undefined && entry?.slug !== null && entry?.slug !== undefined
+    publicPaths !== undefined &&
+    entry?.slug !== null &&
+    entry?.slug !== undefined
       ? buildPublicMomentPath(publicPaths, entry.slug)
       : typeof window !== 'undefined'
         ? window.location.pathname

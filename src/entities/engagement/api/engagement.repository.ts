@@ -48,7 +48,7 @@ export async function getEngagementSummary(
               if (error !== null) {
                 throw error
               }
-              return data === true
+              return data
             }),
     ])
 
@@ -69,11 +69,7 @@ export async function getEngagementSummary(
     if (row.hidden_at !== null && viewerId === null) {
       return []
     }
-    if (
-      row.hidden_at !== null &&
-      row.user_id !== viewerId &&
-      !canModerate
-    ) {
+    if (row.hidden_at !== null && row.user_id !== viewerId && !canModerate) {
       return []
     }
 
@@ -100,7 +96,9 @@ export async function getEngagementSummary(
   })
 }
 
-export async function toggleContentHeart(target: ContentTarget): Promise<boolean> {
+export async function toggleContentHeart(
+  target: ContentTarget,
+): Promise<boolean> {
   const client = getSupabaseClient()
   const {
     data: { user },

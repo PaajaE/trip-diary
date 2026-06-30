@@ -54,7 +54,6 @@ export function useJourneyContributionQuery(journeyId: string) {
   return {
     ...contributionQuery,
     data: contributionQuery.data ?? cacheQuery.data,
-    isLoading:
-      contributionQuery.isLoading && cacheQuery.data === undefined,
+    isLoading: contributionQuery.isLoading && cacheQuery.data === undefined,
   }
 }

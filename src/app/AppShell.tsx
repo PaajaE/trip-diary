@@ -11,7 +11,9 @@ export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { loading, profile, signOut, user } = useSession()
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const minimalPublicShell = isPublicSharePath(pathname)
   const identity =
     profile?.displayName ?? profile?.username ?? user?.email ?? t('brand')

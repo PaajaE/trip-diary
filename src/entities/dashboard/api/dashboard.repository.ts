@@ -107,7 +107,8 @@ async function listOfflineJourneyCards(
     .filter((journey) => !deletedJourneyIds.has(journey.id))
     .sort(
       (left, right) =>
-        new Date(right.updatedAt).valueOf() - new Date(left.updatedAt).valueOf(),
+        new Date(right.updatedAt).valueOf() -
+        new Date(left.updatedAt).valueOf(),
     )
     .slice(0, journeyLimit)
 }
@@ -170,7 +171,8 @@ async function listOfflineEntries(
     .filter((entry) => !deletedEntryIds.has(entry.id))
     .sort(
       (left, right) =>
-        new Date(right.updatedAt).valueOf() - new Date(left.updatedAt).valueOf(),
+        new Date(right.updatedAt).valueOf() -
+        new Date(left.updatedAt).valueOf(),
     )
     .slice(0, entryLimit)
 }

@@ -44,17 +44,16 @@ function isMeaningfulGps(latitude, longitude) {
 }
 
 async function extractGpsFromStoragePath(storagePath) {
-  const { data, error } = await client.storage.from('photos').download(storagePath)
+  const { data, error } = await client.storage
+    .from('photos')
+    .download(storagePath)
   if (error !== null) {
     throw error
   }
 
   const buffer = await data.arrayBuffer()
   const gps = await exifr.gps(buffer).catch(() => undefined)
-  if (
-    gps === undefined ||
-    !isMeaningfulGps(gps.latitude, gps.longitude)
-  ) {
+  if (gps === undefined || !isMeaningfulGps(gps.latitude, gps.longitude)) {
     return null
   }
 
@@ -86,7 +85,10 @@ async function main() {
       .in('variant', ['large', 'preview'])
 
     if (variantError !== null) {
-      console.error(`Variant lookup failed for ${photo.id}:`, variantError.message)
+      console.error(
+        `Variant lookup failed for ${photo.id}:`,
+        variantError.message,
+      )
       skipped += 1
       continue
     }

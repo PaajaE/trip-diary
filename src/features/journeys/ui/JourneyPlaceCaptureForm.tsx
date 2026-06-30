@@ -35,10 +35,7 @@ export function JourneyPlaceCaptureForm({
   const [suggestingTitle, setSuggestingTitle] = useState(false)
   const [suggestedTitle, setSuggestedTitle] = useState<string | null>(null)
 
-  function handlePointSelected(point: {
-    latitude: number
-    longitude: number
-  }) {
+  function handlePointSelected(point: { latitude: number; longitude: number }) {
     setSelectedPoint(point)
     if (title.trim() !== '' && title.trim() !== (suggestedTitle ?? '')) {
       setSuggestingTitle(false)

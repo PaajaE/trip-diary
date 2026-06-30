@@ -42,4 +42,6 @@ export const localPhotoTagAssignmentSchema = z.object({
   tagId: z.uuid(),
 })
 
-export type LocalPhotoTagAssignment = z.infer<typeof localPhotoTagAssignmentSchema>
+export type LocalPhotoTagAssignment = z.infer<
+  typeof localPhotoTagAssignmentSchema
+>
