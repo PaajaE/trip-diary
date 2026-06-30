@@ -50,6 +50,11 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     .fill('Uloženo offline a čeká na synchronizaci.')
   await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
 
-  await expect(page.getByRole('heading', { name: momentTitle })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: 'Sdílet s rodinou' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Pokračovat na cestu' }).click()
+
+  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect(page.getByText('Čeká na synchronizaci')).toBeVisible()
 })
