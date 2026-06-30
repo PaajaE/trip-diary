@@ -52,9 +52,7 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
 
   const sharePrompt = page.getByRole('dialog', { name: 'Sdílet s rodinou' })
   await expect(sharePrompt).toBeVisible()
-  await sharePrompt
-    .getByRole('button', { name: 'Pokračovat na cestu' })
-    .click()
+  await sharePrompt.getByRole('button', { name: 'Pokračovat na cestu' }).click()
 
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect(page.getByText('Čeká na synchronizaci')).toBeVisible()
