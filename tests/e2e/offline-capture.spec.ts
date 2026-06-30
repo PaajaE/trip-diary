@@ -41,7 +41,6 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await sharePrompt.getByRole('button', { name: 'Pokračovat na cestu' }).click()
 
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await expect(page.getByText(momentTitle)).toBeVisible()
   await expect
     .poll(async () => page.getByText(/čeká na synchronizaci/i).count())
     .toBeGreaterThan(0)

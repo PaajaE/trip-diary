@@ -1,4 +1,6 @@
 import { expect, test as setup } from '@playwright/test'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const authFile = 'playwright/.auth/offline-user.json'
 
@@ -13,5 +15,6 @@ setup('create offline e2e user', async ({ page }) => {
   await page.getByRole('button', { name: 'Vytvořit účet' }).click()
 
   await expect(page).toHaveURL('/dashboard', { timeout: 30_000 })
+  fs.mkdirSync(path.dirname(authFile), { recursive: true })
   await page.context().storageState({ path: authFile })
 })
