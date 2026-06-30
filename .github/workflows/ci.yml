@@ -72,6 +72,9 @@ jobs:
           "
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts
+      - name: Print Playwright failure context
+        if: failure()
+        run: find test-results -name 'error-context.md' -print -exec cat {} \;
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
