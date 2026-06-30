@@ -272,12 +272,14 @@ select lives_ok(
      ) $$,
   'authors can upload a declared private variant'
 );
-select results_eq(
-  $$ update storage.objects set name = name
+select lives_ok(
+  $$ update storage.objects
+     set metadata = '{"mimetype":"image/webp","retried":true}'::jsonb
      where bucket_id = 'photos'
+       and name =
+         '00000000-0000-4000-8000-000000000031/40000000-0000-4000-8000-000000000001/thumb.webp'
      returning name $$,
-  $$ select name from storage.objects where false $$,
-  'clients cannot overwrite photo objects'
+  'authors can overwrite a declared own variant'
 );
 
 reset role;

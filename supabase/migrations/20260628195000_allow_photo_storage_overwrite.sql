@@ -1,5 +1,7 @@
 -- Retried photo uploads use storage upsert; without UPDATE policy RLS blocks overwrites.
 
+drop policy if exists "Authors can overwrite declared photo variants" on storage.objects;
+
 create policy "Authors can overwrite declared photo variants"
 on storage.objects
 for update

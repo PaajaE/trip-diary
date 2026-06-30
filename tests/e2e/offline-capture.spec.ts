@@ -27,9 +27,10 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
-  const addMomentLink = page
-    .locator('header')
-    .getByRole('link', { name: 'Přidat moment', exact: true })
+  const addMomentLink = page.getByRole('link', {
+    name: 'Přidat moment',
+    exact: true,
+  })
 
   // Warm the lazy create-memory route while online; dev has no service worker cache.
   await addMomentLink.click()
@@ -51,6 +52,6 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
 
   await expect(page.getByRole('heading', { name: momentTitle })).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Čeká na synchronizaci.' }),
+    page.getByRole('button', { name: /Čeká na synchronizaci/ }),
   ).toBeVisible()
 })
