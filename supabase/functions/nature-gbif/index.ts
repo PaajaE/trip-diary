@@ -119,7 +119,8 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: 'invalid_coordinates' }, 400)
     }
 
-    const species = await fetchGbifSpecies(body)
+    const limit = Math.min(Math.max(body.limit ?? 12, 1), 30)
+    const species = await fetchGbifSpecies({ ...body, limit })
     return jsonResponse({ species }, 200, {
       'Cache-Control': 'public, max-age=300',
     })

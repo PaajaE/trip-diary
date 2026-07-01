@@ -127,13 +127,14 @@ export async function fetchRegionalSpecies(input: {
       : null
 
   const species =
-    edgeSpecies ??
-    (await fetchGbifSpeciesDirect({
-      bbox,
-      latitude: input.latitude,
-      limit,
-      longitude: input.longitude,
-    }))
+    edgeSpecies !== null && edgeSpecies.length > 0
+      ? edgeSpecies
+      : await fetchGbifSpeciesDirect({
+          bbox,
+          latitude: input.latitude,
+          limit,
+          longitude: input.longitude,
+        })
 
   regionalSpeciesMemoryCache.set(cacheKey, species)
   if (input.journeyId !== undefined) {

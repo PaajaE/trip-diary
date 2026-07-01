@@ -88,6 +88,9 @@ Deno.serve(async (request) => {
     if (body.imageBase64.trim() === '') {
       return jsonResponse({ error: 'missing_image' }, 400)
     }
+    if (body.imageBase64.length > 4_000_000) {
+      return jsonResponse({ error: 'image_too_large' }, 413)
+    }
 
     const mimeType = body.mimeType ?? 'image/jpeg'
     const bytes = base64ToUint8Array(body.imageBase64)
