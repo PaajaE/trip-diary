@@ -22,10 +22,12 @@ test('nature golden path: template, photo moment, and spotting', async ({
   await expect(page.getByText('Příroda na cestě')).toBeVisible()
   await expect(page.getByText(/0 z 5 zahlédnuto/)).toBeVisible()
 
-  await page
-    .locator('header')
-    .getByRole('link', { name: 'Přidat moment', exact: true })
-    .click()
+  const journeyUrlMatch = /\/j\/([^/?]+)/.exec(page.url())
+  const journeyId = journeyUrlMatch?.[1]
+  if (journeyId === undefined) {
+    throw new Error('Expected journey URL after create')
+  }
+  await page.goto(`/j/${journeyId}/memory/new`)
   await expect(
     page.getByRole('heading', { name: 'Přidat moment do cesty' }),
   ).toBeVisible()
@@ -40,9 +42,9 @@ test('nature golden path: template, photo moment, and spotting', async ({
   await expect(page.getByText('Co jsi zahlédl?')).toBeVisible()
   await page.getByRole('button', { name: 'Rys ostrovid' }).click()
   await expect(
-    page.getByRole('heading', { name: 'Sdílet s rodinou' }),
+    page.getByRole('dialog', { name: 'Sdílet s rodinou' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Zavřít' }).click()
+  await page.getByRole('button', { name: 'Pokračovat na cestu' }).click()
 
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect(page.getByText(/1 z 5 zahlédnuto/)).toBeVisible()
