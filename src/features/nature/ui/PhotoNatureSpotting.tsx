@@ -3,10 +3,8 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
-import {
-  listJourneyObservations,
-  observationsForPhoto,
-} from '@/entities/nature/api/observation-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
+import { observationsForPhoto } from '@/entities/nature/api/observation-mutation.repository'
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import type { NatureObservation } from '@/entities/nature/model/observation'
 import { rankGoalsForSpotting } from '@/entities/nature/lib/match-observation-to-goal'

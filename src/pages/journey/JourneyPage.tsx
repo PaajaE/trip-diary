@@ -7,7 +7,7 @@ import {
   listJourneyChecklistItems,
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
-import { listJourneyObservations } from '@/entities/nature/api/observation-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'

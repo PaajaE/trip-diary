@@ -64,6 +64,10 @@ export function createJourneyMapPinElement(
   const ringColor = getRingColor(point)
   bubble.style.setProperty('--pin-ring', ringColor)
 
+  if (point.type === 'nature-goal' && !point.checked) {
+    bubble.classList.add('journey-map-pin__bubble--wish')
+  }
+
   if (point.type === 'nature-goal' && point.checked) {
     bubble.classList.add('journey-map-pin__bubble--visited')
     const badge = document.createElement('span')

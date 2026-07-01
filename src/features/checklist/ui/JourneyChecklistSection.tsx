@@ -20,7 +20,7 @@ import {
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { ChecklistItemCategory } from '@/entities/checklist/model/checklist'
-import { listJourneyObservations } from '@/entities/nature/api/observation-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { JourneyNatureGuidePanel } from '@/features/nature/ui/JourneyNatureGuidePanel'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { cn } from '@/shared/lib/cn'

@@ -395,6 +395,7 @@ export const cs: TranslationResources = {
     placeSuggestionApplied: 'Navržený název místa: {{title}}',
     placeSuggestionLoading: 'Hledám přirozený název místa podle mapy…',
     plannedPlaces: 'Plánovaná místa',
+    plannedNatureStops: 'Plánované přírodní zastávky',
     route: 'Průběh cesty',
     routeEyebrow: 'Mapa a timeline',
     story: 'Příběh',
@@ -464,6 +465,7 @@ export const cs: TranslationResources = {
     collectionMapHint: 'mapa',
     collectionMapTitle: 'Mapa kolekce',
     collectionPhotos: '{{count}} fotek',
+    collectionSpecies: '{{count}} druhů',
     collections: 'Kolekce',
     collectionsDescription:
       'Fotky seskupené podle štítků — zvířata, květiny, krajina a další.',
@@ -666,6 +668,7 @@ export const cs: TranslationResources = {
     },
   },
   natureGuide: {
+    addToGoals: 'Přidat mezi cíle',
     attribution: 'Regionální data z GBIF. Shrnutí z Wikipedie.',
     description:
       'Lehký průvodce destinací — co bylo zaznamenáno v okolí a co jste na cestě zapsali vy.',
@@ -735,6 +738,27 @@ export const cs: TranslationResources = {
       otherHint: 'Stačí název — rychlá poznámka.',
       skip: 'Přeskočit',
       title: 'Co jsi zahlédl?',
+    },
+    custom: {
+      categories: {
+        flora: 'Rostliny',
+        general: 'Obecné',
+        geology: 'Geologie',
+        landmark: 'Památka',
+        wildlife: 'Zvířata',
+      },
+      categoryLabel: 'Kategorie',
+      nameLabel: 'Název druhu nebo cíle',
+      notesLabel: 'Poznámky (volitelné)',
+      save: 'Přidat vlastní cíl',
+      saveError: 'Vlastní cíl se nepodařilo uložit.',
+      saving: 'Ukládám…',
+      templateTitle: 'Vlastní cíle',
+      title: 'Přidat vlastní cíl',
+    },
+    template: {
+      remove: 'Odebrat šablonu',
+      removeConfirm: 'Odebrat tuto šablonu a její přírodní zastávky z cesty?',
     },
   },
 }

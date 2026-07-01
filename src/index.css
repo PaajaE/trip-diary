@@ -208,6 +208,10 @@ a {
   width: 3.25rem;
 }
 
+.journey-map-pin__bubble--wish {
+  border-style: dashed;
+}
+
 .journey-map-pin__bubble--visited {
   box-shadow:
     0 10px 24px rgb(15 23 42 / 0.18),

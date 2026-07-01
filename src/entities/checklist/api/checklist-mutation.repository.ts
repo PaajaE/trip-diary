@@ -1,5 +1,7 @@
 import { getChecklistTemplate } from '@/entities/checklist/data/templates'
+import { getJourneySnapshotChecklist } from '@/entities/journey/api/local-journey-cache.repository'
 import {
+  deleteJourneyChecklistItemRemote,
   insertJourneyChecklistItemRemote,
   listJourneyChecklistItemsRemote,
   updateJourneyChecklistItemRemote,
@@ -16,6 +18,7 @@ import {
 } from '@/entities/checklist/model/checklist'
 import {
   addJourneyStop,
+  deleteJourneyStop,
   setJourneyStopLocation,
   setJourneyStopStatus,
 } from '@/entities/journey/api/local-journey-structure.repository'
@@ -55,14 +58,20 @@ export async function listJourneyChecklistItems(
   const local = await listLocalChecklistItems(journeyId)
 
   if (!isBrowserOnline()) {
-    return local
+    if (local.length > 0) {
+      return local
+    }
+    return (await getJourneySnapshotChecklist(journeyId)) ?? []
   }
 
   try {
     const remote = await listJourneyChecklistItemsRemote(journeyId)
     return mergeChecklistItems(remote, local)
   } catch {
-    return local
+    if (local.length > 0) {
+      return local
+    }
+    return (await getJourneySnapshotChecklist(journeyId)) ?? []
   }
 }
 
@@ -263,4 +272,125 @@ export async function setJourneyChecklistItemChecked(input: {
   )
 
   return updated
+}
+
+export async function createCustomChecklistItem(input: {
+  category: JourneyChecklistItem['category']
+  creatorId: string
+  journeyId: string
+  latitude?: number | null
+  longitude?: number | null
+  notes?: string
+  title: string
+}): Promise<JourneyChecklistItem> {
+  const existing = await listJourneyChecklistItems(input.journeyId)
+  const itemSlug = crypto.randomUUID()
+  const now = new Date().toISOString()
+  let stopId: string | null = null
+
+  if (input.latitude !== null && input.longitude !== null) {
+    stopId = await addJourneyStop(
+      input.creatorId,
+      input.journeyId,
+      null,
+      input.title.trim(),
+      input.notes?.trim() ?? '',
+    )
+    if (
+      input.latitude !== undefined &&
+      input.longitude !== undefined &&
+      Number.isFinite(input.latitude) &&
+      Number.isFinite(input.longitude)
+    ) {
+      await setJourneyStopLocation(stopId, input.latitude, input.longitude)
+    }
+  }
+
+  const id = crypto.randomUUID()
+  const item = journeyChecklistItemSchema.parse({
+    category: input.category,
+    checkedAt: null,
+    entryId: null,
+    id,
+    itemSlug,
+    notes: input.notes?.trim() ?? '',
+    position: existing.length,
+    stopId,
+    templateSlug: 'custom',
+    title: input.title.trim(),
+  })
+
+  const localItem = localChecklistItemSchema.parse({
+    ...item,
+    creatorId: input.creatorId,
+    journeyId: input.journeyId,
+    syncStatus: 'pending',
+    updatedAt: now,
+  })
+
+  if (isBrowserOnline()) {
+    try {
+      await insertJourneyChecklistItemRemote({
+        category: item.category,
+        creatorId: input.creatorId,
+        id: item.id,
+        itemSlug: item.itemSlug,
+        journeyId: input.journeyId,
+        notes: item.notes,
+        position: item.position,
+        stopId: item.stopId,
+        templateSlug: item.templateSlug,
+        title: item.title,
+      })
+      return item
+    } catch {
+      // Fall back to local queue below.
+    }
+  }
+
+  await localDb.transaction(
+    'rw',
+    localDb.localChecklistItems,
+    localDb.syncOperations,
+    async () => {
+      await saveLocalChecklistItem(localItem)
+      await localDb.syncOperations.add(
+        syncOperationSchema.parse({
+          checklistItemId: item.id,
+          createdAt: now,
+          creatorId: input.creatorId,
+          id: crypto.randomUUID(),
+          journeyId: input.journeyId,
+          status: 'pending',
+          type: 'checklist_item.create',
+        }),
+      )
+    },
+  )
+
+  return item
+}
+
+export async function removeChecklistTemplate(input: {
+  creatorId: string
+  journeyId: string
+  templateSlug: string
+}): Promise<void> {
+  const items = (await listJourneyChecklistItems(input.journeyId)).filter(
+    (item) => item.templateSlug === input.templateSlug,
+  )
+
+  for (const item of items) {
+    if (isBrowserOnline()) {
+      try {
+        await deleteJourneyChecklistItemRemote(item.id)
+      } catch {
+        // Continue cleaning local state.
+      }
+    }
+    await localDb.localChecklistItems.delete(item.id)
+    if (item.stopId !== null) {
+      await deleteJourneyStop(input.creatorId, input.journeyId, item.stopId)
+    }
+  }
 }

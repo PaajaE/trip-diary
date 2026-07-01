@@ -99,3 +99,16 @@ export async function updateJourneyChecklistItemRemote(input: {
     throw error
   }
 }
+
+export async function deleteJourneyChecklistItemRemote(
+  id: string,
+): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('journey_checklist_items')
+    .delete()
+    .eq('id', id)
+
+  if (error !== null) {
+    throw error
+  }
+}

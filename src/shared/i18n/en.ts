@@ -394,6 +394,7 @@ export const en = {
     placeSuggestionApplied: 'Suggested place name: {{title}}',
     placeSuggestionLoading: 'Looking up a natural place name from the map…',
     plannedPlaces: 'Planned places',
+    plannedNatureStops: 'Planned nature stops',
     route: 'Journey route',
     routeEyebrow: 'Map and timeline',
     story: 'Story',
@@ -463,6 +464,7 @@ export const en = {
     collectionMapHint: 'map',
     collectionMapTitle: 'Map for this collection',
     collectionPhotos: '{{count}} photos',
+    collectionSpecies: '{{count}} species',
     collections: 'Collections',
     collectionsDescription:
       'Photos grouped by tags — wildlife, flowers, landscapes, and more.',
@@ -665,6 +667,7 @@ export const en = {
     },
   },
   natureGuide: {
+    addToGoals: 'Add to goals',
     attribution: 'Regional species data from GBIF. Wikipedia for summaries.',
     description:
       'A lightweight field guide for your destination — what others have recorded nearby, plus what you log on this trip.',
@@ -734,6 +737,27 @@ export const en = {
       otherHint: 'Quick note — just the name is enough.',
       skip: 'Skip',
       title: 'Spot something?',
+    },
+    custom: {
+      categories: {
+        flora: 'Plants',
+        general: 'General',
+        geology: 'Geology',
+        landmark: 'Landmark',
+        wildlife: 'Wildlife',
+      },
+      categoryLabel: 'Category',
+      nameLabel: 'Species or goal name',
+      notesLabel: 'Notes (optional)',
+      save: 'Add custom goal',
+      saveError: 'The custom goal could not be saved.',
+      saving: 'Saving…',
+      templateTitle: 'Your custom goals',
+      title: 'Add your own goal',
+    },
+    template: {
+      remove: 'Remove template',
+      removeConfirm: 'Remove this template and its nature stops from the trip?',
     },
   },
 } as const

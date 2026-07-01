@@ -12,9 +12,10 @@ import {
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
-import { listJourneyObservations } from '@/entities/nature/api/observation-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { NatureDetailSheet } from '@/features/nature/ui/NatureDetailSheet'
+import { JourneyNatureGuidePanel } from '@/features/nature/ui/JourneyNatureGuidePanel'
 import { NatureEmptyState } from '@/features/nature/ui/NatureEmptyState'
 import { NatureWishChip } from '@/features/nature/ui/NatureWishChip'
 import { NatureWishDetailSheet } from '@/features/nature/ui/NatureWishDetailSheet'
@@ -208,6 +209,20 @@ export function NatureOnTripStrip({
         <p className="mt-4 text-sm text-muted">{t('nature.strip.empty')}</p>
       ) : null}
 
+      {items.length > 0 ? (
+        <div className="mt-4">
+          <JourneyNatureGuidePanel
+            checklistItems={items}
+            compact
+            creatorId={creatorId}
+            journeyId={journeyId}
+            observations={observations}
+            onSpeciesAdded={onChanged}
+            showAddToGoals={canEdit}
+          />
+        </div>
+      ) : null}
+
       <NatureWishDetailSheet
         canEdit={canEdit}
         item={activeWish}
@@ -240,12 +255,14 @@ export function NatureOnTripStrip({
         }
         availableTemplates={availableTemplates}
         canEdit={canEdit}
+        creatorId={creatorId}
         items={items}
         journeyId={journeyId}
         observations={observations}
         onApplyTemplate={(templateSlug) => {
           applyMutation.mutate(templateSlug)
         }}
+        onChanged={onChanged}
         onClose={() => {
           setDetailOpen(false)
         }}

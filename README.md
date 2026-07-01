@@ -1,7 +1,8 @@
 # Trip Diary
 
 Offline-first travel journal for stories, photos, journeys, practical guides,
-and map-based memories.
+and map-based memories — including a nature field diary with destination checklists,
+photo spotting, regional species guide (GBIF + Wikipedia), and photo bubble map pins.
 
 ## Requirements
 

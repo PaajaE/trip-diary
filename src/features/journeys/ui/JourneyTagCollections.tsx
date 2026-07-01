@@ -3,16 +3,24 @@ import { Images, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyPhotoTags } from '@/entities/photo/api/photo-tag.repository'
 import type { JourneyPhotoTag } from '@/entities/photo/model/photo-tag'
+import type { NatureObservation } from '@/entities/nature/model/observation'
+import {
+  observationCategoryForTagSlug,
+  observationsForCollectionTag,
+  uniqueSpeciesNames,
+} from '@/features/journeys/lib/collection-observations'
 import { cn } from '@/shared/lib/cn'
 
 interface JourneyTagCollectionsProps {
   journeyId: string
+  observations?: NatureObservation[]
   onSelectTag: (slug: string) => void
   selectedTagSlug: string | null
 }
 
 export function JourneyTagCollections({
   journeyId,
+  observations = [],
   onSelectTag,
   selectedTagSlug,
 }: JourneyTagCollectionsProps) {
@@ -53,6 +61,7 @@ export function JourneyTagCollections({
         <CollectionCard
           active={selectedTagSlug === tag.slug}
           key={tag.id}
+          observations={observations}
           onSelect={() => {
             onSelectTag(tag.slug)
           }}
@@ -65,14 +74,21 @@ export function JourneyTagCollections({
 
 function CollectionCard({
   active,
+  observations,
   onSelect,
   tag,
 }: {
   active: boolean
+  observations: NatureObservation[]
   onSelect: () => void
   tag: JourneyPhotoTag
 }) {
   const { t } = useTranslation()
+  const speciesCount =
+    observationCategoryForTagSlug(tag.slug) === null
+      ? 0
+      : uniqueSpeciesNames(observationsForCollectionTag(observations, tag.slug))
+          .length
 
   return (
     <button
@@ -87,6 +103,9 @@ function CollectionCard({
     >
       <p className="text-lg font-semibold">{tag.label}</p>
       <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted">
+        {speciesCount > 0 ? (
+          <span>{t('reader.collectionSpecies', { count: speciesCount })}</span>
+        ) : null}
         <span className="inline-flex items-center gap-1.5">
           <Images aria-hidden="true" size={15} />
           {t('reader.collectionPhotos', { count: tag.photoCount })}

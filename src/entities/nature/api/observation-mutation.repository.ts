@@ -1,11 +1,5 @@
-import {
-  insertNatureObservationRemote,
-  listJourneyObservationsRemote,
-} from '@/entities/nature/api/observation.repository'
-import {
-  listLocalNatureObservations,
-  saveLocalNatureObservation,
-} from '@/entities/nature/api/local-observation.repository'
+import { insertNatureObservationRemote } from '@/entities/nature/api/observation.repository'
+import { saveLocalNatureObservation } from '@/entities/nature/api/local-observation.repository'
 import {
   localNatureObservationSchema,
   natureObservationSchema,
@@ -14,41 +8,6 @@ import {
 import { localDb } from '@/shared/lib/local-db'
 import { isBrowserOnline } from '@/shared/lib/network'
 import { syncOperationSchema } from '@/shared/sync/sync-operation'
-
-function mergeObservations(
-  remote: NatureObservation[],
-  local: NatureObservation[],
-): NatureObservation[] {
-  const merged = new Map<string, NatureObservation>()
-  for (const item of remote) {
-    merged.set(item.id, item)
-  }
-  for (const item of local) {
-    merged.set(item.id, item)
-  }
-  return [...merged.values()].sort((left, right) => {
-    const leftTime = left.observedAt ?? ''
-    const rightTime = right.observedAt ?? ''
-    return rightTime.localeCompare(leftTime)
-  })
-}
-
-export async function listJourneyObservations(
-  journeyId: string,
-): Promise<NatureObservation[]> {
-  const local = await listLocalNatureObservations(journeyId)
-
-  if (!isBrowserOnline()) {
-    return local
-  }
-
-  try {
-    const remote = await listJourneyObservationsRemote(journeyId)
-    return mergeObservations(remote, local)
-  } catch {
-    return local
-  }
-}
 
 export async function createNatureObservation(input: {
   category: NatureObservation['category']

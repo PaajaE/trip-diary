@@ -1,8 +1,11 @@
+import { listLocalNatureObservations } from '@/entities/nature/api/local-observation.repository'
+import { getJourneySnapshotObservations } from '@/entities/journey/api/local-journey-cache.repository'
 import {
   natureObservationSchema,
   type NatureObservation,
 } from '@/entities/nature/model/observation'
 import { getSupabaseClient } from '@/shared/api/supabase'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 function mapRemoteRow(row: {
   category: NatureObservation['category']
@@ -40,6 +43,24 @@ function mapRemoteRow(row: {
   })
 }
 
+function mergeObservations(
+  remote: NatureObservation[],
+  local: NatureObservation[],
+): NatureObservation[] {
+  const merged = new Map<string, NatureObservation>()
+  for (const item of remote) {
+    merged.set(item.id, item)
+  }
+  for (const item of local) {
+    merged.set(item.id, item)
+  }
+  return [...merged.values()].sort((left, right) => {
+    const leftTime = left.observedAt ?? ''
+    const rightTime = right.observedAt ?? ''
+    return rightTime.localeCompare(leftTime)
+  })
+}
+
 export async function listJourneyObservationsRemote(
   journeyId: string,
 ): Promise<NatureObservation[]> {
@@ -56,6 +77,29 @@ export async function listJourneyObservationsRemote(
   }
 
   return data.map(mapRemoteRow)
+}
+
+export async function listJourneyObservations(
+  journeyId: string,
+): Promise<NatureObservation[]> {
+  const local = await listLocalNatureObservations(journeyId)
+
+  if (!isBrowserOnline()) {
+    if (local.length > 0) {
+      return local
+    }
+    return (await getJourneySnapshotObservations(journeyId)) ?? []
+  }
+
+  try {
+    const remote = await listJourneyObservationsRemote(journeyId)
+    return mergeObservations(remote, local)
+  } catch {
+    if (local.length > 0) {
+      return local
+    }
+    return (await getJourneySnapshotObservations(journeyId)) ?? []
+  }
 }
 
 export async function insertNatureObservationRemote(input: {

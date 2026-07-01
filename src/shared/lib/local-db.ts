@@ -16,15 +16,30 @@ import type {
   LocalPhotoVariant,
 } from '@/entities/photo/model/photo'
 import type { LocalChecklistItem } from '@/entities/checklist/model/checklist'
-import type { LocalNatureObservation } from '@/entities/nature/model/observation'
+import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
+import type {
+  LocalNatureObservation,
+  NatureObservation,
+  RegionalSpecies,
+} from '@/entities/nature/model/observation'
 import type { LocalPhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
 
-interface JourneySnapshotRecord {
+export interface JourneySnapshotRecord {
   cachedAt: string
   canContribute: boolean
+  checklistItems: JourneyChecklistItem[]
   journey: JourneyDetail
   journeyId: string
+  observations: NatureObservation[]
+}
+
+interface NatureGuideCacheRecord {
+  cacheKey: string
+  fetchedAt: string
+  id: string
+  journeyId: string
+  species: RegionalSpecies[]
 }
 
 interface CachedUserSpacesRecord {
@@ -66,6 +81,7 @@ class TripDiaryDatabase extends Dexie {
   localJourneyStops!: EntityTable<LocalJourneyStop, 'id'>
   localJourneys!: EntityTable<LocalJourney, 'id'>
   localNatureObservations!: EntityTable<LocalNatureObservation, 'id'>
+  natureGuideCache!: EntityTable<NatureGuideCacheRecord, 'id'>
   localPhotoTagAssignments!: EntityTable<LocalPhotoTagAssignment, 'key'>
   photos!: EntityTable<LocalPhoto, 'id'>
   photoVariants!: EntityTable<LocalPhotoVariant, 'id'>
@@ -234,6 +250,28 @@ class TripDiaryDatabase extends Dexie {
       localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
       localNatureObservations:
         'id, journeyId, creatorId, syncStatus, createdAt',
+      localPhotoTagAssignments:
+        'key, photoId, journeyId, creatorId, tagId, syncStatus',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+    })
+    this.version(16).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      deletedRecords: 'id, kind, creatorId, deletedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localChecklistItems: 'id, journeyId, creatorId, syncStatus, position',
+      localJourneyGuides: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStages: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStops: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      localNatureObservations:
+        'id, journeyId, creatorId, syncStatus, createdAt',
+      natureGuideCache: 'id, journeyId, fetchedAt',
       localPhotoTagAssignments:
         'key, photoId, journeyId, creatorId, tagId, syncStatus',
       photos: 'id, entryId, creatorId, syncStatus, createdAt',

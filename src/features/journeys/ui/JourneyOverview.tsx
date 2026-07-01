@@ -270,6 +270,7 @@ export function JourneyOverview({
             <h3 className="font-medium">{t('journey.story')}</h3>
             <JourneyStorySection
               canEdit={canEdit}
+              checklistItems={checklistItems}
               creatorId={creatorId}
               journey={journey}
               journeyId={journeyId}
