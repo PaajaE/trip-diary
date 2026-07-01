@@ -272,6 +272,79 @@ export type Database = {
           },
         ]
       }
+      journey_checklist_items: {
+        Row: {
+          category: Database['public']['Enums']['checklist_item_category']
+          checked_at: string | null
+          created_at: string
+          creator_id: string
+          entry_id: string | null
+          id: string
+          item_slug: string
+          journey_id: string
+          notes: string
+          position: number
+          stop_id: string | null
+          template_slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: Database['public']['Enums']['checklist_item_category']
+          checked_at?: string | null
+          created_at?: string
+          creator_id: string
+          entry_id?: string | null
+          id?: string
+          item_slug: string
+          journey_id: string
+          notes?: string
+          position: number
+          stop_id?: string | null
+          template_slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: Database['public']['Enums']['checklist_item_category']
+          checked_at?: string | null
+          created_at?: string
+          creator_id?: string
+          entry_id?: string | null
+          id?: string
+          item_slug?: string
+          journey_id?: string
+          notes?: string
+          position?: number
+          stop_id?: string | null
+          template_slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'journey_checklist_items_entry_id_fkey'
+            columns: ['entry_id']
+            isOneToOne: false
+            referencedRelation: 'entries'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'journey_checklist_items_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'journey_checklist_items_stop_fk'
+            columns: ['stop_id', 'journey_id']
+            isOneToOne: false
+            referencedRelation: 'journey_stops'
+            referencedColumns: ['id', 'journey_id']
+          },
+        ]
+      }
       journey_guide_sections: {
         Row: {
           body: string
@@ -417,65 +490,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: 'journey_photo_tags_journey_id_fkey'
-            columns: ['journey_id']
-            isOneToOne: false
-            referencedRelation: 'journeys'
-            referencedColumns: ['id']
-          },
-        ]
-      }
-      journey_checklist_items: {
-        Row: {
-          category: Database['public']['Enums']['checklist_item_category']
-          checked_at: string | null
-          created_at: string
-          creator_id: string
-          entry_id: string | null
-          id: string
-          item_slug: string
-          journey_id: string
-          notes: string
-          position: number
-          stop_id: string | null
-          template_slug: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          category?: Database['public']['Enums']['checklist_item_category']
-          checked_at?: string | null
-          created_at?: string
-          creator_id: string
-          entry_id?: string | null
-          id?: string
-          item_slug: string
-          journey_id: string
-          notes?: string
-          position: number
-          stop_id?: string | null
-          template_slug: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          category?: Database['public']['Enums']['checklist_item_category']
-          checked_at?: string | null
-          created_at?: string
-          creator_id?: string
-          entry_id?: string | null
-          id?: string
-          item_slug?: string
-          journey_id?: string
-          notes?: string
-          position?: number
-          stop_id?: string | null
-          template_slug?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'journey_checklist_items_journey_id_fkey'
             columns: ['journey_id']
             isOneToOne: false
             referencedRelation: 'journeys'
@@ -655,6 +669,98 @@ export type Database = {
           },
         ]
       }
+      nature_observations: {
+        Row: {
+          category: Database['public']['Enums']['checklist_item_category']
+          checklist_item_id: string | null
+          common_name: string
+          confidence: Database['public']['Enums']['observation_confidence']
+          created_at: string
+          creator_id: string
+          entry_id: string | null
+          external_id: string | null
+          external_source: string | null
+          id: string
+          journey_id: string
+          latitude: number | null
+          longitude: number | null
+          notes: string
+          observed_at: string | null
+          photo_id: string | null
+          scientific_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: Database['public']['Enums']['checklist_item_category']
+          checklist_item_id?: string | null
+          common_name: string
+          confidence?: Database['public']['Enums']['observation_confidence']
+          created_at?: string
+          creator_id: string
+          entry_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          journey_id: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string
+          observed_at?: string | null
+          photo_id?: string | null
+          scientific_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: Database['public']['Enums']['checklist_item_category']
+          checklist_item_id?: string | null
+          common_name?: string
+          confidence?: Database['public']['Enums']['observation_confidence']
+          created_at?: string
+          creator_id?: string
+          entry_id?: string | null
+          external_id?: string | null
+          external_source?: string | null
+          id?: string
+          journey_id?: string
+          latitude?: number | null
+          longitude?: number | null
+          notes?: string
+          observed_at?: string | null
+          photo_id?: string | null
+          scientific_name?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'nature_observations_checklist_item_id_fkey'
+            columns: ['checklist_item_id']
+            isOneToOne: false
+            referencedRelation: 'journey_checklist_items'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'nature_observations_entry_id_fkey'
+            columns: ['entry_id']
+            isOneToOne: false
+            referencedRelation: 'entries'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'nature_observations_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'nature_observations_photo_id_fkey'
+            columns: ['photo_id']
+            isOneToOne: false
+            referencedRelation: 'photos'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       photo_tag_assignments: {
         Row: {
           created_at: string
@@ -767,77 +873,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
-      }
-      nature_observations: {
-        Row: {
-          category: Database['public']['Enums']['checklist_item_category']
-          checklist_item_id: string | null
-          common_name: string
-          confidence: Database['public']['Enums']['observation_confidence']
-          created_at: string
-          creator_id: string
-          entry_id: string | null
-          external_id: string | null
-          external_source: string | null
-          id: string
-          journey_id: string
-          latitude: number | null
-          longitude: number | null
-          notes: string
-          observed_at: string | null
-          photo_id: string | null
-          scientific_name: string | null
-          updated_at: string
-        }
-        Insert: {
-          category?: Database['public']['Enums']['checklist_item_category']
-          checklist_item_id?: string | null
-          common_name: string
-          confidence?: Database['public']['Enums']['observation_confidence']
-          created_at?: string
-          creator_id: string
-          entry_id?: string | null
-          external_id?: string | null
-          external_source?: string | null
-          id?: string
-          journey_id: string
-          latitude?: number | null
-          longitude?: number | null
-          notes?: string
-          observed_at?: string | null
-          photo_id?: string | null
-          scientific_name?: string | null
-          updated_at?: string
-        }
-        Update: {
-          category?: Database['public']['Enums']['checklist_item_category']
-          checklist_item_id?: string | null
-          common_name?: string
-          confidence?: Database['public']['Enums']['observation_confidence']
-          created_at?: string
-          creator_id?: string
-          entry_id?: string | null
-          external_id?: string | null
-          external_source?: string | null
-          id?: string
-          journey_id?: string
-          latitude?: number | null
-          longitude?: number | null
-          notes?: string
-          observed_at?: string | null
-          photo_id?: string | null
-          scientific_name?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: 'nature_observations_journey_id_fkey'
-            columns: ['journey_id']
-            isOneToOne: false
-            referencedRelation: 'journeys'
-            referencedColumns: ['id']
-          },
-        ]
       }
       profiles: {
         Row: {
