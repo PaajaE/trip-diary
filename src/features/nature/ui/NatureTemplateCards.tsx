@@ -5,12 +5,14 @@ import { cn } from '@/shared/lib/cn'
 interface NatureTemplateCardsProps {
   applyingSlug: string | null
   onSelect: (slug: string) => void
+  selectedSlug?: string | null
   templates: ChecklistTemplate[]
 }
 
 export function NatureTemplateCards({
   applyingSlug,
   onSelect,
+  selectedSlug = null,
   templates,
 }: NatureTemplateCardsProps) {
   const { t } = useTranslation()
@@ -19,10 +21,14 @@ export function NatureTemplateCards({
     <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 snap-x snap-mandatory">
       {templates.map((template) => {
         const applying = applyingSlug === template.slug
+        const selected = selectedSlug === template.slug
         return (
           <button
             className={cn(
-              'w-[min(72vw,16rem)] shrink-0 snap-start rounded-2xl border border-border/80 bg-background/60 p-4 text-left transition hover:bg-background disabled:opacity-60',
+              'w-[min(72vw,16rem)] shrink-0 snap-start rounded-2xl border bg-background/60 p-4 text-left transition hover:bg-background disabled:opacity-60',
+              selected
+                ? 'border-primary ring-2 ring-primary/20'
+                : 'border-border/80',
             )}
             disabled={applyingSlug !== null}
             key={template.slug}

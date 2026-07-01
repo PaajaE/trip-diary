@@ -1,8 +1,13 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, Link } from '@tanstack/react-router'
 import { CalendarDays, Expand, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  listJourneyChecklistItems,
+  setJourneyChecklistItemChecked,
+} from '@/entities/checklist/api/checklist-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation-mutation.repository'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
@@ -18,6 +23,7 @@ import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member
 import type { ContentTarget } from '@/entities/engagement/model/engagement'
 import { useSession } from '@/features/auth/session'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
+import { useJourneyMapPhotoThumbs } from '@/features/journeys/lib/use-journey-map-photo-thumbs'
 import { buildJourneyReturnPath } from '@/features/journeys/lib/journey-return-path'
 import { scrollToJourneySectionNav } from '@/features/journeys/lib/scroll-to-journey-section-nav'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
@@ -116,6 +122,16 @@ export function JourneyPage({
     queryFn: () => listJourneyPhotoTagAssignments(journeyId),
     queryKey: ['journey-photo-tags', journeyId, 'assignments'],
   })
+  const checklistQuery = useQuery({
+    enabled: journey !== null && journey !== undefined,
+    queryFn: () => listJourneyChecklistItems(journeyId),
+    queryKey: ['journey-checklist', journeyId],
+  })
+  const observationsQuery = useQuery({
+    enabled: journey !== null && journey !== undefined,
+    queryFn: () => listJourneyObservations(journeyId),
+    queryKey: ['journey-observations', journeyId],
+  })
   const tagAssignments = Array.isArray(tagAssignmentsQuery.data)
     ? tagAssignmentsQuery.data
     : []
@@ -124,6 +140,8 @@ export function JourneyPage({
     [tagAssignments],
   )
   const { refetch: refetchPhotoLocations } = photoLocationsQuery
+  const queryClient = useQueryClient()
+  const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
   const mapPoints = useMemo(
     () =>
       content === null
@@ -132,8 +150,17 @@ export function JourneyPage({
             content.moments,
             content.plannedStops,
             photoLocationsQuery.data ?? [],
+            {
+              checklistItems: checklistQuery.data ?? [],
+              observations: observationsQuery.data ?? [],
+            },
           ),
-    [content, photoLocationsQuery.data],
+    [
+      checklistQuery.data,
+      content,
+      observationsQuery.data,
+      photoLocationsQuery.data,
+    ],
   )
   const canEdit = contributionQuery.data === true
   const canManageMembers = ownerQuery.data === true
@@ -153,6 +180,7 @@ export function JourneyPage({
   const [moreOpen, setMoreOpen] = useState(false)
   const [guidesSheetOpen, setGuidesSheetOpen] = useState(false)
   const [natureDetailOpen, setNatureDetailOpen] = useState(false)
+  const [showNatureGoalsOnMap, setShowNatureGoalsOnMap] = useState(true)
   const [activeSection, setActiveSection] = useState<JourneySection>(
     normalizeJourneySection(section),
   )
@@ -239,10 +267,37 @@ export function JourneyPage({
     selectSection('map')
   }
 
-  function handleShowNatureOnMap(stopId: string) {
+  function handleShowNatureOnMap(checklistItemId: string) {
     setPendingMapPhotoId(null)
-    setFocusedMapPointId(`planned:${stopId}`)
+    setFocusedMapPointId(`nature-goal:${checklistItemId}`)
     selectSection('map')
+  }
+
+  async function handleMarkNatureGoalFromMap(
+    item: Parameters<typeof setJourneyChecklistItemChecked>[0]['item'],
+  ) {
+    if (user?.id === undefined) {
+      return
+    }
+    const nextChecked = item.checkedAt === null
+    if (
+      !nextChecked &&
+      !window.confirm(t('nature.strip.markNotSpottedConfirm'))
+    ) {
+      return
+    }
+    await setJourneyChecklistItemChecked({
+      checked: nextChecked,
+      creatorId: user.id,
+      item,
+      journeyId,
+    })
+    await queryClient.invalidateQueries({
+      queryKey: ['journey-checklist', journeyId],
+    })
+    await queryClient.invalidateQueries({
+      queryKey: ['journey-observations', journeyId],
+    })
   }
 
   function handleAddAdvice() {
@@ -389,6 +444,19 @@ export function JourneyPage({
                   </button>
                 ) : null}
               </div>
+              {mapPoints.some((point) => point.type === 'nature-goal') ? (
+                <label className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted">
+                  <input
+                    checked={showNatureGoalsOnMap}
+                    className="size-4 rounded border-border text-primary"
+                    onChange={(event) => {
+                      setShowNatureGoalsOnMap(event.target.checked)
+                    }}
+                    type="checkbox"
+                  />
+                  {t('journey.mapShowNatureGoals')}
+                </label>
+              ) : null}
               {photoLocationsQuery.isPending &&
               (content?.moments.length ?? 0) > 0 ? (
                 <p className="mt-4 text-sm text-muted" role="status">
@@ -406,14 +474,22 @@ export function JourneyPage({
               ) : null}
               {mapPoints.length > 0 && !mapExpanded ? (
                 <JourneyMap
+                  canEdit={canEdit}
+                  checklistItems={checklistQuery.data ?? []}
                   focusPointId={mapFocusPointId}
                   moments={content?.moments ?? []}
+                  observations={observationsQuery.data ?? []}
                   onFocusPointChange={setFocusedMapPointId}
+                  onMarkNatureGoalSpotted={(item) => {
+                    void handleMarkNatureGoalFromMap(item)
+                  }}
                   onOpenEntry={(entryId) => {
                     openEntryFromJourney(entryId, 'map')
                   }}
                   photoLocations={photoLocationsQuery.data ?? []}
+                  photoThumbUrls={photoThumbUrls}
                   plannedStops={content?.plannedStops ?? []}
+                  showNatureGoals={showNatureGoalsOnMap}
                 />
               ) : null}
               {mapPoints.length === 0 ? (
@@ -462,16 +538,24 @@ export function JourneyPage({
             title={t('journey.map')}
           >
             <JourneyMap
+              canEdit={canEdit}
+              checklistItems={checklistQuery.data ?? []}
               className="min-h-0 flex-1"
               focusPointId={mapFocusPointId}
               moments={content?.moments ?? []}
+              observations={observationsQuery.data ?? []}
               onFocusPointChange={setFocusedMapPointId}
+              onMarkNatureGoalSpotted={(item) => {
+                void handleMarkNatureGoalFromMap(item)
+              }}
               onOpenEntry={(entryId) => {
                 setMapExpanded(false)
                 openEntryFromJourney(entryId, 'map')
               }}
               photoLocations={photoLocationsQuery.data ?? []}
+              photoThumbUrls={photoThumbUrls}
               plannedStops={content?.plannedStops ?? []}
+              showNatureGoals={showNatureGoalsOnMap}
             />
           </FullScreenSheet>
 

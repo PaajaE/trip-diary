@@ -33,7 +33,7 @@ interface JourneyOverviewProps {
   onChanged: () => void
   onNavigateSection: (section: JourneySection) => void
   onOpenEntry: (entryId: string) => void
-  onShowNatureOnMap?: (stopId: string) => void
+  onShowNatureOnMap?: (checklistItemId: string) => void
   natureDetailOpen?: boolean
   onNatureDetailOpenChange?: (open: boolean) => void
   showInlineCapture?: boolean

@@ -312,6 +312,10 @@ export const cs: TranslationResources = {
     mapEyebrow: 'Celá cesta na jednom místě',
     mapExpand: 'Celá obrazovka',
     mapCollapse: 'Zavřít mapu',
+    mapNatureTitle: 'Přírodní cíl: {{title}}',
+    mapNatureVisited: 'Zahlédnuto',
+    mapNatureWish: 'Ještě hledám',
+    mapShowNatureGoals: 'Zobrazit přírodní cíle',
     mappedCount: '{{count}} na mapě',
     hasLocation: 'Moment má polohu',
     mapHint: 'bez ruční GPS',
@@ -690,6 +694,17 @@ export const cs: TranslationResources = {
     scientificNamePlaceholder: 'Latinský název (volitelné)',
   },
   nature: {
+    create: {
+      clearSelection: 'Zrušit výběr',
+      description:
+        'Vyber šablonu parku — cíle na zvířata, rostliny a geologii na cestě.',
+      suggestedFromTitle: 'Navrženo z názvu cesty',
+      title: 'Přírodní cíle (volitelné)',
+    },
+    empty: {
+      hint: 'Vyber šablonu českého parku — zvířata, rostliny a geologie.',
+      title: 'Co chceš na cestě zahlédnout?',
+    },
     strip: {
       addPhoto: 'Přidat fotku',
       addTips: 'Přidat tipy na park',

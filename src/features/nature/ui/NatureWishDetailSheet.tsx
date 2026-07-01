@@ -11,7 +11,7 @@ interface NatureWishDetailSheetProps {
   journeyId: string
   onClose: () => void
   onMarkSpotted: (item: JourneyChecklistItem) => void
-  onOpenMap?: (stopId: string) => void
+  onOpenMap?: (checklistItemId: string) => void
   open: boolean
   saving: boolean
 }
@@ -51,7 +51,7 @@ export function NatureWishDetailSheet({
           <button
             className="inline-flex min-h-11 items-center gap-2 rounded-xl px-1 text-sm font-medium text-primary hover:underline"
             onClick={() => {
-              onOpenMap(stopId)
+              onOpenMap(item.id)
               onClose()
             }}
             type="button"

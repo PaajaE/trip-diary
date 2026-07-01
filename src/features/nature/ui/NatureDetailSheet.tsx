@@ -1,16 +1,23 @@
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
+import type {
+  ChecklistTemplate,
+  JourneyChecklistItem,
+} from '@/entities/checklist/model/checklist'
 import type { NatureObservation } from '@/entities/nature/model/observation'
 import { JourneyNatureGuidePanel } from '@/features/nature/ui/JourneyNatureGuidePanel'
+import { NatureEmptyState } from '@/features/nature/ui/NatureEmptyState'
 import { NatureWishRow } from '@/features/nature/ui/NatureWishRow'
 import { SoftBottomSheet } from '@/shared/ui/SoftBottomSheet'
 
 interface NatureDetailSheetProps {
+  applyingTemplateSlug?: string | null
+  availableTemplates?: ChecklistTemplate[]
   canEdit: boolean
   items: JourneyChecklistItem[]
   journeyId: string
   observations: NatureObservation[]
+  onApplyTemplate?: (templateSlug: string) => void
   onClose: () => void
   onOpenWish: (item: JourneyChecklistItem) => void
   open: boolean
@@ -18,10 +25,13 @@ interface NatureDetailSheetProps {
 }
 
 export function NatureDetailSheet({
+  applyingTemplateSlug = null,
+  availableTemplates = [],
   canEdit,
   items,
   journeyId,
   observations,
+  onApplyTemplate,
   onClose,
   onOpenWish,
   open,
@@ -38,11 +48,24 @@ export function NatureDetailSheet({
       title={t('nature.strip.detailTitle')}
     >
       <p className="text-sm text-muted">
-        {t('nature.strip.progress', {
-          checked: checkedCount,
-          total: items.length,
-        })}
+        {items.length > 0
+          ? t('nature.strip.progress', {
+              checked: checkedCount,
+              total: items.length,
+            })
+          : t('nature.strip.emptyHint')}
       </p>
+
+      {items.length === 0 &&
+      canEdit &&
+      availableTemplates.length > 0 &&
+      onApplyTemplate !== undefined ? (
+        <NatureEmptyState
+          applyingSlug={applyingTemplateSlug}
+          onSelect={onApplyTemplate}
+          templates={availableTemplates}
+        />
+      ) : null}
 
       {observations.length > 0 ? (
         <div className="mt-6">
@@ -67,25 +90,27 @@ export function NatureDetailSheet({
         </div>
       ) : null}
 
-      <div className="mt-6">
-        <h3 className="text-sm font-medium text-foreground">
-          {t('nature.strip.wishesTitle')}
-        </h3>
-        <ul className="mt-3 space-y-2">
-          {items.map((item) => (
-            <li key={item.id}>
-              <NatureWishRow
-                canEdit={canEdit}
-                item={item}
-                onOpen={() => {
-                  onOpenWish(item)
-                }}
-                saving={savingItemId === item.id}
-              />
-            </li>
-          ))}
-        </ul>
-      </div>
+      {items.length > 0 ? (
+        <div className="mt-6">
+          <h3 className="text-sm font-medium text-foreground">
+            {t('nature.strip.wishesTitle')}
+          </h3>
+          <ul className="mt-3 space-y-2">
+            {items.map((item) => (
+              <li key={item.id}>
+                <NatureWishRow
+                  canEdit={canEdit}
+                  item={item}
+                  onOpen={() => {
+                    onOpenWish(item)
+                  }}
+                  saving={savingItemId === item.id}
+                />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       <JourneyNatureGuidePanel
         checklistItems={items}

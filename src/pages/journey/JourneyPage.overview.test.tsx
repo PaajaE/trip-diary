@@ -27,7 +27,11 @@ vi.mock('@tanstack/react-router', () => ({
     'aria-label'?: string
     children: React.ReactNode
     to: string
-  }) => <a aria-label={ariaLabel} href={to}>{children}</a>,
+  }) => (
+    <a aria-label={ariaLabel} href={to}>
+      {children}
+    </a>
+  ),
   useNavigate: () => navigateMock,
 }))
 vi.mock('@/entities/journey/api/use-journey-query', () => ({

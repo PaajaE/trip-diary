@@ -152,3 +152,107 @@ a {
   font-weight: 600;
   line-height: 1.35;
 }
+
+.journey-map-popup__meta {
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 0;
+  padding: 0 0.85rem 0.35rem;
+  text-transform: uppercase;
+}
+
+.journey-map-popup__notes {
+  color: var(--color-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  margin: 0;
+  padding: 0 0.85rem 0.5rem;
+}
+
+.journey-map-pin {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  transform: translateY(0);
+  transition:
+    transform 160ms ease,
+    filter 160ms ease;
+}
+
+.journey-map-pin:hover,
+.journey-map-pin:focus-visible {
+  filter: drop-shadow(0 10px 18px rgb(15 23 42 / 0.22));
+  transform: translateY(-2px) scale(1.04);
+}
+
+.journey-map-pin--focused {
+  filter: drop-shadow(0 12px 22px rgb(15 23 42 / 0.28));
+  transform: translateY(-3px) scale(1.08);
+  z-index: 2;
+}
+
+.journey-map-pin__bubble {
+  --pin-ring: #285943;
+  background: #fff;
+  border: 3px solid var(--pin-ring);
+  border-radius: 999px;
+  box-shadow:
+    0 10px 24px rgb(15 23 42 / 0.18),
+    inset 0 0 0 1px rgb(255 255 255 / 0.65);
+  height: 3.25rem;
+  overflow: hidden;
+  position: relative;
+  width: 3.25rem;
+}
+
+.journey-map-pin__bubble--visited {
+  box-shadow:
+    0 10px 24px rgb(15 23 42 / 0.18),
+    0 0 0 2px rgb(255 255 255 / 0.95),
+    0 0 0 4px color-mix(in srgb, var(--pin-ring) 55%, white);
+}
+
+.journey-map-pin__photo,
+.journey-map-pin__fallback {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.journey-map-pin__fallback {
+  align-items: center;
+  display: flex;
+  font-size: 1.35rem;
+  justify-content: center;
+}
+
+.journey-map-pin__badge {
+  align-items: center;
+  background: var(--pin-ring);
+  border: 2px solid #fff;
+  border-radius: 999px;
+  bottom: -0.1rem;
+  color: #fff;
+  display: inline-flex;
+  font-size: 0.625rem;
+  font-weight: 700;
+  height: 1.1rem;
+  justify-content: center;
+  position: absolute;
+  right: -0.1rem;
+  width: 1.1rem;
+}
+
+.journey-map-pin__tail {
+  --pin-ring: #285943;
+  background: var(--pin-ring);
+  border-radius: 2px;
+  height: 0.7rem;
+  margin: -0.18rem auto 0;
+  transform: rotate(45deg);
+  width: 0.7rem;
+}

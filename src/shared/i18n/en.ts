@@ -312,6 +312,10 @@ export const en = {
     mapEyebrow: 'The whole journey in one place',
     mapExpand: 'Full screen',
     mapCollapse: 'Close map',
+    mapNatureTitle: 'Nature goal: {{title}}',
+    mapNatureVisited: 'Spotted',
+    mapNatureWish: 'Still looking for',
+    mapShowNatureGoals: 'Show nature goals',
     mappedCount: '{{count}} on map',
     hasLocation: 'Moment has a location',
     mapHint: 'no manual GPS',
@@ -689,6 +693,17 @@ export const en = {
     scientificNamePlaceholder: 'Scientific name (optional)',
   },
   nature: {
+    create: {
+      clearSelection: 'Clear selection',
+      description:
+        'Pick a park template for wildlife, plant, and geology goals on your trip.',
+      suggestedFromTitle: 'Suggested from trip title',
+      title: 'Nature goals (optional)',
+    },
+    empty: {
+      hint: 'Pick a Czech park template to get wildlife, plant, and geology goals.',
+      title: 'What are you hoping to see?',
+    },
     strip: {
       addPhoto: 'Add photo of this',
       addTips: 'Add park tips',

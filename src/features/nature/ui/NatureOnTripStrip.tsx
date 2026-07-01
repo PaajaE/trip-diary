@@ -15,7 +15,7 @@ import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import { listJourneyObservations } from '@/entities/nature/api/observation-mutation.repository'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { NatureDetailSheet } from '@/features/nature/ui/NatureDetailSheet'
-import { NatureTemplateCards } from '@/features/nature/ui/NatureTemplateCards'
+import { NatureEmptyState } from '@/features/nature/ui/NatureEmptyState'
 import { NatureWishChip } from '@/features/nature/ui/NatureWishChip'
 import { NatureWishDetailSheet } from '@/features/nature/ui/NatureWishDetailSheet'
 import { cn } from '@/shared/lib/cn'
@@ -28,7 +28,7 @@ interface NatureOnTripStripProps {
   journeyId: string
   onChanged: () => void
   onDetailOpenChange?: (open: boolean) => void
-  onShowOnMap?: (stopId: string) => void
+  onShowOnMap?: (checklistItemId: string) => void
 }
 
 export function NatureOnTripStrip({
@@ -164,17 +164,15 @@ export function NatureOnTripStrip({
       ) : null}
 
       {showEmptyTemplates ? (
-        <div className="mt-4">
-          <NatureTemplateCards
-            applyingSlug={
-              applyMutation.isPending ? applyMutation.variables : null
-            }
-            onSelect={(slug) => {
-              applyMutation.mutate(slug)
-            }}
-            templates={availableTemplates}
-          />
-        </div>
+        <NatureEmptyState
+          applyingSlug={
+            applyMutation.isPending ? applyMutation.variables : null
+          }
+          onSelect={(slug) => {
+            applyMutation.mutate(slug)
+          }}
+          templates={availableTemplates}
+        />
       ) : null}
 
       {items.length > 0 ? (
@@ -237,10 +235,17 @@ export function NatureOnTripStrip({
       />
 
       <NatureDetailSheet
+        applyingTemplateSlug={
+          applyMutation.isPending ? applyMutation.variables : null
+        }
+        availableTemplates={availableTemplates}
         canEdit={canEdit}
         items={items}
         journeyId={journeyId}
         observations={observations}
+        onApplyTemplate={(templateSlug) => {
+          applyMutation.mutate(templateSlug)
+        }}
         onClose={() => {
           setDetailOpen(false)
         }}
