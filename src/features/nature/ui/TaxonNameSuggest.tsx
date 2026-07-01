@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { searchInaturalistTaxa } from '@/entities/nature/lib/inaturalist-taxon-search'
+import { searchInaturalistTaxa } from '@/entities/nature/lib/inaturalist'
 import { cn } from '@/shared/lib/cn'
 import { isBrowserOnline } from '@/shared/lib/network'
 

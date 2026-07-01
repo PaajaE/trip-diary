@@ -1,4 +1,3 @@
-import { z } from 'zod'
 import {
   regionalSpeciesSchema,
   type RegionalSpecies,
@@ -48,19 +47,3 @@ export function aggregateGbifResults(
     .sort((left, right) => right.occurrenceCount - left.occurrenceCount)
     .slice(0, limit)
 }
-
-export const photoIdentifySuggestionSchema = z.object({
-  commonName: z.string(),
-  iconicTaxon: z.string().nullable().optional(),
-  score: z.number(),
-  scientificName: z.string(),
-  taxonId: z.number(),
-})
-
-export type PhotoIdentifySuggestion = z.infer<
-  typeof photoIdentifySuggestionSchema
->
-
-export const identifyResponseSchema = z.object({
-  suggestions: z.array(photoIdentifySuggestionSchema),
-})

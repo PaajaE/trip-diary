@@ -1,19 +1,17 @@
 import { Sparkles } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { identifyPhotoViaEdge } from '@/entities/nature/api/nature-edge.repository'
 import { createNatureObservation } from '@/entities/nature/api/observation-mutation.repository'
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import type {
   ChecklistItemCategory,
   JourneyChecklistItem,
 } from '@/entities/checklist/model/checklist'
-import type { PhotoIdentifySuggestion } from '@/entities/nature/lib/gbif-regional-species'
-import { prepareIdentifyImage } from '@/entities/nature/lib/prepare-identify-image'
 import {
-  getPhotoCoordinates,
-  getPhotoDetailPreview,
-} from '@/entities/photo/api/photo-gallery.repository'
+  fetchNearbyInaturalistSpecies,
+  type InaturalistTaxonMatch,
+} from '@/entities/nature/lib/inaturalist'
+import { getPhotoCoordinates } from '@/entities/photo/api/photo-gallery.repository'
 import { isBrowserOnline } from '@/shared/lib/network'
 import { cn } from '@/shared/lib/cn'
 
@@ -46,32 +44,51 @@ export function PhotoIdentifySuggestions({
   const [loading, setLoading] = useState(false)
   const [savingTaxonId, setSavingTaxonId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [suggestions, setSuggestions] = useState<PhotoIdentifySuggestion[]>([])
+  const [suggestions, setSuggestions] = useState<InaturalistTaxonMatch[]>([])
 
   if (!isBrowserOnline()) {
     return null
+  }
+
+  async function resolveCoordinates(): Promise<{
+    latitude: number
+    longitude: number
+  } | null> {
+    const photoCoords = await getPhotoCoordinates(photoId)
+    const resolvedLatitude = photoCoords?.latitude ?? latitude
+    const resolvedLongitude = photoCoords?.longitude ?? longitude
+    if (
+      resolvedLatitude == null ||
+      resolvedLongitude == null ||
+      !Number.isFinite(resolvedLatitude) ||
+      !Number.isFinite(resolvedLongitude)
+    ) {
+      return null
+    }
+
+    return {
+      latitude: resolvedLatitude,
+      longitude: resolvedLongitude,
+    }
   }
 
   async function handleIdentify() {
     setLoading(true)
     setError(null)
     try {
-      const preview = await getPhotoDetailPreview(photoId)
-      if (preview === null) {
-        setError(t('nature.identify.unavailable'))
+      const coordinates = await resolveCoordinates()
+      if (coordinates === null) {
+        setError(t('nature.identify.needsLocation'))
         return
       }
 
-      const prepared = await prepareIdentifyImage(preview.blob)
-      const photoCoords = await getPhotoCoordinates(photoId)
-      const nextSuggestions = await identifyPhotoViaEdge({
-        imageBase64: prepared.imageBase64,
-        latitude: photoCoords?.latitude ?? latitude,
-        longitude: photoCoords?.longitude ?? longitude,
-        mimeType: prepared.mimeType,
+      const nextSuggestions = await fetchNearbyInaturalistSpecies({
+        latitude: coordinates.latitude,
+        limit: 8,
+        longitude: coordinates.longitude,
       })
 
-      if (nextSuggestions === null || nextSuggestions.length === 0) {
+      if (nextSuggestions.length === 0) {
         setError(t('nature.identify.unavailable'))
         return
       }
@@ -84,12 +101,10 @@ export function PhotoIdentifySuggestions({
     }
   }
 
-  async function handleSelect(suggestion: PhotoIdentifySuggestion) {
+  async function handleSelect(suggestion: InaturalistTaxonMatch) {
     setSavingTaxonId(suggestion.taxonId)
     try {
-      const photoCoords = await getPhotoCoordinates(photoId)
-      const resolvedLatitude = photoCoords?.latitude ?? latitude
-      const resolvedLongitude = photoCoords?.longitude ?? longitude
+      const coordinates = await resolveCoordinates()
 
       const normalizedCommon = suggestion.commonName.trim().toLowerCase()
       const normalizedScientific = suggestion.scientificName
@@ -112,8 +127,8 @@ export function PhotoIdentifySuggestions({
           ...(entryId !== undefined ? { entryId } : {}),
           item: matchedGoal,
           journeyId,
-          latitude: resolvedLatitude,
-          longitude: resolvedLongitude,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null,
           photoId,
         })
       } else {
@@ -126,8 +141,8 @@ export function PhotoIdentifySuggestions({
           externalId: String(suggestion.taxonId),
           externalSource: 'inaturalist',
           journeyId,
-          latitude: resolvedLatitude,
-          longitude: resolvedLongitude,
+          latitude: coordinates?.latitude ?? null,
+          longitude: coordinates?.longitude ?? null,
           photoId,
           scientificName: suggestion.scientificName,
         })
@@ -198,7 +213,7 @@ export function PhotoIdentifySuggestions({
 }
 
 function categoryForSuggestion(
-  suggestion: PhotoIdentifySuggestion,
+  suggestion: InaturalistTaxonMatch,
 ): ChecklistItemCategory {
   if (
     suggestion.iconicTaxon === 'Plantae' ||

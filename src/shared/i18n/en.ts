@@ -737,11 +737,13 @@ export const en = {
     exportInaturalist: 'Log on iNaturalist',
     exportInaturalistShort: 'iNat',
     identify: {
-      action: 'Suggest from photo',
-      failed: 'Could not identify this photo right now.',
-      hint: 'Tap a suggestion to log it on this photo.',
-      loading: 'Analyzing photo…',
-      unavailable: 'Photo identification is not available right now.',
+      action: 'Suggest nearby species',
+      failed: 'Could not load species suggestions right now.',
+      hint: 'Tap a species often seen near this photo location.',
+      loading: 'Loading nearby species…',
+      needsLocation:
+        'Add a location to the photo or moment to suggest nearby species.',
+      unavailable: 'No nearby species suggestions are available right now.',
     },
     inaturalistAttribution: 'Species suggestions from iNaturalist.',
     macrostratAttribution: 'Geologic context from Macrostrat.',

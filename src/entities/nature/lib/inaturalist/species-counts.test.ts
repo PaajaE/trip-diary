@@ -1,21 +1,22 @@
 import { describe, expect, it } from 'vitest'
-import { parseInaturalistIdentifyResponse } from '@/entities/nature/lib/inaturalist-identify'
+import { parseInaturalistSpeciesCountsResponse } from '@/entities/nature/lib/inaturalist/species-counts'
 
-describe('parseInaturalistIdentifyResponse', () => {
-  it('returns ranked suggestions with common names', () => {
+describe('parseInaturalistSpeciesCountsResponse', () => {
+  it('maps species counts to ranked taxon matches', () => {
     expect(
-      parseInaturalistIdentifyResponse({
+      parseInaturalistSpeciesCountsResponse({
         results: [
           {
-            combined_score: 0.42,
+            count: 12,
             taxon: {
               english_common_name: 'Eurasian lynx',
+              iconic_taxon_name: 'Mammalia',
               id: 41964,
               name: 'Lynx lynx',
             },
           },
           {
-            combined_score: 0.91,
+            count: 42,
             taxon: {
               id: 3,
               name: 'Alcedo atthis',
@@ -28,14 +29,14 @@ describe('parseInaturalistIdentifyResponse', () => {
       {
         commonName: 'Common Kingfisher',
         iconicTaxon: null,
-        score: 0.91,
+        localObservationCount: 42,
         scientificName: 'Alcedo atthis',
         taxonId: 3,
       },
       {
         commonName: 'Eurasian lynx',
-        iconicTaxon: null,
-        score: 0.42,
+        iconicTaxon: 'Mammalia',
+        localObservationCount: 12,
         scientificName: 'Lynx lynx',
         taxonId: 41964,
       },

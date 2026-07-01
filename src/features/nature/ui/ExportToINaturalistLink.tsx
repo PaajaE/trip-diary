@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { buildINaturalistObservationUrl } from '@/entities/nature/lib/inaturalist-export'
+import { buildINaturalistObservationUrl } from '@/entities/nature/lib/inaturalist'
 import { cn } from '@/shared/lib/cn'
 
 interface ExportToINaturalistLinkProps {

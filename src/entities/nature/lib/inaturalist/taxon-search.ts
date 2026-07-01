@@ -1,13 +1,5 @@
-export interface InaturalistTaxonSuggestion {
-  commonName: string
-  id: number
-  rank: string
-  scientificName: string
-}
-
-function inaturalistLocale(language: string): string {
-  return language.startsWith('cs') ? 'cs' : 'en'
-}
+import { inaturalistLocale } from '@/entities/nature/lib/inaturalist/locale'
+import type { InaturalistTaxonSuggestion } from '@/entities/nature/lib/inaturalist/types'
 
 export function parseInaturalistAutocompleteResponse(payload: {
   results?: {

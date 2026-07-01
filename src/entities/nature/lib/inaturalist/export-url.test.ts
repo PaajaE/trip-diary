@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildINaturalistObservationUrl } from '@/entities/nature/lib/inaturalist-export'
+import { buildINaturalistObservationUrl } from '@/entities/nature/lib/inaturalist'
 
 describe('buildINaturalistObservationUrl', () => {
   it('prefers scientific name and includes coordinates', () => {

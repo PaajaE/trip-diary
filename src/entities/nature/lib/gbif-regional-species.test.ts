@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { z } from 'zod'
-import {
-  aggregateGbifResults,
-  identifyResponseSchema,
-} from '@/entities/nature/lib/gbif-regional-species'
+import { aggregateGbifResults } from '@/entities/nature/lib/gbif-regional-species'
 
 describe('aggregateGbifResults', () => {
   it('aggregates occurrence counts by species key', () => {
@@ -40,31 +36,5 @@ describe('aggregateGbifResults', () => {
         taxonKey: 2,
       },
     ])
-  })
-})
-
-describe('identifyResponseSchema', () => {
-  it('accepts edge function suggestion payloads', () => {
-    const payload = {
-      suggestions: [
-        {
-          commonName: 'Common Kingfisher',
-          iconicTaxon: 'Aves',
-          score: 0.91,
-          scientificName: 'Alcedo atthis',
-          taxonId: 3,
-        },
-      ],
-    }
-
-    expect(identifyResponseSchema.parse(payload)).toEqual(payload)
-  })
-
-  it('rejects malformed payloads', () => {
-    expect(() =>
-      identifyResponseSchema.parse({
-        suggestions: [{ commonName: 'Lynx' }],
-      }),
-    ).toThrow(z.ZodError)
   })
 })

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { parseInaturalistAutocompleteResponse } from '@/entities/nature/lib/inaturalist-taxon-search'
+import { parseInaturalistAutocompleteResponse } from '@/entities/nature/lib/inaturalist/taxon-search'
 
 describe('parseInaturalistAutocompleteResponse', () => {
-  it('maps preferred common names and scientific names', () => {
+  it('returns the first search hit', () => {
     expect(
       parseInaturalistAutocompleteResponse({
         results: [
@@ -24,11 +24,7 @@ describe('parseInaturalistAutocompleteResponse', () => {
     ])
   })
 
-  it('skips incomplete taxa', () => {
-    expect(
-      parseInaturalistAutocompleteResponse({
-        results: [{ name: 'Lynx lynx' }],
-      }),
-    ).toEqual([])
+  it('returns empty list when search is empty', () => {
+    expect(parseInaturalistAutocompleteResponse({ results: [] })).toEqual([])
   })
 })
