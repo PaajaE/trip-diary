@@ -327,6 +327,7 @@ export const cs: TranslationResources = {
     memoryDescriptionWithTrip:
       'Přidej fotky nebo krátký text a vrať tuto vzpomínku přímo do cesty {{title}}.',
     memoryEyebrow: 'Nový moment',
+    memoryNatureGoalHint: 'Přidáváš fotku k cíli {{title}}.',
     memoryNeedsConnection:
       'Aby se vzpomínka připojila přímo k cestě, potřebujeme ji teď synchronizovat. Připoj se a zkus to prosím znovu.',
     memoryTitle: 'Přidat moment do cesty',
@@ -734,6 +735,8 @@ export const cs: TranslationResources = {
       viewAll: 'Vše',
       wishesTitle: 'Ještě hledám',
     },
+    exportInaturalist: 'Zapsat na iNaturalist',
+    exportInaturalistShort: 'iNat',
     match: {
       hint: 'Zahlédl jsi něco z toho?',
       other: 'Jiné',

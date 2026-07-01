@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, MapPin } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { z } from 'zod'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { createEntrySchema } from '@/entities/entry/model/entry'
+import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { addLocalPhotos } from '@/entities/photo/api/local-photo.repository'
 import {
@@ -43,6 +44,7 @@ import { Input } from '@/shared/ui/Input'
 interface CreateJourneyMemoryFormProps {
   creatorId: string
   journey: JourneyDetail
+  natureGoal?: Pick<JourneyChecklistItem, 'id' | 'title'>
   onCreated: (meta: {
     entryId: string
     entrySlug: string
@@ -65,6 +67,7 @@ type CreateJourneyMemoryInput = z.infer<typeof createJourneyMemorySchema>
 export function CreateJourneyMemoryForm({
   creatorId,
   journey,
+  natureGoal,
   onCreated,
   spaceId,
 }: CreateJourneyMemoryFormProps) {
@@ -103,6 +106,16 @@ export function CreateJourneyMemoryForm({
   })
   const title = useWatch({ control: form.control, name: 'title' })
   const photoPreviewUrls = useMemoryPhotoPreviews(photos, detectedPhotos)
+
+  useEffect(() => {
+    if (natureGoal === undefined) {
+      return
+    }
+
+    if (form.getValues('title').trim() === '') {
+      form.setValue('title', natureGoal.title, { shouldDirty: false })
+    }
+  }, [form, natureGoal])
 
   function persistPhotoDraft(next: {
     detectedPhotos?: ProcessedPhoto[]

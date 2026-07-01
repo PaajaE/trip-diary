@@ -8,6 +8,7 @@ import {
   fetchRegionalSpecies,
   fetchWikipediaSummary,
 } from '@/entities/nature/api/nature-guide.repository'
+import { fetchWikidataEntry } from '@/entities/nature/lib/wikidata'
 import type {
   NatureObservation,
   RegionalSpecies,
@@ -20,6 +21,7 @@ import { createCustomChecklistItem } from '@/entities/checklist/api/checklist-mu
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
 import { SpeciesDetailSheet } from '@/features/nature/ui/SpeciesDetailSheet'
+import { ExportToINaturalistLink } from '@/features/nature/ui/ExportToINaturalistLink'
 import { cn } from '@/shared/lib/cn'
 import { isBrowserOnline } from '@/shared/lib/network'
 
@@ -112,6 +114,21 @@ export function JourneyNatureGuidePanel({
     queryFn: () =>
       fetchWikipediaSummary(activeSpecies?.commonName ?? '', i18n.language),
     queryKey: ['nature-guide-wiki', activeSpecies?.commonName, i18n.language],
+  })
+
+  const wikidataQuery = useQuery({
+    enabled: activeSpecies !== null,
+    queryFn: () =>
+      fetchWikidataEntry(
+        activeSpecies?.scientificName ?? activeSpecies?.commonName ?? '',
+        i18n.language,
+      ),
+    queryKey: [
+      'nature-guide-wikidata',
+      activeSpecies?.scientificName,
+      activeSpecies?.commonName,
+      i18n.language,
+    ],
   })
 
   const online = isBrowserOnline()
@@ -241,6 +258,13 @@ export function JourneyNatureGuidePanel({
                     key={observation.id}
                   >
                     <p className="font-semibold">{observation.commonName}</p>
+                    <ExportToINaturalistLink
+                      className="mt-2"
+                      commonName={observation.commonName}
+                      latitude={observation.latitude}
+                      longitude={observation.longitude}
+                      scientificName={observation.scientificName}
+                    />
                   </li>
                 ))}
               </ul>
@@ -251,6 +275,8 @@ export function JourneyNatureGuidePanel({
 
       <SpeciesDetailSheet
         canAddToGoals={showAddToGoals && creatorId !== undefined}
+        latitude={center?.latitude ?? null}
+        longitude={center?.longitude ?? null}
         {...(creatorId !== undefined ? { onAddToGoals: handleAddSpecies } : {})}
         onClose={() => {
           setActiveSpecies(null)
@@ -259,6 +285,9 @@ export function JourneyNatureGuidePanel({
         species={activeSpecies}
         {...(wikiQuery.data !== undefined && wikiQuery.data !== null
           ? { wikiSummary: wikiQuery.data }
+          : {})}
+        {...(wikidataQuery.data !== undefined && wikidataQuery.data !== null
+          ? { wikidataEntry: wikidataQuery.data }
           : {})}
       />
     </section>

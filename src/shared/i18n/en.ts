@@ -327,6 +327,7 @@ export const en = {
     memoryDescriptionWithTrip:
       'Add photos or a quick text and save this memory directly into {{title}}.',
     memoryEyebrow: 'New moment',
+    memoryNatureGoalHint: 'Adding a photo for {{title}}.',
     memoryNeedsConnection:
       'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
     memoryTitle: 'Add a moment to this trip',
@@ -733,6 +734,8 @@ export const en = {
       viewAll: 'View all',
       wishesTitle: 'Still looking for',
     },
+    exportInaturalist: 'Log on iNaturalist',
+    exportInaturalistShort: 'iNat',
     match: {
       hint: 'Did you spot any of these?',
       other: 'Other',
