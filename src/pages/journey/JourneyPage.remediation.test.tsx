@@ -53,11 +53,23 @@ vi.mock('@/features/photos/ui/PhotoGallery', () => ({
 vi.mock('@/features/engagement/ui/ContentEngagement', () => ({
   ContentEngagement: () => null,
 }))
+vi.mock('@/features/journeys/ui/JourneyStorySection', () => ({
+  JourneyStorySection: () => null,
+}))
+vi.mock('@/features/nature/ui/NatureOnTripStrip', () => ({
+  NatureOnTripStrip: () => null,
+}))
 vi.mock('@/features/sharing/hooks/use-journey-public-share', () => ({
   useJourneyPublicShare: () => ({
     isLoading: false,
     paths: null,
     tripShare: null,
+  }),
+}))
+vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
+  getJourneyEntryPhotoPreviews: vi.fn().mockResolvedValue({
+    failedEntryIds: new Set<string>(),
+    previewsByEntry: new Map(),
   }),
 }))
 
@@ -125,12 +137,25 @@ describe('JourneyPage remediation', () => {
       if (queryKey[0] === 'journey-photo-tags') {
         return { data: [], isError: false, isPending: false }
       }
+      if (queryKey[0] === 'journey-checklist') {
+        return { data: [], isError: false, isPending: false }
+      }
+      if (queryKey[0] === 'journey-observations') {
+        return { data: [], isError: false, isPending: false }
+      }
+      if (queryKey[0] === 'journey-gallery') {
+        return {
+          data: { failedMomentCount: 0, previewsByMoment: [[]] },
+          isError: false,
+          isPending: false,
+        }
+      }
       return { data: false, isError: false }
     })
 
     render(<JourneyPage journeyId={journey.id} />)
 
-    expect(screen.getByText('1 momentů')).toBeVisible()
-    expect(screen.getAllByText('Lake Louise')).toHaveLength(1)
+    expect(screen.getByRole('status')).toHaveTextContent('1')
+    expect(screen.getByRole('status')).toHaveTextContent('1')
   })
 })

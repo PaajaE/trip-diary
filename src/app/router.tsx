@@ -124,7 +124,7 @@ const journeyRoute = createRoute({
       .object({
         notice: z.enum(['photos_failed']).optional(),
         section: z
-          .enum(['overview', 'story', 'map', 'gallery', 'guides'])
+          .enum(['overview', 'map', 'gallery', 'more', 'story', 'guides'])
           .optional(),
       })
       .parse(search),
@@ -135,6 +135,12 @@ const createJourneyMemoryRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/memory/new',
+  validateSearch: (search) =>
+    z
+      .object({
+        natureGoalId: z.uuid().optional(),
+      })
+      .parse(search),
   component: LazyCreateJourneyMemoryRoutePage,
 })
 

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { CalendarDays, Expand, Settings2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, Link } from '@tanstack/react-router'
+import { CalendarDays, Expand, Plus, Settings2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
@@ -15,6 +15,7 @@ import {
   isJourneyOwner,
 } from '@/entities/journey/api/journey-member.repository'
 import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
+import type { ContentTarget } from '@/entities/engagement/model/engagement'
 import { useSession } from '@/features/auth/session'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
 import { buildJourneyReturnPath } from '@/features/journeys/lib/journey-return-path'
@@ -22,6 +23,7 @@ import { scrollToJourneySectionNav } from '@/features/journeys/lib/scroll-to-jou
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
 import { JourneyManageSheet } from '@/features/journeys/ui/JourneyManageSheet'
+import { JourneyMoreSheet } from '@/features/journeys/ui/JourneyMoreSheet'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
 import { JourneyOverview } from '@/features/journeys/ui/JourneyOverview'
 import { JourneyPlaceCaptureSheet } from '@/features/journeys/ui/JourneyPlaceCaptureSheet'
@@ -29,7 +31,6 @@ import {
   JourneySectionTabs,
   type JourneySection,
 } from '@/features/journeys/ui/JourneySectionTabs'
-import { JourneyStorySection } from '@/features/journeys/ui/JourneyStorySection'
 import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
 import { groupTagsByPhotoId } from '@/features/journeys/lib/journey-tag-collections'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
@@ -41,12 +42,29 @@ import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
 import { FullScreenSheet } from '@/shared/ui/FullScreenSheet'
+import { SoftBottomSheet } from '@/shared/ui/SoftBottomSheet'
+
+type JourneyRouteSection = JourneySection | 'guides' | 'story'
 
 interface JourneyPageProps {
   journeyId: string
   notice?: 'photos_failed'
-  section?: JourneySection
+  section?: JourneyRouteSection
   shareUrl?: string
+}
+
+function normalizeJourneySection(
+  section?: JourneyRouteSection,
+): JourneySection {
+  if (
+    section === undefined ||
+    section === 'story' ||
+    section === 'guides' ||
+    section === 'more'
+  ) {
+    return 'overview'
+  }
+  return section
 }
 
 export function JourneyPage({
@@ -68,7 +86,6 @@ export function JourneyPage({
   const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
     null,
   )
-  const openGuideOnGuidesRef = useRef(false)
   const query = useJourneyQuery(journeyId)
   const contributionQuery = useJourneyContributionQuery(journeyId)
   const ownerQuery = useQuery({
@@ -132,8 +149,12 @@ export function JourneyPage({
     () => (content?.moments ?? []).map((moment) => moment.entry.id).join(','),
     [content?.moments],
   )
+  const [engagementOpen, setEngagementOpen] = useState(false)
+  const [moreOpen, setMoreOpen] = useState(false)
+  const [guidesSheetOpen, setGuidesSheetOpen] = useState(false)
+  const [natureDetailOpen, setNatureDetailOpen] = useState(false)
   const [activeSection, setActiveSection] = useState<JourneySection>(
-    section ?? 'overview',
+    normalizeJourneySection(section),
   )
   const [syncedRoute, setSyncedRoute] = useState({ journeyId, section })
   const dateLabel = formatDateRange(
@@ -143,13 +164,12 @@ export function JourneyPage({
   )
 
   function selectSection(next: JourneySection) {
-    setActiveSection(next)
-    if (next === 'guides' && openGuideOnGuidesRef.current) {
-      setGuideFormOpen(true)
-      openGuideOnGuidesRef.current = false
-    } else if (next !== 'guides') {
-      setGuideFormOpen(false)
+    if (next === 'more') {
+      setMoreOpen(true)
+      return
     }
+    setMoreOpen(false)
+    setActiveSection(next)
     if (next !== 'map') {
       setMapExpanded(false)
     }
@@ -157,11 +177,13 @@ export function JourneyPage({
 
   if (syncedRoute.journeyId !== journeyId || syncedRoute.section !== section) {
     setSyncedRoute({ journeyId, section })
-    setActiveSection(section ?? 'overview')
+    setActiveSection(normalizeJourneySection(section))
     setManageOpen(false)
     setPlaceCaptureOpen(false)
     setMapExpanded(false)
     setGuideFormOpen(false)
+    setMoreOpen(section === 'more')
+    setGuidesSheetOpen(section === 'guides')
   }
 
   const pendingMapPointId =
@@ -217,10 +239,18 @@ export function JourneyPage({
     selectSection('map')
   }
 
-  function handleAddAdvice() {
-    openGuideOnGuidesRef.current = true
-    selectSection('guides')
+  function handleShowNatureOnMap(stopId: string) {
+    setPendingMapPhotoId(null)
+    setFocusedMapPointId(`planned:${stopId}`)
+    selectSection('map')
   }
+
+  function handleAddAdvice() {
+    setGuideFormOpen(true)
+    setGuidesSheetOpen(true)
+  }
+
+  const publicShareUrl = tripShare?.shareUrl ?? shareUrl
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
@@ -237,9 +267,9 @@ export function JourneyPage({
               {t('journey.photosFailedNotice')}
             </p>
           ) : null}
-          <header className="mt-10 overflow-hidden rounded-[2rem] border border-border bg-surface shadow-soft">
-            <div className="bg-[radial-gradient(circle_at_top_left,_rgba(184,95,66,0.18),_transparent_36%),linear-gradient(135deg,_rgba(40,88,69,0.12),_rgba(255,253,248,0.8))] px-5 py-6 sm:px-8 sm:py-8">
-              <p className="text-sm font-medium text-accent">
+          <header className="mt-8 border-b border-border/60 pb-6">
+            <div className="px-0.5">
+              <p className="text-sm text-muted">
                 {t(`journey.status.${journey.status}`)}
                 {myRoleQuery.data === null ||
                 myRoleQuery.data === undefined ? null : (
@@ -251,24 +281,24 @@ export function JourneyPage({
                   </>
                 )}
               </p>
-              <h1 className="mt-3 max-w-3xl text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">
+              <h1 className="mt-2 max-w-3xl text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
                 {journey.title}
               </h1>
               <RevalidatingIndicator
                 label={t('journey.revalidating')}
                 visible={query.isRevalidating}
               />
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted">
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-2">
-                  <CalendarDays aria-hidden="true" size={16} />
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+                <span className="inline-flex items-center gap-2">
+                  <CalendarDays aria-hidden="true" size={15} />
                   {dateLabel}
                 </span>
               </div>
               {canEdit || shareUrl !== undefined || tripShare !== null ? (
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                   {canEdit ? (
                     <button
-                      className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-white/80 px-5 text-sm font-semibold transition-colors hover:bg-white sm:w-auto"
+                      className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-border/80 px-4 text-sm font-medium text-muted transition-colors hover:bg-background sm:w-auto"
                       onClick={() => {
                         setManageOpen(true)
                       }}
@@ -297,61 +327,42 @@ export function JourneyPage({
 
           <JourneySectionTabs
             activeSection={activeSection}
+            moreOpen={moreOpen}
             onSelect={selectSection}
           />
 
-          <ContentEngagement
-            className="mt-6 rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
+          <CollapsibleEngagement
+            onToggle={() => {
+              setEngagementOpen((open) => !open)
+            }}
+            open={engagementOpen}
             target={{ id: journeyId, type: 'journey' }}
           />
 
           {activeSection === 'overview' && content !== null ? (
             <JourneyOverview
               canEdit={canEdit}
+              creatorId={user?.id ?? ''}
               journey={journey}
               journeyId={journeyId}
               mapPointCount={mapPoints.length}
               moments={content.moments}
-              onAddAdvice={handleAddAdvice}
               onAddPlace={() => {
                 setPlaceCaptureOpen(true)
               }}
+              onChanged={() => {
+                void query.refetch()
+              }}
+              natureDetailOpen={natureDetailOpen}
+              onNatureDetailOpenChange={setNatureDetailOpen}
               onNavigateSection={selectSection}
               onOpenEntry={(entryId) => {
                 openEntryFromJourney(entryId, 'overview')
               }}
+              onShowNatureOnMap={handleShowNatureOnMap}
+              stageContents={content.stageContents}
+              tagsByPhotoId={tagsByPhotoId}
             />
-          ) : null}
-
-          {activeSection === 'story' && content !== null ? (
-            <section
-              className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
-              id="story"
-            >
-              <div className="flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium text-accent">
-                    {t('journey.storyEyebrow')}
-                  </p>
-                  <h2 className="mt-3 text-2xl font-semibold">
-                    {t('journey.story')}
-                  </h2>
-                </div>
-              </div>
-              <JourneyStorySection
-                canEdit={canEdit}
-                creatorId={user?.id ?? ''}
-                journey={journey}
-                journeyId={journeyId}
-                moments={content.moments}
-                onChanged={() => void query.refetch()}
-                onOpenEntry={(entryId) => {
-                  openEntryFromJourney(entryId, 'story')
-                }}
-                stageContents={content.stageContents}
-                tagsByPhotoId={tagsByPhotoId}
-              />
-            </section>
           ) : null}
 
           {activeSection === 'map' ? (
@@ -464,7 +475,42 @@ export function JourneyPage({
             />
           </FullScreenSheet>
 
-          {activeSection === 'guides' ? (
+          <JourneyMoreSheet
+            canEdit={canEdit}
+            onClose={() => {
+              setMoreOpen(false)
+            }}
+            onOpenGuides={handleAddAdvice}
+            onOpenNature={() => {
+              setNatureDetailOpen(true)
+            }}
+            open={moreOpen}
+            {...(publicShareUrl !== undefined
+              ? {
+                  onCopyShareLink: () => {
+                    void sharePublicUrl(publicShareUrl, journey.title)
+                  },
+                  shareUrl: publicShareUrl,
+                }
+              : {})}
+            {...(canEdit
+              ? {
+                  onManageTrip: () => {
+                    setManageOpen(true)
+                  },
+                }
+              : {})}
+          />
+
+          <SoftBottomSheet
+            closeLabel={t('nature.strip.close')}
+            onClose={() => {
+              setGuidesSheetOpen(false)
+              setGuideFormOpen(false)
+            }}
+            open={guidesSheetOpen}
+            title={t('journey.guides')}
+          >
             <JourneyGuidesSection
               canEdit={canEdit}
               creatorId={user?.id ?? ''}
@@ -475,6 +521,17 @@ export function JourneyPage({
               }}
               showAddForm={guideFormOpen}
             />
+          </SoftBottomSheet>
+
+          {canEdit ? (
+            <Link
+              aria-label={t('journey.addMoment')}
+              className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-20 inline-flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:right-[max(1.25rem,calc((100vw-48rem)/2))]"
+              params={{ journeyId }}
+              to="/j/$journeyId/memory/new"
+            >
+              <Plus aria-hidden="true" size={24} />
+            </Link>
           ) : null}
 
           {canEdit ? (
@@ -514,6 +571,36 @@ export function JourneyPage({
         </>
       )}
     </main>
+  )
+}
+
+function CollapsibleEngagement({
+  onToggle,
+  open,
+  target,
+}: {
+  onToggle: () => void
+  open: boolean
+  target: ContentTarget
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <div className="mt-5">
+      <button
+        className="text-sm text-muted hover:text-foreground"
+        onClick={onToggle}
+        type="button"
+      >
+        {open ? t('journey.engagementHide') : t('journey.engagementShow')}
+      </button>
+      {open ? (
+        <ContentEngagement
+          className="mt-3 rounded-xl bg-background/60 p-4 sm:p-5"
+          target={target}
+        />
+      ) : null}
+    </div>
   )
 }
 

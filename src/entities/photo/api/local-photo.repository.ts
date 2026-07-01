@@ -15,11 +15,12 @@ export async function addLocalPhotos(
   entryId: string,
   files: (File | SelectedPhotoFile)[],
   processedPhotos?: ProcessedPhoto[],
-): Promise<void> {
+): Promise<string[]> {
   const startingPosition = await localDb.photos
     .where('entryId')
     .equals(entryId)
     .count()
+  const photoIds: string[] = []
 
   for (const [index, file] of files.entries()) {
     const selectedFile = file instanceof File ? file : file.file
@@ -78,5 +79,8 @@ export async function addLocalPhotos(
         await localDb.syncOperations.add(operation)
       },
     )
+    photoIds.push(photoId)
   }
+
+  return photoIds
 }

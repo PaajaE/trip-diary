@@ -87,5 +87,19 @@ export async function resolveSyncOperationDetail(
       return operation.label
     case 'photo.tag.remove':
       return operation.slug
+    case 'checklist_item.create':
+    case 'checklist_item.update': {
+      const item = await localDb.localChecklistItems.get(
+        operation.checklistItemId,
+      )
+      return item?.title ?? ''
+    }
+    case 'observation.create':
+    case 'observation.update': {
+      const observation = await localDb.localNatureObservations.get(
+        operation.observationId,
+      )
+      return observation?.commonName ?? ''
+    }
   }
 }

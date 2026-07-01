@@ -21,6 +21,7 @@ export type PhotoTagAssignment = z.infer<typeof photoTagAssignmentSchema>
 export const SUGGESTED_PHOTO_TAG_SLUGS = [
   'wildlife',
   'flowers',
+  'geology',
   'landscape',
   'food',
   'architecture',

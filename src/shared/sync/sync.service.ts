@@ -1,3 +1,7 @@
+import {
+  insertJourneyChecklistItemRemote,
+  updateJourneyChecklistItemRemote,
+} from '@/entities/checklist/api/checklist.repository'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getJourneySnapshot } from '@/entities/journey/api/local-journey-cache.repository'
 import { getLocalJourney } from '@/entities/journey/api/local-journey.repository'
@@ -360,6 +364,18 @@ export async function syncPendingOperations(): Promise<void> {
         case 'photo.tag.remove':
           await syncPhotoTagRemove(operation)
           break
+        case 'checklist_item.create':
+          await syncChecklistItemCreate(operation)
+          break
+        case 'checklist_item.update':
+          await syncChecklistItemUpdate(operation)
+          break
+        case 'observation.create':
+          await syncObservationCreate(operation)
+          break
+        case 'observation.update':
+          await syncObservationUpdate(operation)
+          break
       }
     } catch (error) {
       const message = `${operation.type}: ${formatSyncError(error)}`
@@ -603,6 +619,22 @@ type PhotoTagAssignOperation = Extract<
 type PhotoTagRemoveOperation = Extract<
   SyncOperation,
   { type: 'photo.tag.remove' }
+>
+type ChecklistItemCreateOperation = Extract<
+  SyncOperation,
+  { type: 'checklist_item.create' }
+>
+type ChecklistItemUpdateOperation = Extract<
+  SyncOperation,
+  { type: 'checklist_item.update' }
+>
+type ObservationCreateOperation = Extract<
+  SyncOperation,
+  { type: 'observation.create' }
+>
+type ObservationUpdateOperation = Extract<
+  SyncOperation,
+  { type: 'observation.update' }
 >
 
 async function syncEntryCreate(
@@ -1304,6 +1336,168 @@ async function syncPhotoTagRemove(
   })
   await clearLocalPhotoTagAssignment(operation.photoId, operation.slug)
   await localDb.syncOperations.delete(operation.id)
+}
+
+async function syncChecklistItemCreate(
+  operation: ChecklistItemCreateOperation,
+): Promise<void> {
+  const item = await localDb.localChecklistItems.get(operation.checklistItemId)
+  if (item === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  if (item.stopId !== null) {
+    const pendingStop = await localDb.localJourneyStops.get(item.stopId)
+    if (pendingStop !== undefined) {
+      throw new Error('Waiting for planned stop to sync')
+    }
+  }
+
+  await insertJourneyChecklistItemRemote({
+    category: item.category,
+    creatorId: item.creatorId,
+    id: item.id,
+    itemSlug: item.itemSlug,
+    journeyId: item.journeyId,
+    notes: item.notes,
+    position: item.position,
+    stopId: item.stopId,
+    templateSlug: item.templateSlug,
+    title: item.title,
+  })
+
+  await localDb.transaction(
+    'rw',
+    localDb.localChecklistItems,
+    localDb.syncOperations,
+    async () => {
+      await localDb.localChecklistItems.delete(item.id)
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
+}
+
+async function syncChecklistItemUpdate(
+  operation: ChecklistItemUpdateOperation,
+): Promise<void> {
+  const item = await localDb.localChecklistItems.get(operation.checklistItemId)
+  if (item === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  await updateJourneyChecklistItemRemote({
+    checkedAt: item.checkedAt,
+    entryId: item.entryId,
+    id: item.id,
+    stopId: item.stopId,
+  })
+
+  await localDb.transaction(
+    'rw',
+    localDb.localChecklistItems,
+    localDb.syncOperations,
+    async () => {
+      await localDb.syncOperations
+        .filter(
+          (candidate) =>
+            candidate.type === 'checklist_item.update' &&
+            candidate.checklistItemId === item.id &&
+            candidate.id !== operation.id,
+        )
+        .delete()
+      await localDb.localChecklistItems.delete(item.id)
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
+}
+
+async function syncObservationCreate(
+  operation: ObservationCreateOperation,
+): Promise<void> {
+  const observation = await localDb.localNatureObservations.get(
+    operation.observationId,
+  )
+  if (observation === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  const { error } = await getSupabaseClient()
+    .from('nature_observations')
+    .insert({
+      category: observation.category,
+      checklist_item_id: observation.checklistItemId,
+      common_name: observation.commonName,
+      confidence: observation.confidence,
+      creator_id: observation.creatorId,
+      entry_id: observation.entryId,
+      external_id: observation.externalId,
+      external_source: observation.externalSource,
+      id: observation.id,
+      journey_id: observation.journeyId,
+      latitude: observation.latitude,
+      longitude: observation.longitude,
+      notes: observation.notes,
+      observed_at: observation.observedAt,
+      photo_id: observation.photoId,
+      scientific_name: observation.scientificName,
+    })
+
+  if (error !== null && !isDuplicateInsertError(error)) {
+    throw error
+  }
+
+  await localDb.transaction(
+    'rw',
+    localDb.localNatureObservations,
+    localDb.syncOperations,
+    async () => {
+      await localDb.localNatureObservations.delete(observation.id)
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
+}
+
+async function syncObservationUpdate(
+  operation: ObservationUpdateOperation,
+): Promise<void> {
+  const observation = await localDb.localNatureObservations.get(
+    operation.observationId,
+  )
+  if (observation === undefined) {
+    await localDb.syncOperations.delete(operation.id)
+    return
+  }
+
+  const { error } = await getSupabaseClient()
+    .from('nature_observations')
+    .update({
+      category: observation.category,
+      common_name: observation.commonName,
+      confidence: observation.confidence,
+      external_id: observation.externalId,
+      external_source: observation.externalSource,
+      notes: observation.notes,
+      observed_at: observation.observedAt,
+      scientific_name: observation.scientificName,
+    })
+    .eq('id', observation.id)
+
+  if (error !== null) {
+    throw error
+  }
+
+  await localDb.transaction(
+    'rw',
+    localDb.localNatureObservations,
+    localDb.syncOperations,
+    async () => {
+      await localDb.localNatureObservations.delete(observation.id)
+      await localDb.syncOperations.delete(operation.id)
+    },
+  )
 }
 
 async function syncPhotoMetadata(

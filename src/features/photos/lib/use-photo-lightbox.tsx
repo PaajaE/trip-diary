@@ -10,6 +10,7 @@ import {
 export function usePhotoLightbox(options?: {
   canDelete?: boolean
   canEditTags?: boolean
+  canLogObservation?: boolean
   creatorId?: string
   journeyId?: string
   onOpenMoment?: (entryId: string) => void
@@ -41,6 +42,11 @@ export function usePhotoLightbox(options?: {
         canDelete={options?.canDelete === true && creatorId !== undefined}
         canEditTags={
           options?.canEditTags === true &&
+          creatorId !== undefined &&
+          options.journeyId !== undefined
+        }
+        canLogObservation={
+          options?.canLogObservation === true &&
           creatorId !== undefined &&
           options.journeyId !== undefined
         }
@@ -82,6 +88,9 @@ export function usePhotoLightbox(options?: {
         onTagsChanged={() => {
           void queryClient.invalidateQueries({
             queryKey: ['journey-photo-tags'],
+          })
+          void queryClient.invalidateQueries({
+            queryKey: ['journey-observations'],
           })
         }}
         photoEngagement={options?.photoEngagement === true}

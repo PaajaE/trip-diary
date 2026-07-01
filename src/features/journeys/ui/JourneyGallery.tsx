@@ -132,6 +132,7 @@ export function JourneyGallery({
   const { lightboxElement, openLightbox } = usePhotoLightbox({
     canDelete,
     canEditTags: canDelete && journeyId !== undefined,
+    canLogObservation: canDelete && journeyId !== undefined,
     ...(creatorId !== undefined ? { creatorId } : {}),
     ...(journeyId !== undefined ? { journeyId } : {}),
     ...(onOpenMoment !== undefined ? { onOpenMoment } : {}),

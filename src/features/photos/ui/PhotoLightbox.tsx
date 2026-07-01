@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import { PhotoNatureSpotting } from '@/features/nature/ui/PhotoNatureSpotting'
 import { getPhotoDetailPreview } from '@/entities/photo/api/photo-gallery.repository'
 import { PhotoTagEditor } from '@/features/photos/ui/PhotoTagEditor'
 import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
@@ -19,6 +20,7 @@ export interface PhotoLightboxItem {
 interface PhotoLightboxProps {
   canDelete?: boolean
   canEditTags?: boolean
+  canLogObservation?: boolean
   creatorId?: string
   initialIndex?: number
   journeyId?: string
@@ -34,6 +36,7 @@ interface PhotoLightboxProps {
 export function PhotoLightbox({
   canDelete = false,
   canEditTags = false,
+  canLogObservation = false,
   creatorId,
   initialIndex = 0,
   journeyId,
@@ -127,6 +130,8 @@ export function PhotoLightbox({
 
   const displayUrl = detailUrls[activePhoto.id] ?? activePhoto.thumbUrl
   const activeTags = tagsByPhotoId?.get(activePhoto.id) ?? []
+  const canSpotNature =
+    canLogObservation && creatorId !== undefined && journeyId !== undefined
   const momentEntryId = activePhoto.entryId
 
   return (
@@ -246,6 +251,17 @@ export function PhotoLightbox({
           <PhotoTagEditor
             assignedTags={activeTags}
             creatorId={creatorId}
+            journeyId={journeyId}
+            {...(onTagsChanged !== undefined
+              ? { onChanged: onTagsChanged }
+              : {})}
+            photoId={activePhoto.id}
+          />
+        ) : null}
+        {canSpotNature ? (
+          <PhotoNatureSpotting
+            creatorId={creatorId}
+            {...(momentEntryId !== undefined ? { entryId: momentEntryId } : {})}
             journeyId={journeyId}
             {...(onTagsChanged !== undefined
               ? { onChanged: onTagsChanged }

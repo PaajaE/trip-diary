@@ -195,6 +195,12 @@ export function JourneyReaderPage({
     selectSection('map')
   }
 
+  function handleShowNatureOnMap(stopId: string) {
+    setPendingMapPhotoId(null)
+    setFocusedMapPointId(`planned:${stopId}`)
+    selectSection('map')
+  }
+
   function handleSelectCollectionTag(slug: string) {
     setSelectedCollectionTag(slug)
   }
@@ -256,20 +262,27 @@ export function JourneyReaderPage({
           {activeSection === 'overview' && content !== null ? (
             <JourneyOverview
               canEdit={false}
+              creatorId=""
               journey={journey}
               journeyId={journeyId}
               mapPointCount={mapPoints.length}
               moments={content.moments}
-              onAddAdvice={() => {
-                selectSection('guides')
-              }}
-              onAddPlace={() => {
-                // Read-only journey view has no place capture.
+              onChanged={() => {
+                // Read-only public view.
               }}
               onNavigateSection={(next) => {
-                selectSection(next)
+                if (
+                  next === 'overview' ||
+                  next === 'map' ||
+                  next === 'gallery'
+                ) {
+                  selectSection(next)
+                }
               }}
               onOpenEntry={openMoment}
+              onShowNatureOnMap={handleShowNatureOnMap}
+              stageContents={content.stageContents}
+              tagsByPhotoId={tagsByPhotoId}
             />
           ) : null}
 
