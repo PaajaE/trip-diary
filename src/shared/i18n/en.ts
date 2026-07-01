@@ -228,6 +228,7 @@ export const en = {
     freeMoments: 'Moments outside a stage',
     explore: 'Explore journey',
     gallery: 'Gallery',
+    checklist: 'Checklist',
     galleryEmpty:
       'Photos will appear here together with the first journey moments.',
     galleryError: 'The journey gallery could not be loaded.',
@@ -311,6 +312,10 @@ export const en = {
     mapEyebrow: 'The whole journey in one place',
     mapExpand: 'Full screen',
     mapCollapse: 'Close map',
+    mapNatureTitle: 'Nature goal: {{title}}',
+    mapNatureVisited: 'Spotted',
+    mapNatureWish: 'Still looking for',
+    mapShowNatureGoals: 'Show nature goals',
     mappedCount: '{{count}} on map',
     hasLocation: 'Moment has a location',
     mapHint: 'no manual GPS',
@@ -327,6 +332,11 @@ export const en = {
     memoryTitle: 'Add a moment to this trip',
     manageTrip: 'Manage trip',
     manageClose: 'Close',
+    more: 'More',
+    moreCopyLink: 'Copy public link',
+    moreNature: 'Nature on trip',
+    moreOpenPublic: 'Open public page',
+    moreTitle: 'More',
     overview: 'Overview',
     overviewEyebrow: 'Trip at a glance',
     photosCount: '{{count}} photos',
@@ -337,6 +347,12 @@ export const en = {
     viewGallery: 'View all photos',
     viewMap: 'Open full map',
     momentsCount: '{{count}} moments',
+    summaryLineMoments: '{{count, plural, one {# moment} other {# moments}}}',
+    summaryLinePhotos: '{{count, plural, one {# photo} other {# photos}}}',
+    summaryLineMap: '{{count}} on map',
+    summaryLineNature: '{{checked}}/{{total}} nature goals',
+    engagementShow: 'Comments & likes',
+    engagementHide: 'Hide comments',
     noStage: 'No stage',
     organizeDescription:
       'Stages for days or legs, and planned places on the map. Not needed right away.',
@@ -360,6 +376,8 @@ export const en = {
       'The moment was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
     photosFailedNotice:
       'The moment was saved, but the photos could not be processed on this device. You can add the photos later from another device.',
+    templateFailedNotice:
+      'The journey was created, but nature goals could not be added. Open Nature on the trip overview to try again.',
     photoInsightsLoading: 'Reading time and GPS from the selected photos…',
     photoInsightsSummary:
       '{{gps}} of {{total}} photos already have GPS and {{time}} of {{total}} have a capture time.',
@@ -378,6 +396,7 @@ export const en = {
     placeSuggestionApplied: 'Suggested place name: {{title}}',
     placeSuggestionLoading: 'Looking up a natural place name from the map…',
     plannedPlaces: 'Planned places',
+    plannedNatureStops: 'Planned nature stops',
     route: 'Journey route',
     routeEyebrow: 'Map and timeline',
     story: 'Story',
@@ -431,6 +450,7 @@ export const en = {
       city: 'City',
       flowers: 'Flowers',
       food: 'Food',
+      geology: 'Geology',
       landscape: 'Landscape',
       mountains: 'Mountains',
       people: 'People',
@@ -446,6 +466,7 @@ export const en = {
     collectionMapHint: 'map',
     collectionMapTitle: 'Map for this collection',
     collectionPhotos: '{{count}} photos',
+    collectionSpecies: '{{count}} species',
     collections: 'Collections',
     collectionsDescription:
       'Photos grouped by tags — wildlife, flowers, landscapes, and more.',
@@ -526,6 +547,220 @@ export const en = {
     error: 'Reactions could not be loaded.',
     actionError: 'Something went wrong. Please try again.',
     guestAuthor: 'Guest',
+  },
+  checklist: {
+    addTemplate: 'Add nature checklist',
+    applyClose: 'Close',
+    applyDescription:
+      'Pick a destination template. Items appear as a checklist and notable spots are added to the map as planned places.',
+    applyTitle: 'Destination checklist',
+    applying: 'Adding…',
+    category: {
+      flora: 'Plants',
+      general: 'General',
+      geology: 'Geology & rocks',
+      landmark: 'Landmarks',
+      wildlife: 'Wildlife',
+    },
+    description:
+      'Track what you want to see — animals, plants, rocks, and landmarks. Checked spots with a map pin are marked visited.',
+    empty:
+      'No checklist yet. Add a destination template to seed wildlife, flora, and geology goals for this trip.',
+    error: 'The checklist could not be loaded.',
+    eyebrow: 'Nature goals',
+    itemCount: '{{count}} items',
+    loading: 'Loading checklist…',
+    onMapPlanned: 'Planned on map',
+    onMapVisited: 'Visited on map',
+    progress: '{{checked}} of {{total}} spotted',
+    title: 'Destination checklist',
+    templates: {
+      ceskeSvycarsko: {
+        description:
+          'Sandstone gorges, forest birds, and spring orchids in Bohemian Switzerland.',
+        region: 'North Bohemia · Czech Switzerland NP',
+        title: 'Bohemian Switzerland',
+        items: {
+          peregrine: {
+            notes: 'Look along the Elbe canyon cliffs in early morning.',
+            title: 'Peregrine falcon',
+          },
+          kingfisher: {
+            notes: 'Listen near quiet stretches of the Kamenice gorge.',
+            title: 'Common kingfisher',
+          },
+          orchids: {
+            notes: 'Spring meadows below the rock towers.',
+            title: 'Early-purple orchid',
+          },
+          pravcickaBrana: {
+            notes: 'The largest natural sandstone arch in Europe.',
+            title: 'Pravčická brána arch',
+          },
+          sandstoneFormations: {
+            notes: 'Honeycomb weathering and pillar rocks along the trails.',
+            title: 'Sandstone formations',
+          },
+          edmundovaSoutezka: {
+            notes: 'Boat ride through the narrow Edmund Gorge.',
+            title: 'Edmund Gorge',
+          },
+        },
+      },
+      krkonose: {
+        description: 'Alpine plants, chamois, and the highest Czech peak.',
+        region: 'Giant Mountains NP',
+        title: 'Krkonoše',
+        items: {
+          chamois: {
+            notes: 'Scan rocky slopes above the tree line.',
+            title: 'Chamois',
+          },
+          marmot: {
+            notes: 'Listen for whistles on alpine meadows.',
+            title: 'Alpine marmot',
+          },
+          edelweiss: {
+            notes: 'Rocky sites near Sněžka and surrounding ridges.',
+            title: 'Edelweiss',
+          },
+          cloudberry: {
+            notes: 'Bogs and wet heaths in higher elevations.',
+            title: 'Cloudberry',
+          },
+          snezka: {
+            notes: 'Highest point in the Czech Republic.',
+            title: 'Sněžka summit',
+          },
+          pecPodSnezkou: {
+            notes: 'Gateway town with cable car to the ridges.',
+            title: 'Pec pod Sněžkou',
+          },
+        },
+      },
+      sumava: {
+        description: 'Boreal forest, peat bogs, and elusive forest mammals.',
+        region: 'Šumava NP',
+        title: 'Šumava',
+        items: {
+          lynx: {
+            notes:
+              'Tracks are more likely than sightings — dawn in quiet forest.',
+            title: 'Eurasian lynx',
+          },
+          capercaillie: {
+            notes: 'Listen for display calls in spring spruce forest.',
+            title: 'Western capercaillie',
+          },
+          bogPine: {
+            notes: 'Stunted pines on raised bogs near Borová Lada.',
+            title: 'Bog pine',
+          },
+          plechy: {
+            notes: 'Glacial lake below the Plechý summit.',
+            title: 'Plešné jezero lake',
+          },
+          boubinskyPramen: {
+            notes: 'Primeval forest reserve with marked nature trail.',
+            title: 'Boubín primeval forest',
+          },
+        },
+      },
+    },
+  },
+  natureGuide: {
+    addToGoals: 'Add to goals',
+    attribution: 'Regional species data from GBIF. Wikipedia for summaries.',
+    description:
+      'A lightweight field guide for your destination — what others have recorded nearby, plus what you log on this trip.',
+    gbifOccurrences: '{{count}} nearby records',
+    loading: 'Loading regional species…',
+    nearbySpecies: 'Recorded nearby',
+    needsChecklist:
+      'Add a destination checklist to anchor regional species suggestions.',
+    offlineHint: 'Regional species load when you are online.',
+    title: 'Nature guide',
+    yourObservations: 'Your sightings on this trip',
+  },
+  observation: {
+    commonNamePlaceholder: 'Common name, e.g. Peregrine falcon',
+    confidence: {
+      heard: 'Heard only',
+      seen: 'Seen clearly',
+      unsure: 'Unsure',
+    },
+    logTitle: 'Log a sighting',
+    logPrompt: 'Log species',
+    notesPlaceholder: 'Habitat, behaviour, or field notes…',
+    save: 'Save sighting',
+    saveError: 'The sighting could not be saved.',
+    saving: 'Saving…',
+    scientificNamePlaceholder: 'Scientific name (optional)',
+  },
+  nature: {
+    create: {
+      clearSelection: 'Clear selection',
+      description:
+        'Pick a park template for wildlife, plant, and geology goals on your trip.',
+      suggestedFromTitle: 'Suggested from trip title',
+      title: 'Nature goals (optional)',
+    },
+    empty: {
+      hint: 'Pick a Czech park template to get wildlife, plant, and geology goals.',
+      title: 'What are you hoping to see?',
+    },
+    strip: {
+      addPhoto: 'Add photo of this',
+      addTips: 'Add park tips',
+      applying: 'Adding…',
+      close: 'Close',
+      detailTitle: 'Nature on this trip',
+      empty: 'No nature goals yet. Add park tips to get started.',
+      emptyHint: 'Add park tips for wildlife, plants, and geology goals.',
+      loading: 'Loading nature goals…',
+      markNotSpotted: 'Not spotted',
+      markNotSpottedConfirm: 'Remove this from spotted?',
+      markSpotted: 'Mark spotted',
+      pickPark: 'Pick a park',
+      pickParkHint:
+        'Choose a destination template. Goals appear as chips and notable spots on the map.',
+      progress: '{{checked}} of {{total}} spotted',
+      showOnMap: 'Show on map',
+      showOnMapVisited: 'Visited on map',
+      spottedTitle: 'Spotted',
+      templateItemCount: '{{count}} goals',
+      title: 'Nature on trip',
+      viewAll: 'View all',
+      wishesTitle: 'Still looking for',
+    },
+    match: {
+      hint: 'Did you spot any of these?',
+      other: 'Other',
+      otherHint: 'Quick note — just the name is enough.',
+      skip: 'Skip',
+      title: 'Spot something?',
+    },
+    custom: {
+      categories: {
+        flora: 'Plants',
+        general: 'General',
+        geology: 'Geology',
+        landmark: 'Landmark',
+        wildlife: 'Wildlife',
+      },
+      categoryLabel: 'Category',
+      nameLabel: 'Species or goal name',
+      notesLabel: 'Notes (optional)',
+      save: 'Add custom goal',
+      saveError: 'The custom goal could not be saved.',
+      saving: 'Saving…',
+      templateTitle: 'Your custom goals',
+      title: 'Add your own goal',
+    },
+    template: {
+      remove: 'Remove template',
+      removeConfirm: 'Remove this template and its nature stops from the trip?',
+    },
   },
 } as const
 

@@ -3,10 +3,17 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { CalendarDays, Expand } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
 import { usePublicJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
+import {
+  observationsForCollectionTag,
+  uniqueSpeciesNames,
+} from '@/features/journeys/lib/collection-observations'
+import { useJourneyMapPhotoThumbs } from '@/features/journeys/lib/use-journey-map-photo-thumbs'
 import {
   filterPhotoLocationsByTag,
   groupTagsByPhotoId,
@@ -64,6 +71,19 @@ export function JourneyReaderPage({
   const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
     null,
   )
+  const [showNatureGoalsOnMap, setShowNatureGoalsOnMap] = useState(true)
+
+  const checklistQuery = useQuery({
+    enabled: journey !== null && journey !== undefined,
+    queryFn: () => listJourneyChecklistItems(journeyId),
+    queryKey: ['journey-checklist', journeyId],
+  })
+  const observationsQuery = useQuery({
+    enabled: journey !== null && journey !== undefined,
+    queryFn: () => listJourneyObservations(journeyId),
+    queryKey: ['journey-observations', journeyId],
+  })
+  const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
 
   const sharePath = buildPublicJourneyPath(publicPaths)
   const shareUrl = buildAbsoluteUrl(sharePath)
@@ -129,8 +149,19 @@ export function JourneyReaderPage({
               ? []
               : content.plannedStops,
             filteredPhotoLocations,
+            {
+              checklistItems: checklistQuery.data ?? [],
+              observations: observationsQuery.data ?? [],
+            },
           ),
-    [activeSection, content, filteredPhotoLocations, selectedCollectionTag],
+    [
+      activeSection,
+      checklistQuery.data,
+      content,
+      filteredPhotoLocations,
+      observationsQuery.data,
+      selectedCollectionTag,
+    ],
   )
 
   const locatedPhotoIds = useMemo(
@@ -195,12 +226,39 @@ export function JourneyReaderPage({
     selectSection('map')
   }
 
+  function handleShowNatureOnMap(checklistItemId: string) {
+    setPendingMapPhotoId(null)
+    setFocusedMapPointId(`nature-goal:${checklistItemId}`)
+    selectSection('map')
+  }
+
   function handleSelectCollectionTag(slug: string) {
     setSelectedCollectionTag(slug)
   }
 
   const collectionFilterTag =
     activeSection === 'collections' ? selectedCollectionTag : null
+  const collectionSpecies =
+    selectedCollectionTag === null
+      ? []
+      : uniqueSpeciesNames(
+          observationsForCollectionTag(
+            observationsQuery.data ?? [],
+            selectedCollectionTag,
+          ),
+        )
+
+  const readerMapProps = {
+    checklistItems: checklistQuery.data ?? [],
+    focusPointId: mapFocusPointId,
+    moments: content?.moments ?? [],
+    observations: observationsQuery.data ?? [],
+    onFocusPointChange: setFocusedMapPointId,
+    onOpenEntry: openMoment,
+    photoLocations: filteredPhotoLocations,
+    photoThumbUrls,
+    showNatureGoals: showNatureGoalsOnMap,
+  }
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
@@ -256,20 +314,27 @@ export function JourneyReaderPage({
           {activeSection === 'overview' && content !== null ? (
             <JourneyOverview
               canEdit={false}
+              creatorId=""
               journey={journey}
               journeyId={journeyId}
               mapPointCount={mapPoints.length}
               moments={content.moments}
-              onAddAdvice={() => {
-                selectSection('guides')
-              }}
-              onAddPlace={() => {
-                // Read-only journey view has no place capture.
+              onChanged={() => {
+                // Read-only public view.
               }}
               onNavigateSection={(next) => {
-                selectSection(next)
+                if (
+                  next === 'overview' ||
+                  next === 'map' ||
+                  next === 'gallery'
+                ) {
+                  selectSection(next)
+                }
               }}
               onOpenEntry={openMoment}
+              onShowNatureOnMap={handleShowNatureOnMap}
+              stageContents={content.stageContents}
+              tagsByPhotoId={tagsByPhotoId}
             />
           ) : null}
 
@@ -308,13 +373,22 @@ export function JourneyReaderPage({
                   </button>
                 ) : null}
               </div>
+              {mapPoints.some((point) => point.type === 'nature-goal') ? (
+                <label className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted">
+                  <input
+                    checked={showNatureGoalsOnMap}
+                    className="size-4 rounded border-border text-primary"
+                    onChange={(event) => {
+                      setShowNatureGoalsOnMap(event.target.checked)
+                    }}
+                    type="checkbox"
+                  />
+                  {t('journey.mapShowNatureGoals')}
+                </label>
+              ) : null}
               {mapPoints.length > 0 && !mapExpanded ? (
                 <JourneyMap
-                  focusPointId={mapFocusPointId}
-                  moments={content?.moments ?? []}
-                  onFocusPointChange={setFocusedMapPointId}
-                  onOpenEntry={openMoment}
-                  photoLocations={filteredPhotoLocations}
+                  {...readerMapProps}
                   plannedStops={
                     collectionFilterTag === null
                       ? (content?.plannedStops ?? [])
@@ -361,6 +435,7 @@ export function JourneyReaderPage({
               {selectedCollectionTag === null ? (
                 <JourneyTagCollections
                   journeyId={journeyId}
+                  observations={observationsQuery.data ?? []}
                   onSelectTag={handleSelectCollectionTag}
                   selectedTagSlug={selectedCollectionTag}
                 />
@@ -382,6 +457,18 @@ export function JourneyReaderPage({
                       )?.label
                     }
                   </h3>
+                  {collectionSpecies.length > 0 ? (
+                    <ul className="mt-4 flex flex-wrap gap-2">
+                      {collectionSpecies.map((name) => (
+                        <li
+                          className="rounded-full bg-primary/8 px-3 py-1.5 text-sm font-medium text-primary"
+                          key={name}
+                        >
+                          {name}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                   <JourneyGallery
                     filterTagSlug={selectedCollectionTag}
                     locatedPhotoIds={locatedPhotoIds}
@@ -398,12 +485,8 @@ export function JourneyReaderPage({
                     </h4>
                     {mapPoints.length > 0 ? (
                       <JourneyMap
+                        {...readerMapProps}
                         className="mt-4"
-                        focusPointId={mapFocusPointId}
-                        moments={content?.moments ?? []}
-                        onFocusPointChange={setFocusedMapPointId}
-                        onOpenEntry={openMoment}
-                        photoLocations={filteredPhotoLocations}
                         plannedStops={[]}
                       />
                     ) : (
@@ -438,15 +521,12 @@ export function JourneyReaderPage({
             title={t('journey.map')}
           >
             <JourneyMap
+              {...readerMapProps}
               className="min-h-0 flex-1"
-              focusPointId={mapFocusPointId}
-              moments={content?.moments ?? []}
-              onFocusPointChange={setFocusedMapPointId}
               onOpenEntry={(entryId) => {
                 setMapExpanded(false)
                 openMoment(entryId)
               }}
-              photoLocations={filteredPhotoLocations}
               plannedStops={content?.plannedStops ?? []}
             />
           </FullScreenSheet>

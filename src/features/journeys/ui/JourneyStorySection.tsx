@@ -1,6 +1,12 @@
 import { Link } from '@tanstack/react-router'
-import { Circle, MapPin, Plus, Signpost } from 'lucide-react'
+import { Circle, Leaf, MapPin, Plus, Signpost } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
+import {
+  checklistItemForStop,
+  splitPlannedStops,
+} from '@/entities/checklist/lib/split-planned-stops'
+import { clearChecklistItemStop } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import {
   deleteJourneyStage,
@@ -17,6 +23,7 @@ import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
 
 interface JourneyStorySectionProps {
   canEdit: boolean
+  checklistItems?: JourneyChecklistItem[]
   creatorId: string
   journey: JourneyDetail
   journeyId: string
@@ -29,6 +36,7 @@ interface JourneyStorySectionProps {
 
 export function JourneyStorySection({
   canEdit,
+  checklistItems = [],
   creatorId,
   journey,
   journeyId,
@@ -71,6 +79,7 @@ export function JourneyStorySection({
         {stageContents.map((stageContent) => (
           <StageContent
             canEdit={canEdit}
+            checklistItems={checklistItems}
             content={stageContent}
             creatorId={creatorId}
             journey={journey}
@@ -88,6 +97,7 @@ export function JourneyStorySection({
 
 function StageContent({
   canEdit,
+  checklistItems,
   content,
   creatorId,
   journey,
@@ -97,6 +107,7 @@ function StageContent({
   tagsByPhotoId,
 }: {
   canEdit: boolean
+  checklistItems: JourneyChecklistItem[]
   content: JourneyStageContent
   creatorId: string
   journey: JourneyDetail
@@ -106,6 +117,10 @@ function StageContent({
   tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }) {
   const { t } = useTranslation()
+  const { genericStops, natureStops } = splitPlannedStops(
+    content.plannedStops,
+    checklistItems,
+  )
 
   return (
     <section className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6">
@@ -148,13 +163,72 @@ function StageContent({
             tagsByPhotoId={tagsByPhotoId}
           />
         ))}
-        {content.plannedStops.length === 0 ? null : (
+        {natureStops.length === 0 ? null : (
+          <div className="pt-3">
+            <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              <Leaf aria-hidden="true" size={14} />
+              {t('journey.plannedNatureStops')}
+            </p>
+            <div className="space-y-3">
+              {natureStops.map((stop) => {
+                const goal = checklistItemForStop(checklistItems, stop.id)
+                return (
+                  <article
+                    className="rounded-xl border border-primary/20 bg-primary/5 p-4"
+                    key={stop.id}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="flex items-center gap-3 font-semibold">
+                        <Leaf aria-hidden="true" size={14} />
+                        {goal?.title ?? stop.title}
+                      </p>
+                      {canEdit ? (
+                        <button
+                          className="text-xs font-semibold text-destructive"
+                          onClick={() => {
+                            if (
+                              !window.confirm(t('journey.deleteStopConfirm'))
+                            ) {
+                              return
+                            }
+                            void (async () => {
+                              await deleteJourneyStop(
+                                creatorId,
+                                journey.id,
+                                stop.id,
+                              )
+                              if (goal !== undefined) {
+                                await clearChecklistItemStop({
+                                  creatorId,
+                                  item: goal,
+                                  journeyId: journey.id,
+                                })
+                              }
+                              onChanged()
+                            })()
+                          }}
+                          type="button"
+                        >
+                          {t('journey.deleteStopAction')}
+                        </button>
+                      ) : null}
+                    </div>
+                    {goal?.notes === '' || goal === undefined ? null : (
+                      <p className="mt-2 text-sm text-muted">{goal.notes}</p>
+                    )}
+                  </article>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {genericStops.length === 0 ? null : (
           <div className="pt-3">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
               {t('journey.plannedPlaces')}
             </p>
             <div className="space-y-3">
-              {content.plannedStops.map((stop) => (
+              {genericStops.map((stop) => (
                 <article
                   className="rounded-xl border border-dashed border-border bg-background/60 p-4"
                   key={stop.id}

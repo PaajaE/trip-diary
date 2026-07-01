@@ -66,8 +66,10 @@ export async function createLocalJourney(
       await localDb.journeySnapshots.put({
         cachedAt: now,
         canContribute: true,
+        checklistItems: [],
         journey: snapshot,
         journeyId: id,
+        observations: [],
       })
     },
   )

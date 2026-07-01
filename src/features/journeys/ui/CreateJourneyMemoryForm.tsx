@@ -47,6 +47,7 @@ interface CreateJourneyMemoryFormProps {
     entryId: string
     entrySlug: string
     entryTitle: string
+    photoIds: string[]
     photosFailed?: boolean
   }) => void
   spaceId: string
@@ -331,8 +332,12 @@ export function CreateJourneyMemoryForm({
     })
 
     let photosFailed = false
+    let photoIds: string[] = []
     try {
-      await addLocalPhotos(creatorId, entry.id, photos, detectedPhotos)
+      photoIds =
+        photos.length > 0
+          ? await addLocalPhotos(creatorId, entry.id, photos, detectedPhotos)
+          : []
     } catch {
       // Keep the moment in the journey even if photo processing fails.
       setLinkError(t('journey.photoProcessingFailed'))
@@ -342,6 +347,7 @@ export function CreateJourneyMemoryForm({
       entryId: entry.id,
       entrySlug: entry.slug ?? createPublicSlug(resolvedTitle, entry.id),
       entryTitle: resolvedTitle,
+      photoIds,
       photosFailed,
     })
     clearJourneyMemoryPhotoDraft(journey.id)

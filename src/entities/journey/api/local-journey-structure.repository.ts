@@ -108,6 +108,53 @@ export async function setJourneyStopLocation(
   }
 }
 
+export async function setJourneyStopStatus(
+  creatorId: string,
+  journeyId: string,
+  stopId: string,
+  status: 'planned' | 'visited',
+): Promise<void> {
+  const localStop = await localDb.localJourneyStops.get(stopId)
+  if (localStop !== undefined) {
+    const now = new Date().toISOString()
+    const updated = localJourneyStopSchema.parse({
+      ...localStop,
+      status,
+      updatedAt: now,
+    })
+    await localDb.localJourneyStops.put(updated)
+    await patchJourneySnapshotStop(updated)
+    return
+  }
+
+  const snapshot = await getJourneySnapshot(journeyId)
+  const snapshotStop = snapshot?.journey.stops.find(
+    (item) => item.id === stopId,
+  )
+  if (snapshotStop !== undefined) {
+    await patchStopStatusInSnapshot(journeyId, stopId, status)
+  }
+
+  if (isBrowserOnline()) {
+    try {
+      const { error } = await getSupabaseClient()
+        .from('journey_stops')
+        .update({
+          status,
+          visited_at: status === 'visited' ? new Date().toISOString() : null,
+        })
+        .eq('id', stopId)
+      if (error === null) {
+        return
+      }
+    } catch {
+      // Fall back to local queue when remote stop update fails.
+    }
+  }
+
+  await queueStopUpdate(creatorId, journeyId, stopId)
+}
+
 export async function addJourneyGuide(
   creatorId: string,
   journeyId: string,
@@ -764,6 +811,54 @@ async function queueStageDelete(
       )
     },
   )
+}
+
+async function patchStopStatusInSnapshot(
+  journeyId: string,
+  stopId: string,
+  status: 'planned' | 'visited',
+): Promise<void> {
+  const snapshot = await getJourneySnapshot(journeyId)
+  if (snapshot === null) {
+    return
+  }
+
+  await saveJourneySnapshot(
+    journeyDetailSchema.parse({
+      ...snapshot.journey,
+      stops: snapshot.journey.stops.map((stop) =>
+        stop.id === stopId ? { ...stop, status } : stop,
+      ),
+    }),
+    snapshot.canContribute,
+  )
+}
+
+async function queueStopUpdate(
+  creatorId: string,
+  journeyId: string,
+  stopId: string,
+): Promise<void> {
+  const now = new Date().toISOString()
+  await localDb.transaction('rw', localDb.syncOperations, async () => {
+    await localDb.syncOperations
+      .filter(
+        (operation) =>
+          operation.type === 'stop.update' && operation.stopId === stopId,
+      )
+      .delete()
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: now,
+        creatorId,
+        id: crypto.randomUUID(),
+        journeyId,
+        stopId,
+        status: 'pending',
+        type: 'stop.update',
+      }),
+    )
+  })
 }
 
 async function queueStopDelete(

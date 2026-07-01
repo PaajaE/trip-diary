@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
+import type { NatureObservation } from '@/entities/nature/model/observation'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
 import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
 
@@ -10,20 +12,30 @@ describe('getJourneyMapPoints', () => {
 
     expect(getJourneyMapPoints([moment], [plannedStop])).toEqual([
       {
+        category: null,
+        checked: false,
+        checklistItemId: null,
         entryId: moment.entry.id,
         id: `moment:${moment.entry.id}`,
         latitude: 50,
         longitude: 14,
+        notes: '',
         photoId: null,
+        stopId: moment.stop?.id ?? null,
         title: 'Morning view',
         type: 'moment',
       },
       {
+        category: null,
+        checked: false,
+        checklistItemId: null,
         entryId: null,
         id: `planned:${plannedStop.id}`,
         latitude: 50,
         longitude: 14,
+        notes: '',
         photoId: null,
+        stopId: plannedStop.id,
         title: 'Next camp',
         type: 'planned',
       },
@@ -42,13 +54,52 @@ describe('getJourneyMapPoints', () => {
 
     expect(getJourneyMapPoints([moment], [], [photo])).toEqual([
       {
+        category: null,
+        checked: false,
+        checklistItemId: null,
         entryId: moment.entry.id,
         id: `photo:${photo.id}`,
         latitude: 50.1,
         longitude: 14.1,
+        notes: '',
         photoId: photo.id,
+        stopId: null,
         title: 'Morning view',
         type: 'photo',
+      },
+    ])
+  })
+
+  it('creates nature-goal pins for checklist-linked stops with observation photos', () => {
+    const stop = createStop({ title: 'Peregrine cliff' })
+    const checklistItem = createChecklistItem({
+      stopId: stop.id,
+      title: 'Peregrine falcon',
+    })
+    const observation = createObservation({
+      checklistItemId: checklistItem.id,
+      photoId: crypto.randomUUID(),
+    })
+
+    expect(
+      getJourneyMapPoints([], [stop], [], {
+        checklistItems: [checklistItem],
+        observations: [observation],
+      }),
+    ).toEqual([
+      {
+        category: 'wildlife',
+        checked: false,
+        checklistItemId: checklistItem.id,
+        entryId: null,
+        id: `nature-goal:${checklistItem.id}`,
+        latitude: 50,
+        longitude: 14,
+        notes: 'Look up at the cliffs',
+        photoId: observation.photoId,
+        stopId: stop.id,
+        title: 'Peregrine falcon',
+        type: 'nature-goal',
       },
     ])
   })
@@ -88,20 +139,30 @@ describe('getJourneyMapPoints', () => {
 
     expect(getJourneyMapPoints([], [], [photoA, photoB])).toEqual([
       {
+        category: null,
+        checked: false,
+        checklistItemId: null,
         entryId: photoA.entryId,
         id: `photo:${photoA.id}`,
         latitude: 50,
         longitude: 14,
+        notes: '',
         photoId: photoA.id,
+        stopId: null,
         title: 'First shot',
         type: 'photo',
       },
       {
+        category: null,
+        checked: false,
+        checklistItemId: null,
         entryId: photoB.entryId,
         id: `photo:${photoB.id}`,
         latitude: 50,
         longitude: 14,
+        notes: '',
         photoId: photoB.id,
+        stopId: null,
         title: 'Second shot',
         type: 'photo',
       },
@@ -149,6 +210,47 @@ function createStop(
     stageId: null,
     status: 'planned',
     title: 'Planned stop',
+    ...overrides,
+  }
+}
+
+function createChecklistItem(
+  overrides: Partial<JourneyChecklistItem> = {},
+): JourneyChecklistItem {
+  return {
+    category: 'wildlife',
+    checkedAt: null,
+    entryId: null,
+    id: crypto.randomUUID(),
+    itemSlug: 'peregrine',
+    notes: 'Look up at the cliffs',
+    position: 0,
+    stopId: null,
+    templateSlug: 'ceske-svycarsko',
+    title: 'Peregrine falcon',
+    ...overrides,
+  }
+}
+
+function createObservation(
+  overrides: Partial<NatureObservation> = {},
+): NatureObservation {
+  return {
+    category: 'wildlife',
+    checklistItemId: crypto.randomUUID(),
+    commonName: 'Peregrine falcon',
+    confidence: 'seen',
+    entryId: null,
+    externalId: null,
+    externalSource: null,
+    id: crypto.randomUUID(),
+    journeyId: crypto.randomUUID(),
+    latitude: null,
+    longitude: null,
+    notes: '',
+    observedAt: null,
+    photoId: null,
+    scientificName: null,
     ...overrides,
   }
 }

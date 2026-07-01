@@ -19,8 +19,18 @@ vi.mock('@tanstack/react-query', () => ({
   }),
 }))
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
-    <a href={to}>{children}</a>
+  Link: ({
+    'aria-label': ariaLabel,
+    children,
+    to,
+  }: {
+    'aria-label'?: string
+    children: React.ReactNode
+    to: string
+  }) => (
+    <a aria-label={ariaLabel} href={to}>
+      {children}
+    </a>
   ),
   useNavigate: () => navigateMock,
 }))
@@ -65,6 +75,12 @@ vi.mock('@/features/sharing/hooks/use-journey-public-share', () => ({
     paths: null,
     tripShare: null,
   }),
+}))
+vi.mock('@/features/journeys/ui/JourneyStorySection', () => ({
+  JourneyStorySection: () => null,
+}))
+vi.mock('@/features/nature/ui/NatureOnTripStrip', () => ({
+  NatureOnTripStrip: () => null,
 }))
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
   getJourneyEntryPhotoPreviews: vi.fn().mockResolvedValue({
@@ -141,20 +157,23 @@ describe('JourneyPage overview hub', () => {
       if (queryKey[0] === 'journey-owner') {
         return { data: true, isError: false }
       }
+      if (queryKey[0] === 'journey-checklist') {
+        return { data: [], isError: false, isPending: false }
+      }
+      if (queryKey[0] === 'journey-observations') {
+        return { data: [], isError: false, isPending: false }
+      }
       return { data: false, isError: false }
     })
 
     render(<JourneyPage journeyId={journey.id} />)
 
-    expect(screen.getByRole('heading', { name: 'Přehled' })).toBeVisible()
-    expect(screen.getByText('1 momentů')).toBeVisible()
-    expect(screen.getByText('1 rad')).toBeVisible()
-    expect(screen.getByText('Přidat moment')).toBeVisible()
+    expect(screen.getByText('A quick summary')).toBeVisible()
+    expect(screen.getByLabelText('Přidat moment')).toBeVisible()
     expect(screen.getByText('Přidat místo na mapě')).toBeVisible()
-    expect(screen.getByText('Skaftafell')).toBeVisible()
   })
 
-  it('switches to story tab locally without router navigation', async () => {
+  it('switches to map tab locally without router navigation', async () => {
     const user = userEvent.setup()
     const journey = buildJourney()
     useJourneyQueryMock.mockReturnValue({
@@ -181,19 +200,24 @@ describe('JourneyPage overview hub', () => {
       if (queryKey[0] === 'journey-owner') {
         return { data: true, isError: false }
       }
+      if (queryKey[0] === 'journey-checklist') {
+        return { data: [], isError: false, isPending: false }
+      }
+      if (queryKey[0] === 'journey-observations') {
+        return { data: [], isError: false, isPending: false }
+      }
       return { data: false, isError: false }
     })
 
     render(<JourneyPage journeyId={journey.id} />)
 
-    await user.click(screen.getByRole('button', { name: 'Příběh' }))
+    await user.click(screen.getByRole('button', { name: 'Mapa cesty' }))
 
     expect(navigateMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: 'Příběh' })).toBeVisible()
-    expect(screen.getByText('Začni prvním momentem')).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Mapa cesty' })).toBeVisible()
   })
 
-  it('routes add advice capture action to the guides tab', async () => {
+  it('opens guides from the more sheet', async () => {
     const user = userEvent.setup()
     const journey = buildJourney()
     useJourneyQueryMock.mockReturnValue({
@@ -220,14 +244,22 @@ describe('JourneyPage overview hub', () => {
       if (queryKey[0] === 'journey-owner') {
         return { data: true, isError: false }
       }
+      if (queryKey[0] === 'journey-checklist') {
+        return { data: [], isError: false, isPending: false }
+      }
+      if (queryKey[0] === 'journey-observations') {
+        return { data: [], isError: false, isPending: false }
+      }
       return { data: false, isError: false }
     })
 
     render(<JourneyPage journeyId={journey.id} />)
 
-    await user.click(screen.getByRole('button', { name: 'Přidat radu' }))
+    await user.click(screen.getByRole('button', { name: 'Více' }))
+    await user.click(screen.getByRole('button', { name: 'Rady' }))
 
     expect(navigateMock).not.toHaveBeenCalled()
-    expect(screen.getByRole('heading', { name: 'Rady' })).toBeVisible()
+    expect(screen.getByRole('dialog')).toBeVisible()
+    expect(screen.getAllByText('Rady').length).toBeGreaterThan(0)
   })
 })

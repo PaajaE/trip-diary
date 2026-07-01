@@ -7,6 +7,7 @@ import {
   listLocalJourneyLinks,
   saveLocalJourneyLink,
 } from '@/entities/journey/api/local-journey-link.repository'
+import { listJourneyChecklistItemsRemote } from '@/entities/checklist/api/checklist.repository'
 import {
   getJourneySnapshot,
   saveJourneySnapshot,
@@ -23,6 +24,7 @@ import {
   updateJourneyGuide as updateJourneyGuideStructure,
   updateJourneyStage as updateJourneyStageStructure,
 } from '@/entities/journey/api/local-journey-structure.repository'
+import { listJourneyObservationsRemote } from '@/entities/nature/api/observation.repository'
 import { applyLocalJourneyDeltas } from '@/entities/journey/api/journey-local-merge'
 import { createLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
@@ -99,7 +101,14 @@ export async function getJourney(id: string): Promise<JourneyDetail | null> {
       }
       const merged = await applyLocalJourneyDeltas(journey)
       const canContribute = await resolveCanContributeForSnapshot(id)
-      await saveJourneySnapshot(merged, canContribute)
+      const [checklistItems, observations] = await Promise.all([
+        listJourneyChecklistItemsRemote(id).catch(() => []),
+        listJourneyObservationsRemote(id).catch(() => []),
+      ])
+      await saveJourneySnapshot(merged, canContribute, {
+        checklistItems,
+        observations,
+      })
       return merged
     } catch {
       // Fall back to the last cached snapshot when the remote read fails.

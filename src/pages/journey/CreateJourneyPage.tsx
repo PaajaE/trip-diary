@@ -33,8 +33,15 @@ export function CreateJourneyPage() {
       ) : (
         <CreateJourneyForm
           creatorId={user.id}
-          onCreated={(journeyId) =>
-            void navigate({ params: { journeyId }, to: '/j/$journeyId' })
+          onCreated={(journeyId, meta) =>
+            void navigate({
+              params: { journeyId },
+              search:
+                meta?.templateFailed === true
+                  ? { notice: 'template_failed' }
+                  : {},
+              to: '/j/$journeyId',
+            })
           }
           spaceId={spacesQuery.activeSpace.id}
         />

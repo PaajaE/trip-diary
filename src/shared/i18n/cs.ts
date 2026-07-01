@@ -229,6 +229,7 @@ export const cs: TranslationResources = {
     freeMoments: 'Momenty mimo etapu',
     explore: 'Prohlížení cesty',
     gallery: 'Galerie',
+    checklist: 'Checklist',
     galleryEmpty: 'Fotky se tu objeví společně s prvními momenty cesty.',
     galleryError: 'Galerii cesty se nepodařilo načíst.',
     galleryLoading: 'Načítám galerii cesty…',
@@ -311,6 +312,10 @@ export const cs: TranslationResources = {
     mapEyebrow: 'Celá cesta na jednom místě',
     mapExpand: 'Celá obrazovka',
     mapCollapse: 'Zavřít mapu',
+    mapNatureTitle: 'Přírodní cíl: {{title}}',
+    mapNatureVisited: 'Zahlédnuto',
+    mapNatureWish: 'Ještě hledám',
+    mapShowNatureGoals: 'Zobrazit přírodní cíle',
     mappedCount: '{{count}} na mapě',
     hasLocation: 'Moment má polohu',
     mapHint: 'bez ruční GPS',
@@ -327,6 +332,11 @@ export const cs: TranslationResources = {
     memoryTitle: 'Přidat moment do cesty',
     manageTrip: 'Spravovat cestu',
     manageClose: 'Zavřít',
+    more: 'Více',
+    moreCopyLink: 'Zkopírovat veřejný odkaz',
+    moreNature: 'Příroda na cestě',
+    moreOpenPublic: 'Otevřít veřejnou stránku',
+    moreTitle: 'Více',
     overview: 'Přehled',
     overviewEyebrow: 'Cesta na první pohled',
     photosCount: '{{count}} fotek',
@@ -337,6 +347,14 @@ export const cs: TranslationResources = {
     viewGallery: 'Všechny fotky',
     viewMap: 'Otevřít mapu',
     momentsCount: '{{count}} momentů',
+    summaryLineMoments:
+      '{{count, plural, one {# moment} few {# momenty} other {# momentů}}}',
+    summaryLinePhotos:
+      '{{count, plural, one {# fotka} few {# fotky} other {# fotek}}}',
+    summaryLineMap: '{{count}} na mapě',
+    summaryLineNature: '{{checked}}/{{total}} přírodních cílů',
+    engagementShow: 'Komentáře a srdíčka',
+    engagementHide: 'Skrýt komentáře',
     noStage: 'Bez etapy',
     organizeDescription:
       'Etapy pro dny nebo přesuny a plánovaná místa na mapě. Není potřeba hned na začátku.',
@@ -360,6 +378,8 @@ export const cs: TranslationResources = {
       'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     photosFailedNotice:
       'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Fotky můžeš přidat později z jiného zařízení.',
+    templateFailedNotice:
+      'Výlet se vytvořil, ale přírodní cíle se nepodařilo přidat. Zkus to znovu v sekci Příroda na přehledu výletu.',
     photoInsightsLoading: 'Čtu čas a GPS z vybraných fotek…',
     photoInsightsSummary:
       '{{gps}} z {{total}} fotek už má GPS a {{time}} z {{total}} má čas pořízení.',
@@ -377,6 +397,7 @@ export const cs: TranslationResources = {
     placeSuggestionApplied: 'Navržený název místa: {{title}}',
     placeSuggestionLoading: 'Hledám přirozený název místa podle mapy…',
     plannedPlaces: 'Plánovaná místa',
+    plannedNatureStops: 'Plánované přírodní zastávky',
     route: 'Průběh cesty',
     routeEyebrow: 'Mapa a timeline',
     story: 'Příběh',
@@ -430,6 +451,7 @@ export const cs: TranslationResources = {
       city: 'Město',
       flowers: 'Květiny',
       food: 'Jídlo',
+      geology: 'Geologie',
       landscape: 'Krajina',
       mountains: 'Hory',
       people: 'Lidé',
@@ -445,6 +467,7 @@ export const cs: TranslationResources = {
     collectionMapHint: 'mapa',
     collectionMapTitle: 'Mapa kolekce',
     collectionPhotos: '{{count}} fotek',
+    collectionSpecies: '{{count}} druhů',
     collections: 'Kolekce',
     collectionsDescription:
       'Fotky seskupené podle štítků — zvířata, květiny, krajina a další.',
@@ -525,5 +548,219 @@ export const cs: TranslationResources = {
     error: 'Reakce se nepodařilo načíst.',
     actionError: 'Něco se pokazilo. Zkuste to prosím znovu.',
     guestAuthor: 'Host',
+  },
+  checklist: {
+    addTemplate: 'Přidat přírodní checklist',
+    applyClose: 'Zavřít',
+    applyDescription:
+      'Vyberte šablonu destinace. Položky se objeví v checklistu a významná místa na mapě jako plánovaná zastavení.',
+    applyTitle: 'Checklist destinace',
+    applying: 'Přidávám…',
+    category: {
+      flora: 'Rostliny',
+      general: 'Obecné',
+      geology: 'Geologie a skály',
+      landmark: 'Pamětihodnosti',
+      wildlife: 'Zvířata',
+    },
+    description:
+      'Sledujte, co chcete na cestě vidět — zvířata, rostliny, skály i pamětihodnosti. Zaškrtnutá místa s mapovým bodem se označí jako navštívená.',
+    empty:
+      'Zatím žádný checklist. Přidejte šablonu destinace a naplňte cíle pro zvířata, rostliny a geologii.',
+    error: 'Checklist se nepodařilo načíst.',
+    eyebrow: 'Přírodní cíle',
+    itemCount: '{{count}} položek',
+    loading: 'Načítám checklist…',
+    onMapPlanned: 'Plánováno na mapě',
+    onMapVisited: 'Navštíveno na mapě',
+    progress: '{{checked}} z {{total}} spatřeno',
+    title: 'Checklist destinace',
+    templates: {
+      ceskeSvycarsko: {
+        description:
+          'Pískovcové soutěsky, lesní ptactvo a jarní orchideje v Českém Švýcarsku.',
+        region: 'Severní Čechy · NP České Švýcarsko',
+        title: 'České Švýcarsko',
+        items: {
+          peregrine: {
+            notes: 'Hledejte podél skal nad řekou Labe brzy ráno.',
+            title: 'Sokol stěhovavý',
+          },
+          kingfisher: {
+            notes: 'Poslouchejte u tichých úseků soutěsek Kamenice.',
+            title: 'Ledňáček říční',
+          },
+          orchids: {
+            notes: 'Jarní louky pod skalními věžemi.',
+            title: 'Vstavač obecný',
+          },
+          pravcickaBrana: {
+            notes: 'Největší přírodní pískovcový oblouk v Evropě.',
+            title: 'Pravčická brána',
+          },
+          sandstoneFormations: {
+            notes: 'Mřížkové zvětrávání a skalní věže podél tras.',
+            title: 'Pískovcové tvary',
+          },
+          edmundovaSoutezka: {
+            notes: 'Plavba úzkou Edmundovou soutěskou.',
+            title: 'Edmundova soutěska',
+          },
+        },
+      },
+      krkonose: {
+        description: 'Horské rostliny, kamzíci a nejvyšší český vrchol.',
+        region: 'Krkonošský národní park',
+        title: 'Krkonoše',
+        items: {
+          chamois: {
+            notes: 'Prohlížejte skalnaté svahy nad hranicí lesa.',
+            title: 'Kamzík horský',
+          },
+          marmot: {
+            notes: 'Na horských loukách poslouchejte pískání.',
+            title: 'Svišť horský',
+          },
+          edelweiss: {
+            notes: 'Skalnatá stanoviště pod Sněžkou a na hřebenech.',
+            title: 'Protěž alpská',
+          },
+          cloudberry: {
+            notes: 'Rašeliniště a vlhké vřesoviště ve vyšších polohách.',
+            title: 'Moruška',
+          },
+          snezka: {
+            notes: 'Nejvyšší bod České republiky.',
+            title: 'Sněžka',
+          },
+          pecPodSnezkou: {
+            notes: 'Výchozí město s lanovkou na hřebeny.',
+            title: 'Pec pod Sněžkou',
+          },
+        },
+      },
+      sumava: {
+        description:
+          'Boreální les, rašeliniště a těžko spatřitelní lesní savci.',
+        region: 'NP Šumava',
+        title: 'Šumava',
+        items: {
+          lynx: {
+            notes: 'Spíš stopy než pohled — tišší les za úsvitu.',
+            title: 'Rys ostrovid',
+          },
+          capercaillie: {
+            notes: 'Na jaře poslouchejte tokání v smrčinách.',
+            title: 'Tetrař hlučný',
+          },
+          bogPine: {
+            notes: 'Zakrslé borovice na vrchovištních rašeliništích.',
+            title: 'Borovice rašelinná',
+          },
+          plechy: {
+            notes: 'Ledovcové jezero pod vrcholem Plechý.',
+            title: 'Plešné jezero',
+          },
+          boubinskyPramen: {
+            notes: 'Pralesní rezervace s naučnou stezkou.',
+            title: 'Prales Boubín',
+          },
+        },
+      },
+    },
+  },
+  natureGuide: {
+    addToGoals: 'Přidat mezi cíle',
+    attribution: 'Regionální data z GBIF. Shrnutí z Wikipedie.',
+    description:
+      'Lehký průvodce destinací — co bylo zaznamenáno v okolí a co jste na cestě zapsali vy.',
+    gbifOccurrences: '{{count}} záznamů v okolí',
+    loading: 'Načítám druhy v okolí…',
+    nearbySpecies: 'Zaznamenáno v okolí',
+    needsChecklist:
+      'Přidejte checklist destinace, aby šly načíst návrhy druhů v regionu.',
+    offlineHint: 'Regionální druhy se načtou, až budete online.',
+    title: 'Přírodní průvodce',
+    yourObservations: 'Vaše pozorování na této cestě',
+  },
+  observation: {
+    commonNamePlaceholder: 'Český název, např. sokol stěhovavý',
+    confidence: {
+      heard: 'Jen slyšeno',
+      seen: 'Jasně viděno',
+      unsure: 'Nejisté',
+    },
+    logTitle: 'Zapsat pozorování',
+    logPrompt: 'Zapsat druh',
+    notesPlaceholder: 'Stanoviště, chování nebo poznámky z terénu…',
+    save: 'Uložit pozorování',
+    saveError: 'Pozorování se nepodařilo uložit.',
+    saving: 'Ukládám…',
+    scientificNamePlaceholder: 'Latinský název (volitelné)',
+  },
+  nature: {
+    create: {
+      clearSelection: 'Zrušit výběr',
+      description:
+        'Vyber šablonu parku — cíle na zvířata, rostliny a geologii na cestě.',
+      suggestedFromTitle: 'Navrženo z názvu cesty',
+      title: 'Přírodní cíle (volitelné)',
+    },
+    empty: {
+      hint: 'Vyber šablonu českého parku — zvířata, rostliny a geologie.',
+      title: 'Co chceš na cestě zahlédnout?',
+    },
+    strip: {
+      addPhoto: 'Přidat fotku',
+      addTips: 'Přidat tipy na park',
+      applying: 'Přidávám…',
+      close: 'Zavřít',
+      detailTitle: 'Příroda na cestě',
+      empty: 'Zatím žádné přírodní cíle. Přidej tipy na park a začni.',
+      emptyHint: 'Přidej tipy na park — zvířata, rostliny a geologii.',
+      loading: 'Načítám přírodní cíle…',
+      markNotSpotted: 'Neviděno',
+      markNotSpottedConfirm: 'Odebrat ze zahlédnutých?',
+      markSpotted: 'Zahlédnuto',
+      pickPark: 'Vybrat park',
+      pickParkHint:
+        'Vyber šablonu destinace. Cíle se objeví jako štítky a místa na mapě.',
+      progress: '{{checked}} z {{total}} zahlédnuto',
+      showOnMap: 'Ukázat na mapě',
+      showOnMapVisited: 'Navštíveno na mapě',
+      spottedTitle: 'Zahlédnuto',
+      templateItemCount: '{{count}} cílů',
+      title: 'Příroda na cestě',
+      viewAll: 'Vše',
+      wishesTitle: 'Ještě hledám',
+    },
+    match: {
+      hint: 'Zahlédl jsi něco z toho?',
+      other: 'Jiné',
+      otherHint: 'Stačí název — rychlá poznámka.',
+      skip: 'Přeskočit',
+      title: 'Co jsi zahlédl?',
+    },
+    custom: {
+      categories: {
+        flora: 'Rostliny',
+        general: 'Obecné',
+        geology: 'Geologie',
+        landmark: 'Památka',
+        wildlife: 'Zvířata',
+      },
+      categoryLabel: 'Kategorie',
+      nameLabel: 'Název druhu nebo cíle',
+      notesLabel: 'Poznámky (volitelné)',
+      save: 'Přidat vlastní cíl',
+      saveError: 'Vlastní cíl se nepodařilo uložit.',
+      saving: 'Ukládám…',
+      templateTitle: 'Vlastní cíle',
+      title: 'Přidat vlastní cíl',
+    },
+    template: {
+      remove: 'Odebrat šablonu',
+      removeConfirm: 'Odebrat tuto šablonu a její přírodní zastávky z cesty?',
+    },
   },
 }

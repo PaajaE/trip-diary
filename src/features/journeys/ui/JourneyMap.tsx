@@ -2,17 +2,14 @@ import type { TFunction } from 'i18next'
 import type { RefObject } from 'react'
 import { useEffect, useMemo, useRef } from 'react'
 import maplibregl from 'maplibre-gl'
-import type {
-  Feature,
-  FeatureCollection,
-  GeoJsonProperties,
-  Point,
-} from 'geojson'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTranslation } from 'react-i18next'
+import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
+import type { NatureObservation } from '@/entities/nature/model/observation'
 import type { JourneyPhotoLocation } from '@/entities/photo/api/photo-location.repository'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
+import { createJourneyMapPinElement } from '@/features/journeys/ui/journey-map-photo-marker'
 import {
   getJourneyMapPoints,
   type JourneyMapPoint,
@@ -20,31 +17,26 @@ import {
 import { getAppMapStyle } from '@/shared/lib/map-style'
 
 interface JourneyMapProps {
+  canEdit?: boolean
+  checklistItems?: JourneyChecklistItem[]
   className?: string
   focusPointId?: string | null
   moments: JourneyMoment[]
+  observations?: NatureObservation[]
   onFocusPointChange?: (pointId: string | null) => void
+  onMarkNatureGoalSpotted?: (item: JourneyChecklistItem) => void
   onOpenEntry?: (entryId: string) => void
   photoLocations: JourneyPhotoLocation[]
   photoThumbUrls?: Record<string, string>
   plannedStops: JourneyDetail['stops']
-}
-
-const POINT_COLORS: Record<JourneyMapPoint['type'], string> = {
-  moment: '#285943',
-  photo: '#1d6fa5',
-  planned: '#bf6b3d',
-}
-
-const CLICK_RADIUS_PX = 22
-
-interface JourneyPointFeatureProperties {
-  cluster_id?: number
-  id?: string
+  showNatureGoals?: boolean
 }
 
 interface MapInteractionContext {
+  canEdit: boolean
+  checklistItems: JourneyChecklistItem[]
   onFocusPointChange?: ((pointId: string | null) => void) | undefined
+  onMarkNatureGoalSpotted?: ((item: JourneyChecklistItem) => void) | undefined
   onOpenEntry?: ((entryId: string) => void) | undefined
   photoThumbUrls: Record<string, string>
   points: JourneyMapPoint[]
@@ -52,43 +44,77 @@ interface MapInteractionContext {
 }
 
 export function JourneyMap({
+  canEdit = false,
+  checklistItems = [],
   className = 'mt-8 h-80 overflow-hidden rounded-lg border border-border sm:h-96',
   focusPointId = null,
   moments,
+  observations = [],
   onFocusPointChange,
+  onMarkNatureGoalSpotted,
   onOpenEntry,
   photoLocations,
   photoThumbUrls = {},
   plannedStops,
+  showNatureGoals = true,
 }: JourneyMapProps) {
   const { i18n, t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
-  const highlightMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const activePopupRef = useRef<maplibregl.Popup | null>(null)
   const layersReadyRef = useRef(false)
   const hasAutoFitRef = useRef(false)
   const lastFocusedPointIdRef = useRef<string | null>(null)
+  const focusPointIdRef = useRef(focusPointId)
+  useEffect(() => {
+    focusPointIdRef.current = focusPointId
+  }, [focusPointId])
   const interactionRef = useRef<MapInteractionContext>({
+    canEdit,
+    checklistItems,
     photoThumbUrls,
     points: [],
     t,
   })
   const points = useMemo(
-    () => getJourneyMapPoints(moments, plannedStops, photoLocations),
-    [moments, photoLocations, plannedStops],
+    () =>
+      getJourneyMapPoints(moments, plannedStops, photoLocations, {
+        checklistItems,
+        observations,
+      }).filter((point) => showNatureGoals || point.type !== 'nature-goal'),
+    [
+      checklistItems,
+      moments,
+      observations,
+      photoLocations,
+      plannedStops,
+      showNatureGoals,
+    ],
   )
-  const geoJson = useMemo(() => pointsToFeatureCollection(points), [points])
+  const displayPoints = useMemo(() => layoutCollocatedPoints(points), [points])
 
   useEffect(() => {
     interactionRef.current = {
+      canEdit,
+      checklistItems,
       onFocusPointChange,
+      onMarkNatureGoalSpotted,
       onOpenEntry,
       photoThumbUrls,
       points,
       t,
     }
-  }, [onFocusPointChange, onOpenEntry, photoThumbUrls, points, t])
+  }, [
+    canEdit,
+    checklistItems,
+    onFocusPointChange,
+    onMarkNatureGoalSpotted,
+    onOpenEntry,
+    photoThumbUrls,
+    points,
+    t,
+  ])
 
   useEffect(() => {
     const container = containerRef.current
@@ -108,10 +134,9 @@ export function JourneyMap({
     mapRef.current = map
 
     const onLoad = () => {
-      ensureJourneyMapLayers(map, interactionRef, activePopupRef)
       layersReadyRef.current = true
       const first = interactionRef.current.points[0]
-      if (first !== undefined && focusPointId === null) {
+      if (first !== undefined && focusPointIdRef.current === null) {
         fitMapToPoints(map, interactionRef.current.points)
         hasAutoFitRef.current = true
       }
@@ -126,8 +151,10 @@ export function JourneyMap({
     return () => {
       activePopupRef.current?.remove()
       activePopupRef.current = null
-      highlightMarkerRef.current?.remove()
-      highlightMarkerRef.current = null
+      for (const marker of markersRef.current.values()) {
+        marker.remove()
+      }
+      markersRef.current.clear()
       layersReadyRef.current = false
       hasAutoFitRef.current = false
       lastFocusedPointIdRef.current = null
@@ -148,22 +175,34 @@ export function JourneyMap({
       return
     }
 
-    const source = getJourneyPointsSource(map)
-    if (source !== null) {
-      source.setData(geoJson)
-    }
+    syncPhotoMarkers(
+      map,
+      displayPoints,
+      markersRef,
+      interactionRef,
+      activePopupRef,
+      (point) => {
+        showPointPopup(point, map, interactionRef, activePopupRef)
+      },
+    )
 
     if (focusPointId === null && !hasAutoFitRef.current && points.length > 0) {
       fitMapToPoints(map, points)
       hasAutoFitRef.current = true
     }
-  }, [focusPointId, geoJson, points])
+  }, [displayPoints, points.length])
 
   useEffect(() => {
+    for (const [pointId, marker] of markersRef.current.entries()) {
+      const element = marker.getElement()
+      element.classList.toggle(
+        'journey-map-pin--focused',
+        pointId === focusPointId,
+      )
+    }
+
     const map = mapRef.current
     if (map === null || focusPointId === null || !map.loaded()) {
-      highlightMarkerRef.current?.remove()
-      highlightMarkerRef.current = null
       lastFocusedPointIdRef.current = null
       return
     }
@@ -173,35 +212,23 @@ export function JourneyMap({
       return
     }
 
-    const coordinates: [number, number] = [point.longitude, point.latitude]
+    const displayPoint = displayPoints.find(
+      (candidate) => candidate.id === focusPointId,
+    )
     const focusChanged = lastFocusedPointIdRef.current !== focusPointId
     if (focusChanged) {
       map.flyTo({
-        center: coordinates,
+        center: [
+          displayPoint?.displayLongitude ?? point.longitude,
+          displayPoint?.displayLatitude ?? point.latitude,
+        ],
         essential: true,
         zoom: 14,
       })
       lastFocusedPointIdRef.current = focusPointId
+      showPointPopup(point, map, interactionRef, activePopupRef)
     }
-
-    highlightMarkerRef.current?.remove()
-    highlightMarkerRef.current = new maplibregl.Marker({
-      color: POINT_COLORS[point.type],
-    })
-      .setLngLat(coordinates)
-      .setPopup(
-        createStyledPopup(
-          point,
-          interactionRef.current.t,
-          interactionRef.current.photoThumbUrls,
-          interactionRef.current.onOpenEntry,
-        ),
-      )
-      .addTo(map)
-    if (focusChanged) {
-      highlightMarkerRef.current.togglePopup()
-    }
-  }, [focusPointId, points, t])
+  }, [displayPoints, focusPointId, points])
 
   useEffect(() => {
     return () => {
@@ -219,192 +246,113 @@ export function JourneyMap({
   )
 }
 
-function ensureJourneyMapLayers(
+function syncPhotoMarkers(
   map: maplibregl.Map,
+  displayPoints: DisplayJourneyMapPoint[],
+  markersRef: RefObject<Map<string, maplibregl.Marker>>,
   interactionRef: RefObject<MapInteractionContext>,
   activePopupRef: RefObject<maplibregl.Popup | null>,
+  onPointClick: (point: JourneyMapPoint) => void,
 ) {
-  const initialPoints = interactionRef.current.points
-  const geoJson = pointsToFeatureCollection(initialPoints)
+  const nextIds = new Set(displayPoints.map((point) => point.id))
 
-  map.addSource('journey-points', {
-    cluster: true,
-    clusterMaxZoom: 14,
-    clusterRadius: 48,
-    data: geoJson,
-    type: 'geojson',
-  })
-
-  map.addLayer({
-    filter: ['has', 'point_count'],
-    id: 'journey-clusters',
-    paint: {
-      'circle-color': '#285943',
-      'circle-radius': ['step', ['get', 'point_count'], 18, 5, 24, 12, 30],
-      'circle-stroke-color': '#fff',
-      'circle-stroke-width': 2,
-    },
-    source: 'journey-points',
-    type: 'circle',
-  })
-
-  map.addLayer({
-    filter: ['has', 'point_count'],
-    id: 'journey-cluster-count',
-    layout: {
-      'text-field': ['get', 'point_count_abbreviated'],
-      'text-font': ['Noto Sans Regular'],
-      'text-size': 12,
-    },
-    paint: {
-      'text-color': '#ffffff',
-    },
-    source: 'journey-points',
-    type: 'symbol',
-  })
-
-  map.addLayer({
-    filter: ['!', ['has', 'point_count']],
-    id: 'journey-points-unclustered',
-    paint: {
-      'circle-color': ['get', 'color'],
-      'circle-radius': 10,
-      'circle-stroke-color': '#ffffff',
-      'circle-stroke-width': 2,
-    },
-    source: 'journey-points',
-    type: 'circle',
-  })
-
-  map.addLayer({
-    filter: ['!', ['has', 'point_count']],
-    id: 'journey-points-hit',
-    paint: {
-      'circle-color': '#000000',
-      'circle-opacity': 0,
-      'circle-radius': 24,
-    },
-    source: 'journey-points',
-    type: 'circle',
-  })
-
-  function showPointsAtClick(event: maplibregl.MapMouseEvent) {
-    const clickedPoints = getPointsAtClick(
-      map,
-      event,
-      interactionRef.current.points,
-    )
-    if (clickedPoints.length === 0) {
-      return
+  for (const [pointId, marker] of markersRef.current.entries()) {
+    if (!nextIds.has(pointId)) {
+      marker.remove()
+      markersRef.current.delete(pointId)
     }
-    if (clickedPoints.length === 1) {
-      const [point] = clickedPoints
-      if (point !== undefined) {
-        showPointPopup(point, event.lngLat)
-      }
-      return
-    }
-    showCollocatedPointsPopup(
-      clickedPoints,
-      event.lngLat,
-      map,
-      interactionRef.current.t,
-      interactionRef.current.photoThumbUrls,
-      interactionRef.current.onOpenEntry,
-      (popup) => {
-        activePopupRef.current?.remove()
-        activePopupRef.current = popup
-      },
-      interactionRef.current.onFocusPointChange,
-    )
   }
 
-  function showPointPopup(point: JourneyMapPoint, lngLat: maplibregl.LngLat) {
-    const popup = createStyledPopup(
+  for (const point of displayPoints) {
+    const coordinates: [number, number] = [
+      point.displayLongitude,
+      point.displayLatitude,
+    ]
+    const existing = markersRef.current.get(point.id)
+    if (existing !== undefined) {
+      existing.setLngLat(coordinates)
+      continue
+    }
+
+    const element = createJourneyMapPinElement(
       point,
-      interactionRef.current.t,
       interactionRef.current.photoThumbUrls,
-      interactionRef.current.onOpenEntry,
     )
-    popup.setLngLat(lngLat).addTo(map)
-    activePopupRef.current?.remove()
-    activePopupRef.current = popup
-    interactionRef.current.onFocusPointChange?.(point.id)
-  }
-
-  map.on('click', ['journey-clusters', 'journey-cluster-count'], (event) => {
-    const feature = event.features?.[0] as
-      | Feature<Point, JourneyPointFeatureProperties>
-      | undefined
-    const clusterId = feature?.properties.cluster_id
-    const mapSource = getJourneyPointsSource(map)
-    if (
-      clusterId === undefined ||
-      mapSource === null ||
-      feature === undefined
-    ) {
-      return
-    }
-
-    void mapSource.getClusterLeaves(clusterId, 100, 0).then((leaves) => {
-      const pointIds = new Set<string>()
-      for (const leaf of leaves) {
-        const id = readJourneyPointFeatureId(leaf.properties)
-        if (id !== undefined) {
-          pointIds.add(id)
-        }
-      }
-      const clusterPoints = interactionRef.current.points.filter((point) =>
-        pointIds.has(point.id),
+    element.addEventListener('click', (event) => {
+      event.stopPropagation()
+      const collocated = getCollocatedPoints(
+        interactionRef.current.points,
+        point,
       )
-      if (clusterPoints.length > 1 && areCollocated(clusterPoints)) {
+      if (collocated.length > 1) {
         showCollocatedPointsPopup(
-          clusterPoints,
-          event.lngLat,
+          collocated,
+          new maplibregl.LngLat(point.longitude, point.latitude),
           map,
-          interactionRef.current.t,
-          interactionRef.current.photoThumbUrls,
-          interactionRef.current.onOpenEntry,
+          interactionRef.current,
           (popup) => {
             activePopupRef.current?.remove()
             activePopupRef.current = popup
           },
-          interactionRef.current.onFocusPointChange,
         )
+        interactionRef.current.onFocusPointChange?.(point.id)
         return
       }
+      onPointClick(point)
+    })
 
-      void mapSource.getClusterExpansionZoom(clusterId).then((zoom) => {
-        const coordinates = feature.geometry.coordinates
-        const longitude = coordinates[0]
-        const latitude = coordinates[1]
-        if (longitude === undefined || latitude === undefined) {
-          return
-        }
-        map.easeTo({
-          center: [longitude, latitude],
-          zoom,
-        })
+    const marker = new maplibregl.Marker({
+      anchor: 'bottom',
+      element,
+    })
+      .setLngLat(coordinates)
+      .addTo(map)
+    markersRef.current.set(point.id, marker)
+  }
+}
+
+interface DisplayJourneyMapPoint extends JourneyMapPoint {
+  displayLatitude: number
+  displayLongitude: number
+}
+
+function layoutCollocatedPoints(
+  points: JourneyMapPoint[],
+): DisplayJourneyMapPoint[] {
+  const groups = new Map<string, JourneyMapPoint[]>()
+
+  for (const point of points) {
+    const key = `${point.latitude.toFixed(5)}:${point.longitude.toFixed(5)}`
+    const group = groups.get(key) ?? []
+    group.push(point)
+    groups.set(key, group)
+  }
+
+  const displayPoints: DisplayJourneyMapPoint[] = []
+  for (const group of groups.values()) {
+    group.forEach((point, index) => {
+      const offset = collocatedOffset(index, group.length)
+      displayPoints.push({
+        ...point,
+        displayLatitude: point.latitude + offset.latitude,
+        displayLongitude: point.longitude + offset.longitude,
       })
     })
-  })
+  }
 
-  map.on('click', 'journey-points-hit', (event) => {
-    showPointsAtClick(event)
-  })
+  return displayPoints
+}
 
-  for (const layerId of [
-    'journey-clusters',
-    'journey-cluster-count',
-    'journey-points-hit',
-    'journey-points-unclustered',
-  ]) {
-    map.on('mouseenter', layerId, () => {
-      map.getCanvas().style.cursor = 'pointer'
-    })
-    map.on('mouseleave', layerId, () => {
-      map.getCanvas().style.cursor = ''
-    })
+function collocatedOffset(index: number, total: number) {
+  if (total <= 1) {
+    return { latitude: 0, longitude: 0 }
+  }
+
+  const angle = (2 * Math.PI * index) / total
+  const radius = 0.00018 * Math.min(total, 8)
+  return {
+    latitude: Math.sin(angle) * radius,
+    longitude: Math.cos(angle) * radius,
   }
 }
 
@@ -430,40 +378,28 @@ function fitMapToPoints(map: maplibregl.Map, points: JourneyMapPoint[]) {
   map.fitBounds(bounds, { duration: 0, maxZoom: 11, padding: 56 })
 }
 
-function pointsToFeatureCollection(
-  points: JourneyMapPoint[],
-): FeatureCollection<Point> {
-  return {
-    features: points.map((point) => ({
-      geometry: {
-        coordinates: [point.longitude, point.latitude],
-        type: 'Point',
-      },
-      properties: {
-        color: POINT_COLORS[point.type],
-        entryId: point.entryId,
-        id: point.id,
-        photoId: point.photoId,
-        title: point.title,
-        type: point.type,
-      },
-      type: 'Feature',
-    })),
-    type: 'FeatureCollection',
-  }
+function showPointPopup(
+  point: JourneyMapPoint,
+  map: maplibregl.Map,
+  interactionRef: RefObject<MapInteractionContext>,
+  activePopupRef: RefObject<maplibregl.Popup | null>,
+) {
+  const popup = createStyledPopup(point, interactionRef.current)
+  popup.setLngLat([point.longitude, point.latitude]).addTo(map)
+  activePopupRef.current?.remove()
+  activePopupRef.current = popup
+  interactionRef.current.onFocusPointChange?.(point.id)
 }
 
 function createStyledPopup(
   point: JourneyMapPoint,
-  t: TFunction,
-  photoThumbUrls: Record<string, string>,
-  onOpenEntry?: (entryId: string) => void,
+  context: MapInteractionContext,
 ) {
   const content = document.createElement('div')
   content.className = 'journey-map-popup'
 
-  if (point.type === 'photo' && point.photoId !== null) {
-    const thumbUrl = photoThumbUrls[point.photoId]
+  if (point.photoId !== null) {
+    const thumbUrl = context.photoThumbUrls[point.photoId]
     if (thumbUrl !== undefined) {
       const image = document.createElement('img')
       image.alt = ''
@@ -475,21 +411,58 @@ function createStyledPopup(
 
   const title = document.createElement('p')
   title.className = 'journey-map-popup__title'
-  title.textContent =
-    point.type === 'photo'
-      ? t('journey.mapPhotoTitle', { title: point.title })
-      : point.title
+  title.textContent = getPopupTitle(point, context.t)
   content.append(title)
 
-  if (point.entryId !== null) {
+  if (point.type === 'nature-goal') {
+    const status = document.createElement('p')
+    status.className = 'journey-map-popup__meta'
+    status.textContent = point.checked
+      ? context.t('journey.mapNatureVisited')
+      : context.t('journey.mapNatureWish')
+    content.append(status)
+
+    if (point.notes !== '') {
+      const notes = document.createElement('p')
+      notes.className = 'journey-map-popup__notes'
+      notes.textContent = point.notes
+      content.append(notes)
+    }
+
+    if (
+      context.canEdit &&
+      point.checklistItemId !== null &&
+      context.onMarkNatureGoalSpotted !== undefined
+    ) {
+      const checklistItem = context.checklistItems.find(
+        (item) => item.id === point.checklistItemId,
+      )
+      if (checklistItem !== undefined) {
+        const action = document.createElement('button')
+        action.className = 'journey-map-popup__action'
+        action.textContent = point.checked
+          ? context.t('nature.strip.markNotSpotted')
+          : context.t('nature.strip.markSpotted')
+        action.type = 'button'
+        action.addEventListener('click', () => {
+          context.onMarkNatureGoalSpotted?.(checklistItem)
+        })
+        content.append(action)
+      }
+    }
+  }
+
+  if (point.entryId !== null && point.type !== 'nature-goal') {
     const action = document.createElement('button')
     action.className = 'journey-map-popup__action'
     action.textContent =
-      point.type === 'photo' ? t('journey.openPhoto') : t('journey.openMoment')
+      point.type === 'photo'
+        ? context.t('journey.openPhoto')
+        : context.t('journey.openMoment')
     action.type = 'button'
     action.addEventListener('click', () => {
       if (point.entryId !== null) {
-        onOpenEntry?.(point.entryId)
+        context.onOpenEntry?.(point.entryId)
       }
     })
     content.append(action)
@@ -499,43 +472,28 @@ function createStyledPopup(
     className: 'journey-map-popup-container',
     closeButton: true,
     maxWidth: '240px',
-    offset: 16,
+    offset: 18,
   }).setDOMContent(content)
 }
 
-function getPointsAtClick(
-  map: maplibregl.Map,
-  event: maplibregl.MapMouseEvent,
-  points: JourneyMapPoint[],
-): JourneyMapPoint[] {
-  const bbox: [maplibregl.PointLike, maplibregl.PointLike] = [
-    [event.point.x - CLICK_RADIUS_PX, event.point.y - CLICK_RADIUS_PX],
-    [event.point.x + CLICK_RADIUS_PX, event.point.y + CLICK_RADIUS_PX],
-  ]
-  const features = map.queryRenderedFeatures(bbox, {
-    layers: ['journey-points-hit'],
-  })
-  const ids = new Set<string>()
-  for (const feature of features) {
-    const id = readJourneyPointFeatureId(feature.properties)
-    if (id !== undefined) {
-      ids.add(id)
-    }
+function getPopupTitle(point: JourneyMapPoint, t: TFunction): string {
+  if (point.type === 'photo') {
+    return t('journey.mapPhotoTitle', { title: point.title })
   }
-  return points.filter((point) => ids.has(point.id))
+  if (point.type === 'nature-goal') {
+    return t('journey.mapNatureTitle', { title: point.title })
+  }
+  return point.title
 }
 
-function areCollocated(points: JourneyMapPoint[]): boolean {
-  if (points.length <= 1) {
-    return true
-  }
-  const [first] = points
-  if (first === undefined) {
-    return true
-  }
-  return points.every(
-    (point) =>
-      point.latitude === first.latitude && point.longitude === first.longitude,
+function getCollocatedPoints(
+  points: JourneyMapPoint[],
+  point: JourneyMapPoint,
+): JourneyMapPoint[] {
+  return points.filter(
+    (candidate) =>
+      candidate.latitude === point.latitude &&
+      candidate.longitude === point.longitude,
   )
 }
 
@@ -543,18 +501,15 @@ function showCollocatedPointsPopup(
   points: JourneyMapPoint[],
   lngLat: maplibregl.LngLat,
   map: maplibregl.Map,
-  t: TFunction,
-  photoThumbUrls: Record<string, string>,
-  onOpenEntry: ((entryId: string) => void) | undefined,
+  context: MapInteractionContext,
   setActivePopup: (popup: maplibregl.Popup) => void,
-  onFocusPointChange?: (pointId: string | null) => void,
 ) {
   const content = document.createElement('div')
   content.className = 'journey-map-popup journey-map-popup--stack'
 
   const heading = document.createElement('p')
   heading.className = 'journey-map-popup__title'
-  heading.textContent = t('journey.mapCollocatedTitle', {
+  heading.textContent = context.t('journey.mapCollocatedTitle', {
     count: points.length,
   })
   content.append(heading)
@@ -563,8 +518,8 @@ function showCollocatedPointsPopup(
   list.className = 'journey-map-popup__stack'
   for (const point of points) {
     list.append(
-      createPopupListItem(point, t, photoThumbUrls, onOpenEntry, () => {
-        onFocusPointChange?.(point.id)
+      createPopupListItem(point, context, () => {
+        context.onFocusPointChange?.(point.id)
       }),
     )
   }
@@ -574,7 +529,7 @@ function showCollocatedPointsPopup(
     className: 'journey-map-popup-container',
     closeButton: true,
     maxWidth: '280px',
-    offset: 16,
+    offset: 18,
   })
     .setLngLat(lngLat)
     .setDOMContent(content)
@@ -584,17 +539,15 @@ function showCollocatedPointsPopup(
 
 function createPopupListItem(
   point: JourneyMapPoint,
-  t: TFunction,
-  photoThumbUrls: Record<string, string>,
-  onOpenEntry: ((entryId: string) => void) | undefined,
+  context: MapInteractionContext,
   onSelect: () => void,
 ) {
   const item = document.createElement('button')
   item.className = 'journey-map-popup__stack-item'
   item.type = 'button'
 
-  if (point.type === 'photo' && point.photoId !== null) {
-    const thumbUrl = photoThumbUrls[point.photoId]
+  if (point.photoId !== null) {
+    const thumbUrl = context.photoThumbUrls[point.photoId]
     if (thumbUrl !== undefined) {
       const image = document.createElement('img')
       image.alt = ''
@@ -606,40 +559,15 @@ function createPopupListItem(
 
   const label = document.createElement('span')
   label.className = 'journey-map-popup__stack-label'
-  label.textContent =
-    point.type === 'photo'
-      ? t('journey.mapPhotoTitle', { title: point.title })
-      : point.title
+  label.textContent = getPopupTitle(point, context.t)
   item.append(label)
 
   item.addEventListener('click', () => {
     onSelect()
-    if (point.entryId !== null) {
-      onOpenEntry?.(point.entryId)
+    if (point.entryId !== null && point.type !== 'nature-goal') {
+      context.onOpenEntry?.(point.entryId)
     }
   })
 
   return item
-}
-
-function getJourneyPointsSource(
-  map: maplibregl.Map,
-): maplibregl.GeoJSONSource | null {
-  const source = map.getSource('journey-points')
-  if (source?.type !== 'geojson') {
-    return null
-  }
-
-  return source as maplibregl.GeoJSONSource
-}
-
-function readJourneyPointFeatureId(
-  properties: GeoJsonProperties,
-): string | undefined {
-  if (properties === null || typeof properties !== 'object') {
-    return undefined
-  }
-
-  const id = (properties as JourneyPointFeatureProperties).id
-  return typeof id === 'string' ? id : undefined
 }

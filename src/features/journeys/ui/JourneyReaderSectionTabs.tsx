@@ -55,7 +55,7 @@ export function JourneyReaderSectionTabs({
   return (
     <nav
       aria-label={t('journey.explore')}
-      className="sticky top-[calc(4rem-0.25rem)] z-10 mt-5 flex gap-1 overflow-x-auto rounded-2xl border border-border bg-surface/95 p-1.5 shadow-soft backdrop-blur snap-x snap-mandatory sm:top-3 sm:snap-none"
+      className="sticky top-[calc(4rem-0.25rem)] z-10 mt-5 flex gap-0.5 overflow-x-auto border-b border-border/80 bg-background/90 backdrop-blur snap-x snap-mandatory sm:top-3 sm:snap-none"
       id={JOURNEY_SECTION_NAV_ID}
     >
       {visibleTabs.map(({ icon: Icon, labelKey, section }) => {
@@ -64,10 +64,10 @@ export function JourneyReaderSectionTabs({
           <button
             aria-current={active ? 'page' : undefined}
             className={cn(
-              'flex min-h-11 shrink-0 snap-center items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:gap-2',
+              'flex min-h-11 shrink-0 snap-center items-center justify-center gap-1.5 border-b-2 px-3.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 sm:gap-2',
               active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-foreground hover:bg-background',
+                ? 'border-primary font-medium text-primary'
+                : 'border-transparent text-muted hover:text-foreground',
             )}
             key={section}
             onClick={() => {
@@ -75,7 +75,7 @@ export function JourneyReaderSectionTabs({
             }}
             type="button"
           >
-            <Icon aria-hidden="true" size={16} />
+            <Icon aria-hidden="true" size={15} />
             <span className="truncate">{t(labelKey)}</span>
           </button>
         )
