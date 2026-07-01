@@ -26,6 +26,7 @@ interface PhotoIdentifySuggestionsProps {
   latitude?: number | null
   longitude?: number | null
   onChanged?: () => void
+  onSpotted?: () => void
   photoId: string
 }
 
@@ -38,6 +39,7 @@ export function PhotoIdentifySuggestions({
   latitude = null,
   longitude = null,
   onChanged,
+  onSpotted,
   photoId,
 }: PhotoIdentifySuggestionsProps) {
   const { t } = useTranslation()
@@ -85,6 +87,10 @@ export function PhotoIdentifySuggestions({
   async function handleSelect(suggestion: PhotoIdentifySuggestion) {
     setSavingTaxonId(suggestion.taxonId)
     try {
+      const photoCoords = await getPhotoCoordinates(photoId)
+      const resolvedLatitude = photoCoords?.latitude ?? latitude
+      const resolvedLongitude = photoCoords?.longitude ?? longitude
+
       const normalizedCommon = suggestion.commonName.trim().toLowerCase()
       const normalizedScientific = suggestion.scientificName
         .trim()
@@ -106,8 +112,8 @@ export function PhotoIdentifySuggestions({
           ...(entryId !== undefined ? { entryId } : {}),
           item: matchedGoal,
           journeyId,
-          latitude,
-          longitude,
+          latitude: resolvedLatitude,
+          longitude: resolvedLongitude,
           photoId,
         })
       } else {
@@ -120,8 +126,8 @@ export function PhotoIdentifySuggestions({
           externalId: String(suggestion.taxonId),
           externalSource: 'inaturalist',
           journeyId,
-          latitude,
-          longitude,
+          latitude: resolvedLatitude,
+          longitude: resolvedLongitude,
           photoId,
           scientificName: suggestion.scientificName,
         })
@@ -129,6 +135,7 @@ export function PhotoIdentifySuggestions({
 
       setSuggestions([])
       onChanged?.()
+      onSpotted?.()
     } finally {
       setSavingTaxonId(null)
     }

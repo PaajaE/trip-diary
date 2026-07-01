@@ -151,6 +151,7 @@ export function NatureMatchBanner({
               setDismissed(true)
               onDismiss?.()
             }}
+            {...(onSpotted !== undefined ? { onSpotted } : {})}
             photoId={photoId}
           />
         ) : null}
