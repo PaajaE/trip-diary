@@ -6,6 +6,7 @@ import {
   checklistItemForStop,
   splitPlannedStops,
 } from '@/entities/checklist/lib/split-planned-stops'
+import { clearChecklistItemStop } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import {
   deleteJourneyStage,
@@ -190,11 +191,21 @@ function StageContent({
                             ) {
                               return
                             }
-                            void deleteJourneyStop(
-                              creatorId,
-                              journey.id,
-                              stop.id,
-                            ).then(onChanged)
+                            void (async () => {
+                              await deleteJourneyStop(
+                                creatorId,
+                                journey.id,
+                                stop.id,
+                              )
+                              if (goal !== undefined) {
+                                await clearChecklistItemStop({
+                                  creatorId,
+                                  item: goal,
+                                  journeyId: journey.id,
+                                })
+                              }
+                              onChanged()
+                            })()
                           }}
                           type="button"
                         >

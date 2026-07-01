@@ -209,12 +209,40 @@ export async function setJourneyChecklistItemChecked(input: {
   const localPending = pending.find((item) => item.id === input.item.id)
 
   if (localPending !== undefined) {
-    await saveLocalChecklistItem(
-      localChecklistItemSchema.parse({
-        ...localPending,
-        checkedAt,
-        updatedAt: new Date().toISOString(),
-      }),
+    const now = new Date().toISOString()
+    await localDb.transaction(
+      'rw',
+      localDb.localChecklistItems,
+      localDb.syncOperations,
+      async () => {
+        await saveLocalChecklistItem(
+          localChecklistItemSchema.parse({
+            ...localPending,
+            checkedAt,
+            updatedAt: now,
+          }),
+        )
+        const existingUpdate = await localDb.syncOperations
+          .filter(
+            (operation) =>
+              operation.type === 'checklist_item.update' &&
+              operation.checklistItemId === input.item.id,
+          )
+          .first()
+        if (existingUpdate === undefined) {
+          await localDb.syncOperations.add(
+            syncOperationSchema.parse({
+              checklistItemId: input.item.id,
+              createdAt: now,
+              creatorId: input.creatorId,
+              id: crypto.randomUUID(),
+              journeyId: input.journeyId,
+              status: 'pending',
+              type: 'checklist_item.update',
+            }),
+          )
+        }
+      },
     )
     return updated
   }
@@ -274,6 +302,87 @@ export async function setJourneyChecklistItemChecked(input: {
   return updated
 }
 
+export async function clearChecklistItemStop(input: {
+  creatorId: string
+  item: JourneyChecklistItem
+  journeyId: string
+}): Promise<void> {
+  if (input.item.stopId === null) {
+    return
+  }
+
+  if (isBrowserOnline()) {
+    try {
+      await updateJourneyChecklistItemRemote({
+        checkedAt: input.item.checkedAt,
+        entryId: input.item.entryId,
+        id: input.item.id,
+        stopId: null,
+      })
+      return
+    } catch {
+      // Fall back to local update queue.
+    }
+  }
+
+  const now = new Date().toISOString()
+  const pending = await listPendingLocalChecklistItems(input.journeyId)
+  const localPending = pending.find((item) => item.id === input.item.id)
+
+  await localDb.transaction(
+    'rw',
+    localDb.localChecklistItems,
+    localDb.syncOperations,
+    async () => {
+      const base =
+        localPending ??
+        localChecklistItemSchema.parse({
+          category: input.item.category,
+          checkedAt: input.item.checkedAt,
+          creatorId: input.creatorId,
+          entryId: input.item.entryId,
+          id: input.item.id,
+          itemSlug: input.item.itemSlug,
+          journeyId: input.journeyId,
+          notes: input.item.notes,
+          position: input.item.position,
+          stopId: input.item.stopId,
+          syncStatus: 'pending',
+          templateSlug: input.item.templateSlug,
+          title: input.item.title,
+          updatedAt: now,
+        })
+      await saveLocalChecklistItem(
+        localChecklistItemSchema.parse({
+          ...base,
+          stopId: null,
+          updatedAt: now,
+        }),
+      )
+      const existingUpdate = await localDb.syncOperations
+        .filter(
+          (operation) =>
+            operation.type === 'checklist_item.update' &&
+            operation.checklistItemId === input.item.id,
+        )
+        .first()
+      if (existingUpdate === undefined) {
+        await localDb.syncOperations.add(
+          syncOperationSchema.parse({
+            checklistItemId: input.item.id,
+            createdAt: now,
+            creatorId: input.creatorId,
+            id: crypto.randomUUID(),
+            journeyId: input.journeyId,
+            status: 'pending',
+            type: 'checklist_item.update',
+          }),
+        )
+      }
+    },
+  )
+}
+
 export async function createCustomChecklistItem(input: {
   category: JourneyChecklistItem['category']
   creatorId: string
@@ -288,7 +397,14 @@ export async function createCustomChecklistItem(input: {
   const now = new Date().toISOString()
   let stopId: string | null = null
 
-  if (input.latitude !== null && input.longitude !== null) {
+  const latitude = input.latitude
+  const longitude = input.longitude
+  if (
+    latitude != null &&
+    longitude != null &&
+    Number.isFinite(latitude) &&
+    Number.isFinite(longitude)
+  ) {
     stopId = await addJourneyStop(
       input.creatorId,
       input.journeyId,
@@ -296,14 +412,7 @@ export async function createCustomChecklistItem(input: {
       input.title.trim(),
       input.notes?.trim() ?? '',
     )
-    if (
-      input.latitude !== undefined &&
-      input.longitude !== undefined &&
-      Number.isFinite(input.latitude) &&
-      Number.isFinite(input.longitude)
-    ) {
-      await setJourneyStopLocation(stopId, input.latitude, input.longitude)
-    }
+    await setJourneyStopLocation(stopId, latitude, longitude)
   }
 
   const id = crypto.randomUUID()

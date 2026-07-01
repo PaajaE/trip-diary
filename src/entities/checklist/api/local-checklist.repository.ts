@@ -48,9 +48,11 @@ export async function saveLocalChecklistItem(
 export async function listPendingLocalChecklistItems(
   journeyId: string,
 ): Promise<LocalChecklistItem[]> {
-  return localDb.localChecklistItems
-    .where({ journeyId, syncStatus: 'pending' })
+  const items = await localDb.localChecklistItems
+    .where('journeyId')
+    .equals(journeyId)
     .toArray()
+  return items.filter((item) => item.syncStatus === 'pending')
 }
 
 export async function removeSyncedLocalChecklistItem(

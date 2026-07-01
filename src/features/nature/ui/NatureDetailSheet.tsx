@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { useMemo } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import {
   CHECKLIST_TEMPLATES,
@@ -62,6 +63,7 @@ export function NatureDetailSheet({
   savingItemId,
 }: NatureDetailSheetProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const checkedCount = items.filter((item) => item.checkedAt !== null).length
   const appliedSlugs = listAppliedTemplateSlugs(items)
   const groupedItems = useMemo(() => {
@@ -85,6 +87,9 @@ export function NatureDetailSheet({
       creatorId,
       journeyId,
       templateSlug,
+    })
+    await queryClient.invalidateQueries({
+      queryKey: ['journey-checklist', journeyId],
     })
     onChanged?.()
   }

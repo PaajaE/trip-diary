@@ -66,6 +66,8 @@ export function JourneyMap({
   const layersReadyRef = useRef(false)
   const hasAutoFitRef = useRef(false)
   const lastFocusedPointIdRef = useRef<string | null>(null)
+  const focusPointIdRef = useRef(focusPointId)
+  focusPointIdRef.current = focusPointId
   const interactionRef = useRef<MapInteractionContext>({
     canEdit,
     checklistItems,
@@ -132,7 +134,7 @@ export function JourneyMap({
     const onLoad = () => {
       layersReadyRef.current = true
       const first = interactionRef.current.points[0]
-      if (first !== undefined && focusPointId === null) {
+      if (first !== undefined && focusPointIdRef.current === null) {
         fitMapToPoints(map, interactionRef.current.points)
         hasAutoFitRef.current = true
       }
@@ -163,7 +165,7 @@ export function JourneyMap({
         }
       }, 0)
     }
-  }, [focusPointId, i18n.language])
+  }, [i18n.language])
 
   useEffect(() => {
     const map = mapRef.current
