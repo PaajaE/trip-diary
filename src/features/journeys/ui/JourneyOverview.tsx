@@ -169,6 +169,7 @@ export function JourneyOverview({
           : {})}
         journeyId={journeyId}
         onChanged={onChanged}
+        plannedStops={journey.stops}
         {...(onNatureDetailOpenChange !== undefined
           ? { onDetailOpenChange: onNatureDetailOpenChange }
           : {})}

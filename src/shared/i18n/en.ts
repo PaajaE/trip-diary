@@ -736,6 +736,8 @@ export const en = {
     },
     exportInaturalist: 'Log on iNaturalist',
     exportInaturalistShort: 'iNat',
+    inaturalistAttribution: 'Species suggestions from iNaturalist.',
+    macrostratAttribution: 'Geologic context from Macrostrat.',
     match: {
       hint: 'Did you spot any of these?',
       other: 'Other',

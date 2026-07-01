@@ -737,6 +737,8 @@ export const cs: TranslationResources = {
     },
     exportInaturalist: 'Zapsat na iNaturalist',
     exportInaturalistShort: 'iNat',
+    inaturalistAttribution: 'Návrhy druhů z iNaturalist.',
+    macrostratAttribution: 'Geologický kontext z Macrostrat.',
     match: {
       hint: 'Zahlédl jsi něco z toho?',
       other: 'Jiné',
