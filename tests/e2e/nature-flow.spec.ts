@@ -17,8 +17,6 @@ test('nature golden path: template, photo moment, and spotting', async ({
 
   await page.goto('/journeys/new')
   await page.getByLabel('Název cesty').fill(journeyTitle)
-  await page.getByRole('button', { name: 'Přírodní cíle (volitelné)' }).click()
-  await page.getByRole('button', { name: 'Šumava' }).click()
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await expect(page.getByText('Příroda na cestě')).toBeVisible()

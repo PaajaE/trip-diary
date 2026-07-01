@@ -60,6 +60,7 @@ select results_eq(
   'anonymous reader sees public journey checklist items'
 );
 
+set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000051","role":"authenticated"}',true);
 select lives_ok(
   $$ delete from public.journey_checklist_items
