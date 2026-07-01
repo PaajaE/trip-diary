@@ -737,6 +737,13 @@ export const cs: TranslationResources = {
     },
     exportInaturalist: 'Zapsat na iNaturalist',
     exportInaturalistShort: 'iNat',
+    identify: {
+      action: 'Navrhnout z fotky',
+      failed: 'Fotku se teď nepodařilo rozpoznat.',
+      hint: 'Klepnutím přidáš návrh k této fotce.',
+      loading: 'Analyzuji fotku…',
+      unavailable: 'Rozpoznávání z fotky teď není k dispozici.',
+    },
     inaturalistAttribution: 'Návrhy druhů z iNaturalist.',
     macrostratAttribution: 'Geologický kontext z Macrostrat.',
     match: {

@@ -6,6 +6,7 @@ import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import { rankGoalsForSpotting } from '@/entities/nature/lib/match-observation-to-goal'
 import { MinimalObservationSheet } from '@/features/nature/ui/MinimalObservationSheet'
+import { PhotoIdentifySuggestions } from '@/features/nature/ui/PhotoIdentifySuggestions'
 import { NatureWishChip } from '@/features/nature/ui/NatureWishChip'
 import { cn } from '@/shared/lib/cn'
 
@@ -136,6 +137,23 @@ export function NatureMatchBanner({
             </button>
           </div>
         )}
+        {photoId !== null && photoId !== '' ? (
+          <PhotoIdentifySuggestions
+            checklistItems={items}
+            className="mt-4"
+            creatorId={creatorId}
+            entryId={entryId}
+            journeyId={journeyId}
+            latitude={latitude}
+            longitude={longitude}
+            onChanged={() => {
+              onChanged?.()
+              setDismissed(true)
+              onDismiss?.()
+            }}
+            photoId={photoId}
+          />
+        ) : null}
       </section>
 
       <MinimalObservationSheet

@@ -10,6 +10,7 @@ import type { NatureObservation } from '@/entities/nature/model/observation'
 import { rankGoalsForSpotting } from '@/entities/nature/lib/match-observation-to-goal'
 import { ExportToINaturalistLink } from '@/features/nature/ui/ExportToINaturalistLink'
 import { MinimalObservationSheet } from '@/features/nature/ui/MinimalObservationSheet'
+import { PhotoIdentifySuggestions } from '@/features/nature/ui/PhotoIdentifySuggestions'
 
 interface PhotoNatureSpottingProps {
   creatorId: string
@@ -83,6 +84,14 @@ export function PhotoNatureSpotting({
           photoId={photoId}
           {...(onChanged !== undefined ? { onChanged } : {})}
         />
+        <PhotoIdentifySuggestions
+          checklistItems={[]}
+          creatorId={creatorId}
+          {...(entryId !== undefined ? { entryId } : {})}
+          journeyId={journeyId}
+          {...(onChanged !== undefined ? { onChanged } : {})}
+          photoId={photoId}
+        />
       </>
     )
   }
@@ -136,6 +145,14 @@ export function PhotoNatureSpotting({
             {t('nature.match.other')}
           </button>
         </div>
+        <PhotoIdentifySuggestions
+          checklistItems={items}
+          creatorId={creatorId}
+          {...(entryId !== undefined ? { entryId } : {})}
+          journeyId={journeyId}
+          {...(onChanged !== undefined ? { onChanged } : {})}
+          photoId={photoId}
+        />
       </div>
       <MinimalObservationSheet
         creatorId={creatorId}

@@ -3,11 +3,11 @@ import {
   bboxCenter,
   type JourneyBbox,
 } from '@/entities/nature/lib/journey-bbox'
-import {
-  regionalSpeciesSchema,
-  type RegionalSpecies,
-} from '@/entities/nature/model/observation'
+import { aggregateGbifResults } from '@/entities/nature/lib/gbif-regional-species'
+import type { RegionalSpecies } from '@/entities/nature/model/observation'
+import { fetchRegionalSpeciesViaEdge } from '@/entities/nature/api/nature-edge.repository'
 import { localDb } from '@/shared/lib/local-db'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 interface GbifOccurrenceResult {
   results?: {
@@ -20,43 +20,6 @@ interface GbifOccurrenceResult {
 const regionalSpeciesMemoryCache = new Map<string, RegionalSpecies[]>()
 const lastFetchByJourney = new Map<string, number>()
 const RATE_LIMIT_MS = 60_000
-
-function aggregateGbifResults(
-  results: GbifOccurrenceResult['results'],
-  limit: number,
-): RegionalSpecies[] {
-  const aggregated = new Map<number, RegionalSpecies>()
-
-  for (const result of results ?? []) {
-    if (result.speciesKey === undefined || result.species === undefined) {
-      continue
-    }
-
-    const existing = aggregated.get(result.speciesKey)
-    if (existing === undefined) {
-      aggregated.set(
-        result.speciesKey,
-        regionalSpeciesSchema.parse({
-          commonName: result.vernacularName ?? result.species,
-          occurrenceCount: 1,
-          scientificName: result.species,
-          source: 'gbif',
-          taxonKey: result.speciesKey,
-        }),
-      )
-      continue
-    }
-
-    aggregated.set(result.speciesKey, {
-      ...existing,
-      occurrenceCount: existing.occurrenceCount + 1,
-    })
-  }
-
-  return [...aggregated.values()]
-    .sort((left, right) => right.occurrenceCount - left.occurrenceCount)
-    .slice(0, limit)
-}
 
 async function readGuideCache(
   journeyId: string,
@@ -81,6 +44,39 @@ async function writeGuideCache(
     journeyId,
     species,
   })
+}
+
+async function fetchGbifSpeciesDirect(input: {
+  bbox?: JourneyBbox | null
+  latitude: number
+  limit: number
+  longitude: number
+}): Promise<RegionalSpecies[]> {
+  const bbox = input.bbox ?? null
+  const url = new URL('https://api.gbif.org/v1/occurrence/search')
+  url.searchParams.set('hasCoordinate', 'true')
+  url.searchParams.set('hasGeospatialIssue', 'false')
+  url.searchParams.set('limit', String(input.limit * 3))
+
+  if (bbox !== null) {
+    url.searchParams.set('decimalLatitude', String(bboxCenter(bbox).latitude))
+    url.searchParams.set('decimalLongitude', String(bboxCenter(bbox).longitude))
+    url.searchParams.set(
+      'geometry',
+      `POLYGON((${String(bbox.minLongitude)} ${String(bbox.minLatitude)}, ${String(bbox.maxLongitude)} ${String(bbox.minLatitude)}, ${String(bbox.maxLongitude)} ${String(bbox.maxLatitude)}, ${String(bbox.minLongitude)} ${String(bbox.maxLatitude)}, ${String(bbox.minLongitude)} ${String(bbox.minLatitude)}))`,
+    )
+  } else {
+    url.searchParams.set('decimalLatitude', String(input.latitude))
+    url.searchParams.set('decimalLongitude', String(input.longitude))
+  }
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error('GBIF request failed')
+  }
+
+  const payload = (await response.json()) as GbifOccurrenceResult
+  return aggregateGbifResults(payload.results, input.limit)
 }
 
 export async function fetchRegionalSpecies(input: {
@@ -120,30 +116,24 @@ export async function fetchRegionalSpecies(input: {
     }
   }
 
-  const url = new URL('https://api.gbif.org/v1/occurrence/search')
-  url.searchParams.set('hasCoordinate', 'true')
-  url.searchParams.set('hasGeospatialIssue', 'false')
-  url.searchParams.set('limit', String(limit * 3))
+  const edgeSpecies =
+    isBrowserOnline() && input.journeyId !== undefined
+      ? await fetchRegionalSpeciesViaEdge({
+          bbox,
+          latitude: input.latitude,
+          limit,
+          longitude: input.longitude,
+        })
+      : null
 
-  if (bbox !== null) {
-    url.searchParams.set('decimalLatitude', String(bboxCenter(bbox).latitude))
-    url.searchParams.set('decimalLongitude', String(bboxCenter(bbox).longitude))
-    url.searchParams.set(
-      'geometry',
-      `POLYGON((${String(bbox.minLongitude)} ${String(bbox.minLatitude)}, ${String(bbox.maxLongitude)} ${String(bbox.minLatitude)}, ${String(bbox.maxLongitude)} ${String(bbox.maxLatitude)}, ${String(bbox.minLongitude)} ${String(bbox.maxLatitude)}, ${String(bbox.minLongitude)} ${String(bbox.minLatitude)}))`,
-    )
-  } else {
-    url.searchParams.set('decimalLatitude', String(input.latitude))
-    url.searchParams.set('decimalLongitude', String(input.longitude))
-  }
-
-  const response = await fetch(url)
-  if (!response.ok) {
-    throw new Error('GBIF request failed')
-  }
-
-  const payload = (await response.json()) as GbifOccurrenceResult
-  const species = aggregateGbifResults(payload.results, limit)
+  const species =
+    edgeSpecies ??
+    (await fetchGbifSpeciesDirect({
+      bbox,
+      latitude: input.latitude,
+      limit,
+      longitude: input.longitude,
+    }))
 
   regionalSpeciesMemoryCache.set(cacheKey, species)
   if (input.journeyId !== undefined) {
