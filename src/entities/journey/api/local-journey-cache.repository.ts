@@ -99,6 +99,30 @@ export async function getJourneySnapshotObservations(
   return snapshot.observations
 }
 
+export async function removeChecklistItemsFromSnapshot(
+  journeyId: string,
+  itemIds: string[],
+): Promise<void> {
+  const snapshot = (await localDb.journeySnapshots.get(journeyId)) as
+    | LegacyJourneySnapshotRecord
+    | undefined
+  if (snapshot === undefined || itemIds.length === 0) {
+    return
+  }
+
+  const removedIds = new Set(itemIds)
+  await localDb.journeySnapshots.put(
+    journeySnapshotSchema.parse({
+      ...snapshot,
+      cachedAt: new Date().toISOString(),
+      checklistItems: (snapshot.checklistItems ?? []).filter(
+        (item) => !removedIds.has(item.id),
+      ),
+      observations: snapshot.observations ?? [],
+    }),
+  )
+}
+
 export async function updateJourneySnapshotContribution(
   journeyId: string,
   canContribute: boolean,

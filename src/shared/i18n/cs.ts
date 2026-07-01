@@ -378,6 +378,8 @@ export const cs: TranslationResources = {
       'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     photosFailedNotice:
       'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Fotky můžeš přidat později z jiného zařízení.',
+    templateFailedNotice:
+      'Výlet se vytvořil, ale přírodní cíle se nepodařilo přidat. Zkus to znovu v sekci Příroda na přehledu výletu.',
     photoInsightsLoading: 'Čtu čas a GPS z vybraných fotek…',
     photoInsightsSummary:
       '{{gps}} z {{total}} fotek už má GPS a {{time}} z {{total}} má čas pořízení.',

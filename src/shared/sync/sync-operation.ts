@@ -234,6 +234,16 @@ export const syncOperationSchema = z.discriminatedUnion('type', [
     type: z.literal('checklist_item.update'),
   }),
   z.object({
+    checklistItemId: z.uuid(),
+    createdAt: z.iso.datetime({ offset: true }),
+    creatorId: z.uuid(),
+    id: z.uuid(),
+    journeyId: z.uuid(),
+    lastAttemptAt: z.iso.datetime({ offset: true }).optional(),
+    status: z.enum(['pending', 'syncing', 'failed']),
+    type: z.literal('checklist_item.delete'),
+  }),
+  z.object({
     createdAt: z.iso.datetime({ offset: true }),
     creatorId: z.uuid(),
     id: z.uuid(),

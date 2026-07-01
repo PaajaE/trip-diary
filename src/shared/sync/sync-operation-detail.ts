@@ -94,6 +94,14 @@ export async function resolveSyncOperationDetail(
       )
       return item?.title ?? ''
     }
+    case 'checklist_item.delete': {
+      const snapshot = await localDb.journeySnapshots.get(operation.journeyId)
+      return (
+        snapshot?.checklistItems.find(
+          (item) => item.id === operation.checklistItemId,
+        )?.title ?? ''
+      )
+    }
     case 'observation.create':
     case 'observation.update': {
       const observation = await localDb.localNatureObservations.get(

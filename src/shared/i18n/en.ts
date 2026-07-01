@@ -376,6 +376,8 @@ export const en = {
       'The moment was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
     photosFailedNotice:
       'The moment was saved, but the photos could not be processed on this device. You can add the photos later from another device.',
+    templateFailedNotice:
+      'The journey was created, but nature goals could not be added. Open Nature on the trip overview to try again.',
     photoInsightsLoading: 'Reading time and GPS from the selected photos…',
     photoInsightsSummary:
       '{{gps}} of {{total}} photos already have GPS and {{time}} of {{total}} have a capture time.',

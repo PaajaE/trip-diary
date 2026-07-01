@@ -67,7 +67,9 @@ export function JourneyMap({
   const hasAutoFitRef = useRef(false)
   const lastFocusedPointIdRef = useRef<string | null>(null)
   const focusPointIdRef = useRef(focusPointId)
-  focusPointIdRef.current = focusPointId
+  useEffect(() => {
+    focusPointIdRef.current = focusPointId
+  }, [focusPointId])
   const interactionRef = useRef<MapInteractionContext>({
     canEdit,
     checklistItems,

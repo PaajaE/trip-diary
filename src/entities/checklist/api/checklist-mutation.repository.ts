@@ -1,5 +1,8 @@
 import { getChecklistTemplate } from '@/entities/checklist/data/templates'
-import { getJourneySnapshotChecklist } from '@/entities/journey/api/local-journey-cache.repository'
+import {
+  getJourneySnapshotChecklist,
+  removeChecklistItemsFromSnapshot,
+} from '@/entities/journey/api/local-journey-cache.repository'
 import {
   deleteJourneyChecklistItemRemote,
   insertJourneyChecklistItemRemote,
@@ -480,6 +483,98 @@ export async function createCustomChecklistItem(input: {
   return item
 }
 
+type PendingChecklistPurgeResult = 'none' | 'pending_create' | 'pending_update'
+
+async function purgePendingChecklistItem(
+  checklistItemId: string,
+): Promise<PendingChecklistPurgeResult> {
+  const local = await localDb.localChecklistItems.get(checklistItemId)
+  if (local === undefined) {
+    return 'none'
+  }
+
+  const hasCreateOp =
+    (await localDb.syncOperations
+      .filter(
+        (operation) =>
+          operation.type === 'checklist_item.create' &&
+          operation.checklistItemId === checklistItemId,
+      )
+      .first()) !== undefined
+
+  await localDb.transaction(
+    'rw',
+    localDb.localChecklistItems,
+    localDb.syncOperations,
+    async () => {
+      await localDb.syncOperations
+        .filter(
+          (operation) =>
+            (operation.type === 'checklist_item.create' ||
+              operation.type === 'checklist_item.update') &&
+            operation.checklistItemId === checklistItemId,
+        )
+        .delete()
+      await localDb.localChecklistItems.delete(checklistItemId)
+    },
+  )
+
+  return hasCreateOp ? 'pending_create' : 'pending_update'
+}
+
+async function queueChecklistItemDelete(
+  creatorId: string,
+  journeyId: string,
+  checklistItemId: string,
+): Promise<void> {
+  const now = new Date().toISOString()
+  await localDb.transaction('rw', localDb.syncOperations, async () => {
+    const existing = await localDb.syncOperations
+      .filter(
+        (operation) =>
+          operation.type === 'checklist_item.delete' &&
+          operation.checklistItemId === checklistItemId,
+      )
+      .first()
+    if (existing !== undefined) {
+      return
+    }
+
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        checklistItemId,
+        createdAt: now,
+        creatorId,
+        id: crypto.randomUUID(),
+        journeyId,
+        status: 'pending',
+        type: 'checklist_item.delete',
+      }),
+    )
+  })
+}
+
+async function deleteSyncedChecklistItem(input: {
+  checklistItemId: string
+  creatorId: string
+  journeyId: string
+}): Promise<void> {
+  if (isBrowserOnline()) {
+    try {
+      await deleteJourneyChecklistItemRemote(input.checklistItemId)
+      return
+    } catch {
+      // Fall back to local delete queue.
+    }
+  }
+
+  await queueChecklistItemDelete(
+    input.creatorId,
+    input.journeyId,
+    input.checklistItemId,
+  )
+}
+
 export async function removeChecklistTemplate(input: {
   creatorId: string
   journeyId: string
@@ -488,18 +583,26 @@ export async function removeChecklistTemplate(input: {
   const items = (await listJourneyChecklistItems(input.journeyId)).filter(
     (item) => item.templateSlug === input.templateSlug,
   )
+  const removedIds: string[] = []
 
   for (const item of items) {
-    if (isBrowserOnline()) {
-      try {
-        await deleteJourneyChecklistItemRemote(item.id)
-      } catch {
-        // Continue cleaning local state.
-      }
+    removedIds.push(item.id)
+    const purgeResult = await purgePendingChecklistItem(item.id)
+
+    if (purgeResult !== 'pending_create') {
+      await deleteSyncedChecklistItem({
+        checklistItemId: item.id,
+        creatorId: input.creatorId,
+        journeyId: input.journeyId,
+      })
     }
-    await localDb.localChecklistItems.delete(item.id)
+
     if (item.stopId !== null) {
       await deleteJourneyStop(input.creatorId, input.journeyId, item.stopId)
     }
+  }
+
+  if (removedIds.length > 0) {
+    await removeChecklistItemsFromSnapshot(input.journeyId, removedIds)
   }
 }

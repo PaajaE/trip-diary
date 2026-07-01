@@ -1,4 +1,5 @@
 import {
+  deleteJourneyChecklistItemRemote,
   insertJourneyChecklistItemRemote,
   updateJourneyChecklistItemRemote,
 } from '@/entities/checklist/api/checklist.repository'
@@ -370,6 +371,9 @@ export async function syncPendingOperations(): Promise<void> {
         case 'checklist_item.update':
           await syncChecklistItemUpdate(operation)
           break
+        case 'checklist_item.delete':
+          await syncChecklistItemDelete(operation)
+          break
         case 'observation.create':
           await syncObservationCreate(operation)
           break
@@ -557,6 +561,18 @@ async function hasUnfinishedDependency(
     }
   }
 
+  if (operation.type === 'checklist_item.delete') {
+    if (
+      await hasIncompleteCreateOperation(
+        (candidate) =>
+          candidate.type === 'checklist_item.create' &&
+          candidate.checklistItemId === operation.checklistItemId,
+      )
+    ) {
+      return true
+    }
+  }
+
   if (operation.type === 'photo.upload') {
     if (await shouldWaitForPhotoUpload(operation.photoId)) {
       return true
@@ -627,6 +643,10 @@ type ChecklistItemCreateOperation = Extract<
 type ChecklistItemUpdateOperation = Extract<
   SyncOperation,
   { type: 'checklist_item.update' }
+>
+type ChecklistItemDeleteOperation = Extract<
+  SyncOperation,
+  { type: 'checklist_item.delete' }
 >
 type ObservationCreateOperation = Extract<
   SyncOperation,
@@ -1411,6 +1431,13 @@ async function syncChecklistItemUpdate(
       await localDb.syncOperations.delete(operation.id)
     },
   )
+}
+
+async function syncChecklistItemDelete(
+  operation: ChecklistItemDeleteOperation,
+): Promise<void> {
+  await deleteJourneyChecklistItemRemote(operation.checklistItemId)
+  await localDb.syncOperations.delete(operation.id)
 }
 
 async function syncObservationCreate(

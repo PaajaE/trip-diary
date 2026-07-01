@@ -18,7 +18,7 @@ import { Input } from '@/shared/ui/Input'
 
 interface CreateJourneyFormProps {
   creatorId: string
-  onCreated: (journeyId: string) => void
+  onCreated: (journeyId: string, meta?: { templateFailed?: boolean }) => void
   spaceId: string
 }
 
@@ -53,20 +53,29 @@ export function CreateJourneyForm({
 
   async function handleSubmit(input: CreateJourneyInput) {
     setSubmitError(null)
+    let journeyId: string
     try {
-      const journeyId = await createJourney(creatorId, spaceId, input)
-      if (selectedTemplateSlug !== null) {
+      journeyId = await createJourney(creatorId, spaceId, input)
+    } catch {
+      setSubmitError(t('journey.createError'))
+      return
+    }
+
+    if (selectedTemplateSlug !== null) {
+      try {
         await applyChecklistTemplate({
           creatorId,
           journeyId,
           templateSlug: selectedTemplateSlug,
           translate: t,
         })
+      } catch {
+        onCreated(journeyId, { templateFailed: true })
+        return
       }
-      onCreated(journeyId)
-    } catch {
-      setSubmitError(t('journey.createError'))
     }
+
+    onCreated(journeyId)
   }
 
   return (

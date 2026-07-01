@@ -54,7 +54,7 @@ type JourneyRouteSection = JourneySection | 'guides' | 'story'
 
 interface JourneyPageProps {
   journeyId: string
-  notice?: 'photos_failed'
+  notice?: 'photos_failed' | 'template_failed'
   section?: JourneyRouteSection
   shareUrl?: string
 }
@@ -320,6 +320,11 @@ export function JourneyPage({
           {notice === 'photos_failed' ? (
             <p className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('journey.photosFailedNotice')}
+            </p>
+          ) : null}
+          {notice === 'template_failed' ? (
+            <p className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+              {t('journey.templateFailedNotice')}
             </p>
           ) : null}
           <header className="mt-8 border-b border-border/60 pb-6">

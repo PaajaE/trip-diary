@@ -122,7 +122,7 @@ const journeyRoute = createRoute({
   validateSearch: (search) =>
     z
       .object({
-        notice: z.enum(['photos_failed']).optional(),
+        notice: z.enum(['photos_failed', 'template_failed']).optional(),
         section: z
           .enum(['overview', 'map', 'gallery', 'more', 'story', 'guides'])
           .optional(),
