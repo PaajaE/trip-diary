@@ -12,6 +12,8 @@ import {
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
+import { goalStopLocation } from '@/entities/checklist/lib/goal-stop-location'
+import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { NatureDetailSheet } from '@/features/nature/ui/NatureDetailSheet'
@@ -30,6 +32,7 @@ interface NatureOnTripStripProps {
   onChanged: () => void
   onDetailOpenChange?: (open: boolean) => void
   onShowOnMap?: (checklistItemId: string) => void
+  plannedStops?: JourneyDetail['stops']
 }
 
 export function NatureOnTripStrip({
@@ -41,6 +44,7 @@ export function NatureOnTripStrip({
   onChanged,
   onDetailOpenChange,
   onShowOnMap,
+  plannedStops = [],
 }: NatureOnTripStripProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -77,6 +81,8 @@ export function NatureOnTripStrip({
   )
   const checkedCount = items.filter((item) => item.checkedAt !== null).length
   const previewItems = items.slice(0, 8)
+  const activeWishLocation =
+    activeWish === null ? null : goalStopLocation(activeWish, plannedStops)
 
   const applyMutation = useMutation({
     mutationFn: (templateSlug: string) =>
@@ -225,6 +231,12 @@ export function NatureOnTripStrip({
 
       <NatureWishDetailSheet
         canEdit={canEdit}
+        {...(activeWishLocation !== null
+          ? {
+              goalLatitude: activeWishLocation.latitude,
+              goalLongitude: activeWishLocation.longitude,
+            }
+          : {})}
         item={activeWish}
         journeyId={journeyId}
         onClose={() => {

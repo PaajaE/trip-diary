@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
+import { getMeaningfulGpsCoordinates } from '@/entities/photo/lib/photo-exif-gps'
 import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 
 export interface PhotoPreview {
@@ -341,6 +342,17 @@ export async function getEntryPhotoDetailPreviews(
   ])
 
   return mergePositionedPreviews(localResult, remoteResult)
+}
+
+export async function getPhotoCoordinates(
+  photoId: string,
+): Promise<{ latitude: number; longitude: number } | null> {
+  const photo = await localDb.photos.get(photoId)
+  if (photo === undefined) {
+    return null
+  }
+
+  return getMeaningfulGpsCoordinates(photo.latitude, photo.longitude)
 }
 
 export async function getPhotoDetailPreview(

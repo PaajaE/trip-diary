@@ -8,7 +8,9 @@ import { observationsForPhoto } from '@/entities/nature/api/observation-mutation
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import type { NatureObservation } from '@/entities/nature/model/observation'
 import { rankGoalsForSpotting } from '@/entities/nature/lib/match-observation-to-goal'
+import { ExportToINaturalistLink } from '@/features/nature/ui/ExportToINaturalistLink'
 import { MinimalObservationSheet } from '@/features/nature/ui/MinimalObservationSheet'
+import { PhotoIdentifySuggestions } from '@/features/nature/ui/PhotoIdentifySuggestions'
 
 interface PhotoNatureSpottingProps {
   creatorId: string
@@ -82,6 +84,14 @@ export function PhotoNatureSpotting({
           photoId={photoId}
           {...(onChanged !== undefined ? { onChanged } : {})}
         />
+        <PhotoIdentifySuggestions
+          checklistItems={[]}
+          creatorId={creatorId}
+          {...(entryId !== undefined ? { entryId } : {})}
+          journeyId={journeyId}
+          {...(onChanged !== undefined ? { onChanged } : {})}
+          photoId={photoId}
+        />
       </>
     )
   }
@@ -135,6 +145,14 @@ export function PhotoNatureSpotting({
             {t('nature.match.other')}
           </button>
         </div>
+        <PhotoIdentifySuggestions
+          checklistItems={items}
+          creatorId={creatorId}
+          {...(entryId !== undefined ? { entryId } : {})}
+          journeyId={journeyId}
+          {...(onChanged !== undefined ? { onChanged } : {})}
+          photoId={photoId}
+        />
       </div>
       <MinimalObservationSheet
         creatorId={creatorId}
@@ -153,9 +171,16 @@ export function PhotoNatureSpotting({
 
 function ObservationChip({ observation }: { observation: NatureObservation }) {
   return (
-    <span className="inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-sm text-white">
+    <span className="inline-flex flex-wrap items-center justify-center gap-2 rounded-full bg-white/15 px-3 py-1.5 text-sm text-white">
       <span aria-hidden="true" className="size-2 rounded-full bg-primary" />
       {observation.commonName}
+      <ExportToINaturalistLink
+        className="text-xs text-white/80 hover:text-white"
+        commonName={observation.commonName}
+        latitude={observation.latitude}
+        longitude={observation.longitude}
+        scientificName={observation.scientificName}
+      />
     </span>
   )
 }

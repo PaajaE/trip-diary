@@ -1,7 +1,8 @@
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
@@ -22,6 +23,19 @@ export function CreateJourneyMemoryPage({
   const queryClient = useQueryClient()
   const { loading, user } = useSession()
   const journeyQuery = useJourneyQuery(journeyId)
+  const checklistQuery = useQuery({
+    enabled: natureGoalId !== undefined,
+    queryFn: () => listJourneyChecklistItems(journeyId),
+    queryKey: ['journey-checklist', journeyId],
+  })
+  const natureGoal = useMemo(() => {
+    if (natureGoalId === undefined) {
+      return null
+    }
+
+    const items = Array.isArray(checklistQuery.data) ? checklistQuery.data : []
+    return items.find((item) => item.id === natureGoalId) ?? null
+  }, [checklistQuery.data, natureGoalId])
   const [sharePrompt, setSharePrompt] = useState<{
     entrySlug: string
     entryTitle: string
@@ -78,6 +92,11 @@ export function CreateJourneyMemoryPage({
                 title: journeyQuery.data.title,
               })}
         </p>
+        {natureGoal !== null ? (
+          <p className="mt-3 text-sm font-medium text-primary">
+            {t('journey.memoryNatureGoalHint', { title: natureGoal.title })}
+          </p>
+        ) : null}
       </div>
 
       {loading && user === null ? (
@@ -97,6 +116,7 @@ export function CreateJourneyMemoryPage({
         <CreateJourneyMemoryForm
           creatorId={user.id}
           journey={journeyQuery.data}
+          {...(natureGoal !== null ? { natureGoal } : {})}
           onCreated={(meta) => {
             const nextMeta = {
               entryId: meta.entryId,

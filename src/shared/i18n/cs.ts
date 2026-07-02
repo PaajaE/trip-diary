@@ -327,6 +327,7 @@ export const cs: TranslationResources = {
     memoryDescriptionWithTrip:
       'Přidej fotky nebo krátký text a vrať tuto vzpomínku přímo do cesty {{title}}.',
     memoryEyebrow: 'Nový moment',
+    memoryNatureGoalHint: 'Přidáváš fotku k cíli {{title}}.',
     memoryNeedsConnection:
       'Aby se vzpomínka připojila přímo k cestě, potřebujeme ji teď synchronizovat. Připoj se a zkus to prosím znovu.',
     memoryTitle: 'Přidat moment do cesty',
@@ -734,6 +735,19 @@ export const cs: TranslationResources = {
       viewAll: 'Vše',
       wishesTitle: 'Ještě hledám',
     },
+    exportInaturalist: 'Zapsat na iNaturalist',
+    exportInaturalistShort: 'iNat',
+    identify: {
+      action: 'Navrhnout druhy v okolí',
+      failed: 'Návrhy druhů se teď nepodařilo načíst.',
+      hint: 'Klepnutím přidáš druh často pozorovaný v místě fotky.',
+      loading: 'Načítám druhy v okolí…',
+      needsLocation:
+        'Přidej k fotce nebo momentu polohu, aby šly navrhnout druhy v okolí.',
+      unavailable: 'Teď nejsou k dispozici žádné návrhy druhů v okolí.',
+    },
+    inaturalistAttribution: 'Návrhy druhů z iNaturalist.',
+    macrostratAttribution: 'Geologický kontext z Macrostrat.',
     match: {
       hint: 'Zahlédl jsi něco z toho?',
       other: 'Jiné',

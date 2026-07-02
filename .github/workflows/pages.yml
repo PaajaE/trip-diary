@@ -56,6 +56,11 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase functions deploy og-share --no-verify-jwt --project-ref "$SUPABASE_PROJECT_ID"
+      - name: Deploy nature-gbif edge function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy nature-gbif --project-ref "$SUPABASE_PROJECT_ID"
 
   deploy:
     needs: migrate

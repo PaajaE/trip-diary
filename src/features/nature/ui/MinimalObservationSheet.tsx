@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createNatureObservation } from '@/entities/nature/api/observation-mutation.repository'
 import type { ChecklistItemCategory } from '@/entities/checklist/model/checklist'
+import { TaxonNameSuggest } from '@/features/nature/ui/TaxonNameSuggest'
 import { SoftBottomSheet } from '@/shared/ui/SoftBottomSheet'
 
 interface MinimalObservationSheetProps {
@@ -33,6 +34,7 @@ export function MinimalObservationSheet({
 }: MinimalObservationSheetProps) {
   const { t } = useTranslation()
   const [commonName, setCommonName] = useState('')
+  const [scientificName, setScientificName] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -54,9 +56,12 @@ export function MinimalObservationSheet({
         journeyId,
         latitude,
         longitude,
+        notes: '',
         photoId,
+        scientificName,
       })
       setCommonName('')
+      setScientificName(null)
       onChanged?.()
       onSaved?.()
       onClose()
@@ -75,10 +80,12 @@ export function MinimalObservationSheet({
       title={t('observation.logTitle')}
     >
       <p className="text-sm text-muted">{t('nature.match.otherHint')}</p>
-      <input
-        className="mt-4 w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary/40"
-        onChange={(event) => {
-          setCommonName(event.target.value)
+      <TaxonNameSuggest
+        className="mt-4"
+        inputClassName="w-full rounded-xl border border-border bg-background px-3 py-3 text-sm outline-none focus:border-primary/40"
+        onChange={setCommonName}
+        onSelectTaxon={(taxon) => {
+          setScientificName(taxon.scientificName)
         }}
         placeholder={t('observation.commonNamePlaceholder')}
         value={commonName}

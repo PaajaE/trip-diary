@@ -2,8 +2,8 @@ import { useState, type SyntheticEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { ChecklistItemCategory } from '@/entities/checklist/model/checklist'
 import { createCustomChecklistItem } from '@/entities/checklist/api/checklist-mutation.repository'
+import { TaxonNameSuggest } from '@/features/nature/ui/TaxonNameSuggest'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Input'
 
 interface CustomGoalFormProps {
   creatorId: string
@@ -26,6 +26,7 @@ export function CustomGoalForm({
 }: CustomGoalFormProps) {
   const { t } = useTranslation()
   const [title, setTitle] = useState('')
+  const [scientificName, setScientificName] = useState<string | null>(null)
   const [notes, setNotes] = useState('')
   const [category, setCategory] = useState<ChecklistItemCategory>('wildlife')
   const [saving, setSaving] = useState(false)
@@ -43,11 +44,17 @@ export function CustomGoalForm({
         category,
         creatorId,
         journeyId,
-        notes,
+        notes:
+          scientificName === null || scientificName === notes.trim()
+            ? notes
+            : [scientificName, notes.trim()]
+                .filter((part) => part !== '')
+                .join(' · '),
         title,
       })
       setTitle('')
       setNotes('')
+      setScientificName(null)
       onCreated()
     } catch {
       setError(t('nature.custom.saveError'))
@@ -62,13 +69,28 @@ export function CustomGoalForm({
       onSubmit={(event) => void handleSubmit(event)}
     >
       <p className="text-sm font-medium">{t('nature.custom.title')}</p>
-      <Input
-        label={t('nature.custom.nameLabel')}
-        onChange={(event) => {
-          setTitle(event.target.value)
-        }}
-        value={title}
-      />
+      {category === 'wildlife' || category === 'flora' ? (
+        <TaxonNameSuggest
+          inputClassName="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-base outline-none focus:border-primary/40"
+          onChange={setTitle}
+          onSelectTaxon={(taxon) => {
+            setScientificName(taxon.scientificName)
+          }}
+          placeholder={t('nature.custom.nameLabel')}
+          value={title}
+        />
+      ) : (
+        <label className="block text-sm font-medium">
+          {t('nature.custom.nameLabel')}
+          <input
+            className="mt-2 w-full rounded-md border border-border bg-surface px-3 py-2.5 text-base outline-none focus:border-primary/40"
+            onChange={(event) => {
+              setTitle(event.target.value)
+            }}
+            value={title}
+          />
+        </label>
+      )}
       <label className="block text-sm font-medium">
         {t('nature.custom.categoryLabel')}
         <select

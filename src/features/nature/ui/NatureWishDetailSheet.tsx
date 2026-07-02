@@ -2,11 +2,14 @@ import { Camera, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Link } from '@tanstack/react-router'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
+import { MacrostratGeologyHint } from '@/features/nature/ui/MacrostratGeologyHint'
 import { SoftBottomSheet } from '@/shared/ui/SoftBottomSheet'
 import { Button } from '@/shared/ui/Button'
 
 interface NatureWishDetailSheetProps {
   canEdit: boolean
+  goalLatitude?: number | null
+  goalLongitude?: number | null
   item: JourneyChecklistItem | null
   journeyId: string
   onClose: () => void
@@ -18,6 +21,8 @@ interface NatureWishDetailSheetProps {
 
 export function NatureWishDetailSheet({
   canEdit,
+  goalLatitude = null,
+  goalLongitude = null,
   item,
   journeyId,
   onClose,
@@ -45,6 +50,13 @@ export function NatureWishDetailSheet({
       {item.notes === '' ? null : (
         <p className="text-sm leading-6 text-muted">{item.notes}</p>
       )}
+      {item.category === 'geology' ? (
+        <MacrostratGeologyHint
+          latitude={goalLatitude}
+          longitude={goalLongitude}
+          stratName={item.title}
+        />
+      ) : null}
 
       <div className="mt-5 flex flex-col gap-2">
         {stopId !== null && onOpenMap !== undefined ? (

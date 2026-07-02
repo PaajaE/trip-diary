@@ -327,6 +327,7 @@ export const en = {
     memoryDescriptionWithTrip:
       'Add photos or a quick text and save this memory directly into {{title}}.',
     memoryEyebrow: 'New moment',
+    memoryNatureGoalHint: 'Adding a photo for {{title}}.',
     memoryNeedsConnection:
       'To attach this memory directly to the trip, it needs to synchronize right now. Please reconnect and try again.',
     memoryTitle: 'Add a moment to this trip',
@@ -733,6 +734,19 @@ export const en = {
       viewAll: 'View all',
       wishesTitle: 'Still looking for',
     },
+    exportInaturalist: 'Log on iNaturalist',
+    exportInaturalistShort: 'iNat',
+    identify: {
+      action: 'Suggest nearby species',
+      failed: 'Could not load species suggestions right now.',
+      hint: 'Tap a species often seen near this photo location.',
+      loading: 'Loading nearby species…',
+      needsLocation:
+        'Add a location to the photo or moment to suggest nearby species.',
+      unavailable: 'No nearby species suggestions are available right now.',
+    },
+    inaturalistAttribution: 'Species suggestions from iNaturalist.',
+    macrostratAttribution: 'Geologic context from Macrostrat.',
     match: {
       hint: 'Did you spot any of these?',
       other: 'Other',
