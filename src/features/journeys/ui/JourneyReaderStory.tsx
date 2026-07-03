@@ -1,5 +1,4 @@
 import { MapPin, Signpost } from 'lucide-react'
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
@@ -7,119 +6,126 @@ import type {
   JourneyMoment,
   JourneyStageContent,
 } from '@/features/journeys/lib/journey-content'
-import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
-import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
+import { ReaderMomentPhotos } from '@/features/journeys/ui/ReaderMomentPhotos'
+import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderStoryProps {
+  isPhotosPending?: boolean
   onOpenEntry: (entryId: string) => void
+  photosByEntryId: Map<string, PhotoPreview[]>
   stageContents: JourneyStageContent[]
   tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }
 
 export function JourneyReaderStory({
+  isPhotosPending = false,
   onOpenEntry,
+  photosByEntryId,
   stageContents,
   tagsByPhotoId,
 }: JourneyReaderStoryProps) {
   const { t } = useTranslation()
-  const moments = useMemo(
-    () => stageContents.flatMap((content) => content.moments),
-    [stageContents],
-  )
-  const { isPending, photosByEntryId } = useJourneyMomentPhotos(moments, true)
   const hasContent = stageContents.some(
     (content) => content.moments.length > 0 || content.plannedStops.length > 0,
   )
 
   if (!hasContent) {
     return (
-      <div className="mt-8 rounded-[1.5rem] border border-dashed border-border bg-surface p-6 shadow-soft">
-        <h3 className="text-xl font-semibold">{t('reader.emptyTitle')}</h3>
-        <p className="mt-3 max-w-2xl leading-7 text-muted">
+      <div className="reader-empty-state mt-10">
+        <h3 className="reader-display text-3xl">{t('reader.emptyTitle')}</h3>
+        <p className="mt-4 max-w-xl text-base leading-8 text-muted">
           {t('reader.emptyDescription')}
         </p>
       </div>
     )
   }
 
+  let momentIndex = 0
+
   return (
-    <>
-      {isPending ? (
-        <p className="mt-8 text-sm text-muted" role="status">
+    <div className="mt-12 space-y-16 sm:space-y-20">
+      {isPhotosPending ? (
+        <p className="text-sm text-muted" role="status">
           {t('journey.galleryLoading')}
         </p>
       ) : null}
-      <div className="mt-8 space-y-8">
-        {stageContents.map((stageContent) => (
-          <section
-            className="rounded-[1.5rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
-            key={stageContent.stage?.id ?? 'unassigned'}
-          >
-            {shouldShowStageHeader(stageContent) ? (
-              <h3 className="flex items-center gap-3 text-xl font-semibold">
-                <Signpost aria-hidden="true" size={18} />
+      {stageContents.map((stageContent) => (
+        <section key={stageContent.stage?.id ?? 'unassigned'}>
+          {shouldShowStageHeader(stageContent) ? (
+            <div className="reader-stage-divider">
+              <Signpost aria-hidden="true" className="text-accent" size={18} />
+              <h3 className="reader-display text-2xl sm:text-3xl">
                 {stageContent.stage?.title ?? t('journey.freeMoments')}
               </h3>
-            ) : null}
-            <div
-              className={
-                shouldShowStageHeader(stageContent)
-                  ? 'mt-6 space-y-4'
-                  : 'space-y-4'
-              }
-            >
-              {stageContent.moments.map((moment) => (
-                <ReaderMomentCard
+              {stageContent.stage?.summary === '' ? null : (
+                <p className="mt-3 max-w-2xl text-base leading-8 text-muted">
+                  {stageContent.stage?.summary}
+                </p>
+              )}
+            </div>
+          ) : null}
+
+          <div
+            className={cn(
+              'space-y-16 sm:space-y-20',
+              shouldShowStageHeader(stageContent) ? 'mt-10' : '',
+            )}
+          >
+            {stageContent.moments.map((moment) => {
+              momentIndex += 1
+              return (
+                <ReaderMomentArticle
+                  index={momentIndex}
                   key={moment.entry.id}
                   moment={moment}
                   onOpenEntry={onOpenEntry}
                   photos={photosByEntryId.get(moment.entry.id) ?? []}
                   tagsByPhotoId={tagsByPhotoId}
                 />
-              ))}
-              {stageContent.plannedStops.length === 0 ? null : (
-                <div className="pt-3">
-                  <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                    {t('journey.plannedPlaces')}
-                  </p>
-                  <div className="space-y-3">
-                    {stageContent.plannedStops.map((stop) => (
-                      <article
-                        className="rounded-xl border border-dashed border-border bg-background/60 p-4"
-                        key={stop.id}
-                      >
-                        <p className="font-semibold">{stop.title}</p>
-                        {stop.notes === '' ? null : (
-                          <p className="mt-2 text-sm leading-6 text-muted">
-                            {stop.notes}
-                          </p>
-                        )}
-                      </article>
-                    ))}
-                  </div>
+              )
+            })}
+
+            {stageContent.plannedStops.length === 0 ? null : (
+              <div className="reader-planned-stops">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                  {t('journey.plannedPlaces')}
+                </p>
+                <div className="mt-4 space-y-3">
+                  {stageContent.plannedStops.map((stop) => (
+                    <article
+                      className="rounded-2xl border border-dashed border-border/80 bg-surface/70 px-5 py-4"
+                      key={stop.id}
+                    >
+                      <p className="font-semibold">{stop.title}</p>
+                      {stop.notes === '' ? null : (
+                        <p className="mt-2 text-sm leading-7 text-muted">
+                          {stop.notes}
+                        </p>
+                      )}
+                    </article>
+                  ))}
                 </div>
-              )}
-            </div>
-          </section>
-        ))}
-      </div>
-    </>
+              </div>
+            )}
+          </div>
+        </section>
+      ))}
+    </div>
   )
 }
 
 function shouldShowStageHeader(content: JourneyStageContent) {
-  if (content.stage === null) {
-    return false
-  }
-  return true
+  return content.stage !== null
 }
 
-function ReaderMomentCard({
+function ReaderMomentArticle({
+  index,
   moment,
   onOpenEntry,
   photos,
   tagsByPhotoId,
 }: {
+  index: number
   moment: JourneyMoment
   onOpenEntry: (entryId: string) => void
   photos: PhotoPreview[]
@@ -127,37 +133,61 @@ function ReaderMomentCard({
 }) {
   const { t } = useTranslation()
   const title = moment.entry.title ?? t('dashboard.untitled')
+  const hasLongBody = moment.entry.body.length > 480
+  const openMomentLabel =
+    hasLongBody && moment.entry.body !== ''
+      ? t('reader.readFullMoment')
+      : t('reader.openMoment')
 
   return (
-    <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5">
+    <article className="reader-moment">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-            {t(`entry.type.${moment.entry.type}`)}
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            {t('reader.momentLabel', { index })}
           </p>
-          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+          <button
+            className="reader-display mt-3 text-left text-3xl leading-tight sm:text-4xl transition-colors hover:text-accent"
+            onClick={() => {
+              onOpenEntry(moment.entry.id)
+            }}
+            type="button"
+          >
+            {title}
+          </button>
         </div>
         {moment.location === null ? null : (
           <span
             aria-label={t('journey.hasLocation')}
-            className="rounded-full bg-primary/10 p-2 text-primary"
+            className="rounded-full bg-primary/10 p-2.5 text-primary"
           >
             <MapPin aria-hidden="true" size={16} />
           </span>
         )}
       </div>
-      {moment.entry.body === '' ? null : (
-        <p className="mt-3 line-clamp-4 leading-7 text-muted">
-          {moment.entry.body}
-        </p>
-      )}
-      <EntryPhotoGrid
+
+      <ReaderMomentPhotos
         alt={title}
         entryId={moment.entry.id}
-        onOpenMoment={onOpenEntry}
+        featured
         photos={photos}
+        showPhotoEngagement
         tagsByPhotoId={tagsByPhotoId}
       />
+
+      {moment.entry.body === '' ? null : (
+        <div className="mt-8">
+          <p
+            className={cn(
+              'whitespace-pre-wrap text-lg leading-[1.85] text-foreground/90',
+              hasLongBody ? 'line-clamp-[12]' : '',
+            )}
+          >
+            {moment.entry.body}
+          </p>
+        </div>
+      )}
+
       <button
         className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
         onClick={() => {
@@ -165,7 +195,7 @@ function ReaderMomentCard({
         }}
         type="button"
       >
-        {t('journey.openMoment')}
+        {openMomentLabel}
       </button>
     </article>
   )

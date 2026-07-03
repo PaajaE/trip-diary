@@ -1,81 +1,67 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  createPreviewUrl,
-  revokePreviewUrl,
-  schedulePreviewUrlRevoke,
-} from '@/shared/lib/preview-url'
+  getCachedPhotoObjectUrl,
+  resolvePhotoObjectUrl,
+} from '@/shared/lib/photo-object-url-cache'
 
 export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
   photos: T[],
 ): (T & { url: string })[] {
-  const pendingRevocations = useRef(new Map<string, number>())
-  const effectGenerationRef = useRef(0)
-  const [urlsById, setUrlsById] = useState<Record<string, string>>({})
+  const photoIdsKey = useMemo(
+    () => photos.map((photo) => photo.id).join('\u0000'),
+    [photos],
+  )
+  const [urlsById, setUrlsById] = useState<Record<string, string>>(() => {
+    const initial: Record<string, string> = {}
+    for (const photo of photos) {
+      const cached = getCachedPhotoObjectUrl(photo.id)
+      if (cached !== undefined) {
+        initial[photo.id] = cached
+      }
+    }
+    return initial
+  })
 
   useEffect(() => {
-    const generation = ++effectGenerationRef.current
+    let cancelled = false
+    const currentPhotos = photos
 
     void (async () => {
-      const next: Record<string, string> = {}
-      const batchSize = 3
-
-      for (let index = 0; index < photos.length; index += batchSize) {
-        if (generation !== effectGenerationRef.current) {
+      const batchSize = 4
+      for (let index = 0; index < currentPhotos.length; index += batchSize) {
+        if (cancelled) {
           return
         }
 
-        const batch = photos.slice(index, index + batchSize)
-        await Promise.all(
+        const batch = currentPhotos.slice(index, index + batchSize)
+        const resolved = await Promise.all(
           batch.map(async (photo) => {
-            try {
-              next[photo.id] = await createPreviewUrl(photo.blob)
-            } catch {
-              // Skip previews that cannot be rendered.
-            }
+            const url = await resolvePhotoObjectUrl(photo.id, photo.blob)
+            return [photo.id, url] as const
           }),
         )
 
-        if (generation !== effectGenerationRef.current) {
-          for (const url of Object.values(next)) {
-            revokePreviewUrl(url)
-          }
+        if (cancelled) {
           return
         }
 
         setUrlsById((previous) => {
-          const merged = { ...previous, ...next }
-          for (const [id, url] of Object.entries(previous)) {
-            if (merged[id] === undefined) {
-              schedulePreviewUrlRevoke(pendingRevocations.current, url)
-            }
+          const next = { ...previous }
+          for (const [photoId, url] of resolved) {
+            next[photoId] = url
           }
-          return merged
+          return next
         })
-
-        if (index + batchSize < photos.length) {
-          await new Promise<void>((resolve) => {
-            window.setTimeout(resolve, 0)
-          })
-        }
       }
     })()
 
     return () => {
-      effectGenerationRef.current += 1
+      cancelled = true
     }
-  }, [photos])
-
-  useEffect(
-    () => () => {
-      for (const url of Object.values(urlsById)) {
-        revokePreviewUrl(url)
-      }
-    },
-    [urlsById],
-  )
+  }, [photoIdsKey])
 
   return photos.flatMap((photo) => {
-    const url = urlsById[photo.id]
+    const url = urlsById[photo.id] ?? getCachedPhotoObjectUrl(photo.id)
     return url === undefined ? [] : [{ ...photo, url }]
   })
 }

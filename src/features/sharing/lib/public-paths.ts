@@ -1,4 +1,4 @@
-import type { JourneyReaderSection } from '@/features/journeys/ui/JourneyReaderSectionTabs'
+import type { JourneyReaderSection } from '@/features/journeys/lib/journey-reader-section'
 import {
   buildAppAbsoluteUrl,
   buildSharePreviewUrl,
@@ -14,7 +14,7 @@ export function buildPublicJourneyPath(
   section?: JourneyReaderSection,
 ): string {
   const base = `/${paths.spaceHandle}/${paths.journeySlug}`
-  if (section === undefined || section === 'overview') {
+  if (section === undefined || section === 'story') {
     return base
   }
   return `${base}?section=${section}`

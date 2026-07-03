@@ -1,4 +1,5 @@
 import { useTranslation } from 'react-i18next'
+import { formatTripSummaryParts } from '@/features/journeys/lib/format-trip-summary'
 
 interface TripSummaryLineProps {
   mapPointCount: number
@@ -15,21 +16,19 @@ export function TripSummaryLine({
   natureTotal = 0,
   photoCount,
 }: TripSummaryLineProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
 
-  const parts = [
-    t('journey.summaryLineMoments', { count: momentCount }),
-    t('journey.summaryLinePhotos', { count: photoCount }),
-    mapPointCount > 0
-      ? t('journey.summaryLineMap', { count: mapPointCount })
-      : null,
-    natureTotal > 0
-      ? t('journey.summaryLineNature', {
-          checked: natureChecked,
-          total: natureTotal,
-        })
-      : null,
-  ].filter((part): part is string => part !== null)
+  const parts = formatTripSummaryParts(
+    t,
+    {
+      mapPointCount,
+      momentCount,
+      natureChecked,
+      natureTotal,
+      photoCount,
+    },
+    i18n.language,
+  )
 
   return (
     <p className="text-sm leading-6 text-muted" role="status">

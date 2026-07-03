@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
+import { isPublicReaderPath } from '@/features/sharing/lib/is-public-reader-path'
 import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
 
@@ -15,57 +16,60 @@ export function AppShell({ children }: PropsWithChildren) {
     select: (state) => state.location.pathname,
   })
   const minimalPublicShell = isPublicSharePath(pathname)
+  const immersiveReaderShell = isPublicReaderPath(pathname)
   const identity =
     profile?.displayName ?? profile?.username ?? user?.email ?? t('brand')
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-border/80 bg-background/95 px-5 backdrop-blur sm:px-8">
-        <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
-          <Link className="text-sm font-semibold tracking-wide" to="/">
-            {t('brand')}
-          </Link>
-          <nav
-            aria-label={t('navigation.account')}
-            className="flex items-center gap-2"
-          >
-            {minimalPublicShell ? null : <SyncStatusControl />}
-            {loading ? (
-              <span
-                aria-label={t('navigation.loading')}
-                className="size-10 animate-pulse rounded-full bg-surface"
-              />
-            ) : user === null ? (
-              <Link
-                className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
-                to="/sign-in"
-              >
-                {t('home.signIn')}
-              </Link>
-            ) : (
-              <>
-                <Link
-                  aria-label={t('navigation.newTrip')}
-                  className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
-                  to="/journeys/new"
-                >
-                  <MapPinned aria-hidden="true" size={17} />
-                  <span className="hidden sm:inline">
-                    {t('navigation.newTrip')}
-                  </span>
-                </Link>
-                <AccountMenu
-                  identity={identity}
-                  profile={profile}
-                  signOut={() =>
-                    void signOut().then(() => navigate({ to: '/' }))
-                  }
+      {immersiveReaderShell ? null : (
+        <header className="sticky top-0 z-20 border-b border-border/80 bg-background/95 px-5 backdrop-blur sm:px-8">
+          <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
+            <Link className="text-sm font-semibold tracking-wide" to="/">
+              {t('brand')}
+            </Link>
+            <nav
+              aria-label={t('navigation.account')}
+              className="flex items-center gap-2"
+            >
+              {minimalPublicShell ? null : <SyncStatusControl />}
+              {loading ? (
+                <span
+                  aria-label={t('navigation.loading')}
+                  className="size-10 animate-pulse rounded-full bg-surface"
                 />
-              </>
-            )}
-          </nav>
-        </div>
-      </header>
+              ) : user === null ? (
+                <Link
+                  className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
+                  to="/sign-in"
+                >
+                  {t('home.signIn')}
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    aria-label={t('navigation.newTrip')}
+                    className="inline-flex min-h-11 items-center gap-2 rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
+                    to="/journeys/new"
+                  >
+                    <MapPinned aria-hidden="true" size={17} />
+                    <span className="hidden sm:inline">
+                      {t('navigation.newTrip')}
+                    </span>
+                  </Link>
+                  <AccountMenu
+                    identity={identity}
+                    profile={profile}
+                    signOut={() =>
+                      void signOut().then(() => navigate({ to: '/' }))
+                    }
+                  />
+                </>
+              )}
+            </nav>
+          </div>
+        </header>
+      )}
       {children}
     </>
   )

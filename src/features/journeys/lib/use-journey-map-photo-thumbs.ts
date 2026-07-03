@@ -23,13 +23,14 @@ function isJourneyGalleryPreviews(
 export function useJourneyMapPhotoThumbs(
   moments: JourneyGalleryMoment[],
 ): Record<string, string> {
+  const momentIdsKey = useMemo(
+    () => moments.map((moment) => moment.entry.id).join('\u0000'),
+    [moments],
+  )
   const previewsQuery = useQuery({
     queryFn: () =>
       loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
-    queryKey: [
-      'journey-map-thumbs',
-      ...moments.map((moment) => moment.entry.id),
-    ],
+    queryKey: ['journey-gallery', momentIdsKey],
   })
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)
     ? previewsQuery.data

@@ -28,6 +28,7 @@ describe('map-style', () => {
       layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
       sources: {
         basemap: {
+          attribution: '© Seznam.cz a.s. a další',
           type: 'raster',
           url: 'https://api.mapy.com/v1/maptiles/outdoor/tiles.json?apikey=test-map-key&lang=cs',
         },

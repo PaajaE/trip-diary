@@ -189,7 +189,7 @@ const publicJourneyRoute = createRoute({
   component: LazyPublicJourneyRoutePage,
   validateSearch: z.object({
     section: z
-      .enum(['overview', 'story', 'map', 'gallery', 'collections', 'guides'])
+      .enum(['story', 'map', 'gallery', 'collections', 'guides'])
       .optional(),
   }),
 })

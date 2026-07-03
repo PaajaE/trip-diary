@@ -545,7 +545,7 @@ export function JourneyPage({
             <JourneyMap
               canEdit={canEdit}
               checklistItems={checklistQuery.data ?? []}
-              className="min-h-0 flex-1"
+              className="h-full min-h-0 w-full flex-1"
               focusPointId={mapFocusPointId}
               moments={content?.moments ?? []}
               observations={observationsQuery.data ?? []}

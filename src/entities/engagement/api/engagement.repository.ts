@@ -12,6 +12,23 @@ export async function getEngagementSummary(
   viewerId: string | null,
 ): Promise<EngagementSummary> {
   const client = getSupabaseClient()
+  const commentsQuery =
+    viewerId === null
+      ? client
+          .from('content_comments')
+          .select('id, body, created_at, updated_at, hidden_at, user_id')
+          .eq('target_type', target.type)
+          .eq('target_id', target.id)
+          .order('created_at', { ascending: true })
+      : client
+          .from('content_comments')
+          .select(
+            'id, body, created_at, updated_at, hidden_at, user_id, profiles(display_name, username)',
+          )
+          .eq('target_type', target.type)
+          .eq('target_id', target.id)
+          .order('created_at', { ascending: true })
+
   const [heartCountResult, viewerHeartResult, commentsResult, canModerate] =
     await Promise.all([
       client
@@ -28,14 +45,7 @@ export async function getEngagementSummary(
             .eq('target_id', target.id)
             .eq('user_id', viewerId)
             .maybeSingle(),
-      client
-        .from('content_comments')
-        .select(
-          'id, body, created_at, updated_at, hidden_at, user_id, profiles(display_name, username)',
-        )
-        .eq('target_type', target.type)
-        .eq('target_id', target.id)
-        .order('created_at', { ascending: true }),
+      commentsQuery,
       viewerId === null
         ? Promise.resolve(false)
         : client
@@ -58,35 +68,47 @@ export async function getEngagementSummary(
   if (viewerHeartResult.error !== null) {
     throw viewerHeartResult.error
   }
-  if (commentsResult.error !== null) {
-    throw commentsResult.error
-  }
 
   const heartCount = heartCountResult.count ?? 0
   const viewerHasHearted = viewerHeartResult.data !== null
 
-  const comments = commentsResult.data.flatMap((row) => {
-    if (row.hidden_at !== null && viewerId === null) {
-      return []
-    }
-    if (row.hidden_at !== null && row.user_id !== viewerId && !canModerate) {
-      return []
-    }
+  const comments =
+    commentsResult.error === null
+      ? commentsResult.data.flatMap((row) => {
+          if (row.hidden_at !== null && viewerId === null) {
+            return []
+          }
+          if (row.hidden_at !== null && row.user_id !== viewerId && !canModerate) {
+            return []
+          }
 
-    const profile = normalizeProfile(row.profiles)
-    return [
-      contentCommentSchema.parse({
-        authorId: row.user_id,
-        authorName: profile.displayName ?? profile.username ?? 'Guest',
-        body: row.body,
-        createdAt: row.created_at,
-        hiddenAt: row.hidden_at,
-        id: row.id,
-        isOwn: viewerId !== null && row.user_id === viewerId,
-        updatedAt: row.updated_at,
-      }),
-    ]
-  })
+          const profile =
+            'profiles' in row
+              ? normalizeProfile(
+                  row.profiles as
+                    | { display_name: string | null; username: string | null }
+                    | { display_name: string | null; username: string | null }[]
+                    | null,
+                )
+              : { displayName: null, username: null }
+
+          return [
+            contentCommentSchema.parse({
+              authorId: row.user_id,
+              authorName:
+                profile.displayName ??
+                profile.username ??
+                (viewerId === null ? 'Guest' : 'Guest'),
+              body: row.body,
+              createdAt: row.created_at,
+              hiddenAt: row.hidden_at,
+              id: row.id,
+              isOwn: viewerId !== null && row.user_id === viewerId,
+              updatedAt: row.updated_at,
+            }),
+          ]
+        })
+      : []
 
   return engagementSummarySchema.parse({
     canModerate,

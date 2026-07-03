@@ -137,8 +137,9 @@ async function getLocalPhotoDetailPreviews(
   return getLocalPhotoPreviewsForPicker(entryId, pickLocalDetailVariant)
 }
 
-async function getLocalPhotoPreviewsBatch(
+async function getLocalPhotoPreviewsBatchForPicker(
   entryIds: string[],
+  pickVariant: (variants: LocalPhotoVariant[]) => LocalPhotoVariant | undefined,
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
   if (entryIds.length === 0) {
     return new Map()
@@ -162,7 +163,7 @@ async function getLocalPhotoPreviewsBatch(
 
   const result = new Map<string, PositionedPhotoPreview[]>()
   for (const photo of photos) {
-    const variant = pickLocalThumbVariant(variantsByPhotoId.get(photo.id) ?? [])
+    const variant = pickVariant(variantsByPhotoId.get(photo.id) ?? [])
     if (variant === undefined) {
       continue
     }
@@ -180,6 +181,18 @@ async function getLocalPhotoPreviewsBatch(
   }
 
   return result
+}
+
+async function getLocalPhotoPreviewsBatch(
+  entryIds: string[],
+): Promise<Map<string, PositionedPhotoPreview[]>> {
+  return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalThumbVariant)
+}
+
+async function getLocalPhotoDetailPreviewsBatch(
+  entryIds: string[],
+): Promise<Map<string, PositionedPhotoPreview[]>> {
+  return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalDetailVariant)
 }
 
 async function getRemotePhotoPreviewsForVariant(
@@ -405,12 +418,15 @@ export interface JourneyEntryPhotoPreviews {
   previewsByEntry: Map<string, PhotoPreview[]>
 }
 
-export async function getJourneyEntryPhotoPreviews(
+async function getJourneyEntryPhotoPreviewsForVariant(
   entryIds: string[],
+  loadLocalBatch: (
+    entryIds: string[],
+  ) => Promise<Map<string, PositionedPhotoPreview[]>>,
 ): Promise<JourneyEntryPhotoPreviews> {
   const uniqueEntryIds = [...new Set(entryIds)]
   const [localResult, remoteResult] = await Promise.allSettled([
-    getLocalPhotoPreviewsBatch(uniqueEntryIds),
+    loadLocalBatch(uniqueEntryIds),
     getRemotePhotoPreviewsBatch(uniqueEntryIds),
   ])
 
@@ -454,4 +470,22 @@ export async function getJourneyEntryPhotoPreviews(
   }
 
   return { failedEntryIds, previewsByEntry }
+}
+
+export async function getJourneyEntryPhotoPreviews(
+  entryIds: string[],
+): Promise<JourneyEntryPhotoPreviews> {
+  return getJourneyEntryPhotoPreviewsForVariant(
+    entryIds,
+    getLocalPhotoPreviewsBatch,
+  )
+}
+
+export async function getJourneyEntryPhotoDetailPreviews(
+  entryIds: string[],
+): Promise<JourneyEntryPhotoPreviews> {
+  return getJourneyEntryPhotoPreviewsForVariant(
+    entryIds,
+    getLocalPhotoDetailPreviewsBatch,
+  )
 }

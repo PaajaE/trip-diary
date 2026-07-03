@@ -35,34 +35,35 @@ const TYPE_RING: Record<JourneyMapPoint['type'], string> = {
 export function createJourneyMapPinElement(
   point: JourneyMapPoint,
   photoThumbUrls: Record<string, string>,
+  options?: { variant?: 'default' | 'reader' },
 ): HTMLElement {
+  const isReader = options?.variant === 'reader'
+  const isPhotoBubble =
+    isReader && (point.type === 'photo' || point.photoId !== null)
+
   const pin = document.createElement('button')
   pin.type = 'button'
-  pin.className = 'journey-map-pin'
+  pin.className = isReader
+    ? 'journey-map-pin journey-map-pin--reader'
+    : 'journey-map-pin'
+  if (isPhotoBubble) {
+    pin.classList.add('journey-map-pin--photo-bubble')
+  }
   pin.setAttribute('aria-label', point.title)
 
   const bubble = document.createElement('div')
   bubble.className = 'journey-map-pin__bubble'
-
-  const photoUrl = resolvePinPhotoUrl(point, photoThumbUrls)
-  if (photoUrl !== null) {
-    const image = document.createElement('img')
-    image.alt = ''
-    image.className = 'journey-map-pin__photo'
-    image.decoding = 'async'
-    image.loading = 'lazy'
-    image.src = photoUrl
-    bubble.append(image)
-  } else {
-    const fallback = document.createElement('div')
-    fallback.className = 'journey-map-pin__fallback'
-    fallback.style.background = getFallbackGradient(point)
-    fallback.textContent = getFallbackIcon(point)
-    bubble.append(fallback)
+  if (isPhotoBubble) {
+    bubble.classList.add('journey-map-pin__bubble--photo')
   }
+
+  applyPinPhotoContent(bubble, point, photoThumbUrls, {
+    eagerPhoto: isPhotoBubble,
+  })
 
   const ringColor = getRingColor(point)
   bubble.style.setProperty('--pin-ring', ringColor)
+  pin.style.setProperty('--pin-ring', ringColor)
 
   if (point.type === 'nature-goal' && !point.checked) {
     bubble.classList.add('journey-map-pin__bubble--wish')
@@ -77,12 +78,89 @@ export function createJourneyMapPinElement(
     bubble.append(badge)
   }
 
+  if (isPhotoBubble) {
+    const anchor = document.createElement('span')
+    anchor.className = 'journey-map-pin__anchor'
+    anchor.setAttribute('aria-hidden', 'true')
+    pin.append(bubble, anchor)
+    return pin
+  }
+
+  if (isReader) {
+    pin.classList.add('journey-map-pin--compact')
+    bubble.classList.add('journey-map-pin__bubble--compact')
+    pin.append(bubble)
+    return pin
+  }
+
   const tail = document.createElement('div')
   tail.className = 'journey-map-pin__tail'
   tail.style.setProperty('--pin-ring', ringColor)
 
   pin.append(bubble, tail)
   return pin
+}
+
+export function refreshJourneyMapPinElement(
+  pin: HTMLElement,
+  point: JourneyMapPoint,
+  photoThumbUrls: Record<string, string>,
+): void {
+  const bubble = pin.querySelector('.journey-map-pin__bubble')
+  if (!(bubble instanceof HTMLElement)) {
+    return
+  }
+
+  const isPhotoBubble = pin.classList.contains('journey-map-pin--photo-bubble')
+  applyPinPhotoContent(bubble, point, photoThumbUrls, {
+    eagerPhoto: isPhotoBubble,
+  })
+}
+
+function applyPinPhotoContent(
+  bubble: HTMLElement,
+  point: JourneyMapPoint,
+  photoThumbUrls: Record<string, string>,
+  options?: { eagerPhoto?: boolean },
+): void {
+  const photoUrl = resolvePinPhotoUrl(point, photoThumbUrls)
+  const existingImage = bubble.querySelector('.journey-map-pin__photo')
+  const existingFallback = bubble.querySelector('.journey-map-pin__fallback')
+  const badge = bubble.querySelector('.journey-map-pin__badge')
+
+  if (photoUrl !== null) {
+    if (existingImage instanceof HTMLImageElement) {
+      if (existingImage.src !== photoUrl) {
+        existingImage.src = photoUrl
+      }
+      existingFallback?.remove()
+      return
+    }
+
+    existingFallback?.remove()
+    const image = document.createElement('img')
+    image.alt = ''
+    image.className = 'journey-map-pin__photo'
+    image.decoding = 'async'
+    image.loading = options?.eagerPhoto === true ? 'eager' : 'lazy'
+    image.src = photoUrl
+    bubble.insertBefore(image, badge)
+    return
+  }
+
+  if (existingImage instanceof HTMLImageElement) {
+    existingImage.remove()
+  }
+
+  if (existingFallback instanceof HTMLElement) {
+    return
+  }
+
+  const fallback = document.createElement('div')
+  fallback.className = 'journey-map-pin__fallback'
+  fallback.style.background = getFallbackGradient(point)
+  fallback.textContent = getFallbackIcon(point)
+  bubble.insertBefore(fallback, badge)
 }
 
 function resolvePinPhotoUrl(

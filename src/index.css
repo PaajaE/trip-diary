@@ -66,6 +66,14 @@ a {
   padding: 0;
 }
 
+.maplibregl-map .maplibregl-popup {
+  z-index: 30;
+}
+
+.maplibregl-map .maplibregl-marker {
+  z-index: 10;
+}
+
 .journey-map-popup-container .maplibregl-popup-close-button {
   color: #fff;
   font-size: 1.25rem;
@@ -171,6 +179,284 @@ a {
   padding: 0 0.85rem 0.5rem;
 }
 
+.reader-page {
+  background: var(--color-background);
+  isolation: isolate;
+  position: relative;
+}
+
+.reader-map-section {
+  isolation: isolate;
+  position: relative;
+  z-index: 1;
+}
+
+.reader-map-frame {
+  contain: paint;
+  isolation: isolate;
+  overflow: hidden;
+  position: relative;
+}
+
+.reader-map-frame--embedded {
+  min-height: 22rem;
+}
+
+.reader-map-frame--fullscreen {
+  min-height: 0;
+}
+
+.reader-map-frame .maplibregl-map {
+  border-radius: inherit;
+  height: 100%;
+  overflow: hidden;
+  width: 100%;
+}
+
+.reader-photo-placeholder {
+  animation: reader-shimmer 1.4s ease-in-out infinite;
+  background: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-border) 55%, var(--color-surface)) 30%,
+    var(--color-surface) 50%,
+    color-mix(in srgb, var(--color-border) 55%, var(--color-surface)) 70%
+  );
+  background-size: 200% 100%;
+}
+
+.reader-map-frame--embedded .journey-map-pin--reader .journey-map-pin__bubble--photo {
+  height: 3.75rem;
+  width: 3.75rem;
+}
+
+.reader-map-frame--fullscreen .journey-map-pin--reader .journey-map-pin__bubble--photo {
+  height: 5.25rem;
+  width: 5.25rem;
+}
+
+.journey-map-popup-container--reader .journey-map-popup__image {
+  aspect-ratio: 4 / 3;
+  max-height: 7.5rem;
+}
+
+.journey-map-popup-container--reader .journey-map-popup__title {
+  font-size: 0.8125rem;
+  padding: 0.65rem 0.75rem 0.25rem;
+}
+
+.journey-map-popup-container--reader .journey-map-popup__action {
+  font-size: 0.75rem;
+  padding: 0.45rem 0.75rem 0.65rem;
+}
+
+@keyframes reader-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.reader-display {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-weight: 600;
+}
+
+.reader-hero-fallback {
+  background:
+    radial-gradient(circle at 20% 20%, rgb(184 95 66 / 0.35), transparent 42%),
+    radial-gradient(circle at 80% 10%, rgb(40 88 69 / 0.28), transparent 38%),
+    linear-gradient(160deg, #1f3d31 0%, #102019 48%, #1a1712 100%);
+}
+
+.reader-hero-overlay {
+  background: linear-gradient(
+    180deg,
+    rgb(8 12 10 / 0.15) 0%,
+    rgb(8 12 10 / 0.35) 42%,
+    rgb(8 12 10 / 0.82) 100%
+  );
+}
+
+.reader-hero-meta,
+.reader-hero-title,
+.reader-chrome-link {
+  color: #fff;
+}
+
+.reader-chrome-link {
+  text-shadow: 0 1px 8px rgb(0 0 0 / 0.35);
+}
+
+.reader-bleed {
+  margin-inline: calc(50% - 50vw);
+  width: 100vw;
+}
+
+.reader-photo-feature {
+  aspect-ratio: 4 / 3;
+  max-height: min(72svh, 44rem);
+}
+
+@media (min-width: 640px) {
+  .reader-photo-feature {
+    aspect-ratio: 16 / 10;
+    border-radius: 0 0 1.75rem 1.75rem;
+  }
+}
+
+.reader-photo-tile {
+  box-shadow: var(--shadow-soft);
+}
+
+.reader-stage-divider {
+  border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+  padding-top: 2.5rem;
+}
+
+.reader-empty-state {
+  border: 1px dashed var(--color-border);
+  border-radius: 1.75rem;
+  background: var(--color-surface);
+  padding: 2rem;
+}
+
+.reader-dock nav {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+.reader-map-frame--bleed {
+  border-radius: 0;
+}
+
+.reader-map-frame--bleed .maplibregl-map {
+  border-radius: 0;
+}
+
+.journey-map-pin--hidden {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.journey-map-pin--reader.journey-map-pin--compact {
+  filter: drop-shadow(0 2px 6px rgb(15 23 42 / 0.16));
+}
+
+.journey-map-pin--reader.journey-map-pin--compact .journey-map-pin__bubble--compact {
+  align-items: center;
+  background: #fff;
+  border: 2px solid var(--pin-ring);
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px rgb(255 255 255 / 0.95),
+    0 4px 12px rgb(15 23 42 / 0.14);
+  display: flex;
+  height: 1.65rem;
+  justify-content: center;
+  overflow: hidden;
+  width: 1.65rem;
+}
+
+.journey-map-pin--reader.journey-map-pin--compact .journey-map-pin__fallback {
+  font-size: 0.58rem;
+  line-height: 1;
+}
+
+.journey-map-pin--reader.journey-map-pin--compact:hover,
+.journey-map-pin--reader.journey-map-pin--compact:focus-visible {
+  filter: drop-shadow(0 4px 10px rgb(15 23 42 / 0.2));
+  transform: scale(1.15);
+}
+
+.journey-map-pin--reader.journey-map-pin--compact.journey-map-pin--focused {
+  transform: scale(1.2);
+}
+
+/* Reader map — photo bubble pins */
+.journey-map-pin--reader {
+  filter: drop-shadow(0 8px 16px rgb(15 23 42 / 0.14));
+}
+
+.journey-map-pin--reader.journey-map-pin--photo-bubble {
+  padding-bottom: 0.35rem;
+}
+
+.journey-map-pin--reader .journey-map-pin__bubble--photo {
+  --pin-ring: #1d6fa5;
+  background: #fff;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--pin-ring) 70%, white),
+    0 0 0 3px rgb(255 255 255 / 0.92),
+    0 14px 34px rgb(15 23 42 / 0.24),
+    inset 0 1px 0 rgb(255 255 255 / 0.55);
+  height: 5rem;
+  overflow: hidden;
+  position: relative;
+  width: 5rem;
+}
+
+.journey-map-pin--reader .journey-map-pin__bubble--photo .journey-map-pin__photo {
+  transform: scale(1.02);
+}
+
+.journey-map-pin--reader .journey-map-pin__bubble--photo .journey-map-pin__fallback {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--pin-ring) 18%, white) 0%,
+    color-mix(in srgb, var(--pin-ring) 42%, white) 100%
+  );
+  font-size: 1.5rem;
+}
+
+.journey-map-pin--reader .journey-map-pin__anchor {
+  background: #fff;
+  border-radius: 999px;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--pin-ring) 55%, white),
+    0 4px 10px rgb(15 23 42 / 0.18);
+  display: block;
+  height: 0.55rem;
+  margin: -0.12rem auto 0;
+  width: 0.55rem;
+}
+
+.journey-map-pin--reader:hover,
+.journey-map-pin--reader:focus-visible {
+  filter: drop-shadow(0 14px 28px rgb(15 23 42 / 0.22));
+  transform: translateY(-3px) scale(1.06);
+}
+
+.journey-map-pin--reader.journey-map-pin--focused {
+  filter: drop-shadow(0 16px 32px rgb(15 23 42 / 0.28));
+  transform: translateY(-4px) scale(1.1);
+  z-index: 11;
+}
+
+.reader-map-section .journey-map-pin__bubble--visited {
+  box-shadow:
+    0 12px 28px rgb(15 23 42 / 0.22),
+    0 0 0 2px rgb(255 255 255 / 0.95),
+    0 0 0 4px color-mix(in srgb, var(--pin-ring) 55%, white);
+}
+
+.reader-map-section .journey-map-pin__tail {
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
+.reader-map-section .maplibregl-ctrl-attrib {
+  background: rgb(255 253 248 / 0.92);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  margin: 0.35rem;
+  padding: 0.15rem 0.45rem;
+}
+
 .journey-map-pin {
   background: transparent;
   border: 0;
@@ -191,7 +477,7 @@ a {
 .journey-map-pin--focused {
   filter: drop-shadow(0 12px 22px rgb(15 23 42 / 0.28));
   transform: translateY(-3px) scale(1.08);
-  z-index: 2;
+  z-index: 11;
 }
 
 .journey-map-pin__bubble {

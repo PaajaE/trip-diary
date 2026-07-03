@@ -42,6 +42,7 @@ export function ContentEngagement({
   const engagementQuery = useQuery({
     queryFn: () => getEngagementSummary(target, user?.id ?? null),
     queryKey,
+    retry: false,
   })
 
   const invalidate = () => {

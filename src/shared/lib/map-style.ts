@@ -4,6 +4,8 @@ import { publicEnv } from '@/shared/config/env'
 const MAPY_OUTDOOR_TILEJSON =
   'https://api.mapy.com/v1/maptiles/outdoor/tiles.json'
 
+const MAPY_ATTRIBUTION = '© Seznam.cz a.s. a další'
+
 export function isMapyBasemapEnabled(): boolean {
   const apiKey = publicEnv.VITE_MAPY_API_KEY
   return apiKey !== undefined && apiKey.trim().length > 0
@@ -22,6 +24,7 @@ export function getAppMapStyle(language?: string): StyleSpecification {
       layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
       sources: {
         basemap: {
+          attribution: MAPY_ATTRIBUTION,
           type: 'raster',
           url: `${MAPY_OUTDOOR_TILEJSON}?${params.toString()}`,
         },

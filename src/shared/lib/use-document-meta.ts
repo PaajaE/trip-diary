@@ -6,6 +6,8 @@ interface DocumentMeta {
   title: string
 }
 
+const DEFAULT_DOCUMENT_TITLE = 'Trip Diary'
+
 function setMetaTag(
   attribute: 'name' | 'property',
   key: string,
@@ -22,29 +24,34 @@ function setMetaTag(
 }
 
 export function useDocumentMeta(meta: DocumentMeta | null) {
+  const title = meta?.title
+  const description = meta?.description
+  const imageUrl = meta?.imageUrl
+
   useEffect(() => {
-    if (meta === null) {
+    if (title === undefined) {
       return
     }
 
-    const previousTitle = document.title
-    document.title = meta.title
+    document.title = title
 
-    if (meta.description !== undefined) {
-      setMetaTag('name', 'description', meta.description)
-      setMetaTag('property', 'og:description', meta.description)
+    if (description !== undefined) {
+      setMetaTag('name', 'description', description)
+      setMetaTag('property', 'og:description', description)
     }
-    setMetaTag('property', 'og:title', meta.title)
+    setMetaTag('property', 'og:title', title)
     setMetaTag('property', 'og:type', 'website')
     if (typeof window !== 'undefined') {
       setMetaTag('property', 'og:url', window.location.href)
     }
-    if (meta.imageUrl !== undefined) {
-      setMetaTag('property', 'og:image', meta.imageUrl)
+    if (imageUrl !== undefined) {
+      setMetaTag('property', 'og:image', imageUrl)
     }
+  }, [description, imageUrl, title])
 
+  useEffect(() => {
     return () => {
-      document.title = previousTitle
+      document.title = DEFAULT_DOCUMENT_TITLE
     }
-  }, [meta])
+  }, [])
 }
