@@ -61,7 +61,7 @@ export function JourneyChecklistSection({
     queryKey: ['journey-observations', journeyId],
   })
 
-  const items = checklistQuery.data ?? []
+  const items = useMemo(() => checklistQuery.data ?? [], [checklistQuery.data])
   const appliedTemplateSlugs = listAppliedTemplateSlugs(items)
   const availableTemplates = CHECKLIST_TEMPLATES.filter(
     (template) => !appliedTemplateSlugs.includes(template.slug),

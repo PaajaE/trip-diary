@@ -132,9 +132,11 @@ export function JourneyPage({
     queryFn: () => listJourneyObservations(journeyId),
     queryKey: ['journey-observations', journeyId],
   })
-  const tagAssignments = Array.isArray(tagAssignmentsQuery.data)
-    ? tagAssignmentsQuery.data
-    : []
+  const tagAssignments = useMemo(
+    () =>
+      Array.isArray(tagAssignmentsQuery.data) ? tagAssignmentsQuery.data : [],
+    [tagAssignmentsQuery.data],
+  )
   const tagsByPhotoId = useMemo(
     () => groupTagsByPhotoId(tagAssignments),
     [tagAssignments],

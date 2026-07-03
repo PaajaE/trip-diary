@@ -219,6 +219,7 @@ export function JourneyMap({
   ])
 
   useEffect(() => {
+    const markers = markersRef.current
     const container = containerRef.current
     if (container === null) {
       return
@@ -283,10 +284,10 @@ export function JourneyMap({
     return () => {
       activePopupRef.current?.remove()
       activePopupRef.current = null
-      for (const marker of markersRef.current.values()) {
+      for (const marker of markers.values()) {
         marker.remove()
       }
-      markersRef.current.clear()
+      markers.clear()
       layersReadyRef.current = false
       setMapReady(false)
       hasAutoFitRef.current = false

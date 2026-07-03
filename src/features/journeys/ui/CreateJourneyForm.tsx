@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { useForm } from 'react-hook-form'
+import { useState } from 'react'
+import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { applyChecklistTemplate } from '@/entities/checklist/api/checklist-mutation.repository'
 import { CHECKLIST_TEMPLATES } from '@/entities/checklist/data/templates'
@@ -38,18 +38,14 @@ export function CreateJourneyForm({
     defaultValues: { endsAt: null, startsAt: null, summary: '', title: '' },
     resolver: zodResolver(createJourneySchema),
   })
-  const title = form.watch('title')
+  const title = useWatch({ control: form.control, name: 'title' })
   const suggestedSlug = suggestChecklistTemplateFromTitle(title)
+  const activeTemplateSlug = templateManual
+    ? selectedTemplateSlug
+    : suggestedSlug
   const selectedTemplate = CHECKLIST_TEMPLATES.find(
-    (template) => template.slug === selectedTemplateSlug,
+    (template) => template.slug === activeTemplateSlug,
   )
-
-  useEffect(() => {
-    if (templateManual) {
-      return
-    }
-    setSelectedTemplateSlug(suggestedSlug)
-  }, [suggestedSlug, templateManual])
 
   async function handleSubmit(input: CreateJourneyInput) {
     setSubmitError(null)
@@ -61,12 +57,12 @@ export function CreateJourneyForm({
       return
     }
 
-    if (selectedTemplateSlug !== null) {
+    if (activeTemplateSlug !== null) {
       try {
         await applyChecklistTemplate({
           creatorId,
           journeyId,
-          templateSlug: selectedTemplateSlug,
+          templateSlug: activeTemplateSlug,
           translate: t,
         })
       } catch {
@@ -129,7 +125,7 @@ export function CreateJourneyForm({
                 : t(selectedTemplate.titleKey)}
             </p>
             {suggestedSlug !== null &&
-            selectedTemplateSlug === suggestedSlug &&
+            activeTemplateSlug === suggestedSlug &&
             !templateManual ? (
               <p className="mt-1 text-xs text-primary">
                 {t('nature.create.suggestedFromTitle')}
@@ -158,11 +154,11 @@ export function CreateJourneyForm({
                     current === slug ? null : slug,
                   )
                 }}
-                selectedSlug={selectedTemplateSlug}
+                selectedSlug={activeTemplateSlug}
                 templates={CHECKLIST_TEMPLATES}
               />
             </div>
-            {selectedTemplateSlug !== null ? (
+            {activeTemplateSlug !== null ? (
               <button
                 className="mt-3 text-sm text-muted hover:text-foreground"
                 onClick={() => {
