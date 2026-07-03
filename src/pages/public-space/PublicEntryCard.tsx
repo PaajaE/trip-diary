@@ -1,5 +1,6 @@
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { PublicEntryCardThumbnail } from '@/pages/public-space/PublicEntryCardThumbnail'
 import type { PublicEntryViewModel } from '@/pages/public-space/model'
 
 interface PublicEntryCardProps {
@@ -18,18 +19,10 @@ export function PublicEntryCard({ entry, onOpen }: PublicEntryCardProps) {
       }}
       type="button"
     >
-      {entry.imageUrl === undefined || entry.imageUrl === null ? (
-        <span className="flex size-20 shrink-0 items-center justify-center rounded-sm bg-primary/10 text-primary sm:size-24">
-          <BookOpen aria-hidden="true" size={24} />
-        </span>
-      ) : (
-        <img
-          alt=""
-          className="size-20 shrink-0 rounded-sm object-cover sm:size-24"
-          loading="lazy"
-          src={entry.imageUrl}
-        />
-      )}
+      <PublicEntryCardThumbnail
+        entryId={entry.id}
+        {...(entry.imageUrl === undefined ? {} : { imageUrl: entry.imageUrl })}
+      />
       <span className="min-w-0 flex-1">
         <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-wide text-accent">
           <span>{entry.typeLabel}</span>
@@ -44,7 +37,9 @@ export function PublicEntryCard({ entry, onOpen }: PublicEntryCardProps) {
           </span>
         )}
         <span className="mt-3 flex items-center gap-2 text-sm font-semibold text-primary">
-          {t('publicSpace.openEntry')}
+          {entry.journeySlug === undefined || entry.journeySlug === null
+            ? t('publicSpace.openEntry')
+            : t('publicSpace.openMoment')}
           <ArrowRight
             aria-hidden="true"
             className="transition-transform group-hover:translate-x-1"

@@ -1,11 +1,24 @@
 import '@/app/i18n'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ComponentProps } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   PublicSpacePage,
   type PublicSpaceViewModel,
 } from '@/pages/public-space'
+
+function renderPublicSpacePage(props: ComponentProps<typeof PublicSpacePage>) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <PublicSpacePage {...props} />
+    </QueryClientProvider>,
+  )
+}
 
 const space: PublicSpaceViewModel = {
   bio: 'Cestujeme pomalu, ochutnáváme všechno.',
@@ -20,7 +33,7 @@ const space: PublicSpaceViewModel = {
     },
   ],
   name: 'Ečerovi',
-  standaloneEntries: [
+  diaryEntries: [
     {
       dateLabel: '10. června 2026',
       excerpt: 'Naše osvědčené zastávky na cestu.',
@@ -43,15 +56,13 @@ describe('PublicSpacePage', () => {
     const user = userEvent.setup()
     const onOpenJourney = vi.fn()
     const onOpenEntry = vi.fn()
-    render(
-      <PublicSpacePage
-        onOpenEntry={onOpenEntry}
-        onOpenJourney={onOpenJourney}
-        shareText={share.shareText}
-        shareUrl={share.shareUrl}
-        space={space}
-      />,
-    )
+    renderPublicSpacePage({
+      onOpenEntry,
+      onOpenJourney,
+      shareText: share.shareText,
+      shareUrl: share.shareUrl,
+      space,
+    })
 
     expect(
       screen.getByRole('heading', { level: 1, name: 'Ečerovi' }),
@@ -69,30 +80,26 @@ describe('PublicSpacePage', () => {
   })
 
   it('shows independent empty states for journeys and entries', () => {
-    render(
-      <PublicSpacePage
-        onOpenEntry={vi.fn()}
-        onOpenJourney={vi.fn()}
-        shareText={share.shareText}
-        shareUrl={share.shareUrl}
-        space={{ ...space, journeys: [], standaloneEntries: [] }}
-      />,
-    )
+    renderPublicSpacePage({
+      onOpenEntry: vi.fn(),
+      onOpenJourney: vi.fn(),
+      shareText: share.shareText,
+      shareUrl: share.shareUrl,
+      space: { ...space, diaryEntries: [], journeys: [] },
+    })
 
     expect(screen.getByText('Zatím žádné veřejné cesty')).toBeVisible()
     expect(screen.getByText('Zatím žádné veřejné příspěvky')).toBeVisible()
   })
 
   it('renders a compact share action for the public diary', () => {
-    render(
-      <PublicSpacePage
-        onOpenEntry={vi.fn()}
-        onOpenJourney={vi.fn()}
-        shareText={share.shareText}
-        shareUrl={share.shareUrl}
-        space={space}
-      />,
-    )
+    renderPublicSpacePage({
+      onOpenEntry: vi.fn(),
+      onOpenJourney: vi.fn(),
+      shareText: share.shareText,
+      shareUrl: share.shareUrl,
+      space,
+    })
 
     expect(screen.getByRole('button', { name: 'Sdílet' })).toBeVisible()
     expect(

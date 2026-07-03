@@ -12,8 +12,7 @@ export async function getPublicSpace(handle: string) {
   if (spaceError !== null) throw spaceError
   if (space === null) return null
 
-  const [journeysResult, entriesResult, linksResult, profileResult] =
-    await Promise.all([
+  const [journeysResult, entriesResult, profileResult] = await Promise.all([
       client
         .from('journeys')
         .select(
@@ -29,7 +28,6 @@ export async function getPublicSpace(handle: string) {
         .eq('status', 'published')
         .eq('visibility', 'public')
         .order('published_at', { ascending: false }),
-      client.from('entry_journey_links').select('entry_id'),
       space.personal_owner_id === null
         ? Promise.resolve({ data: null, error: null })
         : client
@@ -39,33 +37,64 @@ export async function getPublicSpace(handle: string) {
             .maybeSingle(),
     ])
   const error =
-    journeysResult.error ??
-    entriesResult.error ??
-    linksResult.error ??
-    profileResult.error
+    journeysResult.error ?? entriesResult.error ?? profileResult.error
   if (error !== null) throw error
 
-  const linkedEntryIds = new Set(
-    (linksResult.data ?? []).map(({ entry_id }) => entry_id),
-  )
   const journeys = journeysResult.data ?? []
-  const standaloneEntries = (entriesResult.data ?? []).filter(
-    ({ id }) => !linkedEntryIds.has(id),
+  const journeyIds = journeys.map(({ id }) => id)
+  const journeySlugById = new Map(
+    journeys.map((journey) => [journey.id, journey.slug]),
   )
+
+  const journeyLinksResult =
+    journeyIds.length === 0
+      ? { data: [], error: null }
+      : await client
+          .from('entry_journey_links')
+          .select('entry_id, journey_id')
+          .in('journey_id', journeyIds)
+  if (journeyLinksResult.error !== null) {
+    throw journeyLinksResult.error
+  }
+
+  const entryJourneyIdByEntryId = new Map(
+    (journeyLinksResult.data ?? []).map(({ entry_id, journey_id }) => [
+      entry_id,
+      journey_id,
+    ]),
+  )
+
+  const diaryEntries = (entriesResult.data ?? [])
+    .map((entry) => {
+      const journeyId = entryJourneyIdByEntryId.get(entry.id)
+      return {
+        ...entry,
+        journeySlug:
+          journeyId === undefined
+            ? null
+            : (journeySlugById.get(journeyId) ?? null),
+      }
+    })
+    .sort((left, right) =>
+      (right.event_at ?? right.published_at ?? '').localeCompare(
+        left.event_at ?? left.published_at ?? '',
+      ),
+    )
+
   const cardImages = await loadPublicSpaceCardImages(
     client,
-    journeys.map(({ id }) => id),
-    standaloneEntries.map(({ id }) => id),
+    journeyIds,
+    diaryEntries.map(({ id }) => id),
   )
 
   return {
     avatarUrl: space.avatar_url,
     bio: profileResult.data?.bio ?? space.description,
     cardImages,
+    diaryEntries,
     handle: space.handle,
     journeys,
     name: space.name,
-    standaloneEntries,
   }
 }
 

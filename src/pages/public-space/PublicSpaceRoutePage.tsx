@@ -39,13 +39,27 @@ export function PublicSpaceRoutePage() {
   return (
     <PublicSpacePage
       onOpenEntry={(entryId) => {
-        const entry = space.standaloneEntries.find(({ id }) => id === entryId)
-        if (entry !== undefined) {
-          void navigate({
-            params: { entrySlug: entry.slug, spaceHandle },
-            to: '/$spaceHandle/tipy/$entrySlug',
-          })
+        const entry = space.diaryEntries.find(({ id }) => id === entryId)
+        if (entry === undefined) {
+          return
         }
+
+        if (entry.journeySlug !== null && entry.journeySlug !== undefined) {
+          void navigate({
+            params: {
+              entrySlug: entry.slug,
+              journeySlug: entry.journeySlug,
+              spaceHandle,
+            },
+            to: '/$spaceHandle/$journeySlug/$entrySlug',
+          })
+          return
+        }
+
+        void navigate({
+          params: { entrySlug: entry.slug, spaceHandle },
+          to: '/$spaceHandle/tipy/$entrySlug',
+        })
       }}
       onOpenJourney={(journeyId) => {
         const journey = space.journeys.find(({ id }) => id === journeyId)
@@ -61,6 +75,21 @@ export function PublicSpaceRoutePage() {
       space={{
         avatarUrl: space.avatarUrl,
         bio: space.bio,
+        diaryEntries: space.diaryEntries.map((entry) => ({
+          ...(space.cardImages.entryImageById[entry.id] !== undefined
+            ? { imageUrl: space.cardImages.entryImageById[entry.id] }
+            : {}),
+          ...(entry.journeySlug === null
+            ? {}
+            : { journeySlug: entry.journeySlug }),
+          dateLabel: new Date(
+            entry.event_at ?? entry.published_at ?? 0,
+          ).toLocaleDateString(dateLocale),
+          excerpt: entry.body.slice(0, 180),
+          id: entry.id,
+          title: entry.title ?? t('dashboard.untitled'),
+          typeLabel: t(`entry.type.${entry.type}`),
+        })),
         handle: space.handle,
         journeys: space.journeys.map((journey) => ({
           ...(space.cardImages.journeyCoverById[journey.id] !== undefined
@@ -73,18 +102,6 @@ export function PublicSpaceRoutePage() {
           title: journey.title,
         })),
         name: space.name,
-        standaloneEntries: space.standaloneEntries.map((entry) => ({
-          ...(space.cardImages.entryImageById[entry.id] !== undefined
-            ? { imageUrl: space.cardImages.entryImageById[entry.id] }
-            : {}),
-          dateLabel: new Date(
-            entry.event_at ?? entry.published_at ?? 0,
-          ).toLocaleDateString(dateLocale),
-          excerpt: entry.body.slice(0, 180),
-          id: entry.id,
-          title: entry.title ?? t('dashboard.untitled'),
-          typeLabel: t(`entry.type.${entry.type}`),
-        })),
       }}
     />
   )

@@ -10,12 +10,12 @@ export interface PublicSpaceCardImages {
 export async function loadPublicSpaceCardImages(
   client: SupabaseClient,
   journeyIds: string[],
-  standaloneEntryIds: string[],
+  diaryEntryIds: string[],
 ): Promise<PublicSpaceCardImages> {
   const journeyCoverById: Record<string, string> = {}
   const entryImageById: Record<string, string> = {}
 
-  if (journeyIds.length === 0 && standaloneEntryIds.length === 0) {
+  if (journeyIds.length === 0 && diaryEntryIds.length === 0) {
     return { entryImageById, journeyCoverById }
   }
 
@@ -34,9 +34,7 @@ export async function loadPublicSpaceCardImages(
   const linkedEntryIds = [
     ...new Set((journeyLinksResult.data ?? []).map(({ entry_id }) => entry_id)),
   ]
-  const allEntryIds = [
-    ...new Set([...standaloneEntryIds, ...linkedEntryIds]),
-  ]
+  const allEntryIds = [...new Set([...diaryEntryIds, ...linkedEntryIds])]
 
   if (allEntryIds.length === 0) {
     return { entryImageById, journeyCoverById }
@@ -65,7 +63,7 @@ export async function loadPublicSpaceCardImages(
     [...publicEntryIds],
   )
 
-  for (const entryId of standaloneEntryIds) {
+  for (const entryId of diaryEntryIds) {
     const url = photoUrlByEntryId.get(entryId)
     if (url !== undefined) {
       entryImageById[entryId] = url

@@ -57,7 +57,7 @@ export function PublicSpacePage({
         icon={BookOpen}
         title={t('publicSpace.entriesTitle')}
       >
-        {space.standaloneEntries.map((entry) => (
+        {space.diaryEntries.map((entry) => (
           <PublicEntryCard entry={entry} key={entry.id} onOpen={onOpenEntry} />
         ))}
       </PublicSection>

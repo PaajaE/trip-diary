@@ -1,10 +1,10 @@
 export interface PublicSpaceViewModel {
   avatarUrl?: string | null
   bio?: string | null
+  diaryEntries: PublicEntryViewModel[]
   handle: string
   journeys: PublicJourneyViewModel[]
   name: string
-  standaloneEntries: PublicEntryViewModel[]
 }
 
 export interface PublicJourneyViewModel {
@@ -21,6 +21,7 @@ export interface PublicEntryViewModel {
   excerpt?: string | null
   id: string
   imageUrl?: string | null
+  journeySlug?: string | null
   title: string
   typeLabel: string
 }

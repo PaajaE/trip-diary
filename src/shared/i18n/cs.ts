@@ -540,6 +540,7 @@ export const cs: TranslationResources = {
     notFound: 'Tento cestovní deník neexistuje.',
     openEntry: 'Otevřít',
     openJourney: 'Projít cestu',
+    openMoment: 'Otevřít moment',
     tagline: 'Cestovní deník',
   },
   publicReader: {
