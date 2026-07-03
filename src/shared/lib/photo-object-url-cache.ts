@@ -1,28 +1,18 @@
 import { createPreviewUrl, revokePreviewUrl } from '@/shared/lib/preview-url'
 
 const urlByPhotoId = new Map<string, string>()
-const blobRefByPhotoId = new Map<string, Blob>()
 
 export async function resolvePhotoObjectUrl(
   photoId: string,
   blob: Blob,
 ): Promise<string> {
   const cachedUrl = urlByPhotoId.get(photoId)
-  const cachedBlob = blobRefByPhotoId.get(photoId)
-
-  if (cachedUrl !== undefined && cachedBlob === blob) {
-    return cachedUrl
-  }
-
   if (cachedUrl !== undefined) {
-    revokePreviewUrl(cachedUrl)
-    urlByPhotoId.delete(photoId)
-    blobRefByPhotoId.delete(photoId)
+    return cachedUrl
   }
 
   const url = await createPreviewUrl(blob)
   urlByPhotoId.set(photoId, url)
-  blobRefByPhotoId.set(photoId, blob)
   return url
 }
 
@@ -35,5 +25,4 @@ export function clearPhotoObjectUrlCache(): void {
     revokePreviewUrl(url)
   }
   urlByPhotoId.clear()
-  blobRefByPhotoId.clear()
 }

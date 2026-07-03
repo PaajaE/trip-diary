@@ -24,4 +24,28 @@ describe('photo-object-url-cache', () => {
     createObjectURL.mockRestore()
     clearPhotoObjectUrlCache()
   })
+
+  it('reuses the cached object url when the same photo id gets a new blob', async () => {
+    clearPhotoObjectUrlCache()
+    const createObjectURL = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValueOnce('blob:cached-photo')
+      .mockReturnValueOnce('blob:other-photo')
+
+    const first = await resolvePhotoObjectUrl(
+      'photo-1',
+      new Blob(['photo'], { type: 'image/jpeg' }),
+    )
+    const second = await resolvePhotoObjectUrl(
+      'photo-1',
+      new Blob(['photo-copy'], { type: 'image/jpeg' }),
+    )
+
+    expect(first).toBe('blob:cached-photo')
+    expect(second).toBe('blob:cached-photo')
+    expect(createObjectURL).toHaveBeenCalledTimes(1)
+
+    createObjectURL.mockRestore()
+    clearPhotoObjectUrlCache()
+  })
 })

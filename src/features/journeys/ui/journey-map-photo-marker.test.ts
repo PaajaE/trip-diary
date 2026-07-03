@@ -55,6 +55,20 @@ describe('journey-map-photo-marker', () => {
     ).not.toBeNull()
     expect(pin.querySelector('.journey-map-pin__tail')).toBeNull()
   })
+
+  it('falls back when a photo thumb fails to load', () => {
+    const point = createPhotoPoint()
+    const pin = createJourneyMapPinElement(point, {
+      [point.photoId]: 'blob:broken-thumb',
+    })
+    const image = pin.querySelector('.journey-map-pin__photo')
+
+    expect(image).not.toBeNull()
+    image?.dispatchEvent(new Event('error'))
+
+    expect(pin.querySelector('.journey-map-pin__photo')).toBeNull()
+    expect(pin.querySelector('.journey-map-pin__fallback')).not.toBeNull()
+  })
 })
 
 function createMomentPoint(): JourneyMapPoint {

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import {
+  journeyGalleryQueryKey,
   loadJourneyGalleryPreviews,
   mergeJourneyGalleryPhotos,
   type JourneyGalleryMoment,
@@ -23,14 +24,10 @@ function isJourneyGalleryPreviews(
 export function useJourneyMapPhotoThumbs(
   moments: JourneyGalleryMoment[],
 ): Record<string, string> {
-  const momentIdsKey = useMemo(
-    () => moments.map((moment) => moment.entry.id).join('\u0000'),
-    [moments],
-  )
   const previewsQuery = useQuery({
     queryFn: () =>
       loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
-    queryKey: ['journey-gallery', momentIdsKey],
+    queryKey: journeyGalleryQueryKey(moments),
   })
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)
     ? previewsQuery.data

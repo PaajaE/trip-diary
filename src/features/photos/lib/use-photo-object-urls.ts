@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getCachedPhotoObjectUrl,
   resolvePhotoObjectUrl,
@@ -22,9 +22,12 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
     return initial
   })
 
+  const photosRef = useRef(photos)
+  photosRef.current = photos
+
   useEffect(() => {
     const abortController = new AbortController()
-    const currentPhotos = photos
+    const currentPhotos = photosRef.current
 
     void (async () => {
       const batchSize = 4
@@ -54,7 +57,7 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
     return () => {
       abortController.abort()
     }
-  }, [photoIdsKey, photos])
+  }, [photoIdsKey])
 
   return photos.flatMap((photo) => {
     const url = urlsById[photo.id] ?? getCachedPhotoObjectUrl(photo.id)

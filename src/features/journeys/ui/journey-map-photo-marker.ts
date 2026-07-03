@@ -131,6 +131,10 @@ function applyPinPhotoContent(
   if (photoUrl !== null) {
     if (existingImage instanceof HTMLImageElement) {
       if (existingImage.src !== photoUrl) {
+        existingImage.onerror = () => {
+          existingImage.remove()
+          applyPinPhotoContent(bubble, point, {}, options)
+        }
         existingImage.src = photoUrl
       }
       existingFallback?.remove()
@@ -143,6 +147,10 @@ function applyPinPhotoContent(
     image.className = 'journey-map-pin__photo'
     image.decoding = 'async'
     image.loading = options?.eagerPhoto === true ? 'eager' : 'lazy'
+    image.onerror = () => {
+      image.remove()
+      applyPinPhotoContent(bubble, point, {}, options)
+    }
     image.src = photoUrl
     bubble.insertBefore(image, badge)
     return

@@ -6,7 +6,10 @@ import {
   type PhotoPreview,
 } from '@/entities/photo/api/photo-gallery.repository'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
-import { loadJourneyGalleryPreviews } from '@/features/journeys/lib/journey-gallery'
+import {
+  journeyGalleryQueryKey,
+  loadJourneyGalleryPreviews,
+} from '@/features/journeys/lib/journey-gallery'
 
 export function useJourneyMomentPhotos(
   moments: JourneyMoment[],
@@ -25,11 +28,7 @@ export function useJourneyMomentPhotos(
           ? getJourneyEntryPhotoDetailPreviews
           : getJourneyEntryPhotoPreviews,
       ),
-    queryKey: [
-      'journey-gallery',
-      quality,
-      ...moments.map((moment) => moment.entry.id),
-    ],
+    queryKey: journeyGalleryQueryKey(moments, quality),
   })
 
   const photosByEntryId = useMemo(() => {

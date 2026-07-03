@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import {
+  journeyGalleryQueryKey,
   loadJourneyGalleryPreviews,
   mergeJourneyGalleryPhotos,
   type JourneyGalleryMoment,
@@ -116,7 +117,7 @@ export function JourneyGallery({
   const previewsQuery = useQuery({
     queryFn: () =>
       loadJourneyGalleryPreviews(moments, getJourneyEntryPhotoPreviews),
-    queryKey: ['journey-gallery', ...moments.map((moment) => moment.entry.id)],
+    queryKey: journeyGalleryQueryKey(moments),
   })
   const previewData = isJourneyGalleryPreviews(previewsQuery.data)
     ? previewsQuery.data
