@@ -10,6 +10,17 @@ vi.mock('@capacitor/core', () => ({
   },
 }))
 
+vi.mock('@/shared/lib/preview-url', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@/shared/lib/preview-url')>()
+  return {
+    ...actual,
+    createPreviewUrl: vi.fn((blob: Blob) =>
+      Promise.resolve(`data:${blob.type || 'image/jpeg'};base64,`),
+    ),
+  }
+})
+
 import type { ProcessedPhoto } from '@/entities/photo/lib/process-photo'
 import { renderHook, waitFor } from '@testing-library/react'
 import { useMemoryPhotoPreviews } from '@/features/journeys/lib/use-memory-photo-previews'
