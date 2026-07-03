@@ -13,7 +13,8 @@ export function PublicEntryCardThumbnail({
   entryId,
   imageUrl,
 }: PublicEntryCardThumbnailProps) {
-  const hasRemoteImage = imageUrl !== undefined && imageUrl !== null && imageUrl !== ''
+  const hasRemoteImage =
+    imageUrl !== undefined && imageUrl !== null && imageUrl !== ''
   const previewsQuery = useQuery({
     enabled: !hasRemoteImage,
     queryFn: () => getEntryPhotoPreviews(entryId),

@@ -36,31 +36,35 @@ export function PublicSpacePage({
       />
 
       <div className="mt-10 sm:mt-12">
-      <PublicSection
-        emptyDescription={t('publicSpace.journeysEmptyDescription')}
-        emptyTitle={t('publicSpace.journeysEmptyTitle')}
-        icon={MapPinned}
-        title={t('publicSpace.journeysTitle')}
-      >
-        {space.journeys.map((journey) => (
-          <PublicJourneyCard
-            journey={journey}
-            key={journey.id}
-            onOpen={onOpenJourney}
-          />
-        ))}
-      </PublicSection>
+        <PublicSection
+          emptyDescription={t('publicSpace.journeysEmptyDescription')}
+          emptyTitle={t('publicSpace.journeysEmptyTitle')}
+          icon={MapPinned}
+          title={t('publicSpace.journeysTitle')}
+        >
+          {space.journeys.map((journey) => (
+            <PublicJourneyCard
+              journey={journey}
+              key={journey.id}
+              onOpen={onOpenJourney}
+            />
+          ))}
+        </PublicSection>
 
-      <PublicSection
-        emptyDescription={t('publicSpace.entriesEmptyDescription')}
-        emptyTitle={t('publicSpace.entriesEmptyTitle')}
-        icon={BookOpen}
-        title={t('publicSpace.entriesTitle')}
-      >
-        {space.diaryEntries.map((entry) => (
-          <PublicEntryCard entry={entry} key={entry.id} onOpen={onOpenEntry} />
-        ))}
-      </PublicSection>
+        <PublicSection
+          emptyDescription={t('publicSpace.entriesEmptyDescription')}
+          emptyTitle={t('publicSpace.entriesEmptyTitle')}
+          icon={BookOpen}
+          title={t('publicSpace.entriesTitle')}
+        >
+          {space.diaryEntries.map((entry) => (
+            <PublicEntryCard
+              entry={entry}
+              key={entry.id}
+              onOpen={onOpenEntry}
+            />
+          ))}
+        </PublicSection>
       </div>
     </main>
   )

@@ -50,7 +50,11 @@ export function ShareActions({
           <MessageCircle aria-hidden="true" size={17} />
           {t('reader.shareWhatsApp')}
         </Button>
-        <Button className="sm:min-h-11" onClick={handleShare} variant="secondary">
+        <Button
+          className="sm:min-h-11"
+          onClick={handleShare}
+          variant="secondary"
+        >
           <Share2 aria-hidden="true" size={17} />
           {t('reader.shareSystem')}
         </Button>

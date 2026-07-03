@@ -44,7 +44,7 @@ export function PublicSpaceRoutePage() {
           return
         }
 
-        if (entry.journeySlug !== null && entry.journeySlug !== undefined) {
+        if (entry.journeySlug !== null) {
           void navigate({
             params: {
               entrySlug: entry.slug,

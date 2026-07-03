@@ -13,29 +13,29 @@ export async function getPublicSpace(handle: string) {
   if (space === null) return null
 
   const [journeysResult, entriesResult, profileResult] = await Promise.all([
-      client
-        .from('journeys')
-        .select(
-          'id, slug, title, summary, status, starts_at, ends_at, updated_at',
-        )
-        .eq('space_id', space.id)
-        .eq('visibility', 'public')
-        .order('updated_at', { ascending: false }),
-      client
-        .from('entries')
-        .select('id, slug, title, body, type, event_at, published_at')
-        .eq('space_id', space.id)
-        .eq('status', 'published')
-        .eq('visibility', 'public')
-        .order('published_at', { ascending: false }),
-      space.personal_owner_id === null
-        ? Promise.resolve({ data: null, error: null })
-        : client
-            .from('profiles')
-            .select('bio')
-            .eq('id', space.personal_owner_id)
-            .maybeSingle(),
-    ])
+    client
+      .from('journeys')
+      .select(
+        'id, slug, title, summary, status, starts_at, ends_at, updated_at',
+      )
+      .eq('space_id', space.id)
+      .eq('visibility', 'public')
+      .order('updated_at', { ascending: false }),
+    client
+      .from('entries')
+      .select('id, slug, title, body, type, event_at, published_at')
+      .eq('space_id', space.id)
+      .eq('status', 'published')
+      .eq('visibility', 'public')
+      .order('published_at', { ascending: false }),
+    space.personal_owner_id === null
+      ? Promise.resolve({ data: null, error: null })
+      : client
+          .from('profiles')
+          .select('bio')
+          .eq('id', space.personal_owner_id)
+          .maybeSingle(),
+  ])
   const error =
     journeysResult.error ?? entriesResult.error ?? profileResult.error
   if (error !== null) throw error
@@ -58,7 +58,7 @@ export async function getPublicSpace(handle: string) {
   }
 
   const entryJourneyIdByEntryId = new Map(
-    (journeyLinksResult.data ?? []).map(({ entry_id, journey_id }) => [
+    journeyLinksResult.data.map(({ entry_id, journey_id }) => [
       entry_id,
       journey_id,
     ]),

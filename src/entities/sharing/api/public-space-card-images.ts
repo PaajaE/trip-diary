@@ -1,6 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/shared/api/database.types'
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24
+
+type TypedSupabaseClient = SupabaseClient<Database>
 
 export interface PublicSpaceCardImages {
   entryImageById: Record<string, string>
@@ -8,7 +11,7 @@ export interface PublicSpaceCardImages {
 }
 
 export async function loadPublicSpaceCardImages(
-  client: SupabaseClient,
+  client: TypedSupabaseClient,
   journeyIds: string[],
   diaryEntryIds: string[],
 ): Promise<PublicSpaceCardImages> {
@@ -31,8 +34,9 @@ export async function loadPublicSpaceCardImages(
     throw journeyLinksResult.error
   }
 
+  const journeyLinks = journeyLinksResult.data
   const linkedEntryIds = [
-    ...new Set((journeyLinksResult.data ?? []).map(({ entry_id }) => entry_id)),
+    ...new Set(journeyLinks.map(({ entry_id }) => entry_id)),
   ]
   const allEntryIds = [...new Set([...diaryEntryIds, ...linkedEntryIds])]
 
@@ -51,17 +55,15 @@ export async function loadPublicSpaceCardImages(
     throw entriesResult.error
   }
 
-  const publicEntryIds = new Set(
-    (entriesResult.data ?? []).map(({ id }) => id),
-  )
+  const publicEntries = entriesResult.data
+  const publicEntryIds = new Set(publicEntries.map(({ id }) => id))
   const eventAtByEntryId = new Map(
-    (entriesResult.data ?? []).map(({ event_at, id }) => [id, event_at ?? '']),
+    publicEntries.map(({ event_at, id }) => [id, event_at ?? '']),
   )
 
-  const photoUrlByEntryId = await getFirstPhotoUrlByEntryIds(
-    client,
-    [...publicEntryIds],
-  )
+  const photoUrlByEntryId = await getFirstPhotoUrlByEntryIds(client, [
+    ...publicEntryIds,
+  ])
 
   for (const entryId of diaryEntryIds) {
     const url = photoUrlByEntryId.get(entryId)
@@ -71,7 +73,7 @@ export async function loadPublicSpaceCardImages(
   }
 
   const entriesByJourneyId = new Map<string, string[]>()
-  for (const link of journeyLinksResult.data ?? []) {
+  for (const link of journeyLinks) {
     if (!publicEntryIds.has(link.entry_id)) {
       continue
     }
@@ -101,7 +103,7 @@ export async function loadPublicSpaceCardImages(
 }
 
 async function getFirstPhotoUrlByEntryIds(
-  client: SupabaseClient,
+  client: TypedSupabaseClient,
   entryIds: string[],
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>()
@@ -120,7 +122,7 @@ async function getFirstPhotoUrlByEntryIds(
   }
 
   const photoIdByEntryId = new Map<string, string>()
-  for (const row of entryPhotos ?? []) {
+  for (const row of entryPhotos) {
     if (!photoIdByEntryId.has(row.entry_id)) {
       photoIdByEntryId.set(row.entry_id, row.photo_id)
     }
@@ -142,7 +144,7 @@ async function getFirstPhotoUrlByEntryIds(
   }
 
   const storagePathByPhotoId = new Map<string, string>()
-  for (const variant of variants ?? []) {
+  for (const variant of variants) {
     const existing = storagePathByPhotoId.get(variant.photo_id)
     if (existing === undefined || variant.variant === 'thumb') {
       storagePathByPhotoId.set(variant.photo_id, variant.storage_path)
@@ -155,7 +157,7 @@ async function getFirstPhotoUrlByEntryIds(
       const { data, error } = await client.storage
         .from('photos')
         .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
-      if (error === null && data?.signedUrl !== undefined) {
+      if (error === null) {
         signedUrlByPhotoId.set(photoId, data.signedUrl)
       }
     }),

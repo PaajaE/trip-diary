@@ -23,7 +23,9 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
   })
 
   const photosRef = useRef(photos)
-  photosRef.current = photos
+  useEffect(() => {
+    photosRef.current = photos
+  }, [photos])
 
   useEffect(() => {
     const abortController = new AbortController()

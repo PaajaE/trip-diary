@@ -26,7 +26,11 @@ export function journeyGalleryQueryKey(
   moments: JourneyGalleryMoment[],
   quality: 'detail' | 'thumb' = 'thumb',
 ) {
-  return ['journey-gallery', quality, ...moments.map((moment) => moment.entry.id)]
+  return [
+    'journey-gallery',
+    quality,
+    ...moments.map((moment) => moment.entry.id),
+  ]
 }
 
 export async function loadJourneyGalleryPreviews(
