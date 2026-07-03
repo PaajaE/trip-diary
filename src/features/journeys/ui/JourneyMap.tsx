@@ -266,7 +266,6 @@ export function JourneyMap({
       if (savedView !== null) {
         map.jumpTo({
           center: savedView.center,
-          duration: 0,
           zoom: savedView.zoom,
         })
         hasAutoFitRef.current = true
@@ -362,7 +361,6 @@ export function JourneyMap({
 
     map.jumpTo({
       center: syncView.center,
-      duration: 0,
       zoom: syncView.zoom,
     })
   }, [mapReady, syncView, syncViewToken])
@@ -678,7 +676,7 @@ function getCollocatedPointIds(
 function getMarkerAnchor(
   point: JourneyMapPoint,
   pinVariant: 'default' | 'reader',
-): maplibregl.MarkerOptions['anchor'] {
+): maplibregl.PositionAnchor {
   if (pinVariant === 'reader') {
     return point.type === 'photo' || point.photoId !== null ? 'bottom' : 'center'
   }
