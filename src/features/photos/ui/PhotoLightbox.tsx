@@ -137,7 +137,7 @@ export function PhotoLightbox({
   return (
     <div
       aria-modal="true"
-      className="fixed inset-0 z-50 flex flex-col bg-black/95"
+      className="fixed inset-0 z-50 flex h-svh min-h-0 flex-col overflow-hidden bg-black/95"
       role="dialog"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
@@ -188,7 +188,7 @@ export function PhotoLightbox({
       </div>
 
       <div
-        className="relative flex flex-1 items-center justify-center touch-pan-y"
+        className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden touch-pan-y"
         onTouchEnd={(event) => {
           const startX = touchStartX.current
           touchStartX.current = null
@@ -222,7 +222,7 @@ export function PhotoLightbox({
 
         <img
           alt={activePhoto.alt}
-          className="max-h-[calc(100svh-8rem)] max-w-full object-contain px-4"
+          className="max-h-full max-w-full object-contain px-4"
           src={displayUrl}
         />
 
@@ -240,7 +240,7 @@ export function PhotoLightbox({
         ) : null}
       </div>
 
-      <div className="flex w-full max-w-2xl flex-col items-center gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white">
+      <div className="mx-auto flex w-full max-w-2xl shrink-0 touch-pan-y flex-col items-center gap-3 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white [max-height:min(50svh,28rem)]">
         <p className="max-w-xl truncate text-sm text-white/80">
           {activePhoto.alt}
         </p>
