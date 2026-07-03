@@ -25,5 +25,13 @@ export function DeferredJourneyMap({
     )
   }
 
-  return <JourneyMap {...props} className={className ?? 'mt-8 h-80 overflow-hidden rounded-lg border border-border sm:h-96'} />
+  return (
+    <JourneyMap
+      {...props}
+      className={
+        className ??
+        'mt-8 h-80 overflow-hidden rounded-lg border border-border sm:h-96'
+      }
+    />
+  )
 }

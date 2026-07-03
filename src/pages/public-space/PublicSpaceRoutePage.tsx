@@ -63,6 +63,9 @@ export function PublicSpaceRoutePage() {
         bio: space.bio,
         handle: space.handle,
         journeys: space.journeys.map((journey) => ({
+          ...(space.cardImages.journeyCoverById[journey.id] !== undefined
+            ? { coverUrl: space.cardImages.journeyCoverById[journey.id] }
+            : {}),
           dateLabel: journey.starts_at,
           id: journey.id,
           statusLabel: t(`journey.status.${journey.status}`),
@@ -71,6 +74,9 @@ export function PublicSpaceRoutePage() {
         })),
         name: space.name,
         standaloneEntries: space.standaloneEntries.map((entry) => ({
+          ...(space.cardImages.entryImageById[entry.id] !== undefined
+            ? { imageUrl: space.cardImages.entryImageById[entry.id] }
+            : {}),
           dateLabel: new Date(
             entry.event_at ?? entry.published_at ?? 0,
           ).toLocaleDateString(dateLocale),

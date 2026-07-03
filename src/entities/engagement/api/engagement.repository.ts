@@ -78,18 +78,17 @@ export async function getEngagementSummary(
           if (row.hidden_at !== null && viewerId === null) {
             return []
           }
-          if (row.hidden_at !== null && row.user_id !== viewerId && !canModerate) {
+          if (
+            row.hidden_at !== null &&
+            row.user_id !== viewerId &&
+            !canModerate
+          ) {
             return []
           }
 
           const profile =
             'profiles' in row
-              ? normalizeProfile(
-                  row.profiles as
-                    | { display_name: string | null; username: string | null }
-                    | { display_name: string | null; username: string | null }[]
-                    | null,
-                )
+              ? normalizeProfile(row.profiles)
               : { displayName: null, username: null }
 
           return [

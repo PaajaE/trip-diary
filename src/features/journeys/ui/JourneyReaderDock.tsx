@@ -1,10 +1,4 @@
-import {
-  BookOpen,
-  FolderOpen,
-  Images,
-  Lightbulb,
-  MapPin,
-} from 'lucide-react'
+import { BookOpen, FolderOpen, Images, Lightbulb, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -40,9 +34,8 @@ export function JourneyReaderDock({
   showGuides,
 }: JourneyReaderDockProps) {
   const { t } = useTranslation()
-  const [activeSection, setActiveSection] = useState<JourneyReaderSection>(
-    'story',
-  )
+  const [activeSection, setActiveSection] =
+    useState<JourneyReaderSection>('story')
 
   const visibleSections = dockSections.filter(({ section }) => {
     if (section === 'collections') {
@@ -73,7 +66,9 @@ export function JourneyReaderDock({
 
         const visible = entries
           .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)
+          .sort(
+            (left, right) => right.intersectionRatio - left.intersectionRatio,
+          )
 
         const top = visible[0]?.target.id
         if (top === undefined) {

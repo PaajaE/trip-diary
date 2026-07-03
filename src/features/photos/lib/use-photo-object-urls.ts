@@ -23,13 +23,13 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
   })
 
   useEffect(() => {
-    let cancelled = false
+    const abortController = new AbortController()
     const currentPhotos = photos
 
     void (async () => {
       const batchSize = 4
       for (let index = 0; index < currentPhotos.length; index += batchSize) {
-        if (cancelled) {
+        if (abortController.signal.aborted) {
           return
         }
 
@@ -40,10 +40,6 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
             return [photo.id, url] as const
           }),
         )
-
-        if (cancelled) {
-          return
-        }
 
         setUrlsById((previous) => {
           const next = { ...previous }
@@ -56,9 +52,9 @@ export function usePhotoObjectUrls<T extends { blob: Blob; id: string }>(
     })()
 
     return () => {
-      cancelled = true
+      abortController.abort()
     }
-  }, [photoIdsKey])
+  }, [photoIdsKey, photos])
 
   return photos.flatMap((photo) => {
     const url = urlsById[photo.id] ?? getCachedPhotoObjectUrl(photo.id)

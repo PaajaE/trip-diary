@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronDown } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { scrollToReaderSection } from '@/features/journeys/lib/journey-reader-section'
 import { TripSummaryLine } from '@/features/journeys/ui/TripSummaryLine'
@@ -27,40 +27,17 @@ export function JourneyReaderHero({
   title,
 }: JourneyReaderHeroProps) {
   const { t } = useTranslation()
-  const [coverFailed, setCoverFailed] = useState(false)
-  const [coverReady, setCoverReady] = useState(false)
-  const showCover =
-    coverUrl !== undefined && coverUrl !== '' && !coverFailed
-
-  useEffect(() => {
-    setCoverFailed(false)
-    setCoverReady(coverUrl === undefined || coverUrl === '')
-  }, [coverUrl])
+  const showCover = coverUrl !== undefined && coverUrl !== ''
 
   return (
     <header className="reader-hero relative isolate z-[2] min-h-[88svh] overflow-hidden">
-      <div className="reader-hero-fallback absolute inset-0" aria-hidden="true" />
+      <div
+        className="reader-hero-fallback absolute inset-0"
+        aria-hidden="true"
+      />
 
       {showCover ? (
-        <>
-          <img
-            alt=""
-            aria-hidden="true"
-            className={`reader-hero-cover absolute inset-0 size-full object-cover transition-opacity duration-700 ${
-              coverReady ? 'opacity-100' : 'opacity-0'
-            }`}
-            decoding="async"
-            fetchPriority="high"
-            onError={() => {
-              setCoverFailed(true)
-            }}
-            onLoad={() => {
-              setCoverReady(true)
-            }}
-            src={coverUrl}
-          />
-          <div className="reader-hero-overlay absolute inset-0" />
-        </>
+        <JourneyReaderCoverImage key={coverUrl} coverUrl={coverUrl} />
       ) : null}
 
       <div className="relative flex min-h-[88svh] flex-col justify-end px-5 pb-10 pt-28 sm:px-8 sm:pb-14">
@@ -100,9 +77,44 @@ export function JourneyReaderHero({
           }}
           type="button"
         >
-          <ChevronDown aria-hidden="true" className="animate-bounce" size={22} />
+          <ChevronDown
+            aria-hidden="true"
+            className="animate-bounce"
+            size={22}
+          />
         </button>
       </div>
     </header>
+  )
+}
+
+function JourneyReaderCoverImage({ coverUrl }: { coverUrl: string }) {
+  const [coverFailed, setCoverFailed] = useState(false)
+  const [coverReady, setCoverReady] = useState(false)
+
+  if (coverFailed) {
+    return null
+  }
+
+  return (
+    <>
+      <img
+        alt=""
+        aria-hidden="true"
+        className={`reader-hero-cover absolute inset-0 size-full object-cover transition-opacity duration-700 ${
+          coverReady ? 'opacity-100' : 'opacity-0'
+        }`}
+        decoding="async"
+        fetchPriority="high"
+        onError={() => {
+          setCoverFailed(true)
+        }}
+        onLoad={() => {
+          setCoverReady(true)
+        }}
+        src={coverUrl}
+      />
+      <div className="reader-hero-overlay absolute inset-0" />
+    </>
   )
 }

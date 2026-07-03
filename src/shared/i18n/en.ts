@@ -541,6 +541,7 @@ export const en = {
     notFound: 'This travel diary does not exist.',
     openEntry: 'Open',
     openJourney: 'Explore trip',
+    tagline: 'Travel diary',
   },
   publicReader: {
     journeyError: 'This public trip could not be loaded.',

@@ -35,6 +35,7 @@ export function PublicSpacePage({
         shareUrl={shareUrl}
       />
 
+      <div className="mt-10 sm:mt-12">
       <PublicSection
         emptyDescription={t('publicSpace.journeysEmptyDescription')}
         emptyTitle={t('publicSpace.journeysEmptyTitle')}
@@ -60,6 +61,7 @@ export function PublicSpacePage({
           <PublicEntryCard entry={entry} key={entry.id} onOpen={onOpenEntry} />
         ))}
       </PublicSection>
+      </div>
     </main>
   )
 }

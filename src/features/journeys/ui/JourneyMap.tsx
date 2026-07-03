@@ -151,7 +151,6 @@ export function JourneyMap({
     viewportPadding,
   })
   const viewportPaddingRef = useRef(viewportPadding)
-  viewportPaddingRef.current = viewportPadding
   const points = useMemo(
     () =>
       getJourneyMapPoints(moments, plannedStops, photoLocations, {
@@ -181,6 +180,7 @@ export function JourneyMap({
       singlePointZoom,
       viewportPadding,
     }
+    viewportPaddingRef.current = viewportPadding
   }, [
     collocatedSpread,
     fitPadding,
@@ -249,13 +249,7 @@ export function JourneyMap({
         interactionRef,
         activePopupRef,
         (point) => {
-          showPointPopup(
-            point,
-            map,
-            interactionRef,
-            activePopupRef,
-            markersRef,
-          )
+          showPointPopup(point, map, interactionRef, activePopupRef, markersRef)
         },
       )
       const fittedDisplayPoints = layoutCollocatedPoints(
@@ -426,13 +420,7 @@ export function JourneyMap({
         })
       }
       lastFocusedPointIdRef.current = focusPointId
-      showPointPopup(
-        point,
-        map,
-        interactionRef,
-        activePopupRef,
-        markersRef,
-      )
+      showPointPopup(point, map, interactionRef, activePopupRef, markersRef)
     }
   }, [displayPoints, focusPointId, points])
 
@@ -621,12 +609,7 @@ function showPointPopup(
   )
   setHiddenMapMarkers(markersRef, hiddenPointIds)
   const popup = createStyledPopup(point, interactionRef.current)
-  attachPopupCloseHandler(
-    popup,
-    markersRef,
-    interactionRef,
-    activePopupRef,
-  )
+  attachPopupCloseHandler(popup, markersRef, interactionRef, activePopupRef)
   popup.setLngLat([point.longitude, point.latitude]).addTo(map)
   activePopupRef.current = popup
   interactionRef.current.onFocusPointChange?.(point.id)
@@ -678,7 +661,9 @@ function getMarkerAnchor(
   pinVariant: 'default' | 'reader',
 ): maplibregl.PositionAnchor {
   if (pinVariant === 'reader') {
-    return point.type === 'photo' || point.photoId !== null ? 'bottom' : 'center'
+    return point.type === 'photo' || point.photoId !== null
+      ? 'bottom'
+      : 'center'
   }
 
   return 'bottom'
@@ -838,12 +823,7 @@ function showCollocatedPointsPopup(
     .setLngLat(lngLat)
     .setDOMContent(content)
     .addTo(map)
-  attachPopupCloseHandler(
-    popup,
-    markersRef,
-    interactionRef,
-    activePopupRef,
-  )
+  attachPopupCloseHandler(popup, markersRef, interactionRef, activePopupRef)
   activePopupRef.current = popup
 }
 

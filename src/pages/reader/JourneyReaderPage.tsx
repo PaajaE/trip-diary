@@ -29,7 +29,10 @@ import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-mome
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { DeferredJourneyMap } from '@/features/journeys/ui/DeferredJourneyMap'
 import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
-import { JourneyMap, type JourneyMapView } from '@/features/journeys/ui/JourneyMap'
+import {
+  JourneyMap,
+  type JourneyMapView,
+} from '@/features/journeys/ui/JourneyMap'
 import { JourneyReaderDock } from '@/features/journeys/ui/JourneyReaderDock'
 import { JourneyReaderHero } from '@/features/journeys/ui/JourneyReaderHero'
 import { JourneyReaderStory } from '@/features/journeys/ui/JourneyReaderStory'
@@ -87,9 +90,8 @@ export function JourneyReaderPage({
   const mapViewRef = useRef<JourneyMapView | null>(null)
   const [fullscreenInitialView, setFullscreenInitialView] =
     useState<JourneyMapView | null>(null)
-  const [embeddedSyncView, setEmbeddedSyncView] = useState<JourneyMapView | null>(
-    null,
-  )
+  const [embeddedSyncView, setEmbeddedSyncView] =
+    useState<JourneyMapView | null>(null)
   const [embeddedMapSyncToken, setEmbeddedMapSyncToken] = useState(0)
   const [focusedMapPointId, setFocusedMapPointId] = useState<string | null>(
     null,

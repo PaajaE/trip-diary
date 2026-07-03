@@ -1,3 +1,4 @@
+import { loadPublicSpaceCardImages } from '@/entities/sharing/api/public-space-card-images'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
@@ -47,15 +48,24 @@ export async function getPublicSpace(handle: string) {
   const linkedEntryIds = new Set(
     (linksResult.data ?? []).map(({ entry_id }) => entry_id),
   )
+  const journeys = journeysResult.data ?? []
+  const standaloneEntries = (entriesResult.data ?? []).filter(
+    ({ id }) => !linkedEntryIds.has(id),
+  )
+  const cardImages = await loadPublicSpaceCardImages(
+    client,
+    journeys.map(({ id }) => id),
+    standaloneEntries.map(({ id }) => id),
+  )
+
   return {
     avatarUrl: space.avatar_url,
     bio: profileResult.data?.bio ?? space.description,
+    cardImages,
     handle: space.handle,
-    journeys: journeysResult.data ?? [],
+    journeys,
     name: space.name,
-    standaloneEntries: (entriesResult.data ?? []).filter(
-      ({ id }) => !linkedEntryIds.has(id),
-    ),
+    standaloneEntries,
   }
 }
 

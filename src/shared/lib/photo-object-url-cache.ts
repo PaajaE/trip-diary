@@ -1,7 +1,4 @@
-import {
-  createPreviewUrl,
-  revokePreviewUrl,
-} from '@/shared/lib/preview-url'
+import { createPreviewUrl, revokePreviewUrl } from '@/shared/lib/preview-url'
 
 const urlByPhotoId = new Map<string, string>()
 const blobRefByPhotoId = new Map<string, Blob>()

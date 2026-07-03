@@ -25,7 +25,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
       ) : (
         <img
           alt=""
-          className="aspect-[16/9] w-full object-cover"
+          className="aspect-[16/9] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           loading="lazy"
           src={journey.coverUrl}
         />

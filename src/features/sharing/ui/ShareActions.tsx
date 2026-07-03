@@ -9,6 +9,7 @@ interface ShareActionsProps {
   shareText: string
   shareUrl: string
   title: string
+  variant?: 'compact' | 'full'
 }
 
 export function ShareActions({
@@ -16,9 +17,25 @@ export function ShareActions({
   shareText,
   shareUrl: url,
   title,
+  variant = 'full',
 }: ShareActionsProps) {
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
+
+  const handleShare = () => {
+    void shareUrl(url, title).catch(() => copyText(url))
+  }
+
+  if (variant === 'compact') {
+    return (
+      <div className={className}>
+        <Button className="min-h-11" onClick={handleShare} variant="secondary">
+          <Share2 aria-hidden="true" size={17} />
+          {t('reader.shareSystem')}
+        </Button>
+      </div>
+    )
+  }
 
   return (
     <div className={className}>
@@ -33,13 +50,7 @@ export function ShareActions({
           <MessageCircle aria-hidden="true" size={17} />
           {t('reader.shareWhatsApp')}
         </Button>
-        <Button
-          className="sm:min-h-11"
-          onClick={() => {
-            void shareUrl(url, title).catch(() => copyText(url))
-          }}
-          variant="secondary"
-        >
+        <Button className="sm:min-h-11" onClick={handleShare} variant="secondary">
           <Share2 aria-hidden="true" size={17} />
           {t('reader.shareSystem')}
         </Button>

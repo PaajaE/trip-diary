@@ -224,12 +224,16 @@ a {
   background-size: 200% 100%;
 }
 
-.reader-map-frame--embedded .journey-map-pin--reader .journey-map-pin__bubble--photo {
+.reader-map-frame--embedded
+  .journey-map-pin--reader
+  .journey-map-pin__bubble--photo {
   height: 3.75rem;
   width: 3.75rem;
 }
 
-.reader-map-frame--fullscreen .journey-map-pin--reader .journey-map-pin__bubble--photo {
+.reader-map-frame--fullscreen
+  .journey-map-pin--reader
+  .journey-map-pin__bubble--photo {
   height: 5.25rem;
   width: 5.25rem;
 }
@@ -345,7 +349,8 @@ a {
   filter: drop-shadow(0 2px 6px rgb(15 23 42 / 0.16));
 }
 
-.journey-map-pin--reader.journey-map-pin--compact .journey-map-pin__bubble--compact {
+.journey-map-pin--reader.journey-map-pin--compact
+  .journey-map-pin__bubble--compact {
   align-items: center;
   background: #fff;
   border: 2px solid var(--pin-ring);
@@ -400,11 +405,15 @@ a {
   width: 5rem;
 }
 
-.journey-map-pin--reader .journey-map-pin__bubble--photo .journey-map-pin__photo {
+.journey-map-pin--reader
+  .journey-map-pin__bubble--photo
+  .journey-map-pin__photo {
   transform: scale(1.02);
 }
 
-.journey-map-pin--reader .journey-map-pin__bubble--photo .journey-map-pin__fallback {
+.journey-map-pin--reader
+  .journey-map-pin__bubble--photo
+  .journey-map-pin__fallback {
   background: linear-gradient(
     145deg,
     color-mix(in srgb, var(--pin-ring) 18%, white) 0%,

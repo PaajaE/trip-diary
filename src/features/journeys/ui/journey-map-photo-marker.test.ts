@@ -9,7 +9,7 @@ describe('journey-map-photo-marker', () => {
   it('renders a photo inside the pin bubble when a thumb url exists', () => {
     const point = createPhotoPoint()
     const pin = createJourneyMapPinElement(point, {
-      [point.photoId!]: 'blob:photo-thumb',
+      [point.photoId]: 'blob:photo-thumb',
     })
 
     expect(pin.querySelector('.journey-map-pin__photo')).not.toBeNull()
@@ -23,7 +23,7 @@ describe('journey-map-photo-marker', () => {
     expect(pin.querySelector('.journey-map-pin__fallback')).not.toBeNull()
 
     refreshJourneyMapPinElement(pin, point, {
-      [point.photoId!]: 'blob:photo-thumb',
+      [point.photoId]: 'blob:photo-thumb',
     })
 
     const image = pin.querySelector('.journey-map-pin__photo')
@@ -36,7 +36,7 @@ describe('journey-map-photo-marker', () => {
     const point = createPhotoPoint()
     const pin = createJourneyMapPinElement(
       point,
-      { [point.photoId!]: 'blob:photo-thumb' },
+      { [point.photoId]: 'blob:photo-thumb' },
       { variant: 'reader' },
     )
 
@@ -50,7 +50,9 @@ describe('journey-map-photo-marker', () => {
     const pin = createJourneyMapPinElement(point, {}, { variant: 'reader' })
 
     expect(pin.classList.contains('journey-map-pin--compact')).toBe(true)
-    expect(pin.querySelector('.journey-map-pin__bubble--compact')).not.toBeNull()
+    expect(
+      pin.querySelector('.journey-map-pin__bubble--compact'),
+    ).not.toBeNull()
     expect(pin.querySelector('.journey-map-pin__tail')).toBeNull()
   })
 })
@@ -72,7 +74,7 @@ function createMomentPoint(): JourneyMapPoint {
   }
 }
 
-function createPhotoPoint(): JourneyMapPoint {
+function createPhotoPoint(): JourneyMapPoint & { photoId: string } {
   const photoId = crypto.randomUUID()
   return {
     category: null,

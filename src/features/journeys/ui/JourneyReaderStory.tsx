@@ -40,8 +40,6 @@ export function JourneyReaderStory({
     )
   }
 
-  let momentIndex = 0
-
   return (
     <div className="mt-12 space-y-16 sm:space-y-20">
       {isPhotosPending ? (
@@ -49,67 +47,74 @@ export function JourneyReaderStory({
           {t('journey.galleryLoading')}
         </p>
       ) : null}
-      {stageContents.map((stageContent) => (
-        <section key={stageContent.stage?.id ?? 'unassigned'}>
-          {shouldShowStageHeader(stageContent) ? (
-            <div className="reader-stage-divider">
-              <Signpost aria-hidden="true" className="text-accent" size={18} />
-              <h3 className="reader-display text-2xl sm:text-3xl">
-                {stageContent.stage?.title ?? t('journey.freeMoments')}
-              </h3>
-              {stageContent.stage?.summary === '' ? null : (
-                <p className="mt-3 max-w-2xl text-base leading-8 text-muted">
-                  {stageContent.stage?.summary}
-                </p>
-              )}
-            </div>
-          ) : null}
+      {stageContents.map((stageContent, stageIndex) => {
+        const momentOffset = stageContents
+          .slice(0, stageIndex)
+          .reduce((sum, content) => sum + content.moments.length, 0)
 
-          <div
-            className={cn(
-              'space-y-16 sm:space-y-20',
-              shouldShowStageHeader(stageContent) ? 'mt-10' : '',
-            )}
-          >
-            {stageContent.moments.map((moment) => {
-              momentIndex += 1
-              return (
+        return (
+          <section key={stageContent.stage?.id ?? 'unassigned'}>
+            {shouldShowStageHeader(stageContent) ? (
+              <div className="reader-stage-divider">
+                <Signpost
+                  aria-hidden="true"
+                  className="text-accent"
+                  size={18}
+                />
+                <h3 className="reader-display text-2xl sm:text-3xl">
+                  {stageContent.stage?.title ?? t('journey.freeMoments')}
+                </h3>
+                {stageContent.stage?.summary === '' ? null : (
+                  <p className="mt-3 max-w-2xl text-base leading-8 text-muted">
+                    {stageContent.stage?.summary}
+                  </p>
+                )}
+              </div>
+            ) : null}
+
+            <div
+              className={cn(
+                'space-y-16 sm:space-y-20',
+                shouldShowStageHeader(stageContent) ? 'mt-10' : '',
+              )}
+            >
+              {stageContent.moments.map((moment, index) => (
                 <ReaderMomentArticle
-                  index={momentIndex}
+                  index={momentOffset + index + 1}
                   key={moment.entry.id}
                   moment={moment}
                   onOpenEntry={onOpenEntry}
                   photos={photosByEntryId.get(moment.entry.id) ?? []}
                   tagsByPhotoId={tagsByPhotoId}
                 />
-              )
-            })}
+              ))}
 
-            {stageContent.plannedStops.length === 0 ? null : (
-              <div className="reader-planned-stops">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-                  {t('journey.plannedPlaces')}
-                </p>
-                <div className="mt-4 space-y-3">
-                  {stageContent.plannedStops.map((stop) => (
-                    <article
-                      className="rounded-2xl border border-dashed border-border/80 bg-surface/70 px-5 py-4"
-                      key={stop.id}
-                    >
-                      <p className="font-semibold">{stop.title}</p>
-                      {stop.notes === '' ? null : (
-                        <p className="mt-2 text-sm leading-7 text-muted">
-                          {stop.notes}
-                        </p>
-                      )}
-                    </article>
-                  ))}
+              {stageContent.plannedStops.length === 0 ? null : (
+                <div className="reader-planned-stops">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
+                    {t('journey.plannedPlaces')}
+                  </p>
+                  <div className="mt-4 space-y-3">
+                    {stageContent.plannedStops.map((stop) => (
+                      <article
+                        className="rounded-2xl border border-dashed border-border/80 bg-surface/70 px-5 py-4"
+                        key={stop.id}
+                      >
+                        <p className="font-semibold">{stop.title}</p>
+                        {stop.notes === '' ? null : (
+                          <p className="mt-2 text-sm leading-7 text-muted">
+                            {stop.notes}
+                          </p>
+                        )}
+                      </article>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        </section>
-      ))}
+              )}
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }

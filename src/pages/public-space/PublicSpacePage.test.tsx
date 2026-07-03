@@ -56,6 +56,7 @@ describe('PublicSpacePage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Ečerovi' }),
     ).toBeVisible()
+    expect(screen.getByText('Cestovní deník')).toBeVisible()
     expect(screen.getByText('@ecerovi2016')).toBeVisible()
 
     await user.click(screen.getByRole('button', { name: /Kanada 2026/ }))
@@ -82,7 +83,7 @@ describe('PublicSpacePage', () => {
     expect(screen.getByText('Zatím žádné veřejné příspěvky')).toBeVisible()
   })
 
-  it('renders share actions for the public diary', () => {
+  it('renders a compact share action for the public diary', () => {
     render(
       <PublicSpacePage
         onOpenEntry={vi.fn()}
@@ -93,11 +94,9 @@ describe('PublicSpacePage', () => {
       />,
     )
 
+    expect(screen.getByRole('button', { name: 'Sdílet' })).toBeVisible()
     expect(
-      screen.getByRole('button', { name: 'Sdílet na WhatsApp' }),
-    ).toBeVisible()
-    expect(
-      screen.getByRole('button', { name: 'Kopírovat odkaz' }),
-    ).toBeVisible()
+      screen.queryByRole('button', { name: 'Sdílet na WhatsApp' }),
+    ).not.toBeInTheDocument()
   })
 })

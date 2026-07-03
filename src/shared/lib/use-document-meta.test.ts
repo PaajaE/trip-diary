@@ -7,8 +7,10 @@ describe('useDocumentMeta', () => {
     document.title = 'Trip Diary'
 
     const { rerender } = renderHook(
-      ({ title }) => useDocumentMeta(title === null ? null : { title }),
-      { initialProps: { title: 'Novaaa' as string | null } },
+      ({ title }: { title: string | null }) => {
+        useDocumentMeta(title === null ? null : { title })
+      },
+      { initialProps: { title: 'Novaaa' satisfies string | null } },
     )
 
     expect(document.title).toBe('Novaaa')

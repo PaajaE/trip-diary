@@ -166,7 +166,7 @@ export function MomentReaderPage({
     )
   }
 
-  const title = entry.title ?? t('dashboard.untitled')
+  const title = entry.title
   const previousMoment = navigation?.previous ?? null
   const nextMoment = navigation?.next ?? null
 

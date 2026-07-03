@@ -15,14 +15,16 @@ export const JOURNEY_READER_SECTION_IDS: Record<JourneyReaderSection, string> =
   }
 
 /** Scroll anchors — may differ from section ids when a section is taller than the viewport. */
-export const JOURNEY_READER_SCROLL_TARGETS: Record<JourneyReaderSection, string> =
-  {
-    collections: JOURNEY_READER_SECTION_IDS.collections,
-    gallery: JOURNEY_READER_SECTION_IDS.gallery,
-    guides: JOURNEY_READER_SECTION_IDS.guides,
-    map: 'reader-map-scroll',
-    story: JOURNEY_READER_SECTION_IDS.story,
-  }
+export const JOURNEY_READER_SCROLL_TARGETS: Record<
+  JourneyReaderSection,
+  string
+> = {
+  collections: JOURNEY_READER_SECTION_IDS.collections,
+  gallery: JOURNEY_READER_SECTION_IDS.gallery,
+  guides: JOURNEY_READER_SECTION_IDS.guides,
+  map: 'reader-map-scroll',
+  story: JOURNEY_READER_SECTION_IDS.story,
+}
 
 const DEFAULT_SCROLL_OFFSET = 96
 
