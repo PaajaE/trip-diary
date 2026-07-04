@@ -63,6 +63,7 @@ export function JourneyMembersRoutePage() {
         <Link
           className="font-semibold text-primary"
           params={{ journeyId }}
+          search={{}}
           to="/j/$journeyId"
         >
           {t('journey.members.back')}

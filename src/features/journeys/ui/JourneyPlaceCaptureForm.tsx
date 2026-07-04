@@ -73,8 +73,6 @@ export function JourneyPlaceCaptureForm({
   async function handleSubmit(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault()
     const formElement = event.currentTarget
-    const form = new FormData(formElement)
-    const stageId = getText(form, 'stageId')
     if (selectedPoint === null) {
       setFailed(true)
       return
@@ -83,12 +81,7 @@ export function JourneyPlaceCaptureForm({
     setFailed(false)
     setBusy(true)
     try {
-      const stopId = await addJourneyStop(
-        creatorId,
-        journey.id,
-        stageId === '' ? null : stageId,
-        title,
-      )
+      const stopId = await addJourneyStop(creatorId, journey.id, null, title)
       await setJourneyStopLocation(
         stopId,
         selectedPoint.latitude,
@@ -157,25 +150,6 @@ export function JourneyPlaceCaptureForm({
         </p>
       ) : null}
 
-      <label className="block text-sm font-medium">
-        {t('journey.stageOptional')}
-        <select
-          className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base"
-          defaultValue=""
-          name="stageId"
-        >
-          <option value="">{t('journey.noStage')}</option>
-          {journey.stages.map((stage) => (
-            <option key={stage.id} value={stage.id}>
-              {stage.title}
-            </option>
-          ))}
-        </select>
-        <span className="mt-2 block text-sm font-normal text-muted">
-          {t('journey.stageOptionalHint')}
-        </span>
-      </label>
-
       <LocationPickerMap
         onSelectPoint={handlePointSelected}
         selectedPoint={selectedPoint}
@@ -201,9 +175,4 @@ export function JourneyPlaceCaptureForm({
       </div>
     </form>
   )
-}
-
-function getText(form: FormData, name: string): string {
-  const value = form.get(name)
-  return typeof value === 'string' ? value : ''
 }

@@ -1,23 +1,24 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
-import { NatureMatchBanner } from '@/features/nature/ui/NatureMatchBanner'
-import { ShareMomentPrompt } from '@/features/sharing/ui/ShareMomentPrompt'
 
 interface CreateJourneyMemoryPageProps {
+  focus?: 'note'
   journeyId: string
   natureGoalId?: string
 }
 
 export function CreateJourneyMemoryPage({
+  focus,
   journeyId,
   natureGoalId,
 }: CreateJourneyMemoryPageProps) {
+  const noteFieldRef = useRef<HTMLTextAreaElement | null>(null)
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -36,20 +37,22 @@ export function CreateJourneyMemoryPage({
     const items = Array.isArray(checklistQuery.data) ? checklistQuery.data : []
     return items.find((item) => item.id === natureGoalId) ?? null
   }, [checklistQuery.data, natureGoalId])
-  const [sharePrompt, setSharePrompt] = useState<{
-    entrySlug: string
-    entryTitle: string
-    photosFailed?: boolean
-  } | null>(null)
-  const [spottingMeta, setSpottingMeta] = useState<{
-    entryId: string
-    entrySlug: string
-    entryTitle: string
-    photoId: string | null
-    photosFailed?: boolean
-  } | null>(null)
 
-  function continueToJourney(photosFailed?: boolean) {
+  useEffect(() => {
+    if (focus !== 'note') {
+      return
+    }
+    noteFieldRef.current?.focus()
+    noteFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [focus])
+
+  function navigateToSavedMoment(
+    entryId: string,
+    options?: {
+      naturePrompt?: boolean
+      photosFailed?: boolean
+    },
+  ) {
     void queryClient.invalidateQueries({ queryKey: ['journeys', journeyId] })
     void queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
     void queryClient.invalidateQueries({
@@ -63,17 +66,14 @@ export function CreateJourneyMemoryPage({
     })
     void navigate({
       params: { journeyId },
-      search: photosFailed === true ? { notice: 'photos_failed' } : {},
+      search: {
+        highlight: entryId,
+        ...(options?.naturePrompt === true ? { naturePrompt: entryId } : {}),
+        ...(natureGoalId !== undefined ? { natureGoalId } : {}),
+        ...(options?.photosFailed === true ? { notice: 'photos_failed' } : {}),
+      },
       to: '/j/$journeyId',
     })
-  }
-
-  function openSharePrompt(meta: {
-    entrySlug: string
-    entryTitle: string
-    photosFailed?: boolean
-  }) {
-    setSharePrompt(meta)
   }
 
   return (
@@ -116,75 +116,15 @@ export function CreateJourneyMemoryPage({
         <CreateJourneyMemoryForm
           creatorId={user.id}
           journey={journeyQuery.data}
+          noteFieldRef={noteFieldRef}
           {...(natureGoal !== null ? { natureGoal } : {})}
           onCreated={(meta) => {
-            const nextMeta = {
-              entryId: meta.entryId,
-              entrySlug: meta.entrySlug,
-              entryTitle: meta.entryTitle,
-              photoId: meta.photoIds[0] ?? null,
-              ...(meta.photosFailed === true ? { photosFailed: true } : {}),
-            }
-            if (meta.photoIds.length > 0) {
-              setSpottingMeta(nextMeta)
-              return
-            }
-            openSharePrompt({
-              entrySlug: meta.entrySlug,
-              entryTitle: meta.entryTitle,
+            navigateToSavedMoment(meta.entryId, {
+              naturePrompt: meta.photoIds.length > 0,
               ...(meta.photosFailed === true ? { photosFailed: true } : {}),
             })
           }}
           spaceId={journeyQuery.data.spaceId}
-        />
-      )}
-
-      {spottingMeta !== null && user !== null ? (
-        <NatureMatchBanner
-          className="mt-8"
-          creatorId={user.id}
-          entryId={spottingMeta.entryId}
-          entryTitle={spottingMeta.entryTitle}
-          journeyId={journeyId}
-          {...(natureGoalId !== undefined ? { natureGoalId } : {})}
-          onDismiss={() => {
-            const photosFailed = spottingMeta.photosFailed
-            setSpottingMeta(null)
-            openSharePrompt({
-              entrySlug: spottingMeta.entrySlug,
-              entryTitle: spottingMeta.entryTitle,
-              ...(photosFailed === true ? { photosFailed: true } : {}),
-            })
-          }}
-          onSpotted={() => {
-            const photosFailed = spottingMeta.photosFailed
-            setSpottingMeta(null)
-            openSharePrompt({
-              entrySlug: spottingMeta.entrySlug,
-              entryTitle: spottingMeta.entryTitle,
-              ...(photosFailed === true ? { photosFailed: true } : {}),
-            })
-          }}
-          photoId={spottingMeta.photoId}
-        />
-      ) : null}
-
-      {journeyQuery.data === null || journeyQuery.data === undefined ? null : (
-        <ShareMomentPrompt
-          entrySlug={sharePrompt?.entrySlug ?? ''}
-          entryTitle={sharePrompt?.entryTitle ?? ''}
-          journeyId={journeyId}
-          journeyTitle={journeyQuery.data.title}
-          momentPendingSync
-          onClose={() => {
-            const photosFailed = sharePrompt?.photosFailed
-            setSharePrompt(null)
-            continueToJourney(photosFailed)
-          }}
-          open={sharePrompt !== null}
-          {...(sharePrompt?.photosFailed === true
-            ? { photosFailed: true }
-            : {})}
         />
       )}
     </main>

@@ -14,6 +14,7 @@ import type {
   JourneyDetail,
   JourneyStage,
 } from '@/entities/journey/model/journey'
+import { JourneyMomentOrganizer } from '@/features/journeys/ui/JourneyMomentOrganizer'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
 import { cn } from '@/shared/lib/cn'
@@ -106,6 +107,12 @@ export function JourneyOrganizePanel({
           {t('journey.saveTrip')}
         </Button>
       </form>
+
+      <JourneyMomentOrganizer
+        creatorId={creatorId}
+        journey={journey}
+        onChanged={onChanged}
+      />
 
       {canManageJourney ? (
         <div className="rounded-[1.25rem] border border-destructive/20 bg-destructive/5 p-5">

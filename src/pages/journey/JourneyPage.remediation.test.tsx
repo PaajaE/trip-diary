@@ -72,6 +72,10 @@ vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
     previewsByEntry: new Map(),
   }),
 }))
+vi.mock('@/shared/ui/ToastProvider', () => ({
+  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+  useToast: () => ({ showToast: vi.fn() }),
+}))
 
 describe('JourneyPage remediation', () => {
   afterEach(() => {

@@ -1,17 +1,30 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowRight, BookOpen, MapPinned, Plus } from 'lucide-react'
+import { ArrowRight, MapPinned, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useDashboardQuery } from '@/entities/dashboard/api/use-dashboard-query'
 import { pickContinueJourney } from '@/entities/dashboard/lib/pick-continue-journey'
 import type { DashboardJourneyCard } from '@/entities/dashboard/model/dashboard'
 import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
 import { useSession } from '@/features/auth/session'
+import { useActiveSpace } from '@/features/spaces/model/use-active-space'
+import { buildPublicSpaceShare } from '@/features/sharing/lib/build-share-messages'
+import { ShareIconButton } from '@/features/sharing/ui/ShareIconButton'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
 
 export function DashboardPage() {
   const { t } = useTranslation()
   const { loading, profile, user } = useSession()
   const dashboardQuery = useDashboardQuery(user?.id)
+  const spacesQuery = useActiveSpace(user?.id)
+  const spaceShare =
+    spacesQuery.activeSpace === null
+      ? null
+      : buildPublicSpaceShare(
+          spacesQuery.activeSpace.handle,
+          t('reader.shareSpaceMessage', {
+            name: spacesQuery.activeSpace.name,
+          }),
+        )
 
   if (loading) {
     return <DashboardMessage>{t('dashboard.loading')}</DashboardMessage>
@@ -27,6 +40,8 @@ export function DashboardPage() {
       </DashboardMessage>
     )
   }
+
+  const unsortedEntries = dashboardQuery.data?.entries ?? []
 
   return (
     <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-16">
@@ -52,17 +67,18 @@ export function DashboardPage() {
             {t('dashboard.description')}
           </p>
         </div>
-        <div className="flex flex-col gap-3 sm:flex-row">
+        <div className="flex items-center gap-2">
+          {spaceShare !== null ? (
+            <ShareIconButton
+              shareText={spaceShare.shareText}
+              shareUrl={spaceShare.shareUrl}
+              title={spacesQuery.activeSpace?.name ?? t('brand')}
+            />
+          ) : null}
           <DashboardAction
             icon={MapPinned}
             label={t('dashboard.addJourney')}
             to="/journeys/new"
-          />
-          <DashboardAction
-            icon={Plus}
-            label={t('dashboard.addEntry')}
-            to="/entries/new"
-            variant="secondary"
           />
         </div>
       </header>
@@ -78,62 +94,78 @@ export function DashboardPage() {
       ) : (
         <>
           <ContinueTripHero journeys={dashboardQuery.data.journeys} />
-          <div className="grid gap-12 py-12 lg:grid-cols-2">
-            <DashboardSection
-              empty={t('dashboard.noJourneys')}
-              icon={MapPinned}
-              title={t('dashboard.journeys')}
-            >
-              {dashboardQuery.data.journeys.map((journey) => (
-                <Link
-                  className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
-                  key={journey.id}
-                  params={{ journeyId: journey.id }}
-                  to="/j/$journeyId"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    {journey.syncStatus === undefined
-                      ? journey.role === 'owner'
-                        ? t(`journey.status.${journey.status}`)
-                        : journeyMemberRoleLabels[journey.role]
-                      : t('dashboard.pendingJourney')}
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold">
-                    {journey.title}
-                  </h3>
-                  <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
-                    {journey.summary || t('dashboard.noSummary')}
-                  </p>
-                </Link>
-              ))}
-            </DashboardSection>
-            <DashboardSection
-              empty={t('dashboard.noEntries')}
-              icon={BookOpen}
-              title={t('dashboard.entries')}
-            >
-              {dashboardQuery.data.entries.map((entry) => (
-                <Link
-                  className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
-                  key={entry.id}
-                  params={{ entryId: entry.id }}
-                  to="/e/$entryId"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    {t(`entry.type.${entry.type}`)}
-                  </p>
-                  <h3 className="mt-2 text-lg font-semibold">
-                    {entry.title ?? t('dashboard.untitled')}
-                  </h3>
-                  <p className="mt-2 text-sm text-muted">
-                    {entry.status === 'published'
-                      ? t('dashboard.published')
-                      : t('dashboard.draft')}
-                  </p>
-                </Link>
-              ))}
-            </DashboardSection>
-          </div>
+          <section className="py-12">
+            <h2 className="flex items-center gap-3 text-2xl font-semibold">
+              <MapPinned aria-hidden="true" size={22} />
+              {t('dashboard.yourTrips')}
+            </h2>
+            {dashboardQuery.data.journeys.length === 0 ? (
+              <p className="mt-6 rounded-md border border-dashed border-border p-6 leading-7 text-muted">
+                {t('dashboard.noJourneys')}
+              </p>
+            ) : (
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                {dashboardQuery.data.journeys.map((journey) => (
+                  <Link
+                    className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                    key={journey.id}
+                    params={{ journeyId: journey.id }}
+                    search={{}}
+                    to="/j/$journeyId"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                      {journey.syncStatus === undefined
+                        ? journey.role === 'owner'
+                          ? t(`journey.status.${journey.status}`)
+                          : journeyMemberRoleLabels[journey.role]
+                        : t('dashboard.pendingJourney')}
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">
+                      {journey.title}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-muted">
+                      {journey.summary || t('dashboard.noSummary')}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {unsortedEntries.length > 0 ? (
+            <section className="border-t border-border pb-12 pt-4">
+              <h2 className="text-xl font-semibold">
+                {t('dashboard.unsortedCount', {
+                  count: unsortedEntries.length,
+                })}
+              </h2>
+              <p className="mt-2 text-sm text-muted">
+                {t('dashboard.unsorted')}
+              </p>
+              <div className="mt-6 space-y-4">
+                {unsortedEntries.map((entry) => (
+                  <Link
+                    className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                    key={entry.id}
+                    params={{ entryId: entry.id }}
+                    to="/e/$entryId"
+                  >
+                    <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                      {t(`entry.type.${entry.type}`)}
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold">
+                      {entry.title ?? t('dashboard.untitled')}
+                    </h3>
+                    <p className="mt-2 text-sm text-muted">
+                      {entry.status === 'published'
+                        ? t('dashboard.published')
+                        : t('dashboard.draft')}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
         </>
       )}
     </main>
@@ -165,6 +197,7 @@ function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
         <Link
           className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
           params={{ journeyId: journey.id }}
+          search={{}}
           to="/j/$journeyId"
         >
           {t('dashboard.continueTrip')}
@@ -191,56 +224,16 @@ function DashboardMessage({ children }: { children: React.ReactNode }) {
   )
 }
 
-interface DashboardSectionProps {
-  children: React.ReactNode[]
-  empty: string
-  icon: typeof MapPinned
-  title: string
-}
-
-function DashboardSection({
-  children,
-  empty,
-  icon: Icon,
-  title,
-}: DashboardSectionProps) {
-  return (
-    <section>
-      <h2 className="flex items-center gap-3 text-2xl font-semibold">
-        <Icon aria-hidden="true" size={22} />
-        {title}
-      </h2>
-      {children.length === 0 ? (
-        <p className="mt-6 rounded-md border border-dashed border-border p-6 leading-7 text-muted">
-          {empty}
-        </p>
-      ) : (
-        <div className="mt-6 space-y-4">{children}</div>
-      )}
-    </section>
-  )
-}
-
 interface DashboardActionProps {
   icon: typeof Plus
   label: string
-  to: '/entries/new' | '/journeys/new'
-  variant?: 'primary' | 'secondary'
+  to: '/journeys/new'
 }
 
-function DashboardAction({
-  icon: Icon,
-  label,
-  to,
-  variant = 'primary',
-}: DashboardActionProps) {
+function DashboardAction({ icon: Icon, label, to }: DashboardActionProps) {
   return (
     <Link
-      className={
-        variant === 'primary'
-          ? 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90'
-          : 'inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold text-foreground hover:bg-white'
-      }
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       to={to}
     >
       <Icon aria-hidden="true" size={17} />

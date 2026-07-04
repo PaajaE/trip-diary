@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, MapPin } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
@@ -45,6 +45,7 @@ interface CreateJourneyMemoryFormProps {
   creatorId: string
   journey: JourneyDetail
   natureGoal?: Pick<JourneyChecklistItem, 'id' | 'title'>
+  noteFieldRef?: RefObject<HTMLTextAreaElement | null>
   onCreated: (meta: {
     entryId: string
     entrySlug: string
@@ -55,12 +56,9 @@ interface CreateJourneyMemoryFormProps {
   spaceId: string
 }
 
-const createJourneyMemorySchema = createEntrySchema
-  .omit({ title: true })
-  .extend({
-    stageId: z.string(),
-    title: z.string().max(160),
-  })
+const createJourneyMemorySchema = createEntrySchema.omit({ title: true }).extend({
+  title: z.string().max(160),
+})
 
 type CreateJourneyMemoryInput = z.infer<typeof createJourneyMemorySchema>
 
@@ -68,6 +66,7 @@ export function CreateJourneyMemoryForm({
   creatorId,
   journey,
   natureGoal,
+  noteFieldRef,
   onCreated,
   spaceId,
 }: CreateJourneyMemoryFormProps) {
@@ -97,7 +96,6 @@ export function CreateJourneyMemoryForm({
       body: '',
       eventAt: new Date().toISOString(),
       language: i18n.language === 'en' ? 'en' : 'cs',
-      stageId: '',
       title: '',
       type: 'story',
       visibility: 'public',
@@ -340,7 +338,7 @@ export function CreateJourneyMemoryForm({
             ? t('journey.photoStopFallback')
             : resolvedTitle,
       longitude: selectedPoint?.longitude ?? null,
-      stageId: input.stageId === '' ? null : input.stageId,
+      stageId: null,
       stopId,
     })
 
@@ -396,30 +394,22 @@ export function CreateJourneyMemoryForm({
           {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
         </p>
       ) : null}
-      {journey.stages.length === 0 ? null : (
-        <label className="block text-sm font-medium">
-          {t('journey.stageOptional')}
-          <select
-            className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base"
-            {...form.register('stageId')}
-          >
-            <option value="">{t('journey.noStage')}</option>
-            {journey.stages.map((stage) => (
-              <option key={stage.id} value={stage.id}>
-                {stage.title}
-              </option>
-            ))}
-          </select>
-          <span className="mt-2 block text-sm font-normal text-muted">
-            {t('journey.stageOptionalHint')}
-          </span>
-        </label>
-      )}
       <label className="block text-sm font-medium">
         {t('entry.body')}
         <textarea
           className="mt-2 min-h-40 w-full rounded-md border border-border bg-surface px-3 py-3 text-base font-normal outline-none focus:border-primary"
-          {...form.register('body')}
+          {...(() => {
+            const { ref, ...bodyField } = form.register('body')
+            return {
+              ...bodyField,
+              ref: (element: HTMLTextAreaElement | null) => {
+                ref(element)
+                if (noteFieldRef !== undefined) {
+                  noteFieldRef.current = element
+                }
+              },
+            }
+          })()}
         />
       </label>
       <label className="block text-sm font-medium">

@@ -88,6 +88,7 @@ export async function applyLocalJourneyDeltas(
         slug: localEntry?.slug ?? entry.slug,
         stageId: link?.stageId ?? entry.stageId,
         stopId: link?.stopId ?? entry.stopId,
+        syncStatus: localEntry?.syncStatus ?? entry.syncStatus ?? 'synced',
         title: localEntry?.title ?? entry.title,
         type: localEntry?.type ?? entry.type,
       }
@@ -110,6 +111,7 @@ export async function applyLocalJourneyDeltas(
           slug: entry.slug,
           stageId: link?.stageId ?? null,
           stopId: link?.stopId ?? null,
+          syncStatus: entry.syncStatus,
           title: entry.title,
           type: entry.type,
         },

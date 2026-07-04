@@ -65,13 +65,16 @@ export function EntryPage({
   return (
     <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
       {returnTo !== undefined ? (
-        <Link
-          className="mt-8 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-          to={returnTo}
-        >
-          <ArrowLeft aria-hidden="true" size={16} />
-          {t('entry.back')}
-        </Link>
+        <>
+          <Link
+            className="mt-8 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
+            to={returnTo}
+          >
+            <ArrowLeft aria-hidden="true" size={16} />
+            {t('entry.back')}
+          </Link>
+          <p className="mt-3 text-sm text-muted">{t('entry.editOnTripHint')}</p>
+        </>
       ) : null}
       {entry === undefined ? (
         <p className="mt-16 text-muted">{t('entry.loading')}</p>

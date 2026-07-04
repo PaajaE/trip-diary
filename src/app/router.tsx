@@ -122,9 +122,12 @@ const journeyRoute = createRoute({
   validateSearch: (search) =>
     z
       .object({
+        highlight: z.uuid().optional(),
+        natureGoalId: z.uuid().optional(),
+        naturePrompt: z.uuid().optional(),
         notice: z.enum(['photos_failed', 'template_failed']).optional(),
         section: z
-          .enum(['overview', 'map', 'gallery', 'more', 'story', 'guides'])
+          .enum(['story', 'map', 'gallery', 'overview', 'more', 'guides'])
           .optional(),
       })
       .parse(search),
@@ -138,6 +141,7 @@ const createJourneyMemoryRoute = createRoute({
   validateSearch: (search) =>
     z
       .object({
+        focus: z.enum(['note']).optional(),
         natureGoalId: z.uuid().optional(),
       })
       .parse(search),

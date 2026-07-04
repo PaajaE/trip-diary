@@ -1,10 +1,10 @@
-import type { JourneySection } from '@/features/journeys/ui/JourneySectionTabs'
+import type { JourneyAuthorSection } from '@/features/journeys/lib/journey-author-section'
 
 export function buildJourneyReturnPath(
   journeyId: string,
-  section: JourneySection = 'overview',
+  section: JourneyAuthorSection | 'overview' = 'overview',
 ): string {
-  if (section === 'overview') {
+  if (section === 'overview' || section === 'story') {
     return `/j/${journeyId}`
   }
   return `/j/${journeyId}?section=${section}`

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { entrySyncStatusSchema } from '@/entities/entry/model/entry'
 
 const optionalDateSchema = z.iso.date().nullable()
 
@@ -48,6 +49,7 @@ export const journeyEntrySchema = z.object({
   slug: z.string().nullable(),
   stageId: z.uuid().nullable(),
   stopId: z.uuid().nullable(),
+  syncStatus: entrySyncStatusSchema.optional(),
   title: z.string().nullable(),
   type: z.enum(['story', 'tip', 'note', 'place']),
 })

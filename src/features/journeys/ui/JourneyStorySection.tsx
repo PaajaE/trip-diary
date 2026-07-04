@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Circle, Leaf, MapPin, Plus, Signpost } from 'lucide-react'
+import { Circle, Leaf, Plus, Signpost } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import {
@@ -18,18 +18,29 @@ import type {
   JourneyMoment,
   JourneyStageContent,
 } from '@/features/journeys/lib/journey-content'
+import {
+  getJourneyStageContentKey,
+  getJourneyStageContentLabel,
+} from '@/features/journeys/lib/journey-stage-label'
 import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
-import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
+import { MomentCard } from '@/features/journeys/ui/MomentCard'
+import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 
 interface JourneyStorySectionProps {
   canEdit: boolean
   checklistItems?: JourneyChecklistItem[]
   creatorId: string
+  expandedEntryId?: string | null
+  highlightEntryId?: string | null
   journey: JourneyDetail
   journeyId: string
   moments: JourneyMoment[]
+  naturePromptEntryId?: string | null
+  natureGoalId?: string
   onChanged: () => void
-  onOpenEntry: (entryId: string) => void
+  onExpandChange?: (entryId: string | null) => void
+  onOpenFullPage?: (entryId: string) => void
+  publicPaths?: PublicJourneyPaths | null
   stageContents: JourneyStageContent[]
   tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }
@@ -38,11 +49,17 @@ export function JourneyStorySection({
   canEdit,
   checklistItems = [],
   creatorId,
+  expandedEntryId = null,
+  highlightEntryId = null,
   journey,
   journeyId,
   moments,
+  naturePromptEntryId = null,
+  natureGoalId,
   onChanged,
-  onOpenEntry,
+  onExpandChange,
+  onOpenFullPage,
+  publicPaths,
   stageContents,
   tagsByPhotoId,
 }: JourneyStorySectionProps) {
@@ -82,10 +99,16 @@ export function JourneyStorySection({
             checklistItems={checklistItems}
             content={stageContent}
             creatorId={creatorId}
+            expandedEntryId={expandedEntryId}
+            highlightEntryId={highlightEntryId}
             journey={journey}
-            key={stageContent.stage?.id ?? 'unassigned'}
+            key={getJourneyStageContentKey(stageContent)}
+            naturePromptEntryId={naturePromptEntryId}
+            {...(natureGoalId !== undefined ? { natureGoalId } : {})}
             onChanged={onChanged}
-            onOpenEntry={onOpenEntry}
+            {...(onExpandChange !== undefined ? { onExpandChange } : {})}
+            {...(onOpenFullPage !== undefined ? { onOpenFullPage } : {})}
+            {...(publicPaths !== undefined ? { publicPaths } : {})}
             photosByEntryId={photosByEntryId}
             tagsByPhotoId={tagsByPhotoId}
           />
@@ -100,9 +123,15 @@ function StageContent({
   checklistItems,
   content,
   creatorId,
+  expandedEntryId,
+  highlightEntryId,
   journey,
+  naturePromptEntryId,
+  natureGoalId,
   onChanged,
-  onOpenEntry,
+  onExpandChange,
+  onOpenFullPage,
+  publicPaths,
   photosByEntryId,
   tagsByPhotoId,
 }: {
@@ -110,13 +139,19 @@ function StageContent({
   checklistItems: JourneyChecklistItem[]
   content: JourneyStageContent
   creatorId: string
+  expandedEntryId: string | null
+  highlightEntryId: string | null
   journey: JourneyDetail
+  naturePromptEntryId: string | null
+  natureGoalId?: string
   onChanged: () => void
-  onOpenEntry: (entryId: string) => void
+  onExpandChange?: (entryId: string | null) => void
+  onOpenFullPage?: (entryId: string) => void
+  publicPaths?: PublicJourneyPaths | null
   photosByEntryId: Map<string, PhotoPreview[]>
   tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const { genericStops, natureStops } = splitPlannedStops(
     content.plannedStops,
     checklistItems,
@@ -127,7 +162,7 @@ function StageContent({
       <div className="flex items-start justify-between gap-4">
         <h3 className="flex items-center gap-3 text-xl font-semibold">
           <Signpost aria-hidden="true" size={18} />
-          {content.stage?.title ?? t('journey.freeMoments')}
+          {getJourneyStageContentLabel(content, t, i18n.language)}
         </h3>
         {canEdit && content.stage !== null ? (
           <button
@@ -155,11 +190,19 @@ function StageContent({
           <MomentCard
             canEdit={canEdit}
             creatorId={creatorId}
+            expanded={expandedEntryId === moment.entry.id}
+            highlighted={highlightEntryId === moment.entry.id}
             journey={journey}
+            journeyId={journey.id}
             key={moment.entry.id}
             moment={moment}
-            onOpenEntry={onOpenEntry}
+            naturePrompt={naturePromptEntryId === moment.entry.id}
+            {...(natureGoalId !== undefined ? { natureGoalId } : {})}
+            {...(onExpandChange !== undefined ? { onExpandChange } : {})}
+            {...(onOpenFullPage !== undefined ? { onOpenFullPage } : {})}
+            onUpdated={onChanged}
             photos={photosByEntryId.get(moment.entry.id) ?? []}
+            {...(publicPaths !== undefined ? { publicPaths } : {})}
             tagsByPhotoId={tagsByPhotoId}
           />
         ))}
@@ -267,73 +310,5 @@ function StageContent({
         ) : null}
       </div>
     </section>
-  )
-}
-
-function MomentCard({
-  canEdit,
-  creatorId,
-  journey,
-  moment,
-  onOpenEntry,
-  photos,
-  tagsByPhotoId,
-}: {
-  canEdit: boolean
-  creatorId: string
-  journey: JourneyDetail
-  moment: JourneyMoment
-  onOpenEntry: (entryId: string) => void
-  photos: PhotoPreview[]
-  tagsByPhotoId: Map<string, PhotoTagAssignment[]>
-}) {
-  const { t } = useTranslation()
-  const title = moment.entry.title ?? t('dashboard.untitled')
-
-  return (
-    <article className="overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-            {t(`entry.type.${moment.entry.type}`)}
-          </p>
-          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
-        </div>
-        {moment.location === null ? null : (
-          <span
-            aria-label={t('journey.hasLocation')}
-            className="rounded-full bg-primary/10 p-2 text-primary"
-          >
-            <MapPin aria-hidden="true" size={16} />
-          </span>
-        )}
-      </div>
-      {moment.entry.body === '' ? null : (
-        <p className="mt-3 line-clamp-3 leading-7 text-muted">
-          {moment.entry.body}
-        </p>
-      )}
-      <EntryPhotoGrid
-        alt={title}
-        canDelete={canEdit}
-        canEditTags={canEdit}
-        creatorId={creatorId}
-        entryId={moment.entry.id}
-        journeyId={journey.id}
-        onOpenMoment={onOpenEntry}
-        photos={photos}
-        showPhotoEngagement
-        tagsByPhotoId={tagsByPhotoId}
-      />
-      <button
-        className="mt-5 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
-        onClick={() => {
-          onOpenEntry(moment.entry.id)
-        }}
-        type="button"
-      >
-        {t('journey.openMoment')}
-      </button>
-    </article>
   )
 }

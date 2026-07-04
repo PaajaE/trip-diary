@@ -6,6 +6,11 @@ import type {
   JourneyMoment,
   JourneyStageContent,
 } from '@/features/journeys/lib/journey-content'
+import {
+  getJourneyStageContentKey,
+  getJourneyStageContentLabel,
+  shouldShowJourneyStageHeader,
+} from '@/features/journeys/lib/journey-stage-label'
 import { ReaderMomentPhotos } from '@/features/journeys/ui/ReaderMomentPhotos'
 import { cn } from '@/shared/lib/cn'
 
@@ -24,7 +29,7 @@ export function JourneyReaderStory({
   stageContents,
   tagsByPhotoId,
 }: JourneyReaderStoryProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const hasContent = stageContents.some(
     (content) => content.moments.length > 0 || content.plannedStops.length > 0,
   )
@@ -53,8 +58,8 @@ export function JourneyReaderStory({
           .reduce((sum, content) => sum + content.moments.length, 0)
 
         return (
-          <section key={stageContent.stage?.id ?? 'unassigned'}>
-            {shouldShowStageHeader(stageContent) ? (
+          <section key={getJourneyStageContentKey(stageContent)}>
+            {shouldShowJourneyStageHeader(stageContent) ? (
               <div className="reader-stage-divider">
                 <Signpost
                   aria-hidden="true"
@@ -62,7 +67,7 @@ export function JourneyReaderStory({
                   size={18}
                 />
                 <h3 className="reader-display text-2xl sm:text-3xl">
-                  {stageContent.stage?.title ?? t('journey.freeMoments')}
+                  {getJourneyStageContentLabel(stageContent, t, i18n.language)}
                 </h3>
                 {stageContent.stage?.summary === '' ? null : (
                   <p className="mt-3 max-w-2xl text-base leading-8 text-muted">
@@ -75,7 +80,7 @@ export function JourneyReaderStory({
             <div
               className={cn(
                 'space-y-16 sm:space-y-20',
-                shouldShowStageHeader(stageContent) ? 'mt-10' : '',
+                shouldShowJourneyStageHeader(stageContent) ? 'mt-10' : '',
               )}
             >
               {stageContent.moments.map((moment, index) => (
@@ -117,10 +122,6 @@ export function JourneyReaderStory({
       })}
     </div>
   )
-}
-
-function shouldShowStageHeader(content: JourneyStageContent) {
-  return content.stage !== null
 }
 
 function ReaderMomentArticle({

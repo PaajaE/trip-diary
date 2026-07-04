@@ -88,6 +88,10 @@ vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
     previewsByEntry: new Map(),
   }),
 }))
+vi.mock('@/shared/ui/ToastProvider', () => ({
+  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+  useToast: () => ({ showToast: vi.fn() }),
+}))
 
 function buildJourney(overrides: Partial<JourneyDetail> = {}): JourneyDetail {
   return {
@@ -106,7 +110,45 @@ function buildJourney(overrides: Partial<JourneyDetail> = {}): JourneyDetail {
   }
 }
 
-describe('JourneyPage overview hub', () => {
+function mockJourneyQueries(journey: JourneyDetail) {
+  useJourneyQueryMock.mockReturnValue({
+    data: journey,
+    isError: false,
+    isLoading: false,
+    isRevalidating: false,
+    refetch: vi.fn(),
+  })
+  useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
+    if (queryKey[0] === 'journey-photo-locations') {
+      return { data: [], isError: false, refetch: vi.fn() }
+    }
+    if (queryKey[0] === 'journey-gallery') {
+      return {
+        data: { failedMomentCount: 0, previewsByMoment: [[]] },
+        isError: false,
+        isPending: false,
+      }
+    }
+    if (queryKey[0] === 'journey-photo-tags') {
+      return { data: [], isError: false, isPending: false }
+    }
+    if (queryKey[0] === 'journey-my-role') {
+      return { data: 'owner', isError: false }
+    }
+    if (queryKey[0] === 'journey-owner') {
+      return { data: true, isError: false }
+    }
+    if (queryKey[0] === 'journey-checklist') {
+      return { data: [], isError: false, isPending: false }
+    }
+    if (queryKey[0] === 'journey-observations') {
+      return { data: [], isError: false, isPending: false }
+    }
+    return { data: false, isError: false }
+  })
+}
+
+describe('JourneyPage author scroll', () => {
   afterEach(() => {
     cleanup()
     navigateMock.mockReset()
@@ -114,7 +156,7 @@ describe('JourneyPage overview hub', () => {
     useJourneyQueryMock.mockReset()
   })
 
-  it('shows overview stats and capture actions by default', () => {
+  it('shows summary, story, map, and gallery on one page', () => {
     const journey = buildJourney({
       entries: [
         {
@@ -128,138 +170,43 @@ describe('JourneyPage overview hub', () => {
           type: 'story',
         },
       ],
-      guides: [{ body: 'Book early', id: 'guide-1', title: 'Parking' }],
     })
-    useJourneyQueryMock.mockReturnValue({
-      data: journey,
-      isError: false,
-      isLoading: false,
-      isRevalidating: false,
-      refetch: vi.fn(),
-    })
-    useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
-      if (queryKey[0] === 'journey-photo-locations') {
-        return { data: [], isError: false, refetch: vi.fn() }
-      }
-      if (queryKey[0] === 'journey-gallery') {
-        return {
-          data: { failedMomentCount: 0, previewsByMoment: [[]] },
-          isError: false,
-          isPending: false,
-        }
-      }
-      if (queryKey[0] === 'journey-photo-tags') {
-        return { data: [], isError: false, isPending: false }
-      }
-      if (queryKey[0] === 'journey-my-role') {
-        return { data: 'owner', isError: false }
-      }
-      if (queryKey[0] === 'journey-owner') {
-        return { data: true, isError: false }
-      }
-      if (queryKey[0] === 'journey-checklist') {
-        return { data: [], isError: false, isPending: false }
-      }
-      if (queryKey[0] === 'journey-observations') {
-        return { data: [], isError: false, isPending: false }
-      }
-      return { data: false, isError: false }
-    })
+    mockJourneyQueries(journey)
 
     render(<JourneyPage journeyId={journey.id} />)
 
     expect(screen.getByText('A quick summary')).toBeVisible()
     expect(screen.getByLabelText('Přidat moment')).toBeVisible()
-    expect(screen.getByText('Přidat místo na mapě')).toBeVisible()
-  })
-
-  it('switches to map tab locally without router navigation', async () => {
-    const user = userEvent.setup()
-    const journey = buildJourney()
-    useJourneyQueryMock.mockReturnValue({
-      data: journey,
-      isError: false,
-      isLoading: false,
-      isRevalidating: false,
-      refetch: vi.fn(),
-    })
-    useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
-      if (queryKey[0] === 'journey-photo-locations') {
-        return { data: [], isError: false, refetch: vi.fn() }
-      }
-      if (queryKey[0] === 'journey-gallery') {
-        return {
-          data: { failedMomentCount: 0, previewsByMoment: [] },
-          isError: false,
-          isPending: false,
-        }
-      }
-      if (queryKey[0] === 'journey-my-role') {
-        return { data: 'owner', isError: false }
-      }
-      if (queryKey[0] === 'journey-owner') {
-        return { data: true, isError: false }
-      }
-      if (queryKey[0] === 'journey-checklist') {
-        return { data: [], isError: false, isPending: false }
-      }
-      if (queryKey[0] === 'journey-observations') {
-        return { data: [], isError: false, isPending: false }
-      }
-      return { data: false, isError: false }
-    })
-
-    render(<JourneyPage journeyId={journey.id} />)
-
-    await user.click(screen.getByRole('button', { name: 'Mapa cesty' }))
-
-    expect(navigateMock).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Příběh' })).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Mapa cesty' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Galerie' })).toBeVisible()
   })
 
-  it('opens guides from the more sheet', async () => {
-    const user = userEvent.setup()
+  it('shows empty-trip capture actions', () => {
     const journey = buildJourney()
-    useJourneyQueryMock.mockReturnValue({
-      data: journey,
-      isError: false,
-      isLoading: false,
-      isRevalidating: false,
-      refetch: vi.fn(),
-    })
-    useQueryMock.mockImplementation(({ queryKey }: { queryKey: unknown[] }) => {
-      if (queryKey[0] === 'journey-photo-locations') {
-        return { data: [], isError: false, refetch: vi.fn() }
-      }
-      if (queryKey[0] === 'journey-gallery') {
-        return {
-          data: { failedMomentCount: 0, previewsByMoment: [] },
-          isError: false,
-          isPending: false,
-        }
-      }
-      if (queryKey[0] === 'journey-my-role') {
-        return { data: 'owner', isError: false }
-      }
-      if (queryKey[0] === 'journey-owner') {
-        return { data: true, isError: false }
-      }
-      if (queryKey[0] === 'journey-checklist') {
-        return { data: [], isError: false, isPending: false }
-      }
-      if (queryKey[0] === 'journey-observations') {
-        return { data: [], isError: false, isPending: false }
-      }
-      return { data: false, isError: false }
-    })
+    mockJourneyQueries(journey)
 
     render(<JourneyPage journeyId={journey.id} />)
 
-    await user.click(screen.getByRole('button', { name: 'Více' }))
-    await user.click(screen.getByRole('button', { name: 'Rady' }))
+    expect(screen.getByRole('button', { name: 'Přidat fotky' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Přidat místo na mapě' }),
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Přidat poznámku' }),
+    ).toBeVisible()
+  })
 
-    expect(navigateMock).not.toHaveBeenCalled()
+  it('opens the add sheet from the floating action button', async () => {
+    const user = userEvent.setup()
+    const journey = buildJourney()
+    mockJourneyQueries(journey)
+
+    render(<JourneyPage journeyId={journey.id} />)
+
+    await user.click(screen.getByLabelText('Přidat moment'))
+
     expect(screen.getByRole('dialog')).toBeVisible()
-    expect(screen.getAllByText('Rady').length).toBeGreaterThan(0)
+    expect(screen.getByText('Přidat na cestu')).toBeVisible()
   })
 })

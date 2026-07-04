@@ -63,6 +63,7 @@ export function AcceptJourneyInviteRoutePage() {
         }
         void navigate({
           params: { journeyId: acceptedJourneyId },
+          search: {},
           to: '/j/$journeyId',
         })
       }}
