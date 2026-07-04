@@ -317,6 +317,19 @@ export function JourneyPage({
     })
   }
 
+  function handleJourneyChanged() {
+    void query.refetch()
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-checklist', journeyId],
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-observations', journeyId],
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-gallery'],
+    })
+  }
+
   useEffect(() => {
     if (momentEntryIdsKey === '') {
       return
@@ -478,9 +491,7 @@ export function JourneyPage({
                 onAddPlace={() => {
                   setPlaceCaptureOpen(true)
                 }}
-                onChanged={() => {
-                  void query.refetch()
-                }}
+                onChanged={handleJourneyChanged}
                 onExpandChange={setExpandedEntryId}
                 onNatureDetailOpenChange={setNatureDetailOpen}
                 onOpenFullPage={openFullPage}
@@ -649,9 +660,7 @@ export function JourneyPage({
                 canManageMembers={canManageMembers}
                 creatorId={user?.id ?? ''}
                 journey={journey}
-                onChanged={() => {
-                  void query.refetch()
-                }}
+                onChanged={handleJourneyChanged}
                 onClose={() => {
                   setManageOpen(false)
                 }}
@@ -666,9 +675,7 @@ export function JourneyPage({
               <JourneyPlaceCaptureSheet
                 creatorId={user?.id ?? ''}
                 journey={journey}
-                onChanged={() => {
-                  void query.refetch()
-                }}
+                onChanged={handleJourneyChanged}
                 onClose={() => {
                   setPlaceCaptureOpen(false)
                 }}

@@ -3,6 +3,7 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { getJourneyFromCache } from '@/entities/journey/api/journey.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
@@ -49,25 +50,30 @@ export function CreateJourneyMemoryPage({
     })
   }, [focus])
 
-  function navigateToSavedMoment(
+  async function navigateToSavedMoment(
     entryId: string,
     options?: {
       naturePrompt?: boolean
       photosFailed?: boolean
     },
   ) {
-    void queryClient.invalidateQueries({ queryKey: ['journeys', journeyId] })
-    void queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
-    void queryClient.invalidateQueries({
+    const refreshed = await getJourneyFromCache(journeyId)
+    if (refreshed !== null) {
+      queryClient.setQueryData(['journeys', journeyId, 'local'], refreshed)
+      queryClient.setQueryData(['journeys', journeyId], refreshed)
+    }
+    await queryClient.invalidateQueries({ queryKey: ['journeys', journeyId] })
+    await queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
+    await queryClient.invalidateQueries({
       queryKey: ['journey-photo-locations', journeyId],
     })
-    void queryClient.invalidateQueries({
+    await queryClient.invalidateQueries({
       queryKey: ['journey-checklist', journeyId],
     })
-    void queryClient.invalidateQueries({
+    await queryClient.invalidateQueries({
       queryKey: ['journey-observations', journeyId],
     })
-    void navigate({
+    await navigate({
       params: { journeyId },
       search: {
         highlight: entryId,
@@ -122,7 +128,7 @@ export function CreateJourneyMemoryPage({
           noteFieldRef={noteFieldRef}
           {...(natureGoal !== null ? { natureGoal } : {})}
           onCreated={(meta) => {
-            navigateToSavedMoment(meta.entryId, {
+            void navigateToSavedMoment(meta.entryId, {
               naturePrompt: meta.photoIds.length > 0,
               ...(meta.photosFailed === true ? { photosFailed: true } : {}),
             })
