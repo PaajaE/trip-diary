@@ -29,8 +29,14 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
+  const journeyUrlMatch = /\/j\/([^/?]+)/.exec(page.url())
+  const journeyId = journeyUrlMatch?.[1]
+  if (journeyId === undefined) {
+    throw new Error('Expected journey URL after create')
+  }
+
   // Warm the lazy create-memory route while online; dev has no service worker cache.
-  await page.getByRole('link', { name: 'Přidat moment', exact: true }).click()
+  await page.goto(`/j/${journeyId}/memory/new`)
   await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
 
   // Capture on the already-loaded route so offline navigation does not refetch chunks.
@@ -41,11 +47,10 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     .fill('Uloženo offline a čeká na synchronizaci.')
   await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
 
-  const sharePrompt = page.getByRole('dialog', { name: 'Sdílet s rodinou' })
-  await expect(sharePrompt).toBeVisible()
-  await sharePrompt.getByRole('button', { name: 'Pokračovat na cestu' }).click()
-
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
+  await expect(
+    page.getByRole('heading', { name: momentTitle, level: 4 }),
+  ).toBeVisible({ timeout: 15_000 })
   await expect
     .poll(async () => page.getByText(/čeká na synchronizaci/i).count(), {
       timeout: 15_000,

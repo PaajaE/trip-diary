@@ -30,8 +30,11 @@ describe('format-moment-datetime', () => {
 
   it('detects auto day groups', () => {
     expect(isAutoDayGroup({ dayKey: '2026-06-12', stage: null })).toBe(true)
-    expect(isAutoDayGroup({ dayKey: null, stage: { id: 'x', summary: '', title: 'Day' } })).toBe(
-      false,
-    )
+    expect(
+      isAutoDayGroup({
+        dayKey: null,
+        stage: { id: 'x', summary: '', title: 'Day' },
+      }),
+    ).toBe(false)
   })
 })
