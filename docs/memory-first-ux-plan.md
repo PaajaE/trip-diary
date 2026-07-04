@@ -18,16 +18,16 @@
 
 These are **not revisited** during implementation unless explicitly escalated:
 
-| # | Decision | Rationale |
-|---|----------|-----------|
-| D1 | **Trip is the primary workspace** | Standalone entries are secondary; dashboard unifies around trips. |
-| D2 | **Save → navigate → highlight** | No interstitials on the save path (share, nature match). |
-| D3 | **Share is pull, not push** | One icon per level (account, trip, moment); no post-save fullscreen share sheet. |
-| D4 | **Stage/etapa is optional labeling** | Never required to save; auto-suggest later; not in create form (Phase E). |
-| D5 | **Author trip = single scroll page** | Kill Overview/Map/Gallery/More tabs for authors; mirror public reader layout. |
-| D6 | **Inline editing on timeline** | Daily edits happen on the trip page; `/e/$id` is deep-link / share landing, not default workflow (Phase C). |
-| D7 | **Honest sync copy** | Never imply server-complete when only queued locally; per-moment indicators on cards. |
-| D8 | **Local-first unchanged** | No server-first rewrites; UX changes only unless a bug forces a data fix. |
+| #   | Decision                             | Rationale                                                                                                   |
+| --- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| D1  | **Trip is the primary workspace**    | Standalone entries are secondary; dashboard unifies around trips.                                           |
+| D2  | **Save → navigate → highlight**      | No interstitials on the save path (share, nature match).                                                    |
+| D3  | **Share is pull, not push**          | One icon per level (account, trip, moment); no post-save fullscreen share sheet.                            |
+| D4  | **Stage/etapa is optional labeling** | Never required to save; auto-suggest later; not in create form (Phase E).                                   |
+| D5  | **Author trip = single scroll page** | Kill Overview/Map/Gallery/More tabs for authors; mirror public reader layout.                               |
+| D6  | **Inline editing on timeline**       | Daily edits happen on the trip page; `/e/$id` is deep-link / share landing, not default workflow (Phase C). |
+| D7  | **Honest sync copy**                 | Never imply server-complete when only queued locally; per-moment indicators on cards.                       |
+| D8  | **Local-first unchanged**            | No server-first rewrites; UX changes only unless a bug forces a data fix.                                   |
 
 ---
 
@@ -45,15 +45,16 @@ Hidden from primary UI: `entry`, `stop`, `journey_link`, `photo_variant`, outbox
 
 ## Phase overview
 
-| Phase | Name | Est. | User-visible outcome |
-|-------|------|------|----------------------|
-| **A** | Save feels right | 1–2 days | Save → trip → highlighted card + toast + per-card sync |
-| **B** | Trip is one page | 3–5 days | Single scroll trip; no author tabs |
-| **C** | Inline moment editing | 3–5 days | Edit on timeline; `/e/$id` demoted |
-| **D** | Dashboard cleanup | 1–2 days | One trip list; share icon; unsorted inbox |
-| **E** | Stages as labels | later | Auto day groups; stage picker removed from create |
+| Phase | Name                  | Est.     | User-visible outcome                                     |
+| ----- | --------------------- | -------- | -------------------------------------------------------- |
+| **A** | Save feels right      | 1–2 days | Save → trip → highlighted card + toast + per-card sync   |
+| **B** | Trip is one page      | 3–5 days | Single scroll trip; no author tabs                       |
+| **C** | Inline moment editing | 3–5 days | Edit on timeline; `/e/$id` demoted                       |
+| **D** | Dashboard cleanup     | 1–2 days | One trip list; share icon; unsorted inbox                |
+| **E** | Stages as labels      | later    | Auto day groups; stage picker removed from create        |
+| **F** | Public timeline       | 1–2 days | Chronological rail + per-moment times on reader & author |
 
-**Gate rule:** Phase B does not start until Phase A acceptance tests pass. Same for C→B, D→C, E→D.
+**Gate rule:** Phase B does not start until Phase A acceptance tests pass. Same for C→B, D→C, E→D, F→E.
 
 ---
 
@@ -104,6 +105,7 @@ Tap **Save moment to trip** → land on trip timeline → new moment visible and
 #### A3 — Journey page: scroll, highlight, clear param
 
 **Files:**
+
 - `src/pages/journey/JourneyPage.tsx`
 - `src/features/journeys/ui/JourneyStorySection.tsx` (or extract `MomentCard` if needed)
 
@@ -125,6 +127,7 @@ Tap **Save moment to trip** → land on trip timeline → new moment visible and
 - [ ] No third-party dependency required.
 
 **i18n keys** (add to `src/shared/i18n/en.ts`, `cs.ts`):
+
 - `moment.saved`
 - `moment.savedOffline`
 - `moment.savedPhotosFailed` (when `notice=photos_failed`)
@@ -132,18 +135,19 @@ Tap **Save moment to trip** → land on trip timeline → new moment visible and
 #### A5 — Per-moment sync indicator on cards
 
 **Files:**
+
 - `src/features/journeys/ui/JourneyStorySection.tsx` (`MomentCard`)
 - `src/entities/entry/model/entry.ts` (syncStatus already on entries)
 - Optional: `src/features/sync/ui/MomentSyncIndicator.tsx`
 
 - [ ] Read `moment.entry.syncStatus` (+ photo pending if needed).
 - [ ] States:
-  | Status | UI |
-  |--------|-----|
-  | `pending` / `local` | Small cloud-arrow icon + `aria-label` |
-  | syncing (global + this entry pending) | Subtle spinner on card |
-  | `synced` | Checkmark, fade after 3s or on next navigation |
-  | `failed` | Warning icon + tap → retry single entry or open sync panel |
+      | Status | UI |
+      |--------|-----|
+      | `pending` / `local` | Small cloud-arrow icon + `aria-label` |
+      | syncing (global + this entry pending) | Subtle spinner on card |
+      | `synced` | Checkmark, fade after 3s or on next navigation |
+      | `failed` | Warning icon + tap → retry single entry or open sync panel |
 - [ ] Indicator is **on the card**, not only in global header.
 
 #### A6 — Nature match chip (non-blocking)
@@ -156,6 +160,7 @@ Tap **Save moment to trip** → land on trip timeline → new moment visible and
 #### A7 — Share from trip/moment (not save path)
 
 **Files:**
+
 - `src/pages/journey/JourneyPage.tsx` (trip header — already has share)
 - `MomentCard` — add small share icon
 
@@ -166,18 +171,18 @@ Tap **Save moment to trip** → land on trip timeline → new moment visible and
 
 ### Phase A — Acceptance criteria (all must pass)
 
-| # | Criterion | How to verify |
-|---|-----------|---------------|
-| A-AC1 | Save with photos → user sees trip timeline within 1 navigation, no fullscreen modal | Manual + E2E |
-| A-AC2 | New moment card is scrolled into view and visually highlighted | Manual |
-| A-AC3 | Toast appears with correct online/offline copy | Manual |
-| A-AC4 | Moment card shows pending sync icon before server sync | Manual offline→online |
-| A-AC5 | Moment card shows synced state after sync completes | Manual |
-| A-AC6 | `notice=photos_failed` still shows amber banner on trip | Existing test pattern |
-| A-AC7 | Share is NOT shown automatically after save | Manual |
-| A-AC8 | Tapping moment share before sync shows friendly message, not dead link | Manual |
-| A-AC9 | Local save still works fully offline; moment visible before sync | Unit/integration (existing merge tests) |
-| A-AC10 | No regression: `pnpm test` green; add test for `highlight` param handling | CI |
+| #      | Criterion                                                                           | How to verify                           |
+| ------ | ----------------------------------------------------------------------------------- | --------------------------------------- |
+| A-AC1  | Save with photos → user sees trip timeline within 1 navigation, no fullscreen modal | Manual + E2E                            |
+| A-AC2  | New moment card is scrolled into view and visually highlighted                      | Manual                                  |
+| A-AC3  | Toast appears with correct online/offline copy                                      | Manual                                  |
+| A-AC4  | Moment card shows pending sync icon before server sync                              | Manual offline→online                   |
+| A-AC5  | Moment card shows synced state after sync completes                                 | Manual                                  |
+| A-AC6  | `notice=photos_failed` still shows amber banner on trip                             | Existing test pattern                   |
+| A-AC7  | Share is NOT shown automatically after save                                         | Manual                                  |
+| A-AC8  | Tapping moment share before sync shows friendly message, not dead link              | Manual                                  |
+| A-AC9  | Local save still works fully offline; moment visible before sync                    | Unit/integration (existing merge tests) |
+| A-AC10 | No regression: `pnpm test` green; add test for `highlight` param handling           | CI                                      |
 
 ### Phase A — Tests to add
 
@@ -222,6 +227,7 @@ Author trip view = one continuous scroll (like public reader), not four tabs. Ma
 #### B1 — New author layout component
 
 **Files:**
+
 - New: `src/features/journeys/ui/JourneyAuthorScroll.tsx` (or refactor `JourneyOverview.tsx`)
 - Reference: `src/pages/reader/JourneyReaderPage.tsx`, `src/features/journeys/lib/journey-reader-section.ts`
 
@@ -265,16 +271,16 @@ Author trip view = one continuous scroll (like public reader), not four tabs. Ma
 
 ### Phase B — Acceptance criteria
 
-| # | Criterion |
-|---|-----------|
-| B-AC1 | Author trip has no Overview/Map/Gallery/More tab bar |
+| #     | Criterion                                                      |
+| ----- | -------------------------------------------------------------- |
+| B-AC1 | Author trip has no Overview/Map/Gallery/More tab bar           |
 | B-AC2 | User can reach map, story, and photos without leaving the page |
-| B-AC3 | Share icon visible in trip header without opening a sheet |
-| B-AC4 | FAB (+) presents add options in ≤1 tap |
-| B-AC5 | Empty trip shows Add photos / Add place / Add note |
-| B-AC6 | Public reader unchanged |
-| B-AC7 | Phase A save→highlight flow still works on new layout |
-| B-AC8 | `pnpm test` green; update `JourneyPage.remediation.test.tsx` |
+| B-AC3 | Share icon visible in trip header without opening a sheet      |
+| B-AC4 | FAB (+) presents add options in ≤1 tap                         |
+| B-AC5 | Empty trip shows Add photos / Add place / Add note             |
+| B-AC6 | Public reader unchanged                                        |
+| B-AC7 | Phase A save→highlight flow still works on new layout          |
+| B-AC8 | `pnpm test` green; update `JourneyPage.remediation.test.tsx`   |
 
 ### Phase B — Definition of done
 
@@ -337,13 +343,13 @@ Edit title, note, photos, and location from the trip timeline without routing to
 
 ### Phase C — Acceptance criteria
 
-| # | Criterion |
-|---|-----------|
-| C-AC1 | User can edit moment title/body from trip without route change |
+| #     | Criterion                                                        |
+| ----- | ---------------------------------------------------------------- |
+| C-AC1 | User can edit moment title/body from trip without route change   |
 | C-AC2 | Photo add/delete on trip still works (existing `EntryPhotoGrid`) |
-| C-AC3 | Shared `/e/$slug` links still work |
-| C-AC4 | Inline save triggers background sync + card sync indicator |
-| C-AC5 | Phase A and B flows unaffected |
+| C-AC3 | Shared `/e/$slug` links still work                               |
+| C-AC4 | Inline save triggers background sync + card sync indicator       |
+| C-AC5 | Phase A and B flows unaffected                                   |
 
 ---
 
@@ -397,12 +403,12 @@ One mental model on login: **your trips**. Share family diary from header. Orpha
 
 ### Phase D — Acceptance criteria
 
-| # | Criterion |
-|---|-----------|
-| D-AC1 | Dashboard shows one trip list, not two competing columns |
-| D-AC2 | Share icon shares space/diary link |
+| #     | Criterion                                                                                                  |
+| ----- | ---------------------------------------------------------------------------------------------------------- |
+| D-AC1 | Dashboard shows one trip list, not two competing columns                                                   |
+| D-AC2 | Share icon shares space/diary link                                                                         |
 | D-AC3 | Unsorted moments visible and attachable to trip (link to create memory or assign — minimal: link to entry) |
-| D-AC4 | Continue hero works |
+| D-AC4 | Continue hero works                                                                                        |
 
 ---
 
@@ -432,6 +438,47 @@ Remove etapa friction from create flow; auto-group moments by date; manual reorg
 - [x] E4: Migration: existing stages remain; new moments default to auto day.
 
 **Gate:** Only start after Phases A–D shipped and stable for 1 week in real use.
+
+---
+
+## Phase F — Public timeline presentation
+
+### Goal
+
+Make shared trips read as a **visual timeline**: day sections (from Phase E) plus a vertical rail, dot markers, and per-moment times so visitors see _when_ things happened without opening each moment.
+
+### In scope
+
+1. **F1** — `format-moment-datetime.ts`: locale-aware time / datetime labels; time-only inside auto day groups.
+2. **F2** — `JourneyTimelineMoments`: shared timeline rail (reader + author story sections).
+3. **F3** — Reader story: timeline layout, section eyebrow “Timeline”, moment eyebrow shows type when dated.
+4. **F4** — Author `JourneyStorySection`: same timeline rail for parity with public reader.
+5. **F5** — i18n + CSS (`journey-timeline*` in `index.css`); unit tests for format helpers.
+
+### Out of scope (Phase F)
+
+- Sticky day headings on scroll.
+- Reader dock “Jump to day” links.
+- Map/timeline fusion or route drawing.
+- Schema / sync changes.
+
+### Tasks
+
+- [x] F1: Datetime format helpers + tests.
+- [x] F2: `JourneyTimelineMoments` component + CSS.
+- [x] F3: Wire into `JourneyReaderStory` + reader section eyebrow.
+- [x] F4: Wire into `JourneyStorySection`.
+- [ ] F6 (later): Sticky day heading + dock day jump for long trips.
+
+### Phase F — Acceptance criteria
+
+| #     | Criterion                                                                  |
+| ----- | -------------------------------------------------------------------------- |
+| F-AC1 | Public reader shows vertical timeline rail within each day/stage group     |
+| F-AC2 | Each moment displays time (in day group) or date+time (custom label group) |
+| F-AC3 | Author trip story uses the same timeline presentation                      |
+| F-AC4 | Undated moments still render; rail shows neutral marker                    |
+| F-AC5 | No author-only UI (sync, organize) on public reader                        |
 
 ---
 
@@ -485,18 +532,18 @@ Remove etapa friction from create flow; auto-group moments by date; manual reorg
 
 ## File map (quick reference)
 
-| Area | Primary files |
-|------|----------------|
-| Save flow | `CreateJourneyMemoryPage.tsx`, `CreateJourneyMemoryForm.tsx` |
-| Router | `src/app/router.tsx` |
-| Trip author | `JourneyPage.tsx`, `JourneyOverview.tsx`, `JourneyStorySection.tsx` |
-| Public reader (reference) | `JourneyReaderPage.tsx`, `journey-reader-section.ts` |
-| Sync UI | `SyncStatusControl.tsx`, `use-sync-status.ts`, new `MomentSyncIndicator.tsx` |
-| Share | `ShareMomentPrompt.tsx`, `ShareActions.tsx`, `use-journey-public-share.ts` |
-| Dashboard | `DashboardPage.tsx`, `dashboard.repository.ts` |
-| Local merge | `journey-local-merge.ts`, `journey-content.ts` |
-| i18n | `src/shared/i18n/en.ts`, `cs.ts` |
-| Tests | `JourneyPage.remediation.test.tsx`, `journey-assignment.remediation.test.ts` |
+| Area                      | Primary files                                                                |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| Save flow                 | `CreateJourneyMemoryPage.tsx`, `CreateJourneyMemoryForm.tsx`                 |
+| Router                    | `src/app/router.tsx`                                                         |
+| Trip author               | `JourneyPage.tsx`, `JourneyOverview.tsx`, `JourneyStorySection.tsx`          |
+| Public reader (reference) | `JourneyReaderPage.tsx`, `journey-reader-section.ts`                         |
+| Sync UI                   | `SyncStatusControl.tsx`, `use-sync-status.ts`, new `MomentSyncIndicator.tsx` |
+| Share                     | `ShareMomentPrompt.tsx`, `ShareActions.tsx`, `use-journey-public-share.ts`   |
+| Dashboard                 | `DashboardPage.tsx`, `dashboard.repository.ts`                               |
+| Local merge               | `journey-local-merge.ts`, `journey-content.ts`                               |
+| i18n                      | `src/shared/i18n/en.ts`, `cs.ts`                                             |
+| Tests                     | `JourneyPage.remediation.test.tsx`, `journey-assignment.remediation.test.ts` |
 
 ---
 
@@ -504,7 +551,7 @@ Remove etapa friction from create flow; auto-group moments by date; manual reorg
 
 - Rewrite Supabase schema or RPCs (unless sync bug blocks UX).
 - Add push notifications.
-- Redesign public reader (already aligned with target).
+- Full public reader redesign (Phase F adds timeline polish only).
 - Add social feed / likes prominence.
 - Auto-cluster photos across multiple trips.
 - Replace Dexie/outbox architecture.
@@ -516,13 +563,14 @@ Remove etapa friction from create flow; auto-group moments by date; manual reorg
 
 Update checkboxes in this file as tasks complete.
 
-| Phase | Status | Completed |
-|-------|--------|-----------|
-| A — Save feels right | ✅ Done | 2026-07-03 |
-| B — Trip is one page | ✅ Done | 2026-07-03 |
-| C — Inline editing | ✅ Done | 2026-07-03 |
+| Phase                 | Status  | Completed  |
+| --------------------- | ------- | ---------- |
+| A — Save feels right  | ✅ Done | 2026-07-03 |
+| B — Trip is one page  | ✅ Done | 2026-07-03 |
+| C — Inline editing    | ✅ Done | 2026-07-03 |
 | D — Dashboard cleanup | ✅ Done | 2026-07-03 |
-| E — Stages as labels | ✅ Done | 2026-07-03 |
+| E — Stages as labels  | ✅ Done | 2026-07-03 |
+| F — Public timeline   | ✅ Done | 2026-07-03 |
 
 ---
 

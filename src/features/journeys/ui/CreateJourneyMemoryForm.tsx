@@ -56,9 +56,11 @@ interface CreateJourneyMemoryFormProps {
   spaceId: string
 }
 
-const createJourneyMemorySchema = createEntrySchema.omit({ title: true }).extend({
-  title: z.string().max(160),
-})
+const createJourneyMemorySchema = createEntrySchema
+  .omit({ title: true })
+  .extend({
+    title: z.string().max(160),
+  })
 
 type CreateJourneyMemoryInput = z.infer<typeof createJourneyMemorySchema>
 

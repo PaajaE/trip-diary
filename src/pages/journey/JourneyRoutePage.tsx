@@ -24,7 +24,9 @@ export function JourneyRoutePage() {
   return (
     <JourneyPage
       journeyId={journeyId}
-      {...(search.highlight !== undefined ? { highlight: search.highlight } : {})}
+      {...(search.highlight !== undefined
+        ? { highlight: search.highlight }
+        : {})}
       {...(search.naturePrompt !== undefined
         ? { naturePrompt: search.naturePrompt }
         : {})}

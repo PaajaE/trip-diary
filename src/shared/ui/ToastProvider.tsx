@@ -1,28 +1,12 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useMemo,
-  useState,
-  type PropsWithChildren,
-} from 'react'
+import { useCallback, useMemo, useState, type PropsWithChildren } from 'react'
 import { cn } from '@/shared/lib/cn'
-
-interface ShowToastOptions {
-  duration?: number
-  message: string
-  variant?: 'default' | 'error'
-}
+import { ToastContext, type ShowToastOptions } from '@/shared/ui/toast-context'
 
 interface ToastItem {
   id: number
   message: string
   variant: 'default' | 'error'
 }
-
-const ToastContext = createContext<{
-  showToast: (options: ShowToastOptions) => void
-} | null>(null)
 
 export function ToastProvider({ children }: PropsWithChildren) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
@@ -64,12 +48,4 @@ export function ToastProvider({ children }: PropsWithChildren) {
       </div>
     </ToastContext.Provider>
   )
-}
-
-export function useToast() {
-  const context = useContext(ToastContext)
-  if (context === null) {
-    throw new Error('useToast must be used within ToastProvider')
-  }
-  return context
 }

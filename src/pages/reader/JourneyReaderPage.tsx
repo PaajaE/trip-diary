@@ -358,7 +358,7 @@ export function JourneyReaderPage({
           id={JOURNEY_READER_SECTION_IDS.story}
         >
           <ReaderSectionIntro
-            eyebrow={t('reader.storyEyebrow')}
+            eyebrow={t('reader.storyTimelineEyebrow')}
             title={t('reader.storyTitle')}
           />
           <JourneyReaderStory

@@ -47,7 +47,7 @@ import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { FullScreenSheet } from '@/shared/ui/FullScreenSheet'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
-import { useToast } from '@/shared/ui/ToastProvider'
+import { useToast } from '@/shared/ui/use-toast'
 
 interface JourneyPageProps {
   highlight?: string
@@ -134,15 +134,11 @@ export function JourneyPage({
   const galleryPreviewsQuery = useQuery({
     enabled: (content?.moments.length ?? 0) > 0,
     queryFn: () =>
-      loadJourneyGalleryPreviews(
-        content?.moments ?? [],
-        async (entryId) => {
-          const { getJourneyEntryPhotoPreviews } = await import(
-            '@/entities/photo/api/photo-gallery.repository'
-          )
-          return getJourneyEntryPhotoPreviews(entryId)
-        },
-      ),
+      loadJourneyGalleryPreviews(content?.moments ?? [], async (entryId) => {
+        const { getJourneyEntryPhotoPreviews } =
+          await import('@/entities/photo/api/photo-gallery.repository')
+        return getJourneyEntryPhotoPreviews(entryId)
+      }),
     queryKey: [
       'journey-gallery',
       ...(content?.moments.map((moment) => moment.entry.id) ?? []),
@@ -220,27 +216,39 @@ export function JourneyPage({
       return
     }
 
-    setPendingHighlight(highlight)
-    if (naturePrompt !== undefined) {
-      setNaturePromptEntryId(naturePrompt)
-    }
+    let cancelled = false
 
-    if (!savedToastShown.current) {
-      savedToastShown.current = true
-      showToast({
-        message:
-          typeof navigator !== 'undefined' && navigator.onLine
-            ? t('moment.saved')
-            : t('moment.savedOffline'),
+    queueMicrotask(() => {
+      if (cancelled) {
+        return
+      }
+
+      setPendingHighlight(highlight)
+      if (naturePrompt !== undefined) {
+        setNaturePromptEntryId(naturePrompt)
+      }
+
+      if (!savedToastShown.current) {
+        savedToastShown.current = true
+        showToast({
+          message:
+            typeof navigator !== 'undefined' && navigator.onLine
+              ? t('moment.saved')
+              : t('moment.savedOffline'),
+        })
+      }
+
+      void navigate({
+        params: { journeyId },
+        replace: true,
+        search: (current) => preserveJourneySearch(current),
+        to: '/j/$journeyId',
       })
-    }
-
-    void navigate({
-      params: { journeyId },
-      replace: true,
-      search: (current) => preserveJourneySearch(current),
-      to: '/j/$journeyId',
     })
+
+    return () => {
+      cancelled = true
+    }
   }, [highlight, journeyId, naturePrompt, navigate, showToast, t])
 
   useEffect(() => {
@@ -255,9 +263,18 @@ export function JourneyPage({
       return
     }
 
-    setHighlightEntryId(pendingHighlight)
-    setExpandedEntryId(pendingHighlight)
-    scrollToJourneyMoment(pendingHighlight)
+    let cancelled = false
+    const highlightId = pendingHighlight
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return
+      }
+
+      setHighlightEntryId(highlightId)
+      setExpandedEntryId(highlightId)
+      scrollToJourneyMoment(highlightId)
+    })
 
     const clearHighlight = window.setTimeout(() => {
       setHighlightEntryId(null)
@@ -265,6 +282,7 @@ export function JourneyPage({
     }, 2500)
 
     return () => {
+      cancelled = true
       window.clearTimeout(clearHighlight)
     }
   }, [content, pendingHighlight])
@@ -684,12 +702,9 @@ function preserveJourneySearch(current: {
   notice?: 'photos_failed' | 'template_failed' | undefined
   section?: string | undefined
 }) {
-  const section =
-    current.section === 'story' ||
-    current.section === 'map' ||
-    current.section === 'gallery'
-      ? (current.section as JourneyAuthorSection)
-      : undefined
+  const section = isJourneyAuthorSection(current.section)
+    ? current.section
+    : undefined
 
   return {
     ...(current.notice !== undefined ? { notice: current.notice } : {}),
@@ -698,6 +713,12 @@ function preserveJourneySearch(current: {
       : {}),
     ...(section !== undefined ? { section } : {}),
   }
+}
+
+function isJourneyAuthorSection(
+  value: string | undefined,
+): value is JourneyAuthorSection {
+  return value === 'story' || value === 'map' || value === 'gallery'
 }
 
 function formatDateRange(

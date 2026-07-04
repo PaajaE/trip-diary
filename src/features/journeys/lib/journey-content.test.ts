@@ -157,15 +157,14 @@ describe('composeJourneyContent', () => {
 describe('journey day helpers', () => {
   it('derives day keys and formatted labels', () => {
     expect(getMomentDayKey(null)).toBe(UNDATED_DAY_KEY)
-    expect(getMomentDayKey('2026-06-12T23:30:00.000Z')).toMatch(/^\d{4}-\d{2}-\d{2}$/)
+    expect(getMomentDayKey('2026-06-12T23:30:00.000Z')).toMatch(
+      /^\d{4}-\d{2}-\d{2}$/,
+    )
     expect(formatJourneyDayLabel('2026-06-12', 'en-US')).toContain('2026')
   })
 
   it('preserves time when moving to another day', () => {
-    const next = eventAtForDayKey(
-      '2026-06-15',
-      '2026-06-12T18:30:00.000Z',
-    )
+    const next = eventAtForDayKey('2026-06-15', '2026-06-12T18:30:00.000Z')
     expect(next).not.toBeNull()
     expect(new Date(next ?? '').getDate()).toBe(15)
     expect(new Date(next ?? '').getHours()).toBe(

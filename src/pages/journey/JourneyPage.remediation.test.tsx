@@ -72,8 +72,7 @@ vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
     previewsByEntry: new Map(),
   }),
 }))
-vi.mock('@/shared/ui/ToastProvider', () => ({
-  ToastProvider: ({ children }: { children: React.ReactNode }) => children,
+vi.mock('@/shared/ui/use-toast', () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }))
 

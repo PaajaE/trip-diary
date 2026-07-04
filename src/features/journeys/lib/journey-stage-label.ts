@@ -16,7 +16,7 @@ export function getMomentDayKey(eventAt: string | null): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  return `${String(year)}-${month}-${day}`
 }
 
 export function formatJourneyDayLabel(dayKey: string, locale: string): string {
@@ -61,7 +61,9 @@ export function getJourneyStageContentLabel(
   return t('journey.unassignedPlaces')
 }
 
-export function getJourneyStageContentKey(content: JourneyStageContent): string {
+export function getJourneyStageContentKey(
+  content: JourneyStageContent,
+): string {
   if (content.stage !== null) {
     return `stage-${content.stage.id}`
   }
@@ -73,7 +75,9 @@ export function getJourneyStageContentKey(content: JourneyStageContent): string 
   return 'unassigned-planned'
 }
 
-export function shouldShowJourneyStageHeader(content: JourneyStageContent): boolean {
+export function shouldShowJourneyStageHeader(
+  content: JourneyStageContent,
+): boolean {
   return (
     content.stage !== null ||
     content.dayKey !== null ||

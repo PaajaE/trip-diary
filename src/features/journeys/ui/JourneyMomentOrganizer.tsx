@@ -149,7 +149,9 @@ export function JourneyMomentOrganizer({
 
   return (
     <div className="rounded-[1.25rem] border border-border bg-background/70 p-5">
-      <h3 className="text-lg font-semibold">{t('journey.organizeMomentsTitle')}</h3>
+      <h3 className="text-lg font-semibold">
+        {t('journey.organizeMomentsTitle')}
+      </h3>
       <p className="mt-2 text-sm leading-6 text-muted">
         {t('journey.organizeMomentsDescription')}
       </p>
@@ -205,7 +207,10 @@ export function JourneyMomentOrganizer({
                         </select>
                       </label>
                       {failedEntryId === moment.entry.id ? (
-                        <p className="mt-2 text-sm text-destructive" role="alert">
+                        <p
+                          className="mt-2 text-sm text-destructive"
+                          role="alert"
+                        >
                           {t('journey.organizeMomentError')}
                         </p>
                       ) : null}

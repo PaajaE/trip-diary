@@ -43,7 +43,10 @@ export function CreateJourneyMemoryPage({
       return
     }
     noteFieldRef.current?.focus()
-    noteFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    noteFieldRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
   }, [focus])
 
   function navigateToSavedMoment(

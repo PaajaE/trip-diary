@@ -15,7 +15,7 @@ import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
 import { MomentSyncIndicator } from '@/features/sync/ui/MomentSyncIndicator'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
-import { useToast } from '@/shared/ui/ToastProvider'
+import { useToast } from '@/shared/ui/use-toast'
 import { cn } from '@/shared/lib/cn'
 
 interface MomentCardProps {
@@ -68,11 +68,8 @@ export function MomentCard({
     publicPaths !== undefined &&
     entrySlug !== null &&
     entrySlug !== ''
-      ? momentShareFromPaths(
-          publicPaths,
-          entrySlug,
-          title,
-          (value) => t('reader.shareMomentMessage', { title: value }),
+      ? momentShareFromPaths(publicPaths, entrySlug, title, (value) =>
+          t('reader.shareMomentMessage', { title: value }),
         )
       : null
 
@@ -145,19 +142,14 @@ export function MomentCard({
           )}
           <button
             aria-expanded={expanded}
-            aria-label={
-              expanded ? t('moment.collapse') : t('moment.expand')
-            }
+            aria-label={expanded ? t('moment.collapse') : t('moment.expand')}
             className="rounded-full p-2 text-muted hover:bg-background"
             onClick={toggleExpanded}
             type="button"
           >
             <ChevronDown
               aria-hidden="true"
-              className={cn(
-                'transition-transform',
-                expanded && 'rotate-180',
-              )}
+              className={cn('transition-transform', expanded && 'rotate-180')}
               size={18}
             />
           </button>

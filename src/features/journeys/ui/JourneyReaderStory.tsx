@@ -12,6 +12,7 @@ import {
   shouldShowJourneyStageHeader,
 } from '@/features/journeys/lib/journey-stage-label'
 import { ReaderMomentPhotos } from '@/features/journeys/ui/ReaderMomentPhotos'
+import { JourneyTimelineMoments } from '@/features/journeys/ui/JourneyTimelineMoments'
 import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderStoryProps {
@@ -79,20 +80,24 @@ export function JourneyReaderStory({
 
             <div
               className={cn(
-                'space-y-16 sm:space-y-20',
                 shouldShowJourneyStageHeader(stageContent) ? 'mt-10' : '',
               )}
             >
-              {stageContent.moments.map((moment, index) => (
-                <ReaderMomentArticle
-                  index={momentOffset + index + 1}
-                  key={moment.entry.id}
-                  moment={moment}
-                  onOpenEntry={onOpenEntry}
-                  photos={photosByEntryId.get(moment.entry.id) ?? []}
-                  tagsByPhotoId={tagsByPhotoId}
-                />
-              ))}
+              <JourneyTimelineMoments
+                className="journey-timeline--reader"
+                content={stageContent}
+                moments={stageContent.moments}
+                renderMoment={(moment, index) => (
+                  <ReaderMomentArticle
+                    index={momentOffset + index + 1}
+                    key={moment.entry.id}
+                    moment={moment}
+                    onOpenEntry={onOpenEntry}
+                    photos={photosByEntryId.get(moment.entry.id) ?? []}
+                    tagsByPhotoId={tagsByPhotoId}
+                  />
+                )}
+              />
 
               {stageContent.plannedStops.length === 0 ? null : (
                 <div className="reader-planned-stops">
@@ -144,13 +149,17 @@ function ReaderMomentArticle({
     hasLongBody && moment.entry.body !== ''
       ? t('reader.readFullMoment')
       : t('reader.openMoment')
+  const eyebrowLabel =
+    moment.entry.eventAt === null
+      ? t('reader.momentLabel', { index })
+      : t(`entry.type.${moment.entry.type}`)
 
   return (
     <article className="reader-moment">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-accent">
-            {t('reader.momentLabel', { index })}
+            {eyebrowLabel}
           </p>
           <button
             className="reader-display mt-3 text-left text-3xl leading-tight sm:text-4xl transition-colors hover:text-accent"

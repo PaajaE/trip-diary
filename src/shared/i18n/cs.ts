@@ -166,8 +166,7 @@ export const cs: TranslationResources = {
     deleteConfirm: 'Opravdu chcete smazat tuto vzpomínku?',
     deleting: 'Mažu…',
     back: 'Zpět',
-    editOnTripHint:
-      'Tento moment můžeš upravovat i přímo na stránce cesty.',
+    editOnTripHint: 'Tento moment můžeš upravovat i přímo na stránce cesty.',
     typeLabel: 'Typ',
     title: 'Název',
     type: {
@@ -435,6 +434,7 @@ export const cs: TranslationResources = {
     routeEyebrow: 'Mapa a timeline',
     story: 'Příběh',
     storyEyebrow: 'Momenty podle dnů',
+    timelineUndatedHint: 'Některé momenty v této sekci nemají datum ani čas.',
     useCurrentLocation: 'Použít aktuální polohu',
     signInRequired: 'Před vytvořením cesty se přihlaste.',
     saveGuide: 'Uložit radu',
@@ -532,6 +532,7 @@ export const cs: TranslationResources = {
     scrollToStory: 'Přejít k příběhu',
     shareFallbackTitle: 'Trip Diary',
     storyEyebrow: 'Cesta',
+    storyTimelineEyebrow: 'Časová osa',
     storyTitle: 'Příběh',
     shareMomentMessage: 'Nový moment: {{title}}',
     shareSystem: 'Sdílet',

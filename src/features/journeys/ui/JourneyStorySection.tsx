@@ -24,6 +24,7 @@ import {
 } from '@/features/journeys/lib/journey-stage-label'
 import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
 import { MomentCard } from '@/features/journeys/ui/MomentCard'
+import { JourneyTimelineMoments } from '@/features/journeys/ui/JourneyTimelineMoments'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 
 interface JourneyStorySectionProps {
@@ -185,27 +186,30 @@ function StageContent({
           </button>
         ) : null}
       </div>
-      <div className="mt-6 space-y-4">
-        {content.moments.map((moment) => (
-          <MomentCard
-            canEdit={canEdit}
-            creatorId={creatorId}
-            expanded={expandedEntryId === moment.entry.id}
-            highlighted={highlightEntryId === moment.entry.id}
-            journey={journey}
-            journeyId={journey.id}
-            key={moment.entry.id}
-            moment={moment}
-            naturePrompt={naturePromptEntryId === moment.entry.id}
-            {...(natureGoalId !== undefined ? { natureGoalId } : {})}
-            {...(onExpandChange !== undefined ? { onExpandChange } : {})}
-            {...(onOpenFullPage !== undefined ? { onOpenFullPage } : {})}
-            onUpdated={onChanged}
-            photos={photosByEntryId.get(moment.entry.id) ?? []}
-            {...(publicPaths !== undefined ? { publicPaths } : {})}
-            tagsByPhotoId={tagsByPhotoId}
-          />
-        ))}
+      <div className="mt-6">
+        <JourneyTimelineMoments
+          content={content}
+          moments={content.moments}
+          renderMoment={(moment) => (
+            <MomentCard
+              canEdit={canEdit}
+              creatorId={creatorId}
+              expanded={expandedEntryId === moment.entry.id}
+              highlighted={highlightEntryId === moment.entry.id}
+              journey={journey}
+              journeyId={journey.id}
+              moment={moment}
+              naturePrompt={naturePromptEntryId === moment.entry.id}
+              {...(natureGoalId !== undefined ? { natureGoalId } : {})}
+              {...(onExpandChange !== undefined ? { onExpandChange } : {})}
+              {...(onOpenFullPage !== undefined ? { onOpenFullPage } : {})}
+              onUpdated={onChanged}
+              photos={photosByEntryId.get(moment.entry.id) ?? []}
+              {...(publicPaths !== undefined ? { publicPaths } : {})}
+              tagsByPhotoId={tagsByPhotoId}
+            />
+          )}
+        />
         {natureStops.length === 0 ? null : (
           <div className="pt-3">
             <p className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted">
