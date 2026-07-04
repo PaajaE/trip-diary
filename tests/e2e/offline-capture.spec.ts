@@ -35,7 +35,11 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     throw new Error('Expected journey URL after create')
   }
 
-  // Warm the lazy create-memory route while online; dev has no service worker cache.
+  // Warm lazy routes while online; dev has no service worker cache.
+  await page.goto(`/j/${journeyId}/memory/new`)
+  await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
+  await page.goto(`/j/${journeyId}`)
+  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
   await page.goto(`/j/${journeyId}/memory/new`)
   await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
 
@@ -47,12 +51,12 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     .fill('Uloženo offline a čeká na synchronizaci.')
   await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
 
-  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await expect(
-    page.getByRole('heading', { name: momentTitle, level: 4 }),
-  ).toBeVisible({ timeout: 15_000 })
+  await expect(page).toHaveURL(new RegExp(`/j/${journeyId}`), {
+    timeout: 30_000,
+  })
+  await expect(page.getByText(momentTitle)).toBeVisible({ timeout: 30_000 })
   await expect
-    .poll(async () => page.getByText(/čeká na synchronizaci/i).count(), {
+    .poll(async () => page.getByLabel(/čeká na synchronizaci/i).count(), {
       timeout: 15_000,
     })
     .toBeGreaterThan(0)

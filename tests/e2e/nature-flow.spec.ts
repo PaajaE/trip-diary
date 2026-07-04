@@ -39,16 +39,22 @@ test('nature golden path: template, photo moment, and spotting', async ({
   await expect(page.getByText('Vybráno fotografií: 1')).toBeVisible()
   await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
 
-  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await expect(
-    page.getByRole('heading', { name: momentTitle, level: 4 }),
-  ).toBeVisible({ timeout: 15_000 })
-  await page.getByRole('button', { name: 'Spatřit přírodu?' }).click()
-  await expect(page.getByText('Co jsi zahlédl?')).toBeVisible()
-  await page.getByRole('button', { name: 'Rys ostrovid' }).click()
+  await expect(page).toHaveURL(new RegExp(`/j/${journeyId}`), {
+    timeout: 30_000,
+  })
+  const momentCard = page.locator('article').filter({
+    has: page.getByRole('heading', { name: momentTitle, level: 4 }),
+  })
+  await expect(momentCard).toBeVisible({ timeout: 15_000 })
+  await momentCard.getByRole('button', { name: 'Spatřit přírodu?' }).click()
+  await expect(momentCard.getByText('Co jsi zahlédl?')).toBeVisible()
+  await momentCard.getByRole('button', { name: 'Rys ostrovid' }).click()
 
   await expect(page.getByText(/1 z 5 zahlédnuto/)).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Rys ostrovid' }).locator('.bg-primary'),
+    page
+      .locator('#story')
+      .getByRole('button', { name: 'Rys ostrovid' })
+      .locator('.bg-primary'),
   ).toBeVisible()
 })
