@@ -142,6 +142,7 @@ export function NatureMatchBanner({
             checklistItems={items}
             className="mt-4"
             creatorId={creatorId}
+            tone="default"
             entryId={entryId}
             journeyId={journeyId}
             latitude={latitude}

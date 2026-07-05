@@ -36,10 +36,14 @@ export function MacrostratGeologyHint({
   const hint = hintQuery.data
 
   return (
-    <div className="mt-4 rounded-xl bg-background/70 px-4 py-3 text-sm text-muted">
+    <div className="mt-4 rounded-xl border border-border/80 bg-background/70 px-4 py-3 text-sm">
       <p className="font-medium text-foreground">{hint.formationLabel}</p>
-      {hint.ageRange === null ? null : <p className="mt-1">{hint.ageRange}</p>}
-      <p className="mt-2 text-xs">{t('nature.macrostratAttribution')}</p>
+      {hint.ageRange === null ? null : (
+        <p className="mt-1 text-muted">{hint.ageRange}</p>
+      )}
+      <p className="mt-2 text-xs text-muted">
+        {t('nature.macrostratAttribution')}
+      </p>
     </div>
   )
 }

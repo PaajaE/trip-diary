@@ -26,6 +26,7 @@ interface PhotoIdentifySuggestionsProps {
   onChanged?: () => void
   onSpotted?: () => void
   photoId: string
+  tone?: 'default' | 'inverse'
 }
 
 export function PhotoIdentifySuggestions({
@@ -39,8 +40,10 @@ export function PhotoIdentifySuggestions({
   onChanged,
   onSpotted,
   photoId,
+  tone = 'inverse',
 }: PhotoIdentifySuggestionsProps) {
   const { t } = useTranslation()
+  const inverse = tone === 'inverse'
   const [loading, setLoading] = useState(false)
   const [savingTaxonId, setSavingTaxonId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -166,7 +169,12 @@ export function PhotoIdentifySuggestions({
       {suggestions.length === 0 ? (
         <>
           <button
-            className="inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-sm text-white transition hover:bg-white/20 disabled:opacity-50"
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition disabled:opacity-50',
+              inverse
+                ? 'border-white/25 bg-white/10 text-white hover:bg-white/20'
+                : 'border-border/80 bg-background/50 text-foreground hover:bg-background',
+            )}
             disabled={loading}
             onClick={() => {
               void handleIdentify()
@@ -179,16 +187,32 @@ export function PhotoIdentifySuggestions({
               : t('nature.identify.action')}
           </button>
           {error === null ? null : (
-            <p className="text-xs text-white/70">{error}</p>
+            <p
+              className={cn(
+                'text-xs',
+                inverse ? 'text-white/70' : 'text-muted',
+              )}
+            >
+              {error}
+            </p>
           )}
         </>
       ) : (
         <>
-          <p className="text-xs text-white/70">{t('nature.identify.hint')}</p>
+          <p
+            className={cn('text-xs', inverse ? 'text-white/70' : 'text-muted')}
+          >
+            {t('nature.identify.hint')}
+          </p>
           <div className="flex flex-wrap justify-center gap-2">
             {suggestions.map((suggestion) => (
               <button
-                className="inline-flex max-w-xs flex-col items-start rounded-full border border-white/25 bg-white/10 px-3 py-1.5 text-left text-sm text-white transition hover:bg-white/20 disabled:opacity-50"
+                className={cn(
+                  'inline-flex max-w-xs flex-col items-start rounded-full border px-3 py-1.5 text-left text-sm transition disabled:opacity-50',
+                  inverse
+                    ? 'border-white/25 bg-white/10 text-white hover:bg-white/20'
+                    : 'border-border/80 bg-background/50 text-foreground hover:bg-background',
+                )}
                 disabled={savingTaxonId !== null}
                 key={suggestion.taxonId}
                 onClick={() => {
@@ -197,13 +221,20 @@ export function PhotoIdentifySuggestions({
                 type="button"
               >
                 <span>{suggestion.commonName}</span>
-                <span className="text-xs italic text-white/70">
+                <span
+                  className={cn(
+                    'text-xs italic',
+                    inverse ? 'text-white/70' : 'text-muted',
+                  )}
+                >
                   {suggestion.scientificName}
                 </span>
               </button>
             ))}
           </div>
-          <p className="text-[11px] text-white/60">
+          <p
+            className={cn('text-xs', inverse ? 'text-white/70' : 'text-muted')}
+          >
             {t('nature.inaturalistAttribution')}
           </p>
         </>

@@ -52,8 +52,6 @@ test('nature golden path: template, photo moment, and spotting', async ({
 
   await expect(page.getByText(/1 z 5 zahlédnuto/)).toBeVisible()
   await expect(
-    page
-      .getByRole('button', { name: 'Rys ostrovid' })
-      .locator('.bg-primary'),
+    page.getByRole('button', { name: 'Rys ostrovid' }).locator('.bg-primary'),
   ).toBeVisible()
 })

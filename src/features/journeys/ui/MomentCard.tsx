@@ -264,7 +264,7 @@ export function MomentCard({
           entryTitle={title}
           journeyId={journeyId}
           {...(natureGoalId !== undefined ? { natureGoalId } : {})}
-          onChanged={onUpdated}
+          {...(onUpdated !== undefined ? { onChanged: onUpdated } : {})}
           onDismiss={() => {
             setNatureOpen(false)
             setNatureDismissed(true)
