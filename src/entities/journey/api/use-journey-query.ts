@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { pickJourneyQueryData } from '@/entities/journey/api/journey-local-merge'
 import {
   canContributeToJourney,
   getCachedCanContributeToJourney,
@@ -6,6 +7,7 @@ import {
   getJourneyFromCache,
   getPublicJourney,
 } from '@/entities/journey/api/journey.repository'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 export function usePublicJourneyQuery(journeyId: string) {
   return useQuery({
@@ -15,25 +17,32 @@ export function usePublicJourneyQuery(journeyId: string) {
 }
 
 export function useJourneyQuery(journeyId: string) {
+  const online = isBrowserOnline()
+
   const cacheQuery = useQuery({
     queryFn: () => getJourneyFromCache(journeyId),
     queryKey: ['journeys', journeyId, 'local'],
   })
 
   const journeyQuery = useQuery({
-    enabled: cacheQuery.isFetched,
+    enabled: cacheQuery.isFetched && online,
     placeholderData: () => cacheQuery.data ?? undefined,
     queryFn: () => getJourney(journeyId),
     queryKey: ['journeys', journeyId],
   })
 
+  const data = pickJourneyQueryData(
+    journeyQuery.data ?? undefined,
+    cacheQuery.data ?? undefined,
+  )
+
   return {
     ...journeyQuery,
-    data: journeyQuery.data ?? cacheQuery.data,
-    isLoading: journeyQuery.isLoading && cacheQuery.data === undefined,
+    data,
+    isLoading: journeyQuery.isLoading && data === undefined,
     isRevalidating:
-      journeyQuery.isFetching &&
-      cacheQuery.data !== undefined &&
+      (journeyQuery.isFetching || cacheQuery.isFetching) &&
+      data !== undefined &&
       !journeyQuery.isLoading,
   }
 }

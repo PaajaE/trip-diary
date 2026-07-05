@@ -20,6 +20,20 @@ export interface LocalSavedMoment {
   type: JourneyDetail['entries'][number]['type']
 }
 
+export function pickJourneyQueryData(
+  left: JourneyDetail | undefined,
+  right: JourneyDetail | undefined,
+): JourneyDetail | undefined {
+  if (left === undefined) {
+    return right
+  }
+  if (right === undefined) {
+    return left
+  }
+
+  return left.entries.length >= right.entries.length ? left : right
+}
+
 export function upsertJourneyEntryFromLocalSave(
   journey: JourneyDetail,
   saved: LocalSavedMoment,

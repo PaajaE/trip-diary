@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { upsertJourneyEntryFromLocalSave } from '@/entities/journey/api/journey-local-merge'
+import {
+  pickJourneyQueryData,
+  upsertJourneyEntryFromLocalSave,
+} from '@/entities/journey/api/journey-local-merge'
 import { journeyDetailSchema } from '@/entities/journey/model/journey'
 
 const journeyId = crypto.randomUUID()
@@ -19,6 +22,26 @@ function buildJourney() {
     title: 'Cached trip',
   })
 }
+
+describe('pickJourneyQueryData', () => {
+  it('prefers the journey with more entries', () => {
+    const withMoment = upsertJourneyEntryFromLocalSave(buildJourney(), {
+      body: 'Saved offline',
+      entryId: crypto.randomUUID(),
+      entrySlug: 'offline-moment',
+      entryTitle: 'Offline moment',
+      eventAt: '2026-07-04T12:00:00+00:00',
+      type: 'story',
+    })
+
+    expect(
+      pickJourneyQueryData(buildJourney(), withMoment)?.entries,
+    ).toHaveLength(1)
+    expect(
+      pickJourneyQueryData(withMoment, buildJourney())?.entries,
+    ).toHaveLength(1)
+  })
+})
 
 describe('upsertJourneyEntryFromLocalSave', () => {
   it('adds a pending local moment to an empty cached journey', () => {

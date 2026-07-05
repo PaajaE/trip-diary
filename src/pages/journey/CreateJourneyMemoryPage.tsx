@@ -72,6 +72,7 @@ export function CreateJourneyMemoryPage({
     }
 
     if (refreshed !== null) {
+      await queryClient.cancelQueries({ queryKey: ['journeys', journeyId] })
       queryClient.setQueryData(['journeys', journeyId, 'local'], refreshed)
       queryClient.setQueryData(['journeys', journeyId], refreshed)
     }

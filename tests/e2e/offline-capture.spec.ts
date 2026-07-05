@@ -54,9 +54,11 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
   await expect(page).toHaveURL(new RegExp(`/j/${journeyId}`), {
     timeout: 30_000,
   })
-  const momentCard = page.locator('article').filter({
+  await expect(page.locator('#story')).toBeVisible({ timeout: 30_000 })
+  const momentCard = page.locator('#story article').filter({
     has: page.getByRole('heading', { name: momentTitle, level: 4 }),
   })
+  await momentCard.scrollIntoViewIfNeeded()
   await expect(momentCard).toBeVisible({ timeout: 30_000 })
   await expect(momentCard.getByLabel(/čeká na synchronizaci/i)).toBeVisible({
     timeout: 15_000,
