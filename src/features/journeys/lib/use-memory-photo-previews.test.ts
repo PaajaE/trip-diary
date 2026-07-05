@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from 'vitest'
-import type * as PreviewUrlModule from '@/shared/lib/preview-url'
 
 const capacitorState = vi.hoisted(() => ({
   isNative: true,
@@ -11,8 +10,8 @@ vi.mock('@capacitor/core', () => ({
   },
 }))
 
-vi.mock('@/shared/lib/preview-url', async (importOriginal) => {
-  const actual = await importOriginal<typeof PreviewUrlModule>()
+vi.mock('@/shared/lib/preview-url', async () => {
+  const actual = await vi.importActual('@/shared/lib/preview-url')
   return {
     ...actual,
     createPreviewUrl: vi.fn((blob: Blob) =>

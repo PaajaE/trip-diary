@@ -33,7 +33,13 @@ export function JourneyTimelineMoments({
   }
 
   return (
-    <ol className={cn('journey-timeline', className)}>
+    <ol
+      className={cn(
+        'journey-timeline',
+        moments.length === 1 && 'journey-timeline--single',
+        className,
+      )}
+    >
       {moments.map((moment, index) => {
         const timeLabel = formatMomentTimelineLabel(
           moment.entry.eventAt,
@@ -48,15 +54,15 @@ export function JourneyTimelineMoments({
           >
             <div
               aria-hidden={timeLabel === null}
-              className="journey-timeline__marker"
+              className="journey-timeline__time"
             >
               {timeLabel === null ? (
-                <span className="journey-timeline__time journey-timeline__time--placeholder">
+                <span className="journey-timeline__time-label journey-timeline__time-label--placeholder">
                   ·
                 </span>
               ) : (
                 <time
-                  className="journey-timeline__time"
+                  className="journey-timeline__time-label"
                   {...(moment.entry.eventAt !== null
                     ? { dateTime: moment.entry.eventAt }
                     : {})}
@@ -64,6 +70,8 @@ export function JourneyTimelineMoments({
                   {timeLabel}
                 </time>
               )}
+            </div>
+            <div aria-hidden="true" className="journey-timeline__rail">
               <span className="journey-timeline__dot" />
             </div>
             <div className="journey-timeline__content">

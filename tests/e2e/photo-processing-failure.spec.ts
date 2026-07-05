@@ -29,10 +29,12 @@ test('saving a journey moment still succeeds when photo processing fails', async
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
-  await page
-    .locator('header')
-    .getByRole('link', { name: 'Přidat moment', exact: true })
-    .click()
+  const journeyUrlMatch = /\/j\/([^/?]+)/.exec(page.url())
+  const journeyId = journeyUrlMatch?.[1]
+  if (journeyId === undefined) {
+    throw new Error('Expected journey URL after create')
+  }
+  await page.goto(`/j/${journeyId}/memory/new`)
 
   await page.getByLabel('Název', { exact: true }).fill(momentTitle)
 

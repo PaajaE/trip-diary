@@ -103,10 +103,7 @@ export function JourneyPage({
     queryKey: ['journey-my-role', journeyId, user?.id],
   })
   const journey = query.data
-  const content =
-    journey === null || journey === undefined
-      ? null
-      : composeJourneyContent(journey)
+  const content = journey === undefined ? null : composeJourneyContent(journey)
   const photoLocationsQuery = useQuery({
     enabled: content !== null && content.moments.length > 0,
     queryFn: () => getJourneyPhotoLocations(content?.moments ?? []),
@@ -117,17 +114,17 @@ export function JourneyPage({
     ],
   })
   const tagAssignmentsQuery = useQuery({
-    enabled: journey !== null && journey !== undefined,
+    enabled: journey !== undefined,
     queryFn: () => listJourneyPhotoTagAssignments(journeyId),
     queryKey: ['journey-photo-tags', journeyId, 'assignments'],
   })
   const checklistQuery = useQuery({
-    enabled: journey !== null && journey !== undefined,
+    enabled: journey !== undefined,
     queryFn: () => listJourneyChecklistItems(journeyId),
     queryKey: ['journey-checklist', journeyId],
   })
   const observationsQuery = useQuery({
-    enabled: journey !== null && journey !== undefined,
+    enabled: journey !== undefined,
     queryFn: () => listJourneyObservations(journeyId),
     queryKey: ['journey-observations', journeyId],
   })

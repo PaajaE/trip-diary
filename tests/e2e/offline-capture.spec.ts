@@ -35,12 +35,16 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     throw new Error('Expected journey URL after create')
   }
 
-  // Warm lazy routes while online; dev has no service worker cache.
-  await page.goto(`/j/${journeyId}/memory/new`)
-  await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
+  // Warm lazy routes in one browser session; full page.goto clears Vite module cache.
   await page.goto(`/j/${journeyId}`)
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await page.goto(`/j/${journeyId}/memory/new`)
+  await page.getByLabel('Přidat moment').click()
+  await page
+    .getByRole('dialog', { name: 'Přidat na cestu' })
+    .getByRole('button', {
+      name: 'Přidat fotky Vyber fotky z galerie nebo z alba.',
+    })
+    .click()
   await expect(page.getByLabel('Název', { exact: true })).toBeVisible()
 
   // Capture on the already-loaded route so offline navigation does not refetch chunks.

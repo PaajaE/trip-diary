@@ -327,25 +327,15 @@ a {
 }
 
 .journey-timeline__item {
+  align-items: start;
   display: grid;
-  gap: 1rem 1.25rem;
-  grid-template-columns: minmax(3.25rem, auto) minmax(0, 1fr);
-  position: relative;
+  gap: 0.5rem 1rem;
+  grid-template-columns: minmax(2.5rem, 3.25rem) 1rem minmax(0, 1fr);
 }
 
-.journey-timeline__item:not(:last-child)::after {
-  background: color-mix(in srgb, var(--color-border) 85%, transparent);
-  bottom: -1.5rem;
-  content: '';
-  left: 0.6875rem;
-  position: absolute;
-  top: 1.75rem;
-  width: 2px;
-}
-
-.journey-timeline--reader .journey-timeline__item:not(:last-child)::after {
-  bottom: -2rem;
-  top: 2rem;
+.journey-timeline--reader .journey-timeline__item {
+  gap: 0.625rem 1.25rem;
+  grid-template-columns: minmax(2.75rem, 3.5rem) 1.125rem minmax(0, 1fr);
 }
 
 .journey-timeline__item:not(:last-child) {
@@ -362,31 +352,73 @@ a {
   }
 }
 
-.journey-timeline__marker {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  padding-top: 0.35rem;
+.journey-timeline--single .journey-timeline__item {
+  padding-bottom: 0;
 }
 
 .journey-timeline__time {
+  padding-top: 0.125rem;
+  text-align: right;
+}
+
+.journey-timeline--reader .journey-timeline__time {
+  padding-top: 0.1875rem;
+}
+
+.journey-timeline__time-label {
   color: var(--color-muted);
+  display: block;
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
   line-height: 1.2;
-  max-width: 4.5rem;
-  text-align: center;
   text-wrap: balance;
 }
 
-.journey-timeline--reader .journey-timeline__time {
+.journey-timeline--reader .journey-timeline__time-label {
   font-size: 0.75rem;
-  max-width: 5rem;
 }
 
-.journey-timeline__time--placeholder {
+.journey-timeline__time-label--placeholder {
   opacity: 0.35;
+}
+
+.journey-timeline__rail {
+  align-self: stretch;
+  display: flex;
+  justify-content: center;
+  padding-top: 0.3125rem;
+  position: relative;
+}
+
+.journey-timeline--reader .journey-timeline__rail {
+  padding-top: 0.375rem;
+}
+
+.journey-timeline__item:not(:last-child) .journey-timeline__rail::after {
+  background: color-mix(in srgb, var(--color-border) 85%, transparent);
+  bottom: -2.5rem;
+  content: '';
+  left: 50%;
+  position: absolute;
+  top: calc(0.3125rem + 0.625rem);
+  transform: translateX(-50%);
+  width: 2px;
+}
+
+.journey-timeline--reader
+  .journey-timeline__item:not(:last-child)
+  .journey-timeline__rail::after {
+  bottom: -4rem;
+  top: calc(0.375rem + 0.75rem);
+}
+
+@media (min-width: 640px) {
+  .journey-timeline--reader
+    .journey-timeline__item:not(:last-child)
+    .journey-timeline__rail::after {
+    bottom: -5rem;
+  }
 }
 
 .journey-timeline__dot {
@@ -395,13 +427,13 @@ a {
   border-radius: 9999px;
   flex-shrink: 0;
   height: 0.625rem;
-  margin-top: 0.5rem;
+  position: relative;
   width: 0.625rem;
+  z-index: 1;
 }
 
 .journey-timeline--reader .journey-timeline__dot {
   height: 0.75rem;
-  margin-top: 0.625rem;
   width: 0.75rem;
 }
 

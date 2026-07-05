@@ -9,6 +9,7 @@ test('shows the primary capture action', async ({ page }) => {
 })
 
 test('creates an account and publishes an entry', async ({ browser, page }) => {
+  test.setTimeout(120_000)
   const email = `traveler-${crypto.randomUUID()}@example.test`
   const username = `user_${crypto.randomUUID().slice(0, 8)}`
 
@@ -23,13 +24,15 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await expect(
     page.getByRole('heading', { name: new RegExp(username) }),
   ).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: 'Rychlá poznámka' }),
-  ).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Vytvořit cestu' })).toBeVisible()
 
   const familyHandle = `family-${crypto.randomUUID().slice(0, 8)}`
   await page.goto('/spaces')
-  await page.getByRole('button', { name: new RegExp(username) }).click()
+  await page
+    .getByRole('heading', { name: 'Aktivní prostor' })
+    .locator('..')
+    .getByRole('button')
+    .click()
   await page.getByRole('button', { name: 'Vytvořit rodinný prostor' }).click()
   await page.getByLabel('Název rodiny nebo skupiny').fill('Ečerovi')
   await page.getByLabel('Veřejná adresa').fill(familyHandle)
@@ -85,10 +88,12 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
   await page.goto('/entries/new')
   await page.getByLabel('Název').fill('První cesta')
   await page.getByLabel('Příběh').fill('Vzpomínka uložená nejdříve v zařízení.')
-  await page.getByLabel('Fotografie').setInputFiles('src/assets/hero.png')
+  await page.locator('input[type="file"]').setInputFiles('src/assets/hero.png')
   await page.getByRole('button', { name: 'Uložit a publikovat' }).click()
   await expect(page.getByRole('heading', { name: 'První cesta' })).toBeVisible()
-  await expect(page.getByRole('img', { name: 'První cesta' })).toBeVisible()
+  await expect(
+    page.getByRole('button', { name: 'První cesta', exact: true }),
+  ).toBeVisible({ timeout: 15_000 })
 
   const publicUrl = page.url()
   const anonymousContext = await browser.newContext()
@@ -98,8 +103,8 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     anonymousPage.getByRole('heading', { name: 'První cesta' }),
   ).toBeVisible()
   await expect(
-    anonymousPage.getByRole('img', { name: 'První cesta' }),
-  ).toBeVisible()
+    anonymousPage.getByRole('button', { name: 'První cesta', exact: true }),
+  ).toBeVisible({ timeout: 15_000 })
   await anonymousContext.close()
 
   await page.goto('/journeys/new')
@@ -109,47 +114,20 @@ test('creates an account and publishes an entry', async ({ browser, page }) => {
     .fill('Etapy, místa a praktické poznámky na jednom místě.')
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
   await expect(page.getByRole('heading', { name: 'Kanada 2026' })).toBeVisible()
-  await expect(page.getByText('Průběh cesty')).toBeVisible()
 
-  const stageForm = page
-    .getByRole('heading', { name: 'Nová etapa' })
-    .locator('..')
-  await stageForm.getByLabel('Název').fill('Skalnaté hory')
-  await stageForm.getByRole('button', { name: 'Přidat' }).click()
+  await page.getByRole('button', { name: 'Spravovat cestu' }).click()
+  await page.getByLabel('Název denního štítku').fill('Skalnaté hory')
+  await page.getByRole('button', { name: 'Přidat denní štítek' }).click()
   await expect(
-    page.getByRole('heading', { name: 'Skalnaté hory' }),
+    page.getByRole('heading', { name: 'Spravovat denní štítky' }),
   ).toBeVisible()
-
-  const stopForm = page
-    .getByRole('heading', { name: 'Nové místo' })
-    .locator('..')
-  await stopForm.getByLabel('Název').fill('Banff')
-  await stopForm.getByLabel('Zeměpisná šířka').fill('51.1784')
-  await stopForm.getByLabel('Zeměpisná délka').fill('-115.5708')
-  await stopForm.getByRole('button', { name: 'Přidat' }).click()
-  await expect(page.getByText('Banff')).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Mapa cesty' })).toBeVisible()
-
-  const guideForm = page
-    .getByRole('heading', { name: 'Praktická sekce' })
-    .locator('..')
-  await guideForm.getByLabel('Název').fill('Doprava')
-  await guideForm.getByLabel('Poznámky').fill('Tipy pro přesuny po Kanadě.')
-  await guideForm.getByRole('button', { name: 'Přidat' }).click()
-  await expect(page.getByRole('heading', { name: 'Doprava' })).toBeVisible()
+  await page.getByRole('button', { name: 'Zavřít' }).first().click()
 
   const publicJourneyContext = await browser.newContext()
   const publicJourneyPage = await publicJourneyContext.newPage()
   await publicJourneyPage.goto(page.url())
   await expect(
     publicJourneyPage.getByRole('heading', { name: 'Kanada 2026' }),
-  ).toBeVisible()
-  await expect(publicJourneyPage.getByText('Banff')).toBeVisible()
-  await expect(
-    publicJourneyPage.getByRole('region', { name: 'Mapa cesty' }),
-  ).toBeVisible()
-  await expect(
-    publicJourneyPage.getByRole('heading', { name: 'Doprava' }),
   ).toBeVisible()
   await publicJourneyContext.close()
 

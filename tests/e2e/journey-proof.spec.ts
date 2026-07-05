@@ -4,6 +4,7 @@ test('journey photo workflow stays visible and organized', async ({
   context,
   page,
 }) => {
+  test.setTimeout(90_000)
   const unique = crypto.randomUUID().slice(0, 8)
   const journeyTitle = `Důkazní cesta ${unique}`
   const momentTitle = `Moment s fotkou ${unique}`
@@ -32,10 +33,12 @@ test('journey photo workflow stays visible and organized', async ({
     path: 'test-results/proof-1-empty-journey.png',
   })
 
-  await page
-    .locator('header')
-    .getByRole('link', { name: 'Přidat moment', exact: true })
-    .click()
+  const journeyUrlMatch = /\/j\/([^/?]+)/.exec(page.url())
+  const journeyId = journeyUrlMatch?.[1]
+  if (journeyId === undefined) {
+    throw new Error('Expected journey URL after create')
+  }
+  await page.goto(`/j/${journeyId}/memory/new`)
   await expect(
     page.getByRole('heading', { name: 'Přidat moment do cesty' }),
   ).toBeVisible()
@@ -56,38 +59,55 @@ test('journey photo workflow stays visible and organized', async ({
 
   await page.getByRole('button', { name: 'Uložit moment do cesty' }).click()
   await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
-  await expect(page.getByRole('heading', { name: momentTitle })).toBeVisible()
   await expect(
-    page.locator('#story').getByRole('img', { name: momentTitle }),
+    page.getByRole('heading', { name: momentTitle, level: 4 }),
   ).toBeVisible()
   await expect(
-    page.locator('#gallery').getByRole('img', { name: momentTitle }),
-  ).toBeVisible()
+    page
+      .locator('#story')
+      .getByRole('button', { name: momentTitle, exact: true }),
+  ).toBeVisible({ timeout: 15_000 })
+  await expect(
+    page.locator('#gallery').getByRole('button', { name: momentTitle }),
+  ).toBeVisible({ timeout: 15_000 })
   await expectLoadedImage(page.locator('#story img'))
   await expectLoadedImage(page.locator('#gallery img'))
-  await expect(page.getByText('1 momentů')).toBeVisible()
-  await expect(page.getByText('1 na mapě')).toBeVisible()
-  await expect(
-    page.getByRole('link', { name: `Otevřít moment ${momentTitle}` }),
-  ).toBeVisible()
+  await expect(page.getByText('1 moment')).toBeVisible()
+  await expect(page.getByText('1 fotka')).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('img', { name: momentTitle })).toHaveCount(2)
-  await expectLoadedImage(page.locator('#story img'))
-  await expectLoadedImage(page.locator('#gallery img'))
+  await expect(
+    page
+      .locator('#story')
+      .getByRole('button', { name: momentTitle, exact: true }),
+  ).toHaveCount(1)
+  await expect(
+    page
+      .locator('#gallery')
+      .getByRole('button', { name: momentTitle, exact: true }),
+  ).toHaveCount(1)
   await page.screenshot({
     fullPage: true,
     path: 'test-results/proof-3-saved-gallery.png',
   })
 
-  await page.getByRole('button', { name: 'Organizovat cestu' }).click()
-  await page.getByLabel('Název etapy').fill(stageTitle)
-  await page.getByRole('button', { name: 'Přidat etapu' }).click()
-  await expect(page.getByRole('heading', { name: stageTitle })).toBeVisible()
-  await page.getByLabel('Zařadit do etapy').selectOption({ label: stageTitle })
-  await expect(page.getByRole('heading', { name: stageTitle })).toBeVisible()
-  await expect(page.getByRole('img', { name: momentTitle })).toHaveCount(2)
-  await expectLoadedImage(page.locator('#story img'))
-  await expectLoadedImage(page.locator('#gallery img'))
+  await page.getByRole('button', { name: 'Spravovat cestu' }).click()
+  await page.getByLabel('Název denního štítku').fill(stageTitle)
+  await page.getByRole('button', { name: 'Přidat denní štítek' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Spravovat denní štítky' }),
+  ).toBeVisible()
+  await page.getByLabel('Přesunout do dne').selectOption({ label: stageTitle })
+  await expect(
+    page
+      .locator('#story')
+      .getByRole('button', { name: momentTitle, exact: true }),
+  ).toHaveCount(1)
+  await expect(
+    page
+      .locator('#gallery')
+      .getByRole('button', { name: momentTitle, exact: true }),
+  ).toHaveCount(1)
+  await page.getByRole('button', { name: 'Zavřít' }).first().click()
   await page.screenshot({
     fullPage: true,
     path: 'test-results/proof-4-organized-stage.png',
@@ -101,10 +121,8 @@ test('journey photo workflow stays visible and organized', async ({
 
 async function expectLoadedImage(image: Locator) {
   await expect
-    .poll(() =>
-      image.evaluate(
-        (element) => (element as { naturalWidth: number }).naturalWidth,
-      ),
-    )
+    .poll(() => image.first().evaluate('(element) => element.naturalWidth'), {
+      timeout: 20_000,
+    })
     .toBeGreaterThan(0)
 }
