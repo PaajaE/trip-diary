@@ -3,8 +3,12 @@ import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import {
   canContributeToJourney,
   getJourney,
+  persistMergedJourneyCache,
 } from '@/entities/journey/api/journey.repository'
-import { saveJourneySnapshot } from '@/entities/journey/api/local-journey-cache.repository'
+import {
+  getJourneySnapshot,
+  saveJourneySnapshot,
+} from '@/entities/journey/api/local-journey-cache.repository'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { journeyDetailSchema } from '@/entities/journey/model/journey'
 import { getSupabaseClient } from '@/shared/api/supabase'
@@ -106,5 +110,41 @@ describe('journey offline cache', () => {
 
     await expect(canContributeToJourney(journeyId)).resolves.toBe(true)
     expect(getSupabaseClient).not.toHaveBeenCalled()
+  })
+
+  it('persists merged offline moments into the journey snapshot', async () => {
+    await saveJourneySnapshot(buildCachedJourney(), true)
+    const creatorId = crypto.randomUUID()
+    const entry = await createLocalEntry(creatorId, crypto.randomUUID(), {
+      body: 'Added after cache',
+      eventAt: new Date().toISOString(),
+      language: 'cs',
+      title: 'Offline moment',
+      type: 'story',
+      visibility: 'public',
+    })
+    await saveLocalJourneyLink({
+      creatorId,
+      entryId: entry.id,
+      journeyId,
+      stageId: null,
+      stopId: null,
+    })
+
+    const merged = await persistMergedJourneyCache(journeyId)
+    const snapshot = await getJourneySnapshot(journeyId)
+
+    expect(merged?.entries).toContainEqual(
+      expect.objectContaining({
+        id: entry.id,
+        title: 'Offline moment',
+      }),
+    )
+    expect(snapshot?.journey.entries).toContainEqual(
+      expect.objectContaining({
+        id: entry.id,
+        title: 'Offline moment',
+      }),
+    )
   })
 })

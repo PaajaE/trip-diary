@@ -81,6 +81,19 @@ export async function getJourneyFromCache(
   return applyLocalJourneyDeltas(snapshot.journey)
 }
 
+export async function persistMergedJourneyCache(
+  id: string,
+): Promise<JourneyDetail | null> {
+  const merged = await getJourneyFromCache(id)
+  if (merged === null) {
+    return null
+  }
+
+  const canContribute = await getCachedCanContributeToJourney(id)
+  await saveJourneySnapshot(merged, canContribute ?? true)
+  return merged
+}
+
 export async function getCachedCanContributeToJourney(
   id: string,
 ): Promise<boolean | undefined> {

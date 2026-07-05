@@ -3,10 +3,11 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
-import { getJourneyFromCache } from '@/entities/journey/api/journey.repository'
+import { persistMergedJourneyCache } from '@/entities/journey/api/journey.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
+import { isBrowserOnline } from '@/shared/lib/network'
 
 interface CreateJourneyMemoryPageProps {
   focus?: 'note'
@@ -57,22 +58,12 @@ export function CreateJourneyMemoryPage({
       photosFailed?: boolean
     },
   ) {
-    const refreshed = await getJourneyFromCache(journeyId)
+    const refreshed = await persistMergedJourneyCache(journeyId)
     if (refreshed !== null) {
       queryClient.setQueryData(['journeys', journeyId, 'local'], refreshed)
       queryClient.setQueryData(['journeys', journeyId], refreshed)
     }
-    await queryClient.invalidateQueries({ queryKey: ['journeys', journeyId] })
-    await queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-photo-locations', journeyId],
-    })
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-checklist', journeyId],
-    })
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-observations', journeyId],
-    })
+
     await navigate({
       params: { journeyId },
       search: {
@@ -83,6 +74,24 @@ export function CreateJourneyMemoryPage({
       },
       to: '/j/$journeyId',
     })
+
+    void queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-photo-locations', journeyId],
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-checklist', journeyId],
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ['journey-observations', journeyId],
+    })
+
+    if (isBrowserOnline()) {
+      void queryClient.invalidateQueries({
+        exact: true,
+        queryKey: ['journeys', journeyId],
+      })
+    }
   }
 
   return (
