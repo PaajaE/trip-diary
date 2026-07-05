@@ -77,9 +77,9 @@ export function JourneyOverview({
     (item) => item.checkedAt !== null,
   ).length
   const isEmpty =
+    moments.length === 0 &&
     journey.stages.length === 0 &&
-    journey.stops.length === 0 &&
-    journey.entries.length === 0
+    journey.stops.length === 0
 
   const summaryText =
     journey.summary === '' ? t('journey.summaryFallback') : journey.summary

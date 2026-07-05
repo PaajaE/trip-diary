@@ -131,7 +131,14 @@ describe('journey offline cache', () => {
       stopId: null,
     })
 
-    const merged = await persistMergedJourneyCache(journeyId)
+    const merged = await persistMergedJourneyCache(journeyId, {
+      body: 'Added after cache',
+      entryId: entry.id,
+      entrySlug: entry.slug,
+      entryTitle: 'Offline moment',
+      eventAt: entry.eventAt,
+      type: entry.type,
+    })
     const snapshot = await getJourneySnapshot(journeyId)
 
     expect(merged?.entries).toContainEqual(

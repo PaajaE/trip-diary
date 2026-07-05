@@ -11,6 +11,41 @@ import {
 import { localDb } from '@/shared/lib/local-db'
 import { listDeletedRecordIds } from '@/shared/lib/local-deleted-records'
 
+export interface LocalSavedMoment {
+  body: string
+  entryId: string
+  entrySlug: string | null
+  entryTitle: string
+  eventAt: string | null
+  type: JourneyDetail['entries'][number]['type']
+}
+
+export function upsertJourneyEntryFromLocalSave(
+  journey: JourneyDetail,
+  saved: LocalSavedMoment,
+): JourneyDetail {
+  const nextEntry: JourneyDetail['entries'][number] = {
+    body: saved.body,
+    eventAt: saved.eventAt,
+    id: saved.entryId,
+    slug: saved.entrySlug,
+    stageId: null,
+    stopId: null,
+    syncStatus: 'pending',
+    title: saved.entryTitle,
+    type: saved.type,
+  }
+  const entries = [
+    nextEntry,
+    ...journey.entries.filter((entry) => entry.id !== saved.entryId),
+  ].sort(sortEntriesByEventAt)
+
+  return journeyDetailSchema.parse({
+    ...journey,
+    entries,
+  })
+}
+
 function sortEntriesByEventAt(
   left: JourneyDetail['entries'][number],
   right: JourneyDetail['entries'][number],

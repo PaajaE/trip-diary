@@ -25,7 +25,11 @@ import {
   updateJourneyStage as updateJourneyStageStructure,
 } from '@/entities/journey/api/local-journey-structure.repository'
 import { listJourneyObservationsRemote } from '@/entities/nature/api/observation.repository'
-import { applyLocalJourneyDeltas } from '@/entities/journey/api/journey-local-merge'
+import {
+  applyLocalJourneyDeltas,
+  type LocalSavedMoment,
+  upsertJourneyEntryFromLocalSave,
+} from '@/entities/journey/api/journey-local-merge'
 import { createLocalJourney } from '@/entities/journey/api/local-journey.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
@@ -83,16 +87,24 @@ export async function getJourneyFromCache(
 
 export async function persistMergedJourneyCache(
   id: string,
+  savedMoment?: LocalSavedMoment,
 ): Promise<JourneyDetail | null> {
   const merged = await getJourneyFromCache(id)
   if (merged === null) {
     return null
   }
 
+  const withSavedMoment =
+    savedMoment === undefined
+      ? merged
+      : upsertJourneyEntryFromLocalSave(merged, savedMoment)
   const canContribute = await getCachedCanContributeToJourney(id)
-  await saveJourneySnapshot(merged, canContribute ?? true)
-  return merged
+  await saveJourneySnapshot(withSavedMoment, canContribute ?? true)
+  return withSavedMoment
 }
+
+export type { LocalSavedMoment }
+export { upsertJourneyEntryFromLocalSave }
 
 export async function getCachedCanContributeToJourney(
   id: string,

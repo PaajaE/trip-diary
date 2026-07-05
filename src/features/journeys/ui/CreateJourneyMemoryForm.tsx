@@ -47,11 +47,14 @@ interface CreateJourneyMemoryFormProps {
   natureGoal?: Pick<JourneyChecklistItem, 'id' | 'title'>
   noteFieldRef?: RefObject<HTMLTextAreaElement | null>
   onCreated: (meta: {
+    body: string
     entryId: string
     entrySlug: string
     entryTitle: string
+    eventAt: string
     photoIds: string[]
     photosFailed?: boolean
+    type: CreateJourneyMemoryInput['type']
   }) => void
   spaceId: string
 }
@@ -357,11 +360,14 @@ export function CreateJourneyMemoryForm({
       photosFailed = true
     }
     onCreated({
+      body: input.body,
       entryId: entry.id,
       entrySlug: entry.slug ?? createPublicSlug(resolvedTitle, entry.id),
       entryTitle: resolvedTitle,
+      eventAt: input.eventAt,
       photoIds,
       photosFailed,
+      type: input.type,
     })
     clearJourneyMemoryPhotoDraft(journey.id)
 

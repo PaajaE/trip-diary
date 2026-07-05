@@ -3,7 +3,13 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
-import { persistMergedJourneyCache } from '@/entities/journey/api/journey.repository'
+import {
+  getCachedCanContributeToJourney,
+  persistMergedJourneyCache,
+  type LocalSavedMoment,
+  upsertJourneyEntryFromLocalSave,
+} from '@/entities/journey/api/journey.repository'
+import { saveJourneySnapshot } from '@/entities/journey/api/local-journey-cache.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
@@ -52,13 +58,19 @@ export function CreateJourneyMemoryPage({
   }, [focus])
 
   async function navigateToSavedMoment(
-    entryId: string,
+    saved: LocalSavedMoment,
     options?: {
       naturePrompt?: boolean
       photosFailed?: boolean
     },
   ) {
-    const refreshed = await persistMergedJourneyCache(journeyId)
+    let refreshed = await persistMergedJourneyCache(journeyId, saved)
+    if (refreshed === null && journeyQuery.data != null) {
+      refreshed = upsertJourneyEntryFromLocalSave(journeyQuery.data, saved)
+      const canContribute = await getCachedCanContributeToJourney(journeyId)
+      await saveJourneySnapshot(refreshed, canContribute ?? true)
+    }
+
     if (refreshed !== null) {
       queryClient.setQueryData(['journeys', journeyId, 'local'], refreshed)
       queryClient.setQueryData(['journeys', journeyId], refreshed)
@@ -67,8 +79,10 @@ export function CreateJourneyMemoryPage({
     await navigate({
       params: { journeyId },
       search: {
-        highlight: entryId,
-        ...(options?.naturePrompt === true ? { naturePrompt: entryId } : {}),
+        highlight: saved.entryId,
+        ...(options?.naturePrompt === true
+          ? { naturePrompt: saved.entryId }
+          : {}),
         ...(natureGoalId !== undefined ? { natureGoalId } : {}),
         ...(options?.photosFailed === true ? { notice: 'photos_failed' } : {}),
       },
@@ -137,10 +151,20 @@ export function CreateJourneyMemoryPage({
           noteFieldRef={noteFieldRef}
           {...(natureGoal !== null ? { natureGoal } : {})}
           onCreated={(meta) => {
-            void navigateToSavedMoment(meta.entryId, {
-              naturePrompt: meta.photoIds.length > 0,
-              ...(meta.photosFailed === true ? { photosFailed: true } : {}),
-            })
+            void navigateToSavedMoment(
+              {
+                body: meta.body,
+                entryId: meta.entryId,
+                entrySlug: meta.entrySlug,
+                entryTitle: meta.entryTitle,
+                eventAt: meta.eventAt,
+                type: meta.type,
+              },
+              {
+                naturePrompt: meta.photoIds.length > 0,
+                ...(meta.photosFailed === true ? { photosFailed: true } : {}),
+              },
+            )
           }}
           spaceId={journeyQuery.data.spaceId}
         />
