@@ -13,8 +13,7 @@ export const cs: TranslationResources = {
     },
     syncNow: 'Synchronizovat',
     mobile: {
-      accessibilityLabel:
-        '{{status}}. {{pending}} čeká, {{failed}} selhalo.',
+      accessibilityLabel: '{{status}}. {{pending}} čeká, {{failed}} selhalo.',
       failedNeedsAttention: 'Některé změny vyžadují pozornost',
       guidanceGenericRetryable: 'Zkontrolujte připojení a zkuste to znovu.',
       guidanceGenericTerminal:
@@ -32,7 +31,8 @@ export const cs: TranslationResources = {
         'Některé změny se nesynchronizovaly. Zkuste to znovu, až budete online.',
       nextStepFailedTerminal:
         'Některé změny nelze synchronizovat automaticky. Možná je budete muset přidat znovu.',
-      nextStepPending: 'Změny se synchronizují automaticky, až bude vše připravené.',
+      nextStepPending:
+        'Změny se synchronizují automaticky, až bude vše připravené.',
       nextStepProcessing: 'Odesílám vaše změny…',
       nextStepSynced: 'Vaše změny jsou aktuální.',
       nextStepWaitingNetwork:
@@ -87,6 +87,7 @@ export const cs: TranslationResources = {
   },
   brand: 'Trip Diary',
   common: {
+    cancel: 'Zrušit',
     loading: 'Načítání…',
     tryAgain: 'Zkusit znovu',
   },
@@ -189,8 +190,13 @@ export const cs: TranslationResources = {
     photoPickerError:
       'Galerie se nepodařila otevřít nebo z ní nešlo načíst metadata. Zkus to prosím znovu.',
     photoPickerHint:
-      'Na mobilu otevřeme galerii a zkusíme převzít čas i polohu automaticky.',
+      'Na mobilu otevřeme galerii a zkusíme převzít čas i polohu automaticky. Na iOS klepni na fotky pro výběr a pak na Přidat.',
     photoPickerLoading: 'Otevírám galerii…',
+    photoPickerCanceled: 'Nebyly vybrány žádné fotky.',
+    photoPickerEmptyLibrary:
+      'Knihovna fotek vypadá prázdně. V simulátoru přetáhni obrázky do okna simulátoru nebo je přidej v aplikaci Fotky a zkus to znovu.',
+    photoPickerLimitedAccess:
+      'Trip Diary má přístup jen k vybraným fotkám. Povol plný přístup v Nastavení nebo přidej fotky do omezeného výběru.',
     photoProcessingFailed:
       'Vzpomínka se uložila, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     filePickerAction: 'Vybrat fotky ze souborů',
@@ -467,6 +473,9 @@ export const cs: TranslationResources = {
     memoryTitle: 'Přidat moment do cesty',
     manageTrip: 'Spravovat cestu',
     manageClose: 'Zavřít',
+    momentHasLocation: 'Má uloženou polohu',
+    noMomentsYet: 'Zatím žádné momenty',
+    openStage: 'Otevřít etapu',
     more: 'Více',
     moreCopyLink: 'Zkopírovat veřejný odkaz',
     moreNature: 'Příroda na cestě',

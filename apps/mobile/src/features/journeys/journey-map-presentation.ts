@@ -51,8 +51,7 @@ export function resolveJourneyMapPresentation(input: {
 }): JourneyMapPresentation {
   const { mappableStops, result } = input
   const showCachedBanner =
-    result?.isFromCache === true &&
-    (result.isOffline || result.refreshFailed)
+    result?.isFromCache === true && (result.isOffline || result.refreshFailed)
   const showMapUnavailable =
     result?.isOffline === true &&
     mappableStops.length === 0 &&

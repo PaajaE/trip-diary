@@ -1,4 +1,4 @@
-import { Stack, useLocalSearchParams } from 'expo-router'
+import { Link, Stack, useLocalSearchParams } from 'expo-router'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
@@ -9,25 +9,47 @@ import {
   Text,
   View,
 } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { formatJourneyDateRange, resolveDateLocale } from '@trip-diary/utils'
 import type { JourneyHeader } from '@trip-diary/core/journey'
-import { useJourneyQuery, useJourneyStopsQuery } from '@/features/journeys'
-import { useAuth } from '@/platform/auth/AuthProvider'
+import {
+  journeyQueryKeys,
+  useJourneyQuery,
+  useJourneyStopsQuery,
+} from '@/features/journeys'
+import { useJourneyFullDetailQuery } from '@/features/journeys/use-journey-full-detail-query'
+import { JourneyContentSection } from '@/features/journeys/ui/JourneyContentSection'
 import { JourneyMapSection } from '@/features/journeys/ui/JourneyMapSection'
+import { useAuth } from '@/platform/auth/AuthProvider'
 import { colors, spacing } from '@/foundation/theme'
 
 export default function JourneyDetailScreen() {
   const { id: journeyRouteId } = useLocalSearchParams<{ id: string }>()
   const id = journeyRouteId.length > 0 ? journeyRouteId : undefined
+  const queryClient = useQueryClient()
   const { session } = useAuth()
   const { i18n, t } = useTranslation()
   const userId = session?.user.id
   const { data, error, isLoading, isRevalidating, refetch } =
     useJourneyQuery(id)
   const {
-    isFetching: isStopsFetching,
-    refetch: refetchStops,
-  } = useJourneyStopsQuery(userId, id)
+    data: contentData,
+    isFetching: isContentFetching,
+    refetch: refetchContent,
+  } = useJourneyFullDetailQuery(id)
+  const { isFetching: isStopsFetching, refetch: refetchStops } =
+    useJourneyStopsQuery(userId, id)
+
+  function refreshAll(): void {
+    void refetch()
+    void refetchContent()
+    void refetchStops()
+    if (id !== undefined) {
+      void queryClient.invalidateQueries({
+        queryKey: journeyQueryKeys.content(id),
+      })
+    }
+  }
 
   if (id === undefined) {
     return (
@@ -88,20 +110,60 @@ export default function JourneyDetailScreen() {
     t('journey.dateUnknown'),
   )
   const statusLabel = translateJourneyStatus(journey, t)
+  const fullDetail = contentData?.detail
 
   return (
     <>
-      <Stack.Screen options={{ title: journey.title }} />
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <View style={styles.headerActions}>
+              <Link
+                href={{
+                  pathname: '/journey/[id]/moment/new',
+                  params: { id: journey.id },
+                }}
+                asChild
+              >
+                <Pressable
+                  accessibilityLabel={t('journey.add')}
+                  accessibilityRole="button"
+                  style={styles.headerButton}
+                  testID="journey-add-moment"
+                >
+                  <Text style={styles.headerButtonText}>
+                    {t('journey.add')}
+                  </Text>
+                </Pressable>
+              </Link>
+              <Link
+                href={{
+                  pathname: '/journey/[id]/manage',
+                  params: { id: journey.id },
+                }}
+                asChild
+              >
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.headerButton}
+                >
+                  <Text style={styles.headerButtonText}>
+                    {t('journey.manageTrip')}
+                  </Text>
+                </Pressable>
+              </Link>
+            </View>
+          ),
+          title: journey.title,
+        }}
+      />
       <ScrollView
         contentContainerStyle={styles.container}
         refreshControl={
           <RefreshControl
             colors={[colors.primary]}
-            onRefresh={() => {
-              void refetch()
-              void refetchStops()
-            }}
-            refreshing={isRevalidating || isStopsFetching}
+            onRefresh={refreshAll}
+            refreshing={isRevalidating || isStopsFetching || isContentFetching}
             tintColor={colors.primary}
           />
         }
@@ -121,11 +183,12 @@ export default function JourneyDetailScreen() {
           {dateLabel} · {statusLabel}
         </Text>
 
+        {fullDetail !== undefined ? (
+          <JourneyContentSection journey={fullDetail} />
+        ) : null}
+
         {session?.user.id !== undefined ? (
-          <JourneyMapSection
-            journeyId={journey.id}
-            userId={session.user.id}
-          />
+          <JourneyMapSection journeyId={journey.id} userId={session.user.id} />
         ) : null}
       </ScrollView>
     </>
@@ -151,11 +214,27 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     flexGrow: 1,
     padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
   },
   error: {
     color: colors.error,
     fontSize: 16,
     textAlign: 'center',
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  headerButton: {
+    minHeight: 44,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  headerButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   meta: {
     color: colors.textMuted,

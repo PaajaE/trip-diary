@@ -4,7 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTranslation } from 'react-i18next'
-import { computeJourneyStopMapCamera, type MapCoordinate } from '@trip-diary/utils'
+import {
+  computeJourneyStopMapCamera,
+  type MapCoordinate,
+} from '@trip-diary/utils'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { NatureObservation } from '@/entities/nature/model/observation'
@@ -674,8 +677,7 @@ function syncRouteLayer(
     },
     paint: {
       'line-color': '#285943',
-      'line-dasharray':
-        routeLine.source === 'approximate' ? [2, 1.5] : [1, 0],
+      'line-dasharray': routeLine.source === 'approximate' ? [2, 1.5] : [1, 0],
       'line-opacity': 0.72,
       'line-width': 3,
     },

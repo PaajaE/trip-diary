@@ -1,5 +1,8 @@
 import type { NetworkState } from './network-status'
-import type { NetworkStateListener, NetworkStateProvider } from './netinfo-provider'
+import type {
+  NetworkStateListener,
+  NetworkStateProvider,
+} from './netinfo-provider'
 
 const INITIAL_UNKNOWN_STATE: NetworkState = {
   isConnected: false,

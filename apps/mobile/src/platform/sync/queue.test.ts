@@ -67,13 +67,8 @@ vi.mock('@/platform/storage/database', () => ({
     }),
     runAsync: vi.fn(async (sql: string, ...params: unknown[]) => {
       if (sql.includes('INSERT INTO sync_queue')) {
-        const [id, operationType, payload, createdAt, statusUpdatedAt] = params as [
-          string,
-          string,
-          string,
-          string,
-          string,
-        ]
+        const [id, operationType, payload, createdAt, statusUpdatedAt] =
+          params as [string, string, string, string, string]
         syncQueue.set(id, {
           created_at: createdAt,
           id,
@@ -89,7 +84,11 @@ vi.mock('@/platform/storage/database', () => ({
         sql.includes("SET status = 'pending', status_updated_at = ?") &&
         sql.includes('payload = ?')
       ) {
-        const [statusUpdatedAt, payload, id] = params as [string, string, string]
+        const [statusUpdatedAt, payload, id] = params as [
+          string,
+          string,
+          string,
+        ]
         const row = syncQueue.get(id)
         if (row !== undefined) {
           row.status = 'pending'
@@ -103,7 +102,11 @@ vi.mock('@/platform/storage/database', () => ({
         sql.includes("SET status = 'pending', status_updated_at") &&
         sql.includes("status = 'processing'")
       ) {
-        const [now, cutoff, ...excludes] = params as [string, string, ...string[]]
+        const [now, cutoff, ...excludes] = params as [
+          string,
+          string,
+          ...string[],
+        ]
         let changes = 0
 
         for (const row of syncQueue.values()) {
@@ -127,7 +130,11 @@ vi.mock('@/platform/storage/database', () => ({
         sql.includes("SET status = 'pending', status_updated_at = ?") &&
         sql.includes('payload = ?')
       ) {
-        const [statusUpdatedAt, payload, id] = params as [string, string, string]
+        const [statusUpdatedAt, payload, id] = params as [
+          string,
+          string,
+          string,
+        ]
         const row = syncQueue.get(id)
         if (row !== undefined) {
           row.status = 'pending'
@@ -152,7 +159,11 @@ vi.mock('@/platform/storage/database', () => ({
       }
 
       if (sql.includes('UPDATE sync_queue SET payload')) {
-        const [payload, statusUpdatedAt, id] = params as [string, string, string]
+        const [payload, statusUpdatedAt, id] = params as [
+          string,
+          string,
+          string,
+        ]
         const row = syncQueue.get(id)
         if (row !== undefined) {
           row.payload = payload
@@ -201,6 +212,7 @@ import {
   processNextSyncOperation,
   recoverStaleProcessingOperations,
   resetRetryableFailedOperations,
+  waitForSyncOperation,
 } from './queue'
 import { PHOTO_UPLOAD_OPERATION } from './photo-upload'
 
@@ -587,6 +599,46 @@ describe('sync queue', () => {
       retryableFailed: 1,
       terminalFailed: 1,
     })
+  })
+
+  it('waits for an operation that another drain worker already claimed', async () => {
+    let releaseUpload: (() => void) | undefined
+    const uploadStarted = new Promise<void>((resolve) => {
+      processPhotoUploadOperation.mockImplementation(async () => {
+        resolve()
+        await new Promise<void>((unlock) => {
+          releaseUpload = unlock
+        })
+        return {
+          photoId: 'photo-1',
+          storagePath: 'user-1/photo-1/preview.jpg',
+        }
+      })
+    })
+
+    await enqueueSyncOperation({
+      id: 'photo-op-wait',
+      operationType: PHOTO_UPLOAD_OPERATION,
+      payload: photoUploadPayload,
+    })
+
+    const background = processNextSyncOperation()
+    await uploadStarted
+
+    const waitPromise = waitForSyncOperation('photo-op-wait', {
+      pollIntervalMs: 10,
+      timeoutMs: 5_000,
+    })
+
+    releaseUpload?.()
+
+    const [backgroundResult, waited] = await Promise.all([
+      background,
+      waitPromise,
+    ])
+
+    expect(backgroundResult?.status).toBe('synced')
+    expect(waited.status).toBe('synced')
   })
 
   it('resets only retryable failed operations to pending', async () => {

@@ -72,7 +72,8 @@ export function buildPublicJourneyGallery(input: {
 
   for (const stageContent of input.stageContents) {
     const groupImages = flatImages.filter(
-      (image) => image.stageGroupKey === getJourneyStageContentKey(stageContent),
+      (image) =>
+        image.stageGroupKey === getJourneyStageContentKey(stageContent),
     )
     if (groupImages.length === 0) {
       continue
@@ -120,11 +121,7 @@ export function resolvePublicGalleryGroupLabel(input: {
     if (input.stageContent.stage === null) {
       return input.groupImageCount >= input.minImagesForDayHeader &&
         shouldShowJourneyStageHeader(input.stageContent)
-        ? getJourneyStageContentLabel(
-            input.stageContent,
-            input.t,
-            input.locale,
-          )
+        ? getJourneyStageContentLabel(input.stageContent, input.t, input.locale)
         : null
     }
 

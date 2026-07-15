@@ -38,9 +38,7 @@ export class RootErrorBoundary extends Component<
     const { error } = this.state
 
     if (error !== null) {
-      return (
-        <AppErrorFallback error={error} onReload={this.handleReload} />
-      )
+      return <AppErrorFallback error={error} onReload={this.handleReload} />
     }
 
     return this.props.children

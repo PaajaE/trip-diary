@@ -107,9 +107,9 @@ describe('public-journey-map', () => {
     const moment = createMoment()
     const points = getPublicJourneyMapPoints([moment], [])
 
-    expect(
-      resolvePublicMapFocusPointId(moment.entry.id, null, points),
-    ).toBe(`moment:${moment.entry.id}`)
+    expect(resolvePublicMapFocusPointId(moment.entry.id, null, points)).toBe(
+      `moment:${moment.entry.id}`,
+    )
   })
 
   it('prefers a pending photo pin when showing a gallery photo on the map', () => {

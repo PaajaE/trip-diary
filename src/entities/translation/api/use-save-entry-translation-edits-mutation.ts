@@ -1,5 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import type { EntryTranslation, TranslationLocale } from '@trip-diary/translation'
+import type {
+  EntryTranslation,
+  TranslationLocale,
+} from '@trip-diary/translation'
 import { saveEntryTranslationEdits } from '@/entities/translation/api/translation.repository'
 import { translationQueryKeys } from '@/entities/translation/api/translation-query-keys'
 

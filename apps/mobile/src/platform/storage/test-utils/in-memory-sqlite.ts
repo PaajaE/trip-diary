@@ -76,7 +76,11 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
     return created
   }
 
-  function addColumn(tableName: string, columnName: string, defaultValue: unknown) {
+  function addColumn(
+    tableName: string,
+    columnName: string,
+    defaultValue: unknown,
+  ) {
     const table = tables.get(tableName)
     if (table === undefined || table.columns.includes(columnName)) {
       return
@@ -185,13 +189,14 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
       return [...table.rows.values()]
         .filter((row) => row.user_id === userId)
         .sort(
-          (left, right) =>
-            Number(left.sort_order) - Number(right.sort_order),
+          (left, right) => Number(left.sort_order) - Number(right.sort_order),
         )
     },
 
     getJourneyStopCacheRow(userId, journeyId) {
-      return tables.get('journey_stop_cache')?.rows.get(`${userId}:${journeyId}`)
+      return tables
+        .get('journey_stop_cache')
+        ?.rows.get(`${userId}:${journeyId}`)
     },
 
     async execAsync(sql) {
@@ -213,12 +218,16 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return
       }
 
-      if (normalized.includes('CREATE TABLE IF NOT EXISTS _schema_migrations')) {
+      if (
+        normalized.includes('CREATE TABLE IF NOT EXISTS _schema_migrations')
+      ) {
         ensureTable('_schema_migrations', ['id', 'name', 'applied_at'])
         return
       }
 
-      if (normalized.includes('CREATE TABLE IF NOT EXISTS journey_list_cache')) {
+      if (
+        normalized.includes('CREATE TABLE IF NOT EXISTS journey_list_cache')
+      ) {
         ensureTable('journey_list_cache', [
           'user_id',
           'journey_id',
@@ -229,11 +238,17 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return
       }
 
-      if (normalized.includes('CREATE INDEX IF NOT EXISTS idx_journey_list_cache_user_sort')) {
+      if (
+        normalized.includes(
+          'CREATE INDEX IF NOT EXISTS idx_journey_list_cache_user_sort',
+        )
+      ) {
         return
       }
 
-      if (normalized.includes('CREATE TABLE IF NOT EXISTS journey_stop_cache')) {
+      if (
+        normalized.includes('CREATE TABLE IF NOT EXISTS journey_stop_cache')
+      ) {
         ensureTable('journey_stop_cache', [
           'user_id',
           'journey_id',
@@ -243,7 +258,11 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return
       }
 
-      if (normalized.includes('ALTER TABLE sync_queue ADD COLUMN status_updated_at')) {
+      if (
+        normalized.includes(
+          'ALTER TABLE sync_queue ADD COLUMN status_updated_at',
+        )
+      ) {
         addColumn('sync_queue', 'status_updated_at', '')
         return
       }
@@ -291,8 +310,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return [...table.rows.values()]
           .filter((row) => row.user_id === userId)
           .sort(
-            (left, right) =>
-              Number(left.sort_order) - Number(right.sort_order),
+            (left, right) => Number(left.sort_order) - Number(right.sort_order),
           )
           .map(
             (row) =>
@@ -308,7 +326,10 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
       return []
     },
 
-    async getFirstAsync<T>(sql: string, ...params: unknown[]): Promise<T | null> {
+    async getFirstAsync<T>(
+      sql: string,
+      ...params: unknown[]
+    ): Promise<T | null> {
       if (sql.includes('SELECT id FROM _schema_migrations WHERE id = ?')) {
         const table = tables.get('_schema_migrations')
         const id = params[0]
@@ -361,14 +382,22 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
 
     async runAsync(sql, ...params) {
       if (sql.includes('INSERT INTO _schema_migrations')) {
-        const table = ensureTable('_schema_migrations', ['id', 'name', 'applied_at'])
+        const table = ensureTable('_schema_migrations', [
+          'id',
+          'name',
+          'applied_at',
+        ])
         const [id, name, appliedAt] = params as [number, string, string]
         table.rows.set(String(id), { applied_at: appliedAt, id, name })
         return { changes: 1 }
       }
 
       if (sql.includes('INSERT INTO journey_cache')) {
-        const table = ensureTable('journey_cache', ['id', 'payload', 'cached_at'])
+        const table = ensureTable('journey_cache', [
+          'id',
+          'payload',
+          'cached_at',
+        ])
         const [id, payload, cachedAt] = params as [string, string, string]
         table.rows.set(id, { cached_at: cachedAt, id, payload })
         return { changes: 1 }
@@ -443,7 +472,9 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return { changes: 1 }
       }
 
-      if (sql.includes('UPDATE sync_queue SET status_updated_at = created_at')) {
+      if (
+        sql.includes('UPDATE sync_queue SET status_updated_at = created_at')
+      ) {
         const table = tables.get('sync_queue')
         if (table === undefined) {
           return { changes: 0 }
@@ -465,7 +496,11 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         sql.includes("SET status = 'pending', status_updated_at = ?") &&
         sql.includes('payload = ?')
       ) {
-        const [statusUpdatedAt, payload, id] = params as [string, string, string]
+        const [statusUpdatedAt, payload, id] = params as [
+          string,
+          string,
+          string,
+        ]
         const row = tables.get('sync_queue')?.rows.get(id)
         if (row !== undefined) {
           row.status = 'pending'
@@ -479,7 +514,11 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         sql.includes("SET status = 'pending', status_updated_at") &&
         sql.includes("status = 'processing'")
       ) {
-        const [now, cutoff, ...excludes] = params as [string, string, ...string[]]
+        const [now, cutoff, ...excludes] = params as [
+          string,
+          string,
+          ...string[],
+        ]
         const table = tables.get('sync_queue')
         if (table === undefined) {
           return { changes: 0 }
@@ -518,7 +557,11 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
       }
 
       if (sql.includes('UPDATE sync_queue SET payload')) {
-        const [payload, statusUpdatedAt, id] = params as [string, string, string]
+        const [payload, statusUpdatedAt, id] = params as [
+          string,
+          string,
+          string,
+        ]
         const row = tables.get('sync_queue')?.rows.get(id)
         if (row !== undefined) {
           row.payload = payload

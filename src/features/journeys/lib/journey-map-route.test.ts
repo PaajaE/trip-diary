@@ -225,9 +225,10 @@ describe('journey-map-route', () => {
       stop: null,
     })
 
-    expect(
-      resolveApproximateRouteCoordinates([first, second, third]),
-    ).toEqual([sharedLocation, { latitude: 51, longitude: 15 }])
+    expect(resolveApproximateRouteCoordinates([first, second, third])).toEqual([
+      sharedLocation,
+      { latitude: 51, longitude: 15 },
+    ])
   })
 
   it('uses route coordinates for public bounds when available', () => {

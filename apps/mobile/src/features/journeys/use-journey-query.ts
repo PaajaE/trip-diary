@@ -31,10 +31,7 @@ export function useJourneyQuery(journeyId: string | undefined) {
       return { isOffline: true, journey: cacheQuery.data }
     },
     queryFn: () =>
-      fetchJourneyDetail(
-        requireJourneyId(journeyId),
-        cacheQuery.data ?? null,
-      ),
+      fetchJourneyDetail(requireJourneyId(journeyId), cacheQuery.data ?? null),
     queryKey: journeyQueryKeys.detail(journeyId ?? ''),
   })
 

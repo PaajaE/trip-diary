@@ -1,7 +1,10 @@
 name: Deploy GitHub Pages
 
+# Deploy only after CI succeeds on main (or via manual dispatch).
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -15,10 +18,25 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  ci-gate:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Confirm CI gate
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual dispatch — CI gate waived by operator."
+          else
+            echo "CI workflow ${{ github.event.workflow_run.id }} concluded successfully."
+          fi
+
   migrate:
+    needs: ci-gate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: supabase/setup-cli@v1
         with:
           version: 2.75.0
@@ -68,13 +86,15 @@ jobs:
         run: supabase functions deploy translate-entry --project-ref "$SUPABASE_PROJECT_ID"
 
   deploy:
-    needs: migrate
+    needs: [ci-gate, migrate]
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: pnpm/action-setup@v4
         with:
           version: 11.5.2

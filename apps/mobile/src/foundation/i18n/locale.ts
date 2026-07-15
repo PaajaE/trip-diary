@@ -4,7 +4,9 @@ export const LOCALE_STORAGE_KEY = 'trip-diary.locale'
 export const DEFAULT_LOCALE: SupportedLocale = 'en'
 export const FALLBACK_LOCALE: SupportedLocale = 'en'
 
-export function normalizeLocale(value: string | null | undefined): SupportedLocale | null {
+export function normalizeLocale(
+  value: string | null | undefined,
+): SupportedLocale | null {
   if (value === 'cs' || value === 'en') {
     return value
   }

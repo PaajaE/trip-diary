@@ -23,13 +23,13 @@ initializeMobileDatabase(): Promise<SQLiteDatabase> // alias
 
 Schema version tracking uses `_schema_migrations (id, name, applied_at)`.
 
-| Migration | Name | Purpose |
-| --- | --- | --- |
-| 1 | `create_journey_cache` | Journey detail offline cache |
-| 2 | `create_sync_queue` | Sync operation queue (base columns) |
-| 3 | `add_sync_queue_status_updated_at` | Adds column if missing; backfills empty values from `created_at` |
-| 4 | `create_journey_list_cache` | Offline journey list per user |
-| 5 | `create_journey_stop_cache` | Offline journey stop snapshot per user + journey |
+| Migration | Name                               | Purpose                                                          |
+| --------- | ---------------------------------- | ---------------------------------------------------------------- |
+| 1         | `create_journey_cache`             | Journey detail offline cache                                     |
+| 2         | `create_sync_queue`                | Sync operation queue (base columns)                              |
+| 3         | `add_sync_queue_status_updated_at` | Adds column if missing; backfills empty values from `created_at` |
+| 4         | `create_journey_list_cache`        | Offline journey list per user                                    |
+| 5         | `create_journey_stop_cache`        | Offline journey stop snapshot per user + journey                 |
 
 **Upgrade guarantee:** Existing Stage 3 installations keep journey cache rows, queue operations, statuses, payloads, and non-empty `status_updated_at` values. Empty timestamps are backfilled from `created_at`. No app-data clear required.
 
@@ -41,11 +41,11 @@ Schema version tracking uses `_schema_migrations (id, name, applied_at)`.
 
 Product code reads network state through `NetworkProvider` / `useNetworkState()`. NetInfo is encapsulated in `createNetInfoNetworkStateProvider()`.
 
-| Status | Semantics |
-| --- | --- |
-| `online` | `isConnected === true` **and** `isInternetReachable === true` |
-| `offline` | disconnected **or** explicit `isInternetReachable === false` |
-| `unknown` | connected but reachability not yet confirmed (`null`) |
+| Status    | Semantics                                                     |
+| --------- | ------------------------------------------------------------- |
+| `online`  | `isConnected === true` **and** `isInternetReachable === true` |
+| `offline` | disconnected **or** explicit `isInternetReachable === false`  |
+| `unknown` | connected but reachability not yet confirmed (`null`)         |
 
 Sync processing waits until status is `online`. Unknown is treated conservatively as not online.
 
@@ -83,10 +83,10 @@ Device note: lifecycle integration is auto-tested; not hardware-validated in thi
 
 Expo Router uses two route groups:
 
-| Group | Path examples | Guard |
-| --- | --- | --- |
-| `(auth)` | `/sign-in` | Redirects to `/` when session exists |
-| `(app)` | `/`, `/journey/[id]`, `/dev-checklist` (`__DEV__`) | Redirects to `/sign-in` when signed out |
+| Group    | Path examples                                      | Guard                                   |
+| -------- | -------------------------------------------------- | --------------------------------------- |
+| `(auth)` | `/sign-in`                                         | Redirects to `/` when session exists    |
+| `(app)`  | `/`, `/journey/[id]`, `/dev-checklist` (`__DEV__`) | Redirects to `/sign-in` when signed out |
 
 Auth ownership: `resolveAuthNavigation()` in `(auth)/_layout.tsx` and `(app)/_layout.tsx`. Screens do not duplicate redirect logic.
 
@@ -96,11 +96,11 @@ Deep links unchanged: `/`, `/sign-in`, `/journey/:id`.
 
 ## Localization (`foundation/i18n/`)
 
-| Piece | Role |
-| --- | --- |
-| `@trip-diary/i18n` | Single translation source (same keys as web) |
-| `I18nProvider` | Loads persisted/device locale, wraps app |
-| `locale-storage.ts` | AsyncStorage persistence (`trip-diary.locale`) |
+| Piece               | Role                                              |
+| ------------------- | ------------------------------------------------- |
+| `@trip-diary/i18n`  | Single translation source (same keys as web)      |
+| `I18nProvider`      | Loads persisted/device locale, wraps app          |
+| `locale-storage.ts` | AsyncStorage persistence (`trip-diary.locale`)    |
 | `expo-localization` | Device language detection (`cs` vs fallback `en`) |
 
 Product screens use `useTranslation()`. Configuration errors before providers mount read `en` directly.
@@ -142,22 +142,22 @@ getCachedJourney(journeyId: string): Promise<JourneyHeader | null>
 clearJourneyCache(journeyId: string): Promise<void>
 ```
 
-| Status        | Android (2026-07-10)                                      |
-| ------------- | ----------------------------------------------------------- |
-| Implemented   | ✅                                                          |
-| Auto-tested   | ✅ (mocked SQLite)                                          |
+| Status        | Android (2026-07-10)                                           |
+| ------------- | -------------------------------------------------------------- |
+| Implemented   | ✅                                                             |
+| Auto-tested   | ✅ (mocked SQLite)                                             |
 | Device-tested | ✅ Offline banner + **Kanada 2026** from cache (airplane mode) |
 
 ### Journey list cache (`apps/mobile/src/platform/storage/journey-list-cache.ts`)
 
 Migration **4** — `journey_list_cache` table: one row per journey per authenticated user.
 
-| Column | Purpose |
-| --- | --- |
-| `user_id`, `journey_id` | Composite primary key; isolates cache by account |
-| `payload` | JSON legacy snake_case wire format validated into `@trip-diary/core` `JourneyListItem` |
-| `sort_order` | Preserves remote list order |
-| `cached_at` | Snapshot freshness marker (ISO string) |
+| Column                  | Purpose                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| `user_id`, `journey_id` | Composite primary key; isolates cache by account                                       |
+| `payload`               | JSON legacy snake_case wire format validated into `@trip-diary/core` `JourneyListItem` |
+| `sort_order`            | Preserves remote list order                                                            |
+| `cached_at`             | Snapshot freshness marker (ISO string)                                                 |
 
 ```typescript
 readCachedJourneyList(userId: string): Promise<CachedJourneyListSnapshot>
@@ -181,21 +181,21 @@ clearCachedJourneyListForUser(userId: string): Promise<void>
 
 **Deferred:** automatic cache eviction, background refresh, pagination.
 
-| Status        | Notes |
-| ------------- | ----- |
-| Implemented   | ✅ |
+| Status        | Notes                                                            |
+| ------------- | ---------------------------------------------------------------- |
+| Implemented   | ✅                                                               |
 | Auto-tested   | ✅ migration upgrade, repository isolation, hook semantics, i18n |
-| Device-tested | ☐ Not hardware-validated in this slice |
+| Device-tested | ☐ Not hardware-validated in this slice                           |
 
 ### Journey stop cache (`apps/mobile/src/platform/storage/journey-stop-cache.ts`)
 
 Migration **5** — `journey_stop_cache` table: one snapshot row per journey per authenticated user.
 
-| Column | Purpose |
-| --- | --- |
-| `user_id`, `journey_id` | Composite primary key; isolates cache by account |
-| `payload` | JSON array of validated `@trip-diary/core` `JourneyStop` objects (camelCase domain) |
-| `cached_at` | Snapshot freshness marker (ISO string) |
+| Column                  | Purpose                                                                             |
+| ----------------------- | ----------------------------------------------------------------------------------- |
+| `user_id`, `journey_id` | Composite primary key; isolates cache by account                                    |
+| `payload`               | JSON array of validated `@trip-diary/core` `JourneyStop` objects (camelCase domain) |
+| `cached_at`             | Snapshot freshness marker (ISO string)                                              |
 
 ```typescript
 readCachedJourneyStops(userId: string, journeyId: string): Promise<CachedJourneyStopsSnapshot>
@@ -219,11 +219,11 @@ clearCachedJourneyStopsForUser(userId: string, journeyId: string): Promise<void>
 
 **Journey header interaction:** stops are intentionally separate from `JourneyHeader` / detail cache. Detail header and map geography can refresh independently.
 
-| Status        | Notes |
-| ------------- | ----- |
-| Implemented   | ✅ M3 |
+| Status        | Notes                                                                            |
+| ------------- | -------------------------------------------------------------------------------- |
+| Implemented   | ✅ M3                                                                            |
 | Auto-tested   | ✅ repository, cache, presentation, camera helper, MapViewScreen location policy |
-| Device-tested | ☐ Not hardware-validated in M3 |
+| Device-tested | ☐ Not hardware-validated in M3                                                   |
 
 ## Sync queue (`apps/mobile/src/platform/sync/queue.ts` + `photo-upload.ts`)
 
@@ -234,10 +234,10 @@ recoverStaleProcessingOperations(thresholdMs?, excludeOperationIds?): Promise<nu
 getSyncOperation(operationId): Promise<SyncOperation | null>
 ```
 
-| Operation type | Behavior |
-| --- | --- |
-| `photo.upload` | Size check → normalize `capturedAt` → upsert `photos` + `photo_variants` → Storage upload → `synced` |
-| `journey.touch` | Legacy no-op marker (PoC) |
+| Operation type  | Behavior                                                                                             |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| `photo.upload`  | Size check → normalize `capturedAt` → upsert `photos` + `photo_variants` → Storage upload → `synced` |
+| `journey.touch` | Legacy no-op marker (PoC)                                                                            |
 
 **Photo upload payload:** `photoId` (UUID), `journeyId`, `localUri`, `mimeType`, `originalFilename`, `width`, `height`, `byteSize`, optional `capturedAt`, optional `variant` (default `preview`).
 
@@ -247,11 +247,11 @@ getSyncOperation(operationId): Promise<SyncOperation | null>
 
 ### `capturedAt` normalization (`normalize-captured-at.ts`)
 
-| Input | Output |
-| --- | --- |
-| Valid ISO-8601 | Canonical `toISOString()` |
-| EXIF `YYYY:MM:DD HH:mm:ss` | Local wall-clock components → `Date` → `toISOString()` (aligned with web `new Date(value).toISOString()`) |
-| Missing / invalid / impossible date | `null` (upload continues) |
+| Input                               | Output                                                                                                    |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Valid ISO-8601                      | Canonical `toISOString()`                                                                                 |
+| EXIF `YYYY:MM:DD HH:mm:ss`          | Local wall-clock components → `Date` → `toISOString()` (aligned with web `new Date(value).toISOString()`) |
+| Missing / invalid / impossible date | `null` (upload continues)                                                                                 |
 
 No fabricated timezone: EXIF strings without offset are interpreted as device-local wall clock, then stored as UTC ISO — same semantics as web `normalizeCapturedAt`.
 
@@ -259,8 +259,8 @@ No fabricated timezone: EXIF strings without offset are interpreted as device-lo
 
 SQLite column `status_updated_at` on `sync_queue` (migration 3).
 
-| Constant | Value | Rationale |
-| --- | --- | --- |
+| Constant                        | Value     | Rationale                                                                            |
+| ------------------------------- | --------- | ------------------------------------------------------------------------------------ |
 | `STALE_PROCESSING_THRESHOLD_MS` | 5 minutes | Longer than a slow preview upload; short enough to recover after app kill mid-upload |
 
 On each `processNextSyncOperation()` call, operations in `processing` with `status_updated_at` older than the threshold are reset to `pending`, except the operation currently being processed in the same invocation.
@@ -271,19 +271,19 @@ On each `processNextSyncOperation()` call, operations in `processing` with `stat
 
 ### Error classification (`classifySupabaseError`)
 
-| Non-retryable (terminal) | Retryable |
-| --- | --- |
-| Invalid UUID / malformed payload | Network unavailable |
-| Postgres constraint / invalid timestamp (`22P02`, `22007`, `235xx`, …) | Timeout / transient 5xx |
-| Storage file-size rejection (local pre-check or HTTP 413) | Expired / invalid JWT (401) |
-| RLS / permission denial (403) | Unknown errors (insufficient structure — documented default) |
-| Missing local file | |
+| Non-retryable (terminal)                                               | Retryable                                                    |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Invalid UUID / malformed payload                                       | Network unavailable                                          |
+| Postgres constraint / invalid timestamp (`22P02`, `22007`, `235xx`, …) | Timeout / transient 5xx                                      |
+| Storage file-size rejection (local pre-check or HTTP 413)              | Expired / invalid JWT (401)                                  |
+| RLS / permission denial (403)                                          | Unknown errors (insufficient structure — documented default) |
+| Missing local file                                                     |                                                              |
 
-| Status        | Android (2026-07-10)                                    |
-| ------------- | ------------------------------------------------------- |
-| Implemented   | ✅ Real Storage upload via sync queue + hardening        |
+| Status        | Android (2026-07-10)                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| Implemented   | ✅ Real Storage upload via sync queue + hardening                           |
 | Auto-tested   | ✅ `photo-upload.test.ts`, `queue.test.ts`, `normalize-captured-at.test.ts` |
-| Device-tested | ☐ Requires physical device + online Supabase             |
+| Device-tested | ☐ Requires physical device + online Supabase                                |
 
 ## Maps (`@trip-diary/maps` + `MapViewScreen.tsx`)
 
@@ -296,12 +296,12 @@ computeJourneyStopMapCamera(points): JourneyMapCamera | null // @trip-diary/util
 
 **MapViewScreen props (intent-explicit):**
 
-| Prop | Role |
-| --- | --- |
-| `markers` | Validated journey stop markers (`PointAnnotation`) |
-| `camera` | Center+zoom (one stop) or bounds fit (multiple stops) |
-| `useDeviceLocationFallback` | Explicit opt-in for dev/location flows only |
-| `latitude` / `longitude` | Optional fixed center when not in journey mode |
+| Prop                        | Role                                                  |
+| --------------------------- | ----------------------------------------------------- |
+| `markers`                   | Validated journey stop markers (`PointAnnotation`)    |
+| `camera`                    | Center+zoom (one stop) or bounds fit (multiple stops) |
+| `useDeviceLocationFallback` | Explicit opt-in for dev/location flows only           |
+| `latitude` / `longitude`    | Optional fixed center when not in journey mode        |
 
 **Camera semantics:** one stop → center at zoom 12; multiple stops → bounds with padding, max zoom 14, antimeridian handled via longitude unwrapping in `@trip-diary/utils`. Identical coordinates use a small pad around the point.
 
@@ -309,11 +309,11 @@ computeJourneyStopMapCamera(points): JourneyMapCamera | null // @trip-diary/util
 
 **Empty/offline/error:** localized states in `JourneyMapSection` — loading, no stops, stops without coordinates, offline without cache, offline/cached banner, refresh failed with cache, safe remote error + retry.
 
-| Status        | Android (2026-07-10)                                                         |
-| ------------- | ---------------------------------------------------------------------------- |
-| Implemented   | ✅ Journey stop markers + camera (M3); tiles via MapLibre                    |
-| Auto-tested   | ✅ provider resolution, camera helper, location policy, presentation states   |
-| Device-tested | ✅ MapLibre renders tiles; stop markers **not** hardware-validated in M3     |
+| Status        | Android (2026-07-10)                                                        |
+| ------------- | --------------------------------------------------------------------------- |
+| Implemented   | ✅ Journey stop markers + camera (M3); tiles via MapLibre                   |
+| Auto-tested   | ✅ provider resolution, camera helper, location policy, presentation states |
+| Device-tested | ✅ MapLibre renders tiles; stop markers **not** hardware-validated in M3    |
 
 Runtime style failure → OSM via `onDidFailLoadingMap` in `MapViewScreen` (`fallback-runtime`). Raster source TileJSON errors may not trigger this callback — deferred to Stage 4.
 
@@ -327,18 +327,18 @@ getCurrentLocation(): Promise<{ latitude, longitude } | null>
 normalizePhotoCapturedAt(value): string | null
 ```
 
-| Status        | Android (2026-07-10)                                                          |
-| ------------- | ----------------------------------------------------------------------------- |
-| Implemented   | ✅                                                                            |
-| Auto-tested   | ✅                                                                            |
+| Status        | Android (2026-07-10)                                                              |
+| ------------- | --------------------------------------------------------------------------------- |
+| Implemented   | ✅                                                                                |
+| Auto-tested   | ✅                                                                                |
 | Device-tested | ✅ Pick + persist; EXIF/GPS **null** on emulator asset; location **failed** (AVD) |
 
 ## Auth (`apps/mobile/src/platform/auth/AuthProvider.tsx`, `supabase.ts`)
 
-| Status        | Android (2026-07-10)                               |
-| ------------- | -------------------------------------------------- |
-| Implemented   | ✅                                                 |
-| Auto-tested   | ✅                                                 |
+| Status        | Android (2026-07-10)                                     |
+| ------------- | -------------------------------------------------------- |
+| Implemented   | ✅                                                       |
+| Auto-tested   | ✅                                                       |
 | Device-tested | ✅ Sign-in, session restore on cold start, sign-out link |
 
 ## Environment (`apps/mobile/src/foundation/env/validate-expo-public-env.ts`)
@@ -355,11 +355,11 @@ normalizePhotoCapturedAt(value): string | null
 
 ## Stage 3 gate status
 
-| Gate                        | Status                                                       |
-| --------------------------- | ------------------------------------------------------------ |
-| Android JS runtime          | ✅ Pass                                                      |
-| Android authenticated flows | ✅ Pass (physical GPS/camera/upload pending) |
-| iOS runtime                 | 🚫 Blocked on CocoaPods                |
+| Gate                        | Status                                         |
+| --------------------------- | ---------------------------------------------- |
+| Android JS runtime          | ✅ Pass                                        |
+| Android authenticated flows | ✅ Pass (physical GPS/camera/upload pending)   |
+| iOS runtime                 | 🚫 Blocked on CocoaPods                        |
 | Contracts finalized         | **Provisional** until physical-device sign-off |
 
 ## Non-goals in PoC (Stage 4+)

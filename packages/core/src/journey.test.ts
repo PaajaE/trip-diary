@@ -77,7 +77,8 @@ describe('journeyListItemSchema', () => {
 
   it('rejects malformed ids, titles, statuses, and dates', () => {
     expect(
-      journeyListItemSchema.safeParse({ ...listItem, id: 'not-a-uuid' }).success,
+      journeyListItemSchema.safeParse({ ...listItem, id: 'not-a-uuid' })
+        .success,
     ).toBe(false)
     expect(
       journeyListItemSchema.safeParse({ ...listItem, title: '' }).success,
@@ -186,9 +187,9 @@ describe('journeyStopSchema', () => {
 
 describe('remote and legacy cache mapping', () => {
   it('maps snake_case Supabase list rows into domain list items', () => {
-    expect(parseJourneyListItemFromRemoteRecord(legacyListCachePayload)).toEqual(
-      listItem,
-    )
+    expect(
+      parseJourneyListItemFromRemoteRecord(legacyListCachePayload),
+    ).toEqual(listItem)
   })
 
   it('reads legacy mobile list cache payloads unchanged', () => {

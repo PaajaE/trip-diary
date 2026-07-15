@@ -8,8 +8,7 @@ export const sharingQueryKeys = {
     spaceHandle: string,
     journeySlug: string,
     entrySlug: string,
-  ) =>
-    ['public-journey-entry', spaceHandle, journeySlug, entrySlug] as const,
+  ) => ['public-journey-entry', spaceHandle, journeySlug, entrySlug] as const,
   entryPublicShare: (entryId: string) =>
     ['entry-public-share', entryId] as const,
 } as const

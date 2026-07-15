@@ -86,7 +86,10 @@ export async function getSyncQueueCounts(): Promise<{
   pending: number
 }> {
   const db = await getMobileDatabase()
-  const rows = await db.getAllAsync<{ count: number; status: SyncOperationStatus }>(
+  const rows = await db.getAllAsync<{
+    count: number
+    status: SyncOperationStatus
+  }>(
     `SELECT status, COUNT(*) AS count
      FROM sync_queue
      WHERE status IN ('pending', 'failed')
@@ -359,9 +362,7 @@ async function markSyncOperationSynced(
 async function processNextSyncOperationUnsafe(): Promise<SyncProcessResult | null> {
   await recoverStaleProcessingOperations(
     STALE_PROCESSING_THRESHOLD_MS,
-    activeProcessingOperationId === null
-      ? []
-      : [activeProcessingOperationId],
+    activeProcessingOperationId === null ? [] : [activeProcessingOperationId],
   )
 
   const next = await peekNextSyncOperation()
@@ -427,6 +428,53 @@ export async function processNextSyncOperation(): Promise<SyncProcessResult | nu
     () => undefined,
   )
   return run
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+/**
+ * Waits until a specific queued operation reaches a terminal status.
+ * Safe under concurrent background drains: if another worker claims the
+ * operation, this polls until synced/failed instead of assuming ownership.
+ */
+export async function waitForSyncOperation(
+  operationId: string,
+  options: { pollIntervalMs?: number; timeoutMs?: number } = {},
+): Promise<SyncOperation> {
+  const pollIntervalMs = options.pollIntervalMs ?? 50
+  const timeoutMs = options.timeoutMs ?? 180_000
+  const deadline = Date.now() + timeoutMs
+  let droveProcessing = false
+
+  while (Date.now() < deadline) {
+    const operation = await getSyncOperation(operationId)
+    if (operation === null) {
+      throw new Error(`Sync operation not found: ${operationId}`)
+    }
+
+    if (operation.status === 'synced' || operation.status === 'failed') {
+      return operation
+    }
+
+    if (operation.status === 'pending' && !droveProcessing) {
+      droveProcessing = true
+      await processNextSyncOperation()
+      continue
+    }
+
+    if (operation.status === 'pending') {
+      // Another drain may be ahead of us on the serial chain; keep trying to advance.
+      await processNextSyncOperation()
+    }
+
+    await delay(pollIntervalMs)
+  }
+
+  throw new Error(`Timed out waiting for sync operation: ${operationId}`)
 }
 
 /** @deprecated Use processNextSyncOperation */

@@ -5,13 +5,13 @@ One `pnpm lint` run covers the web app, shared packages, and the Expo mobile app
 
 ## Commands
 
-| Command | Scope |
-| --- | --- |
-| `pnpm lint` | All supported workspaces (CI default) |
-| `pnpm lint:web` | `src/**`, root `vite.config.ts` |
-| `pnpm lint:packages` | `packages/*/src/**`, package Vitest configs |
-| `pnpm lint:mobile` | `apps/mobile/**` production + tests + tooling |
-| `pnpm --filter mobile lint` | Same as `lint:mobile` via workspace script |
+| Command                     | Scope                                         |
+| --------------------------- | --------------------------------------------- |
+| `pnpm lint`                 | All supported workspaces (CI default)         |
+| `pnpm lint:web`             | `src/**`, root `vite.config.ts`               |
+| `pnpm lint:packages`        | `packages/*/src/**`, package Vitest configs   |
+| `pnpm lint:mobile`          | `apps/mobile/**` production + tests + tooling |
+| `pnpm --filter mobile lint` | Same as `lint:mobile` via workspace script    |
 
 Runtime: ~21s locally with type-aware rules (project service).
 
@@ -53,12 +53,12 @@ Plain `eslint.config.js` recommended rules for:
 
 ## Explicitly not linted
 
-| Path | Reason |
-| --- | --- |
-| `src/shared/api/database.types.ts` | Generated Supabase types |
-| `supabase/functions/**` | Deno Edge Functions (different runtime) |
-| `apps/mobile/ios/**`, `android/**`, `.expo/**` | Native/generated Expo output |
-| `dist`, `coverage`, lockfiles | Build artifacts |
+| Path                                           | Reason                                  |
+| ---------------------------------------------- | --------------------------------------- |
+| `src/shared/api/database.types.ts`             | Generated Supabase types                |
+| `supabase/functions/**`                        | Deno Edge Functions (different runtime) |
+| `apps/mobile/ios/**`, `android/**`, `.expo/**` | Native/generated Expo output            |
+| `dist`, `coverage`, lockfiles                  | Build artifacts                         |
 
 ## Justified exceptions
 

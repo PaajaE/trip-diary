@@ -4,10 +4,7 @@ import {
   type JourneyListItem,
 } from '@trip-diary/core/journey'
 
-export type {
-  JourneyListItem,
-  JourneyStatus,
-} from '@trip-diary/core/journey'
+export type { JourneyListItem, JourneyStatus } from '@trip-diary/core/journey'
 
 export {
   journeyListItemSchema,

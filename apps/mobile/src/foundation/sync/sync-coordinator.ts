@@ -1,4 +1,7 @@
-import { isNetworkOnline, type NetworkState } from '@/foundation/network/network-status'
+import {
+  isNetworkOnline,
+  type NetworkState,
+} from '@/foundation/network/network-status'
 import {
   updateSyncCoordinatorSnapshot,
   type SyncCoordinatorPhase,
@@ -31,7 +34,9 @@ export interface SyncCoordinatorDeps {
   getQueueCounts: () => Promise<SyncQueueCounts>
 }
 
-function resolveIdlePhase(context: SyncCoordinatorContext): SyncCoordinatorPhase {
+function resolveIdlePhase(
+  context: SyncCoordinatorContext,
+): SyncCoordinatorPhase {
   if (context.authLoading || context.sessionUserId === null) {
     return 'waiting_for_session'
   }
@@ -96,7 +101,9 @@ export function createSyncCoordinator(deps: SyncCoordinatorDeps) {
       } while (followUpDrainRequested)
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Sync drain failed unexpectedly.'
+        error instanceof Error
+          ? error.message
+          : 'Sync drain failed unexpectedly.'
       await refreshCounts()
       updateSyncCoordinatorSnapshot({
         lastError: message,

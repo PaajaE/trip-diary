@@ -36,6 +36,7 @@ import { localDb } from '@/shared/lib/local-db'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { isBrowserOnline } from '@/shared/lib/network'
 import { createPublicSlug } from '@/shared/lib/slug'
+import { compareJourneyEntriesNewestFirst } from '@/entities/journey/lib/compare-journey-entries'
 
 export async function createJourney(
   creatorId: string,
@@ -208,10 +209,13 @@ async function fetchPublicJourneyFromRemote(
       ? { data: [], error: null }
       : await client
           .from('entries')
-          .select('id, title, body, type, event_at, slug')
+          .select('id, title, body, type, event_at, created_at, slug')
           .in('id', entryIds)
           .eq('status', 'published')
           .eq('visibility', 'public')
+          .order('event_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
 
   if (entriesResult.error !== null) {
     throw entriesResult.error
@@ -226,6 +230,7 @@ async function fetchPublicJourneyFromRemote(
         const link = linksByEntryId.get(entry.id)
         return {
           body: entry.body,
+          createdAt: entry.created_at,
           eventAt: entry.event_at,
           id: entry.id,
           slug: entry.slug,
@@ -235,13 +240,7 @@ async function fetchPublicJourneyFromRemote(
           type: entry.type,
         }
       })
-      .sort((left, right) => {
-        const leftTime =
-          left.eventAt === null ? 0 : new Date(left.eventAt).valueOf()
-        const rightTime =
-          right.eventAt === null ? 0 : new Date(right.eventAt).valueOf()
-        return rightTime - leftTime
-      }),
+      .sort(compareJourneyEntriesNewestFirst),
     endsAt: journeyResult.data.ends_at,
     guides: guidesResult.data,
     id: journeyResult.data.id,
@@ -324,8 +323,11 @@ async function fetchJourneyFromRemote(
       ? { data: [], error: null }
       : await client
           .from('entries')
-          .select('id, title, body, type, event_at, slug')
+          .select('id, title, body, type, event_at, created_at, slug')
           .in('id', entryIds)
+          .order('event_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
 
   if (entriesResult.error !== null) {
     throw entriesResult.error
@@ -377,6 +379,7 @@ async function fetchJourneyFromRemote(
         const link = linksByEntryId.get(entry.id)
         return {
           body: entry.body,
+          createdAt: entry.created_at,
           eventAt: entry.event_at,
           id: entry.id,
           slug: entry.slug,
@@ -390,6 +393,7 @@ async function fetchJourneyFromRemote(
         const link = localLinksByEntryId.get(entry.id)
         return {
           body: entry.body,
+          createdAt: entry.createdAt,
           eventAt: entry.eventAt,
           id: entry.id,
           slug: entry.slug,
@@ -399,13 +403,7 @@ async function fetchJourneyFromRemote(
           type: entry.type,
         }
       }),
-    ].sort((left, right) => {
-      const leftTime =
-        left.eventAt === null ? 0 : new Date(left.eventAt).valueOf()
-      const rightTime =
-        right.eventAt === null ? 0 : new Date(right.eventAt).valueOf()
-      return rightTime - leftTime
-    }),
+    ].sort(compareJourneyEntriesNewestFirst),
     endsAt: journeyResult.data.ends_at,
     guides: guidesResult.data,
     id: journeyResult.data.id,

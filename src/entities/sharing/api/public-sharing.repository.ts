@@ -1,4 +1,5 @@
 import { loadPublicSpaceCardImages } from '@/entities/sharing/api/public-space-card-images'
+import { compareJourneyEntriesNewestFirst } from '@/entities/journey/lib/compare-journey-entries'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
@@ -23,11 +24,13 @@ export async function getPublicSpace(handle: string) {
       .order('updated_at', { ascending: false }),
     client
       .from('entries')
-      .select('id, slug, title, body, type, event_at, published_at')
+      .select('id, slug, title, body, type, event_at, published_at, created_at')
       .eq('space_id', space.id)
       .eq('status', 'published')
       .eq('visibility', 'public')
-      .order('published_at', { ascending: false }),
+      .order('event_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false }),
     space.personal_owner_id === null
       ? Promise.resolve({ data: null, error: null })
       : client
@@ -76,8 +79,17 @@ export async function getPublicSpace(handle: string) {
       }
     })
     .sort((left, right) =>
-      (right.event_at ?? right.published_at ?? '').localeCompare(
-        left.event_at ?? left.published_at ?? '',
+      compareJourneyEntriesNewestFirst(
+        {
+          createdAt: left.created_at,
+          eventAt: left.event_at,
+          id: left.id,
+        },
+        {
+          createdAt: right.created_at,
+          eventAt: right.event_at,
+          id: right.id,
+        },
       ),
     )
 

@@ -1,7 +1,5 @@
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite'
-import {
-  runSqlMigrations,
-} from '@/foundation/sqlite'
+import { runSqlMigrations } from '@/foundation/sqlite'
 import { MOBILE_SQL_MIGRATIONS } from '@/platform/storage/migrations'
 
 export const MOBILE_DATABASE_NAME = 'trip-diary.db'

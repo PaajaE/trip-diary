@@ -97,11 +97,7 @@ export function EntryTranslationPanel({ entry }: EntryTranslationPanelProps) {
       })
     } catch (error) {
       setSaveError(
-        formatTranslationErrorMessage(
-          error,
-          t,
-          'entry.translation.saveError',
-        ),
+        formatTranslationErrorMessage(error, t, 'entry.translation.saveError'),
       )
     }
   }

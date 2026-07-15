@@ -1,15 +1,10 @@
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import { formatMomentDateTimeLabel } from '@/features/journeys/lib/format-moment-datetime'
 import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
 import {
-  sortJourneyMomentsChronologically,
+  sortJourneyMomentsNewestFirst,
   type JourneyMoment,
 } from '@/features/journeys/lib/journey-content'
 import {
@@ -40,7 +35,7 @@ export const JourneyReaderMomentStrip = forwardRef<
   const { t } = useTranslation()
   const listRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef(new Map<string, HTMLButtonElement>())
-  const orderedMoments = sortJourneyMomentsChronologically(moments)
+  const orderedMoments = sortJourneyMomentsNewestFirst(moments)
   const { isPending, photosByEntryId } = useJourneyMomentPhotos(
     orderedMoments,
     orderedMoments.length > 0,
@@ -73,12 +68,19 @@ export const JourneyReaderMomentStrip = forwardRef<
       </div>
       <div
         aria-activedescendant={
-          activeMomentId === null ? undefined : `reader-moment-${activeMomentId}`
+          activeMomentId === null
+            ? undefined
+            : `reader-moment-${activeMomentId}`
         }
         aria-label={t('reader.momentNavigation')}
         className="reader-moment-strip__scroller mt-3 flex gap-3 overflow-x-auto px-5 pb-2 snap-x snap-mandatory scroll-px-5 sm:px-8 sm:scroll-px-8"
         onKeyDown={(event) => {
-          handleStripKeyDown(event, orderedMoments, activeMomentId, onActivateMoment)
+          handleStripKeyDown(
+            event,
+            orderedMoments,
+            activeMomentId,
+            onActivateMoment,
+          )
         }}
         ref={listRef}
         role="listbox"
@@ -134,7 +136,10 @@ function MomentStripCard({
   const coverUrls = usePhotoObjectUrls(coverPhoto === null ? [] : [coverPhoto])
   const coverUrl = coverUrls[0]?.url
   const title = moment.entry.title ?? t('dashboard.untitled')
-  const dateLabel = formatMomentDateTimeLabel(moment.entry.eventAt, i18n.language)
+  const dateLabel = formatMomentDateTimeLabel(
+    moment.entry.eventAt,
+    i18n.language,
+  )
   const excerpt = getMomentExcerpt(moment.entry.body)
 
   return (
@@ -186,7 +191,9 @@ function MomentStripCard({
         ) : null}
       </div>
       <div className="space-y-1 px-3 py-3">
-        <p className="line-clamp-2 text-sm font-semibold leading-snug">{title}</p>
+        <p className="line-clamp-2 text-sm font-semibold leading-snug">
+          {title}
+        </p>
         {dateLabel === null ? null : (
           <p className="text-xs text-muted">{dateLabel}</p>
         )}

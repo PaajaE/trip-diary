@@ -2,6 +2,7 @@ import {
   journeyDetailSchema,
   type JourneyDetail,
 } from '@/entities/journey/model/journey'
+import { compareJourneyEntriesNewestFirst } from '@/entities/journey/lib/compare-journey-entries'
 import { listLocalJourneyLinks } from '@/entities/journey/api/local-journey-link.repository'
 import {
   listLocalJourneyGuides,
@@ -13,6 +14,7 @@ import { listDeletedRecordIds } from '@/shared/lib/local-deleted-records'
 
 export interface LocalSavedMoment {
   body: string
+  createdAt?: string | null
   entryId: string
   entrySlug: string | null
   entryTitle: string
@@ -40,6 +42,7 @@ export function upsertJourneyEntryFromLocalSave(
 ): JourneyDetail {
   const nextEntry: JourneyDetail['entries'][number] = {
     body: saved.body,
+    createdAt: saved.createdAt ?? new Date().toISOString(),
     eventAt: saved.eventAt,
     id: saved.entryId,
     slug: saved.entrySlug,
@@ -64,10 +67,18 @@ function sortEntriesByEventAt(
   left: JourneyDetail['entries'][number],
   right: JourneyDetail['entries'][number],
 ): number {
-  const leftTime = left.eventAt === null ? 0 : new Date(left.eventAt).valueOf()
-  const rightTime =
-    right.eventAt === null ? 0 : new Date(right.eventAt).valueOf()
-  return rightTime - leftTime
+  return compareJourneyEntriesNewestFirst(
+    {
+      createdAt: left.createdAt ?? null,
+      eventAt: left.eventAt,
+      id: left.id,
+    },
+    {
+      createdAt: right.createdAt ?? null,
+      eventAt: right.eventAt,
+      id: right.id,
+    },
+  )
 }
 
 export async function applyLocalJourneyDeltas(
@@ -132,6 +143,7 @@ export async function applyLocalJourneyDeltas(
 
       return {
         body: localEntry?.body ?? entry.body,
+        createdAt: localEntry?.createdAt ?? entry.createdAt,
         eventAt: localEntry?.eventAt ?? entry.eventAt,
         id: entry.id,
         slug: localEntry?.slug ?? entry.slug,
@@ -155,6 +167,7 @@ export async function applyLocalJourneyDeltas(
       return [
         {
           body: entry.body,
+          createdAt: entry.createdAt,
           eventAt: entry.eventAt,
           id: entry.id,
           slug: entry.slug,

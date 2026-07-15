@@ -3,13 +3,9 @@ import type { Database } from '@/shared/api/database.types'
 import { publicEnv } from '@/shared/config/env'
 
 const supabase =
-  publicEnv.supabaseUrl === undefined ||
-  publicEnv.supabaseAnonKey === undefined
+  publicEnv.supabaseUrl === undefined || publicEnv.supabaseAnonKey === undefined
     ? null
-    : createClient<Database>(
-        publicEnv.supabaseUrl,
-        publicEnv.supabaseAnonKey,
-      )
+    : createClient<Database>(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey)
 
 export function getSupabaseClient() {
   if (supabase === null) {

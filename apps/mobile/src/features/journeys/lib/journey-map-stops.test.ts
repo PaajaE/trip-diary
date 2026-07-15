@@ -35,7 +35,13 @@ describe('journey map stops', () => {
     const stops = parseRemoteJourneyStopRows([
       brnoStop,
       { ...brnoStop, title: 'Duplicate' },
-      { id: 'bad', map_latitude: 120, map_longitude: 0, status: 'planned', title: 'Bad' },
+      {
+        id: 'bad',
+        map_latitude: 120,
+        map_longitude: 0,
+        status: 'planned',
+        title: 'Bad',
+      },
     ])
 
     expect(stops).toHaveLength(1)

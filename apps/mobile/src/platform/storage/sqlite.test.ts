@@ -55,9 +55,9 @@ describe('journey sqlite cache', () => {
 
     await cacheJourney(journey)
 
-    expect(await getCachedJourney('11111111-1111-4111-8111-111111111111')).toEqual(
-      journey,
-    )
+    expect(
+      await getCachedJourney('11111111-1111-4111-8111-111111111111'),
+    ).toEqual(journey)
   })
 
   it('persists legacy snake_case payloads while returning shared domain objects', async () => {
@@ -88,7 +88,9 @@ describe('journey sqlite cache', () => {
       }),
     })
 
-    expect(await getCachedJourney('11111111-1111-4111-8111-111111111111')).toEqual({
+    expect(
+      await getCachedJourney('11111111-1111-4111-8111-111111111111'),
+    ).toEqual({
       endsAt: '2026-07-20',
       id: '11111111-1111-4111-8111-111111111111',
       startsAt: '2026-07-10',
@@ -121,6 +123,8 @@ describe('journey sqlite cache', () => {
 
     await clearJourneyCache('11111111-1111-4111-8111-111111111111')
 
-    expect(await getCachedJourney('11111111-1111-4111-8111-111111111111')).toBeNull()
+    expect(
+      await getCachedJourney('11111111-1111-4111-8111-111111111111'),
+    ).toBeNull()
   })
 })

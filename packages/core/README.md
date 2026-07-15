@@ -4,9 +4,9 @@ Platform-neutral domain schemas shared by web and mobile.
 
 ## Exports
 
-| Module | Contents |
-| --- | --- |
-| `./entry` | Entry entity schemas, create/update inputs |
+| Module      | Contents                                                                                        |
+| ----------- | ----------------------------------------------------------------------------------------------- |
+| `./entry`   | Entry entity schemas, create/update inputs                                                      |
 | `./journey` | Journey status, list item, detail header, stop/geography schemas, remote + legacy cache mappers |
 
 ## Journey contract (H7)

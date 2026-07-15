@@ -9,9 +9,7 @@ import {
 } from 'react-native'
 import { computeJourneyStopMapCamera } from '@trip-diary/utils'
 import { resolveJourneyMapPresentation } from '@/features/journeys/journey-map-presentation'
-import {
-  toMappableJourneyStops,
-} from '@/features/journeys/lib/journey-map-stops'
+import { toMappableJourneyStops } from '@/features/journeys/lib/journey-map-stops'
 import { useJourneyStopsQuery } from '@/features/journeys/use-journey-stops-query'
 import { colors, spacing } from '@/foundation/theme'
 import {
@@ -89,7 +87,8 @@ export function JourneyMapSection({
     >
       <Text style={styles.sectionTitle}>{t('journey.map')}</Text>
 
-      {presentation.showCachedBanner && presentation.statusMessageKey !== null ? (
+      {presentation.showCachedBanner &&
+      presentation.statusMessageKey !== null ? (
         <View accessibilityRole="text" style={styles.cachedBanner}>
           <Text style={styles.cachedBannerText}>
             {t(presentation.statusMessageKey)}
@@ -134,7 +133,9 @@ export function JourneyMapSection({
       ) : null}
 
       {presentation.showNoMappableStops ? (
-        <Text style={styles.stateText}>{t('mobile.journeyMapNoLocatedStops')}</Text>
+        <Text style={styles.stateText}>
+          {t('mobile.journeyMapNoLocatedStops')}
+        </Text>
       ) : null}
 
       {showMap ? (

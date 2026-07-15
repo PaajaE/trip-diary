@@ -48,6 +48,7 @@ export const journeyGuideSectionSchema = z.object({
 
 export const journeyEntrySchema = z.object({
   body: z.string(),
+  createdAt: z.iso.datetime({ offset: true }).nullable().optional(),
   eventAt: z.iso.datetime({ offset: true }).nullable(),
   id: z.uuid(),
   slug: z.string().nullable(),

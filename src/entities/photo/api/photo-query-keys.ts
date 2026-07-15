@@ -11,7 +11,8 @@ export const photoQueryKeys = {
   journeyPhotoLocationsPrefix: (journeyId: string) =>
     ['journey-photo-locations', journeyId] as const,
   journeyTagsRoot: ['journey-photo-tags'] as const,
-  journeyTags: (journeyId: string) => ['journey-photo-tags', journeyId] as const,
+  journeyTags: (journeyId: string) =>
+    ['journey-photo-tags', journeyId] as const,
   journeyTagAssignments: (journeyId: string) =>
     ['journey-photo-tags', journeyId, 'assignments'] as const,
   journeyTagsForEntry: (

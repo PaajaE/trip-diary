@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "postprebuild": "node scripts/patch-android-autolinking.mjs",
+    "postprebuild": "node scripts/patch-android-autolinking.mjs && node scripts/patch-ios-podfile-fmt.mjs",
+    "postinstall": "node scripts/patch-expo-localization-ios.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "lint": "eslint ."

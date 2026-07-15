@@ -49,7 +49,9 @@ describe('buildPublicJourneyGallery', () => {
       }),
       createStageContent({
         dayKey: '2026-01-03',
-        moments: [createMoment('moment-c', '2026-01-03T08:00:00.000Z', 'Third')],
+        moments: [
+          createMoment('moment-c', '2026-01-03T08:00:00.000Z', 'Third'),
+        ],
       }),
     ]
     const sharedPreview = preview('shared-photo')
@@ -80,13 +82,7 @@ describe('buildPublicJourneyGallery', () => {
       }),
     ]
     const photosByEntryId = new Map<string, PhotoPreview[]>([
-      [
-        'moment-a',
-        [
-          preview('photo-left'),
-          preview('photo-right'),
-        ],
-      ],
+      ['moment-a', [preview('photo-left'), preview('photo-right')]],
     ])
 
     const gallery = buildPublicJourneyGallery({
@@ -104,7 +100,12 @@ describe('buildPublicJourneyGallery', () => {
       createStageContent({
         dayKey: null,
         moments: [
-          createMoment('moment-a', '2026-01-01T08:00:00.000Z', 'Coast', 'stage-a'),
+          createMoment(
+            'moment-a',
+            '2026-01-01T08:00:00.000Z',
+            'Coast',
+            'stage-a',
+          ),
         ],
         stage: {
           id: '00000000-0000-4000-8000-000000000001',
@@ -181,7 +182,10 @@ describe('buildPublicJourneyGallery', () => {
       }),
     ]
     const photosByEntryId = new Map<string, PhotoPreview[]>([
-      ['moment-a', [preview('photo-1'), preview('photo-2'), preview('photo-3')]],
+      [
+        'moment-a',
+        [preview('photo-1'), preview('photo-2'), preview('photo-3')],
+      ],
     ])
 
     const gallery = buildPublicJourneyGallery({
@@ -203,21 +207,19 @@ describe('gallery helpers', () => {
   it('builds alt text from the moment title or falls back to untitled', () => {
     const titled = buildPublicJourneyGallery({
       locale: 'en',
-      photosByEntryId: new Map([
-        ['moment-a', [preview('photo-a1')]],
-      ]),
+      photosByEntryId: new Map([['moment-a', [preview('photo-a1')]]]),
       stageContents: [
         createStageContent({
-          moments: [createMoment('moment-a', '2026-01-01T08:00:00.000Z', 'Sunrise')],
+          moments: [
+            createMoment('moment-a', '2026-01-01T08:00:00.000Z', 'Sunrise'),
+          ],
         }),
       ],
       t: i18n.t.bind(i18n),
     }).flatImages[0]
     const untitled = buildPublicJourneyGallery({
       locale: 'en',
-      photosByEntryId: new Map([
-        ['moment-a', [preview('photo-a1')]],
-      ]),
+      photosByEntryId: new Map([['moment-a', [preview('photo-a1')]]]),
       stageContents: [
         createStageContent({
           moments: [createMoment('moment-a', '2026-01-01T08:00:00.000Z', null)],

@@ -16,8 +16,8 @@ Expo Router app for the Trip Diary mobile client.
 | `i18n/`           | `@trip-diary/i18n` init, locale detection, `I18nProvider`                                |
 | `navigation/`     | Auth guard decisions, shared stack header options                                        |
 | `network/`        | NetInfo-backed `NetworkProvider`, conservative online/offline/unknown semantics          |
-| `sync/`           | Sync lifecycle coordinator, drain requests, observable snapshot for future UI   |
-| `sqlite/`         | Numbered SQL migration runner used by `platform/storage/database.ts`            |
+| `sync/`           | Sync lifecycle coordinator, drain requests, observable snapshot for future UI            |
+| `sqlite/`         | Numbered SQL migration runner used by `platform/storage/database.ts`                     |
 | `test-utils/`     | `renderWithProviders()` helper for Vitest component tests                                |
 | `theme/`          | Shared color and spacing tokens                                                          |
 

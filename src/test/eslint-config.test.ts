@@ -29,7 +29,11 @@ function restrictedImportPaths(
   }
 
   const options = config[1]
-  if (typeof options !== 'object' || options === null || !('paths' in options)) {
+  if (
+    typeof options !== 'object' ||
+    options === null ||
+    !('paths' in options)
+  ) {
     return []
   }
 

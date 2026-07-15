@@ -7,13 +7,9 @@ vi.mock('@/features/auth/session', () => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    to,
-  }: {
-    children: React.ReactNode
-    to: string
-  }) => <a href={to}>{children}</a>,
+  Link: ({ children, to }: { children: React.ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
 }))
 
 vi.mock('@/shared/lib/share', () => ({
@@ -38,7 +34,9 @@ describe('JourneyReaderClosingSection', () => {
     )
 
     expect(
-      screen.getByRole('button', { name: /Share this trip|Sdílet tuto cestu/i }),
+      screen.getByRole('button', {
+        name: /Share this trip|Sdílet tuto cestu/i,
+      }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: /Copy link|Kopírovat odkaz/i }),
@@ -47,10 +45,14 @@ describe('JourneyReaderClosingSection', () => {
       screen.getByRole('link', { name: /Visit @family|Navštívit @family/i }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', { name: /Sign in \(optional\)|Přihlásit se \(volitelné\)/i }),
+      screen.getByRole('link', {
+        name: /Sign in \(optional\)|Přihlásit se \(volitelné\)/i,
+      }),
     ).toBeInTheDocument()
     expect(screen.queryByText(/coming soon|již brzy/i)).not.toBeInTheDocument()
-    expect(screen.queryByText(/follow this trip|sledovat cestu/i)).not.toBeInTheDocument()
+    expect(
+      screen.queryByText(/follow this trip|sledovat cestu/i),
+    ).not.toBeInTheDocument()
   })
 
   it('does not claim sign-in is required for commenting', () => {
@@ -62,7 +64,11 @@ describe('JourneyReaderClosingSection', () => {
       />,
     )
 
-    expect(screen.queryByText(/required to comment|nutné pro koment/i)).toBeNull()
-    expect(screen.getByText(/Chcete vidět víc\?|Want to see more\?/)).toBeInTheDocument()
+    expect(
+      screen.queryByText(/required to comment|nutné pro koment/i),
+    ).toBeNull()
+    expect(
+      screen.getByText(/Chcete vidět víc\?|Want to see more\?/),
+    ).toBeInTheDocument()
   })
 })

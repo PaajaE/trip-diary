@@ -33,7 +33,9 @@ export class SqlMigrationError extends Error {
         : typeof cause === 'string'
           ? cause
           : 'Unknown migration error'
-    super(`Migration ${String(migrationId)} (${migrationName}) failed: ${message}`)
+    super(
+      `Migration ${String(migrationId)} (${migrationName}) failed: ${message}`,
+    )
     this.name = 'SqlMigrationError'
     this.cause = cause
   }

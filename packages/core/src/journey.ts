@@ -153,7 +153,9 @@ export function parseJourneyStopFromRemoteRecord(
   return journeyStopSchema.parse(normalizeJourneyStopInput(record))
 }
 
-export function safeParseJourneyStopPayload(payload: unknown): JourneyStop | null {
+export function safeParseJourneyStopPayload(
+  payload: unknown,
+): JourneyStop | null {
   if (typeof payload !== 'object' || payload === null) {
     return null
   }

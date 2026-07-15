@@ -11,8 +11,7 @@ export const en = {
     },
     syncNow: 'Sync now',
     mobile: {
-      accessibilityLabel:
-        '{{status}}. {{pending}} waiting, {{failed}} failed.',
+      accessibilityLabel: '{{status}}. {{pending}} waiting, {{failed}} failed.',
       failedNeedsAttention: 'Some changes need attention',
       guidanceGenericRetryable: 'Check your connection and try again.',
       guidanceGenericTerminal:
@@ -85,6 +84,7 @@ export const en = {
   },
   brand: 'Trip Diary',
   common: {
+    cancel: 'Cancel',
     loading: 'Loading…',
     tryAgain: 'Try again',
   },
@@ -188,8 +188,13 @@ export const en = {
     photoPickerError:
       'The gallery could not be opened or its metadata could not be read. Please try again.',
     photoPickerHint:
-      'On mobile, we open the gallery directly and try to bring over time and location automatically.',
+      'On mobile, we open the gallery directly and try to bring over time and location automatically. On iOS, tap photos to select them, then tap Add.',
     photoPickerLoading: 'Opening gallery…',
+    photoPickerCanceled: 'No photos were selected.',
+    photoPickerEmptyLibrary:
+      'The photo library looks empty. On the simulator, drag images onto the simulator window or add photos in the Photos app, then try again.',
+    photoPickerLimitedAccess:
+      'Trip Diary only has access to selected photos. Allow full photo access in Settings or add photos to the limited selection.',
     photoProcessingFailed:
       'The memory was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
     filePickerAction: 'Choose photos from files',
@@ -274,7 +279,8 @@ export const en = {
     journeyListOfflineSaved: 'Offline — showing saved journeys',
     journeyListOfflineUnavailable:
       'Connect to the internet to load your journeys for the first time.',
-    journeyListPullToRefreshOffline: 'Pull to refresh when you are back online.',
+    journeyListPullToRefreshOffline:
+      'Pull to refresh when you are back online.',
     journeyListRefreshFailed: 'Could not refresh — showing saved journeys',
     journeyMapError: 'Could not load the journey map.',
     journeyMapLoading: 'Loading journey map…',
@@ -466,6 +472,9 @@ export const en = {
     memoryTitle: 'Add a moment to this trip',
     manageTrip: 'Manage trip',
     manageClose: 'Close',
+    momentHasLocation: 'Location attached',
+    noMomentsYet: 'No moments yet',
+    openStage: 'Open stage',
     more: 'More',
     moreCopyLink: 'Copy public link',
     moreNature: 'Nature on trip',

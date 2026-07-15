@@ -83,7 +83,10 @@ export default function SignInScreen() {
         onPress={() => void handleSignIn()}
       >
         {isSubmitting ? (
-          <ActivityIndicator accessibilityLabel={t('auth.submitting')} color="#ffffff" />
+          <ActivityIndicator
+            accessibilityLabel={t('auth.submitting')}
+            color="#ffffff"
+          />
         ) : (
           <Text style={styles.buttonText}>{t('auth.signIn.action')}</Text>
         )}

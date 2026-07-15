@@ -20,10 +20,7 @@ import {
 } from '@/platform/storage/database'
 import { MOBILE_SQL_MIGRATIONS } from '@/platform/storage/migrations'
 import { cacheJourney, getCachedJourney } from '@/platform/storage/sqlite'
-import {
-  enqueueSyncOperation,
-  getSyncOperation,
-} from '@/platform/sync/queue'
+import { enqueueSyncOperation, getSyncOperation } from '@/platform/sync/queue'
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite'
 import { createInMemorySQLiteDatabase } from '@/platform/storage/test-utils/in-memory-sqlite'
 
@@ -68,7 +65,9 @@ describe('mobile database bootstrap', () => {
     expect(memoryDb.getTableRowCount('sync_queue')).toBe(0)
     expect(memoryDb.getTableRowCount('journey_list_cache')).toBe(0)
     expect(memoryDb.getTableRowCount('journey_stop_cache')).toBe(0)
-    expect(memoryDb.tableHasColumn('sync_queue', 'status_updated_at')).toBe(true)
+    expect(memoryDb.tableHasColumn('sync_queue', 'status_updated_at')).toBe(
+      true,
+    )
   })
 
   it('is idempotent when initialization is called repeatedly', async () => {
@@ -197,7 +196,9 @@ describe('mobile database consumers', () => {
   it('supports journey cache reads and writes through the bootstrap', async () => {
     await cacheJourney(sampleJourney)
 
-    expect(await getCachedJourney('11111111-1111-4111-8111-111111111111')).toMatchObject({
+    expect(
+      await getCachedJourney('11111111-1111-4111-8111-111111111111'),
+    ).toMatchObject({
       id: '11111111-1111-4111-8111-111111111111',
       title: 'Summer trip',
     })

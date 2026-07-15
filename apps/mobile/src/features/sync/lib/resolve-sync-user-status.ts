@@ -107,9 +107,7 @@ export function getSyncStatusLabelKey(status: SyncUserStatus): string {
   }
 }
 
-export function getSyncNextStepKey(
-  viewModel: SyncUserStatusViewModel,
-): string {
+export function getSyncNextStepKey(viewModel: SyncUserStatusViewModel): string {
   switch (viewModel.status) {
     case 'failed':
       if (
@@ -172,7 +170,10 @@ export function getSyncFailureGuidanceKey(
     return 'sync.mobile.guidancePermission'
   }
 
-  if (viewModel.terminalFailedCount > 0 && viewModel.retryableFailedCount === 0) {
+  if (
+    viewModel.terminalFailedCount > 0 &&
+    viewModel.retryableFailedCount === 0
+  ) {
     return 'sync.mobile.guidanceGenericTerminal'
   }
 

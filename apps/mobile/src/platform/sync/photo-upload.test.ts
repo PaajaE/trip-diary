@@ -64,7 +64,7 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
     from: vi.fn((table: string) => {
       if (table === 'photos') {
         return {
-          upsert: insertPhoto,
+          insert: insertPhoto,
         }
       }
 
@@ -72,6 +72,12 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
         return {
           insert: insertVariant,
           update: updateVariant,
+        }
+      }
+
+      if (table === 'entry_photos') {
+        return {
+          upsert: vi.fn(async () => ({ error: null })),
         }
       }
 
@@ -86,7 +92,9 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
 
   return {
     deps: {
-      fetchLocalFile: vi.fn(async () => new Blob(['photo-bytes'], { type: 'image/jpeg' })),
+      fetchLocalFile: vi.fn(
+        async () => new Blob(['photo-bytes'], { type: 'image/jpeg' }),
+      ),
       getClient: () => client,
       getLocalFileByteSize: vi.fn(async () => 120_000),
       localFileExists: vi.fn(async () => true),
@@ -100,20 +108,10 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
 describe('photo upload contract', () => {
   it('builds canonical storage paths', () => {
     expect(
-      buildPhotoStoragePath(
-        'user-1',
-        'photo-1',
-        'preview',
-        'image/jpeg',
-      ),
+      buildPhotoStoragePath('user-1', 'photo-1', 'preview', 'image/jpeg'),
     ).toBe('user-1/photo-1/preview.jpg')
     expect(
-      buildPhotoStoragePath(
-        'user-1',
-        'photo-1',
-        'thumb',
-        'image/webp',
-      ),
+      buildPhotoStoragePath('user-1', 'photo-1', 'thumb', 'image/webp'),
     ).toBe('user-1/photo-1/thumb.webp')
   })
 
@@ -121,12 +119,16 @@ describe('photo upload contract', () => {
     expect(parsePhotoUploadPayload(createValidPayload())).toEqual({
       byteSize: 120_000,
       capturedAt: '2026:07:10 14:30:00',
+      entryId: null,
       height: 1080,
       journeyId: 'journey-1',
+      latitude: null,
       localUri: 'file:///mock/documents/photos/test.jpg',
+      longitude: null,
       mimeType: 'image/jpeg',
       originalFilename: 'test.jpg',
       photoId: '40000000-0000-4000-8000-000000000099',
+      position: undefined,
       variant: 'preview',
       width: 1920,
     })
@@ -152,7 +154,9 @@ describe('photo upload contract', () => {
 describe('assertPhotoFileWithinStorageLimit', () => {
   it('allows files under and exactly at the bucket limit', () => {
     expect(() =>
-      assertPhotoFileWithinStorageLimit(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES - 1),
+      assertPhotoFileWithinStorageLimit(
+        PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES - 1,
+      ),
     ).not.toThrow()
     expect(() =>
       assertPhotoFileWithinStorageLimit(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES),
@@ -161,14 +165,18 @@ describe('assertPhotoFileWithinStorageLimit', () => {
 
   it('rejects files over the bucket limit as non-retryable', () => {
     expect(() =>
-      assertPhotoFileWithinStorageLimit(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES + 1),
+      assertPhotoFileWithinStorageLimit(
+        PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES + 1,
+      ),
     ).toThrow(PhotoUploadError)
 
     try {
       assertPhotoFileWithinStorageLimit(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES + 1)
     } catch (error) {
       expect(error).toMatchObject({
-        message: expect.stringContaining(String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES)),
+        message: expect.stringContaining(
+          String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES),
+        ),
         retryable: false,
       })
     }
@@ -177,20 +185,29 @@ describe('assertPhotoFileWithinStorageLimit', () => {
 
 describe('classifySupabaseError', () => {
   it('marks obvious permanent Postgres and metadata failures as non-retryable', () => {
-    expect(classifySupabaseError({ code: '22P02', message: 'invalid uuid' })).toMatchObject({
+    expect(
+      classifySupabaseError({ code: '22P02', message: 'invalid uuid' }),
+    ).toMatchObject({
       retryable: false,
     })
-    expect(classifySupabaseError({ code: '22007', message: 'invalid timestamp' })).toMatchObject({
+    expect(
+      classifySupabaseError({ code: '22007', message: 'invalid timestamp' }),
+    ).toMatchObject({
       retryable: false,
     })
-    expect(classifySupabaseError({ code: '23505', message: 'duplicate key' })).toMatchObject({
+    expect(
+      classifySupabaseError({ code: '23505', message: 'duplicate key' }),
+    ).toMatchObject({
       retryable: false,
     })
   })
 
   it('marks RLS and storage size rejections as non-retryable', () => {
     expect(
-      classifySupabaseError({ status: 403, message: 'new row violates row-level security policy' }),
+      classifySupabaseError({
+        status: 403,
+        message: 'new row violates row-level security policy',
+      }),
     ).toMatchObject({ retryable: false })
     expect(
       classifySupabaseError({ status: 413, message: 'Payload too large' }),
@@ -198,22 +215,32 @@ describe('classifySupabaseError', () => {
   })
 
   it('keeps network, timeout, and 5xx failures retryable', () => {
-    expect(classifySupabaseError({ message: 'Network request failed' })).toMatchObject({
+    expect(
+      classifySupabaseError({ message: 'Network request failed' }),
+    ).toMatchObject({
       retryable: true,
     })
-    expect(classifySupabaseError({ message: 'fetch failed due to timeout' })).toMatchObject({
+    expect(
+      classifySupabaseError({ message: 'fetch failed due to timeout' }),
+    ).toMatchObject({
       retryable: true,
     })
-    expect(classifySupabaseError({ status: 503, message: 'Service unavailable' })).toMatchObject({
+    expect(
+      classifySupabaseError({ status: 503, message: 'Service unavailable' }),
+    ).toMatchObject({
       retryable: true,
     })
   })
 
   it('keeps expired auth retryable and unknown errors retryable by default', () => {
-    expect(classifySupabaseError({ status: 401, message: 'JWT expired' })).toMatchObject({
+    expect(
+      classifySupabaseError({ status: 401, message: 'JWT expired' }),
+    ).toMatchObject({
       retryable: true,
     })
-    expect(classifySupabaseError({ message: 'Something unexpected happened' })).toMatchObject({
+    expect(
+      classifySupabaseError({ message: 'Something unexpected happened' }),
+    ).toMatchObject({
       retryable: true,
     })
   })
@@ -243,16 +270,20 @@ describe('processPhotoUploadOperation', () => {
     )
   })
 
-  it('normalizes EXIF capturedAt before photos upsert', async () => {
+  it('inserts photo metadata without upserting protected identity columns', async () => {
     const { deps, insertPhoto } = createDeps()
 
     await processPhotoUploadOperation(createValidPayload(), deps)
 
+    expect(insertPhoto).toHaveBeenCalledTimes(1)
     expect(insertPhoto).toHaveBeenCalledWith(
       expect.objectContaining({
         captured_at: expect.stringMatching(/^2026-07-10T\d{2}:30:00\.\d{3}Z$/),
+        creator_id: 'user-1',
+        id: '40000000-0000-4000-8000-000000000099',
+        latitude: null,
+        longitude: null,
       }),
-      { onConflict: 'id' },
     )
   })
 
@@ -270,9 +301,65 @@ describe('processPhotoUploadOperation', () => {
     expect(result.storagePath).toContain('preview.jpg')
     expect(insertPhoto).toHaveBeenCalledWith(
       expect.objectContaining({ captured_at: null }),
-      { onConflict: 'id' },
     )
     expect(upload).toHaveBeenCalled()
+  })
+
+  it('on duplicate photos row, updates only allowed metadata columns', async () => {
+    const updateEqCreator = vi.fn(async () => ({ error: null }))
+    const updateEqId = vi.fn(() => ({ eq: updateEqCreator }))
+    const updatePhoto = vi.fn(() => ({ eq: updateEqId }))
+    const insertPhoto = vi.fn(async () => ({
+      error: { message: 'duplicate key value violates unique constraint' },
+    }))
+    const insertVariant = vi.fn(async () => ({ error: null }))
+    const upload = vi.fn(
+      async (_path: string, _blob: Blob, _options: unknown) => ({
+        error: null,
+      }),
+    )
+
+    const client = {
+      auth: {
+        getSession: vi.fn(async () => ({
+          data: { session: { user: { id: 'user-1' } } },
+          error: null,
+        })),
+      },
+      from: vi.fn((table: string) => {
+        if (table === 'photos') {
+          return { insert: insertPhoto, update: updatePhoto }
+        }
+        if (table === 'photo_variants') {
+          return { insert: insertVariant }
+        }
+        if (table === 'entry_photos') {
+          return { upsert: vi.fn(async () => ({ error: null })) }
+        }
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+      storage: {
+        from: vi.fn(() => ({ upload })),
+      },
+    } as unknown as SupabaseClient
+
+    await processPhotoUploadOperation(createValidPayload(), {
+      fetchLocalFile: vi.fn(async () => new Blob(['photo-bytes'])),
+      getClient: () => client,
+      getLocalFileByteSize: vi.fn(async () => 120_000),
+      localFileExists: vi.fn(async () => true),
+    })
+
+    expect(updatePhoto).toHaveBeenCalledWith({
+      captured_at: expect.stringMatching(/^2026-07-10T/),
+      latitude: null,
+      longitude: null,
+    })
+    expect(updateEqId).toHaveBeenCalledWith(
+      'id',
+      '40000000-0000-4000-8000-000000000099',
+    )
+    expect(updateEqCreator).toHaveBeenCalledWith('creator_id', 'user-1')
   })
 
   it('keeps retryable failures for auth errors', async () => {
@@ -338,7 +425,9 @@ describe('processPhotoUploadOperation', () => {
     await expect(
       processPhotoUploadOperation(createValidPayload(), deps),
     ).rejects.toMatchObject({
-      message: expect.stringContaining(String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES)),
+      message: expect.stringContaining(
+        String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES),
+      ),
       retryable: false,
     })
 
@@ -360,7 +449,9 @@ describe('processPhotoUploadOperation', () => {
 
   it('retries against the same storage path without creating a duplicate object', async () => {
     const upload = vi.fn(
-      async (_path: string, _blob: Blob, _options: unknown) => ({ error: null }),
+      async (_path: string, _blob: Blob, _options: unknown) => ({
+        error: null,
+      }),
     )
     const { deps } = createDeps({
       getClient: () =>
@@ -373,13 +464,15 @@ describe('processPhotoUploadOperation', () => {
           },
           from: vi.fn((table: string) => {
             if (table === 'photos') {
-              return { upsert: vi.fn(async () => ({ error: null })) }
+              return { insert: vi.fn(async () => ({ error: null })) }
             }
 
             if (table === 'photo_variants') {
               return {
                 insert: vi.fn(async () => ({
-                  error: { message: 'duplicate key value violates unique constraint' },
+                  error: {
+                    message: 'duplicate key value violates unique constraint',
+                  },
                 })),
                 update: vi.fn(() => ({
                   eq: vi.fn(() => ({
@@ -389,6 +482,10 @@ describe('processPhotoUploadOperation', () => {
                   })),
                 })),
               }
+            }
+
+            if (table === 'entry_photos') {
+              return { upsert: vi.fn(async () => ({ error: null })) }
             }
 
             throw new Error(`Unexpected table: ${table}`)

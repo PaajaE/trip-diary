@@ -108,7 +108,4 @@ export async function loadJourneyStops(input: {
   }
 }
 
-export {
-  clearCachedJourneyStopsForJourney,
-  readCachedJourneyStops,
-}
+export { clearCachedJourneyStopsForJourney, readCachedJourneyStops }

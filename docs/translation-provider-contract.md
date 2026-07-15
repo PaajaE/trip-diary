@@ -72,11 +72,11 @@ Data access lives in `src/entities/translation/api/translation.repository.ts`:
 
 The web UI consumes these through React Query hooks exported from `src/entities/translation/api/`:
 
-| Hook | Role |
-| --- | --- |
-| `useEntryTranslationQuery` | Reads translation; polls every **3s** while status is `pending` or `processing` |
-| `useRequestEntryTranslationMutation` | Generate/regenerate; invalidates the detail query on success |
-| `useSaveEntryTranslationEditsMutation` | Manual save; updates cached translation via `setQueryData` |
+| Hook                                   | Role                                                                            |
+| -------------------------------------- | ------------------------------------------------------------------------------- |
+| `useEntryTranslationQuery`             | Reads translation; polls every **3s** while status is `pending` or `processing` |
+| `useRequestEntryTranslationMutation`   | Generate/regenerate; invalidates the detail query on success                    |
+| `useSaveEntryTranslationEditsMutation` | Manual save; updates cached translation via `setQueryData`                      |
 
 **Query keys:** `translationQueryKeys.detail(entryId, targetLocale)` under namespace `entry-translations`. Entry edits call `invalidateEntryTranslations(queryClient, entryId)` to refresh stale/succeeded state without broad invalidation.
 

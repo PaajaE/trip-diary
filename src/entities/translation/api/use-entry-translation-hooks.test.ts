@@ -19,9 +19,13 @@ const {
   requestEntryTranslationMock,
   saveEntryTranslationEditsMock,
 } = vi.hoisted(() => ({
-  getEntryTranslationMock: vi.fn<
-    (entryId: string, targetLocale: string) => Promise<EntryTranslation | null>
-  >(),
+  getEntryTranslationMock:
+    vi.fn<
+      (
+        entryId: string,
+        targetLocale: string,
+      ) => Promise<EntryTranslation | null>
+    >(),
   requestEntryTranslationMock: vi.fn(),
   saveEntryTranslationEditsMock: vi.fn(),
 }))
@@ -39,7 +43,8 @@ function createTranslation(
   status: EntryTranslation['status'],
 ): EntryTranslation {
   return {
-    completed_at: status === 'succeeded' ? '2026-07-10T12:00:00.000+00:00' : null,
+    completed_at:
+      status === 'succeeded' ? '2026-07-10T12:00:00.000+00:00' : null,
     created_at: '2026-07-10T11:00:00.000+00:00',
     edited_at: null,
     entry_id: entryId,
@@ -119,7 +124,10 @@ describe('translation query hooks', () => {
       translated_title: '[en] Praha',
     })
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     })
     const invalidateSpy = vi.spyOn(queryClient, 'invalidateQueries')
 
@@ -141,7 +149,10 @@ describe('translation query hooks', () => {
     saveEntryTranslationEditsMock.mockResolvedValue(saved)
 
     const queryClient = new QueryClient({
-      defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
     })
     queryClient.setQueryData(
       translationQueryKeys.detail(entryId, 'en'),

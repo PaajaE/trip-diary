@@ -15,7 +15,9 @@ export interface SyncCoordinatorSnapshot {
   terminalFailedCount: number
 }
 
-export type SyncCoordinatorListener = (snapshot: SyncCoordinatorSnapshot) => void
+export type SyncCoordinatorListener = (
+  snapshot: SyncCoordinatorSnapshot,
+) => void
 
 const INITIAL_SNAPSHOT: SyncCoordinatorSnapshot = {
   failedCount: 0,

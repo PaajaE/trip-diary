@@ -41,7 +41,11 @@ export function SyncStatusDetailModal({
       visible={open}
     >
       <View style={styles.backdrop}>
-        <Pressable accessibilityLabel={t('journey.addSheetClose')} onPress={onClose} style={styles.scrim} />
+        <Pressable
+          accessibilityLabel={t('journey.addSheetClose')}
+          onPress={onClose}
+          style={styles.scrim}
+        />
         <View accessibilityRole="summary" style={styles.sheet}>
           <Text style={styles.title}>{t('sync.panel.title')}</Text>
           <Text style={styles.status}>{presentation.statusLabel}</Text>

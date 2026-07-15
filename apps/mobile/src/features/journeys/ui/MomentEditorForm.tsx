@@ -1,0 +1,808 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  createJourneyMoment,
+  createStopId,
+  deleteJourneyMoment,
+  moveJourneyMomentToStage,
+  updateJourneyMoment,
+} from '@/features/entries/api/entries.repository'
+import {
+  deleteEntryPhoto,
+  EntryPhotoError,
+  listEntryPhotos,
+  uploadEntryPhotos,
+} from '@/features/entries/api/entry-photos.repository'
+import { selectFirstPhotoGps } from '@/features/journeys/lib/photo-gps'
+import type {
+  JourneyEntry,
+  JourneyStage,
+} from '@/features/journeys/model/journey-detail'
+import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
+import {
+  pickPhotos,
+  getCurrentLocation,
+  type PickedPhoto,
+} from '@/platform/media/photo'
+import { colors, spacing } from '@/foundation/theme'
+import type { JourneyStop } from '@trip-diary/core/journey'
+
+interface MomentEditorFormProps {
+  creatorId: string
+  entry?: JourneyEntry | null
+  initialStageId?: string | null
+  journeyId: string
+  mode: 'create' | 'edit'
+  onCancel: () => void
+  onSaved: () => void
+  spaceId: string
+  stages?: JourneyStage[]
+  stops?: JourneyStop[]
+  userId: string
+}
+
+function readStopPoint(
+  stops: JourneyStop[],
+  stopId: string | null | undefined,
+): { latitude: number; longitude: number } | null {
+  if (stopId === null || stopId === undefined) {
+    return null
+  }
+
+  const stop = stops.find((candidate) => candidate.id === stopId)
+  if (
+    stop === undefined ||
+    stop.mapLatitude === null ||
+    stop.mapLongitude === null ||
+    !Number.isFinite(stop.mapLatitude) ||
+    !Number.isFinite(stop.mapLongitude)
+  ) {
+    return null
+  }
+
+  return {
+    latitude: stop.mapLatitude,
+    longitude: stop.mapLongitude,
+  }
+}
+
+export function MomentEditorForm({
+  creatorId,
+  entry,
+  initialStageId = null,
+  journeyId,
+  mode,
+  onCancel,
+  onSaved,
+  spaceId,
+  stages = [],
+  stops = [],
+  userId,
+}: MomentEditorFormProps) {
+  const { i18n, t } = useTranslation()
+  const insets = useSafeAreaInsets()
+  const [title, setTitle] = useState(entry?.title ?? '')
+  const [body, setBody] = useState(entry?.body ?? '')
+  const [stageId, setStageId] = useState<string | null>(
+    entry?.stageId ?? initialStageId,
+  )
+  const [selectedPoint, setSelectedPoint] = useState<{
+    latitude: number
+    longitude: number
+  } | null>(() => readStopPoint(stops, entry?.stopId))
+  const [pickedPhotos, setPickedPhotos] = useState<PickedPhoto[]>([])
+  const [existingPhotoIds, setExistingPhotoIds] = useState<string[]>([])
+  const [busy, setBusy] = useState(false)
+  const [pickingPhotos, setPickingPhotos] = useState(false)
+  const [locatingUser, setLocatingUser] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [gpsNotice, setGpsNotice] = useState<string | null>(null)
+  const [photoNotice, setPhotoNotice] = useState<string | null>(null)
+  const [locationSource, setLocationSource] = useState<
+    'current' | 'map' | 'photo' | null
+  >(selectedPoint !== null ? 'map' : null)
+
+  useEffect(() => {
+    if (mode !== 'edit' || entry === undefined || entry === null) {
+      return
+    }
+
+    void listEntryPhotos(entry.id)
+      .then((photos) => {
+        setExistingPhotoIds(photos.map((photo) => photo.id))
+      })
+      .catch(() => {
+        setExistingPhotoIds([])
+      })
+  }, [entry, mode])
+
+  const photoGps = useMemo(
+    () =>
+      selectFirstPhotoGps(
+        pickedPhotos.map((photo) => ({
+          latitude: photo.metadata.latitude,
+          longitude: photo.metadata.longitude,
+        })),
+      ),
+    [pickedPhotos],
+  )
+
+  const resolvedLocation = selectedPoint ?? photoGps ?? null
+
+  async function handlePickPhotos(): Promise<void> {
+    setError(null)
+    setPhotoNotice(null)
+    setPickingPhotos(true)
+
+    try {
+      const result = await pickPhotos()
+      if (result.status === 'canceled') {
+        setPhotoNotice(t('entry.photoPickerCanceled'))
+        return
+      }
+
+      if (result.status === 'empty' || result.photos.length === 0) {
+        setPhotoNotice(t('entry.photoPickerEmptyLibrary'))
+        return
+      }
+
+      const photos = result.photos
+      setPickedPhotos((current) => [...current, ...photos])
+      const gps = selectFirstPhotoGps(
+        photos.map((photo) => ({
+          latitude: photo.metadata.latitude,
+          longitude: photo.metadata.longitude,
+        })),
+      )
+
+      if (gps === null) {
+        setGpsNotice(t('journey.photoGpsMissing'))
+      } else {
+        setSelectedPoint(gps)
+        setLocationSource('photo')
+        setGpsNotice(t('journey.photoGpsDetected'))
+      }
+    } catch (pickError) {
+      const message =
+        pickError instanceof Error
+          ? pickError.message
+          : t('entry.photoPickerError')
+
+      if (message.toLowerCase().includes('permission')) {
+        setPhotoNotice(t('entry.photoPickerLimitedAccess'))
+      } else {
+        setError(message)
+      }
+    } finally {
+      setPickingPhotos(false)
+    }
+  }
+
+  async function handleUseCurrentLocation(): Promise<void> {
+    setError(null)
+    setLocatingUser(true)
+
+    try {
+      const location = await getCurrentLocation()
+      if (location === null) {
+        setError(t('journey.currentLocationFailed'))
+        return
+      }
+
+      setSelectedPoint(location)
+      setLocationSource('current')
+    } catch {
+      setError(t('journey.currentLocationFailed'))
+    } finally {
+      setLocatingUser(false)
+    }
+  }
+
+  async function handleSave(): Promise<void> {
+    const trimmedTitle = title.trim()
+    if (trimmedTitle.length === 0) {
+      setError(t('journey.addError'))
+      return
+    }
+
+    setBusy(true)
+    setError(null)
+
+    try {
+      const language = i18n.language === 'en' ? 'en' : 'cs'
+      const eventAt = new Date().toISOString()
+      let photoUploadError: string | null = null
+
+      if (mode === 'create') {
+        const { entryId } = await createJourneyMoment({
+          body: body.trim(),
+          creatorId,
+          eventAt,
+          journeyId,
+          language,
+          latitude: resolvedLocation?.latitude ?? null,
+          locationTitle: trimmedTitle,
+          longitude: resolvedLocation?.longitude ?? null,
+          spaceId,
+          stageId,
+          title: trimmedTitle,
+          type: 'story',
+          visibility: 'public',
+        })
+
+        if (pickedPhotos.length > 0) {
+          try {
+            await uploadEntryPhotos({
+              entryId,
+              journeyId,
+              photos: pickedPhotos,
+              userId,
+            })
+          } catch (uploadError) {
+            photoUploadError = formatPhotoUploadError(uploadError, t)
+            if (__DEV__) {
+              console.log('[moment-photos] upload failed after moment create', {
+                code:
+                  uploadError instanceof EntryPhotoError
+                    ? uploadError.code
+                    : 'UNKNOWN',
+                message: photoUploadError,
+              })
+            }
+          }
+        }
+      } else if (entry !== null && entry !== undefined) {
+        await updateJourneyMoment(entry.id, {
+          body: body.trim(),
+          eventAt: entry.eventAt ?? eventAt,
+          language,
+          title: trimmedTitle,
+          type: entry.type,
+          visibility: 'public',
+        })
+
+        const shouldUpdateAssignment =
+          stageId !== entry.stageId || resolvedLocation !== null
+
+        if (shouldUpdateAssignment) {
+          await moveJourneyMomentToStage({
+            entryId: entry.id,
+            journeyId,
+            latitude: resolvedLocation?.latitude ?? null,
+            locationTitle: trimmedTitle,
+            longitude: resolvedLocation?.longitude ?? null,
+            stageId,
+            stopId:
+              resolvedLocation !== null
+                ? (entry.stopId ?? createStopId())
+                : entry.stopId,
+          })
+        }
+
+        if (pickedPhotos.length > 0) {
+          try {
+            await uploadEntryPhotos({
+              entryId: entry.id,
+              journeyId,
+              photos: pickedPhotos,
+              startingPosition: existingPhotoIds.length,
+              userId,
+            })
+          } catch (uploadError) {
+            photoUploadError = formatPhotoUploadError(uploadError, t)
+          }
+        }
+      }
+
+      if (photoUploadError !== null) {
+        Alert.alert(
+          t('entry.photos'),
+          `${t('entry.photoProcessingFailed')}\n\n${photoUploadError}`,
+          [{ onPress: () => onSaved(), text: 'OK' }],
+        )
+        return
+      }
+
+      onSaved()
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error ? saveError.message : t('journey.addError'),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  function handleDeleteMoment(): void {
+    if (entry === null || entry === undefined) {
+      return
+    }
+
+    Alert.alert(t('entry.deleteAction'), t('entry.deleteConfirm'), [
+      { style: 'cancel', text: t('common.cancel') },
+      {
+        style: 'destructive',
+        text: t('entry.deleteAction'),
+        onPress: () => {
+          void (async () => {
+            setBusy(true)
+            try {
+              await deleteJourneyMoment(entry.id)
+              onSaved()
+            } catch (deleteError) {
+              setError(
+                deleteError instanceof Error
+                  ? deleteError.message
+                  : t('journey.addError'),
+              )
+            } finally {
+              setBusy(false)
+            }
+          })()
+        },
+      },
+    ])
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        { paddingBottom: insets.bottom + spacing.xl },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {error !== null ? (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+
+      <Text style={styles.label}>{t('entry.title')}</Text>
+      <TextInput
+        accessibilityLabel={t('entry.title')}
+        editable={!busy}
+        onChangeText={setTitle}
+        style={styles.input}
+        testID="moment-title-input"
+        value={title}
+      />
+
+      <Text style={styles.label}>{t('entry.body')}</Text>
+      <TextInput
+        accessibilityLabel={t('entry.body')}
+        editable={!busy}
+        multiline
+        onChangeText={setBody}
+        style={[styles.input, styles.textArea]}
+        testID="moment-body-input"
+        value={body}
+      />
+
+      {stages.length > 0 ? (
+        <View style={styles.stagePicker}>
+          <Text style={styles.label}>{t('journey.organizeMoment')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => {
+              setStageId(null)
+            }}
+            style={[
+              styles.stageChip,
+              stageId === null ? styles.stageChipActive : null,
+            ]}
+          >
+            <Text style={styles.stageChipText}>
+              {t('journey.undatedMoments')}
+            </Text>
+          </Pressable>
+          {stages.map((stage) => (
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy}
+              key={stage.id}
+              onPress={() => {
+                setStageId(stage.id)
+              }}
+              style={[
+                styles.stageChip,
+                stageId === stage.id ? styles.stageChipActive : null,
+              ]}
+            >
+              <Text style={styles.stageChipText}>{stage.title}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+
+      <Text style={styles.label}>{t('entry.photos')}</Text>
+      <Text style={styles.helper}>{t('entry.photoPickerHint')}</Text>
+      <Pressable
+        accessibilityLabel={t('entry.photoPickerAction')}
+        accessibilityRole="button"
+        disabled={busy || pickingPhotos}
+        onPress={() => {
+          void handlePickPhotos()
+        }}
+        style={[
+          styles.secondaryButton,
+          busy || pickingPhotos ? styles.buttonDisabled : null,
+        ]}
+        testID="moment-pick-photos"
+      >
+        {pickingPhotos ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={styles.secondaryButtonText}>
+            {t('entry.photoPickerAction')}
+          </Text>
+        )}
+      </Pressable>
+
+      {pickingPhotos ? (
+        <Text style={styles.helper}>{t('entry.photoPickerLoading')}</Text>
+      ) : null}
+
+      {photoNotice !== null ? (
+        <Text accessibilityRole="text" style={styles.notice}>
+          {photoNotice}
+        </Text>
+      ) : null}
+
+      {pickedPhotos.length > 0 ? (
+        <View style={styles.previewGrid}>
+          {pickedPhotos.map((photo) => (
+            <Image
+              accessibilityIgnoresInvertColors
+              key={photo.uri}
+              source={{ uri: photo.uri }}
+              style={styles.previewImage}
+            />
+          ))}
+        </View>
+      ) : null}
+
+      {pickedPhotos.length > 0 ? (
+        <Text style={styles.helper}>
+          {t('entry.photosSelected', { count: pickedPhotos.length })}
+        </Text>
+      ) : null}
+
+      {gpsNotice !== null ? (
+        <Text style={styles.helper}>{gpsNotice}</Text>
+      ) : null}
+
+      <Text style={styles.label}>{t('journey.mapPicker')}</Text>
+      <Pressable
+        accessibilityLabel={t('journey.useCurrentLocation')}
+        accessibilityRole="button"
+        disabled={busy || locatingUser}
+        onPress={() => {
+          void handleUseCurrentLocation()
+        }}
+        style={[
+          styles.secondaryButton,
+          busy || locatingUser ? styles.buttonDisabled : null,
+        ]}
+        testID="moment-use-current-location"
+      >
+        {locatingUser ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={styles.secondaryButtonText}>
+            {t('journey.useCurrentLocation')}
+          </Text>
+        )}
+      </Pressable>
+      <LocationPickerMap
+        onSelectPoint={(point) => {
+          setSelectedPoint(point)
+          setLocationSource('map')
+        }}
+        selectedPoint={resolvedLocation}
+        stops={stops}
+      />
+      {locationSource !== null ? (
+        <Text style={styles.helper}>
+          {t(`journey.locationSource.${locationSource}`)}
+        </Text>
+      ) : null}
+      {resolvedLocation === null ? (
+        <Text style={styles.helper}>{t('journey.photoGpsMissing')}</Text>
+      ) : (
+        <Text style={styles.helper}>
+          {t('journey.selectedPoint', {
+            latitude: resolvedLocation.latitude.toFixed(4),
+            longitude: resolvedLocation.longitude.toFixed(4),
+          })}
+        </Text>
+      )}
+
+      {existingPhotoIds.length > 0 ? (
+        <View style={styles.photoList}>
+          {existingPhotoIds.map((photoId) => (
+            <View key={photoId} style={styles.photoRow}>
+              <Text style={styles.photoId}>{photoId.slice(0, 8)}…</Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy || entry === null || entry === undefined}
+                onPress={() => {
+                  if (entry === null || entry === undefined) {
+                    return
+                  }
+
+                  Alert.alert(
+                    t('entry.deleteAction'),
+                    t('entry.deleteConfirm'),
+                    [
+                      { style: 'cancel', text: t('common.cancel') },
+                      {
+                        style: 'destructive',
+                        text: t('entry.deleteAction'),
+                        onPress: () => {
+                          void (async () => {
+                            setBusy(true)
+                            try {
+                              await deleteEntryPhoto(entry.id, photoId)
+                              setExistingPhotoIds((current) =>
+                                current.filter((id) => id !== photoId),
+                              )
+                            } catch (deletePhotoError) {
+                              setError(
+                                deletePhotoError instanceof Error
+                                  ? deletePhotoError.message
+                                  : t('journey.addError'),
+                              )
+                            } finally {
+                              setBusy(false)
+                            }
+                          })()
+                        },
+                      },
+                    ],
+                  )
+                }}
+                style={styles.linkButton}
+              >
+                <Text style={styles.linkText}>{t('entry.deletePhoto')}</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      <Pressable
+        accessibilityLabel={
+          mode === 'create' ? t('journey.addMoment') : t('entry.saveChanges')
+        }
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={() => {
+          void handleSave()
+        }}
+        style={[styles.primaryButton, busy ? styles.buttonDisabled : null]}
+        testID="moment-save"
+      >
+        {busy ? (
+          <ActivityIndicator color="#ffffff" />
+        ) : (
+          <Text style={styles.primaryButtonText}>
+            {mode === 'create'
+              ? t('journey.addMoment')
+              : t('entry.saveChanges')}
+          </Text>
+        )}
+      </Pressable>
+
+      <Pressable
+        accessibilityLabel={t('entry.cancelEdit')}
+        accessibilityRole="button"
+        disabled={busy}
+        onPress={onCancel}
+        style={styles.linkButton}
+        testID="moment-cancel"
+      >
+        <Text style={styles.linkText}>{t('entry.cancelEdit')}</Text>
+      </Pressable>
+
+      {mode === 'edit' ? (
+        <Pressable
+          accessibilityLabel={t('entry.deleteAction')}
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={handleDeleteMoment}
+          style={[styles.dangerButton, busy ? styles.buttonDisabled : null]}
+          testID="moment-delete"
+        >
+          <Text style={styles.dangerButtonText}>{t('entry.deleteAction')}</Text>
+        </Pressable>
+      ) : null}
+    </ScrollView>
+  )
+}
+
+function formatPhotoUploadError(
+  error: unknown,
+  t: (key: string) => string,
+): string {
+  if (error instanceof EntryPhotoError) {
+    switch (error.code) {
+      case 'PERMISSION':
+        return `${t('entry.photoPickerLimitedAccess')} (${error.message})`
+      case 'NETWORK':
+        return `Network error (${error.message})`
+      case 'ASSET_INVALID':
+        return `${t('entry.photoPickerError')} (${error.message})`
+      case 'DATABASE':
+      case 'QUEUE':
+      case 'STORAGE':
+      case 'TIMEOUT':
+      case 'UPLOAD':
+      case 'UNKNOWN':
+        return error.message
+    }
+  }
+
+  return error instanceof Error ? error.message : t('entry.photoPickerError')
+}
+
+const styles = StyleSheet.create({
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  container: {
+    padding: spacing.lg,
+  },
+  dangerButton: {
+    alignItems: 'center',
+    marginTop: spacing.lg,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+  },
+  dangerButtonText: {
+    color: colors.error,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  error: {
+    color: colors.error,
+    marginBottom: spacing.md,
+  },
+  helper: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  input: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    color: colors.text,
+    fontSize: 16,
+    marginBottom: spacing.md,
+    minHeight: 44,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  label: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: spacing.xs,
+  },
+  linkButton: {
+    alignItems: 'center',
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+  },
+  linkText: {
+    color: colors.primary,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  notice: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: spacing.sm,
+  },
+  photoId: {
+    color: colors.textMuted,
+    flex: 1,
+    fontFamily: 'monospace',
+    fontSize: 12,
+  },
+  photoList: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  photoRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  previewGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  previewImage: {
+    backgroundColor: colors.surface,
+    borderRadius: 8,
+    height: 72,
+    width: 72,
+  },
+  primaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    justifyContent: 'center',
+    marginTop: spacing.sm,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+  },
+  secondaryButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  stageChip: {
+    backgroundColor: colors.surface,
+    borderColor: colors.border,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginBottom: spacing.xs,
+    marginRight: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  stageChipActive: {
+    backgroundColor: '#e8f3ea',
+    borderColor: colors.primary,
+  },
+  stageChipText: {
+    color: colors.text,
+    fontSize: 14,
+  },
+  stagePicker: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.md,
+  },
+  textArea: {
+    minHeight: 120,
+    textAlignVertical: 'top',
+  },
+})

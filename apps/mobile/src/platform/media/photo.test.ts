@@ -7,7 +7,23 @@ vi.mock('expo-file-system', () => ({
 }))
 
 vi.mock('expo-image-picker', () => ({
+  UIImagePickerPreferredAssetRepresentationMode: {
+    Compatible: 'compatible',
+  },
+  UIImagePickerPresentationStyle: {
+    FULL_SCREEN: 'fullScreen',
+  },
+  getCameraPermissionsAsync: vi.fn(async () => ({
+    granted: true,
+    status: 'granted',
+  })),
+  getMediaLibraryPermissionsAsync: vi.fn(async () => ({
+    accessPrivileges: 'all',
+    granted: true,
+    status: 'granted',
+  })),
   launchImageLibraryAsync: vi.fn(),
+  requestCameraPermissionsAsync: vi.fn(),
   requestMediaLibraryPermissionsAsync: vi.fn(),
 }))
 

@@ -108,10 +108,7 @@ export function computeJourneyStopMapCamera(
   let minLongitude = Math.min(...unwrappedLongitudes)
   let maxLongitude = Math.max(...unwrappedLongitudes)
 
-  if (
-    minLatitude === maxLatitude &&
-    minLongitude === maxLongitude
-  ) {
+  if (minLatitude === maxLatitude && minLongitude === maxLongitude) {
     return {
       center: {
         latitude: minLatitude,

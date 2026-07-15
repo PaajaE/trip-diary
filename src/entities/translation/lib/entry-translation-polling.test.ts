@@ -35,9 +35,9 @@ describe('entry translation polling', () => {
   })
 
   it('polls while status is pending or processing', () => {
-    expect(shouldPollEntryTranslation({ ...baseTranslation, status: 'pending' })).toBe(
-      true,
-    )
+    expect(
+      shouldPollEntryTranslation({ ...baseTranslation, status: 'pending' }),
+    ).toBe(true)
     expect(
       shouldPollEntryTranslation({ ...baseTranslation, status: 'processing' }),
     ).toBe(true)

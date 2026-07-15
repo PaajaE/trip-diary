@@ -40,8 +40,7 @@ export function resolveJourneyListPresentation(input: {
 }): JourneyListPresentation {
   const { result, journeysCount } = input
   const showCachedBanner =
-    result?.isFromCache === true &&
-    (result.isOffline || result.refreshFailed)
+    result?.isFromCache === true && (result.isOffline || result.refreshFailed)
   const showOfflineUnavailable =
     result?.isOffline === true &&
     journeysCount === 0 &&

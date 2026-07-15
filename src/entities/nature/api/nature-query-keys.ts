@@ -24,13 +24,7 @@ export const natureQueryKeys = {
     scientificName: string | null | undefined,
     commonName: string | null | undefined,
     language: string,
-  ) =>
-    [
-      'nature-guide-wikidata',
-      scientificName,
-      commonName,
-      language,
-    ] as const,
+  ) => ['nature-guide-wikidata', scientificName, commonName, language] as const,
   taxonSearch: (query: string, language: string) =>
     ['inaturalist-taxon-search', query, language] as const,
   macrostratGeology: (

@@ -164,7 +164,9 @@ export default function DevChecklistScreen() {
       apiKey: 'invalid-key-for-test',
       defaultProvider: 'mapy-tourist',
     })
-    const basemap = resolved.style.sources.basemap as { url?: string } | undefined
+    const basemap = resolved.style.sources.basemap as
+      | { url?: string }
+      | undefined
     append(
       `Invalid key resolution: provider=${resolved.providerId}, reason=${resolved.reason}`,
     )
@@ -296,7 +298,8 @@ export default function DevChecklistScreen() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.subtitle}>
-        Device-only helpers for photo upload, location, and sync queue validation.
+        Device-only helpers for photo upload, location, and sync queue
+        validation.
       </Text>
 
       <Pressable style={styles.button} onPress={() => void handlePickPhoto()}>
@@ -314,16 +317,10 @@ export default function DevChecklistScreen() {
       >
         <Text style={styles.buttonText}>Get current location</Text>
       </Pressable>
-      <Pressable
-        style={styles.button}
-        onPress={handleOsmFallbackMissingKey}
-      >
+      <Pressable style={styles.button} onPress={handleOsmFallbackMissingKey}>
         <Text style={styles.buttonText}>Test OSM fallback (missing key)</Text>
       </Pressable>
-      <Pressable
-        style={styles.button}
-        onPress={handleOsmFallbackInvalidKey}
-      >
+      <Pressable style={styles.button} onPress={handleOsmFallbackInvalidKey}>
         <Text style={styles.buttonText}>Test Mapy with invalid key</Text>
       </Pressable>
       <Text style={styles.envHint}>
@@ -344,7 +341,10 @@ export default function DevChecklistScreen() {
       >
         <Text style={styles.buttonText}>Enqueue staged photo upload</Text>
       </Pressable>
-      <Pressable style={styles.button} onPress={() => void handleProcessQueue()}>
+      <Pressable
+        style={styles.button}
+        onPress={() => void handleProcessQueue()}
+      >
         <Text style={styles.buttonText}>Process sync queue</Text>
       </Pressable>
       <Pressable style={styles.button} onPress={() => void handleRetryUpload()}>

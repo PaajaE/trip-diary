@@ -42,12 +42,20 @@ const sharedTypeCheckedRules = {
 
 const packageBoundaryPatterns = [
   {
-    group: ['react', 'react-dom', 'react-native', 'react-native/*', 'expo', 'expo-*'],
+    group: [
+      'react',
+      'react-dom',
+      'react-native',
+      'react-native/*',
+      'expo',
+      'expo-*',
+    ],
     message: 'Shared packages must remain platform-neutral.',
   },
   {
     group: ['@supabase/*', 'dexie', 'dexie/*', 'expo-sqlite'],
-    message: 'Shared packages must not depend on storage or remote client SDKs.',
+    message:
+      'Shared packages must not depend on storage or remote client SDKs.',
   },
 ]
 
@@ -166,10 +174,7 @@ export default defineConfig([
   },
   {
     files: ['packages/*/src/**/*.test.ts'],
-    extends: [
-      js.configs.recommended,
-      ...tseslint.configs.strictTypeChecked,
-    ],
+    extends: [js.configs.recommended, ...tseslint.configs.strictTypeChecked],
     languageOptions: {
       ecmaVersion: 'latest',
       globals: globals.node,

@@ -8,19 +8,19 @@ Lint and tests cover query-key factories and invalidation helpers. Run `pnpm tes
 
 ## Ownership
 
-| Domain | Factory | Notes |
-| --- | --- | --- |
-| Journey | `journeyQueryKeys` | Detail, local cache, public, membership, contribution |
-| Entry | `entryQueryKeys` | Detail, public reader variants, photo preview scopes |
-| Photo | `photoQueryKeys` | Journey gallery, locations, tag assignments |
-| Checklist | `checklistQueryKeys` | Per-journey checklist lists |
-| Nature | `natureQueryKeys` | Observations, regional guide, external taxon lookups |
-| Dashboard | `dashboardQueryKeys` | Remote + local cache per user |
-| Space | `spaceQueryKeys` | User spaces, members, invite preview |
-| Profile | `profileQueryKeys` | Current + public profile |
-| Sharing | `sharingQueryKeys` | Public routes, entry public share metadata |
-| Translation | `translationQueryKeys` | Unchanged from Wave 3C |
-| Engagement | `engagementQueryKeys` | Feature-local (`features/engagement`) |
+| Domain      | Factory                | Notes                                                 |
+| ----------- | ---------------------- | ----------------------------------------------------- |
+| Journey     | `journeyQueryKeys`     | Detail, local cache, public, membership, contribution |
+| Entry       | `entryQueryKeys`       | Detail, public reader variants, photo preview scopes  |
+| Photo       | `photoQueryKeys`       | Journey gallery, locations, tag assignments           |
+| Checklist   | `checklistQueryKeys`   | Per-journey checklist lists                           |
+| Nature      | `natureQueryKeys`      | Observations, regional guide, external taxon lookups  |
+| Dashboard   | `dashboardQueryKeys`   | Remote + local cache per user                         |
+| Space       | `spaceQueryKeys`       | User spaces, members, invite preview                  |
+| Profile     | `profileQueryKeys`     | Current + public profile                              |
+| Sharing     | `sharingQueryKeys`     | Public routes, entry public share metadata            |
+| Translation | `translationQueryKeys` | Unchanged from Wave 3C                                |
+| Engagement  | `engagementQueryKeys`  | Feature-local (`features/engagement`)                 |
 
 ## Hierarchy convention
 

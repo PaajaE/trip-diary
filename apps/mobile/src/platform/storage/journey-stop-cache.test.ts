@@ -5,7 +5,10 @@ vi.mock('expo-sqlite', () => ({
 }))
 
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite'
-import { getMobileDatabase, resetMobileDatabaseForTests } from '@/platform/storage/database'
+import {
+  getMobileDatabase,
+  resetMobileDatabaseForTests,
+} from '@/platform/storage/database'
 import {
   readCachedJourneyStops,
   replaceCachedJourneyStops,
@@ -39,13 +42,21 @@ describe('journey stop cache repository', () => {
   it('isolates cached stops by user and journey', async () => {
     await replaceCachedJourneyStops('user-a', 'journey-1', [sampleStop])
     await replaceCachedJourneyStops('user-b', 'journey-1', [
-      { ...sampleStop, id: '33333333-3333-4333-8333-333333333333', title: 'Other' },
+      {
+        ...sampleStop,
+        id: '33333333-3333-4333-8333-333333333333',
+        title: 'Other',
+      },
     ])
 
-    await expect(readCachedJourneyStops('user-a', 'journey-1')).resolves.toMatchObject({
+    await expect(
+      readCachedJourneyStops('user-a', 'journey-1'),
+    ).resolves.toMatchObject({
       stops: [{ title: 'Brno' }],
     })
-    await expect(readCachedJourneyStops('user-b', 'journey-1')).resolves.toMatchObject({
+    await expect(
+      readCachedJourneyStops('user-b', 'journey-1'),
+    ).resolves.toMatchObject({
       stops: [{ title: 'Other' }],
     })
   })
@@ -54,7 +65,9 @@ describe('journey stop cache repository', () => {
     await replaceCachedJourneyStops('user-a', 'journey-1', [sampleStop])
     await replaceCachedJourneyStops('user-a', 'journey-1', [])
 
-    await expect(readCachedJourneyStops('user-a', 'journey-1')).resolves.toEqual({
+    await expect(
+      readCachedJourneyStops('user-a', 'journey-1'),
+    ).resolves.toEqual({
       cachedAt: expect.any(String),
       stops: [],
     })
@@ -71,7 +84,9 @@ describe('journey stop cache repository', () => {
       user_id: 'user-a',
     })
 
-    await expect(readCachedJourneyStops('user-a', 'journey-1')).resolves.toMatchObject({
+    await expect(
+      readCachedJourneyStops('user-a', 'journey-1'),
+    ).resolves.toMatchObject({
       stops: [{ title: 'Brno' }],
     })
   })

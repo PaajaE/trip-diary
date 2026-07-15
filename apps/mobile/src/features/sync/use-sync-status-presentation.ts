@@ -46,11 +46,7 @@ export function useSyncStatusPresentation() {
   })
 
   const retry = useCallback(async () => {
-    if (
-      !viewModel.canRetry ||
-      snapshot.phase === 'processing' ||
-      isRetrying
-    ) {
+    if (!viewModel.canRetry || snapshot.phase === 'processing' || isRetrying) {
       return { resetCount: 0, terminalCount: viewModel.terminalFailedCount }
     }
 

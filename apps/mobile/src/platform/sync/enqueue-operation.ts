@@ -1,7 +1,4 @@
-import {
-  enqueueSyncOperation,
-  type SyncOperation,
-} from '@/platform/sync/queue'
+import { enqueueSyncOperation, type SyncOperation } from '@/platform/sync/queue'
 import { requestSyncDrain } from '@/foundation/sync/sync-drain-request'
 
 const ENQUEUED_BY_USER_ID_KEY = 'enqueuedByUserId'

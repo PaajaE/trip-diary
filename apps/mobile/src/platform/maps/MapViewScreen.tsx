@@ -182,10 +182,7 @@ export function MapViewScreen({
         {camera?.type === 'center' ? (
           <Camera
             animationDuration={0}
-            centerCoordinate={[
-              camera.center.longitude,
-              camera.center.latitude,
-            ]}
+            centerCoordinate={[camera.center.longitude, camera.center.latitude]}
             zoomLevel={camera.zoomLevel}
           />
         ) : null}
@@ -216,10 +213,7 @@ export function MapViewScreen({
               zoomLevel={DEFAULT_DEVICE_ZOOM}
             />
             <PointAnnotation
-              coordinate={[
-                fallbackCenter.longitude,
-                fallbackCenter.latitude,
-              ]}
+              coordinate={[fallbackCenter.longitude, fallbackCenter.latitude]}
               id="device-location"
             >
               <View style={styles.markerVisitedOuter}>

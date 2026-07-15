@@ -24,13 +24,16 @@ describe('JourneyReaderMomentStrip', () => {
     cleanup()
   })
 
-  it('activates moments from keyboard navigation', () => {
-    const moments = [createMoment('a'), createMoment('b')]
+  it('activates moments from keyboard navigation in newest-first order', () => {
+    const moments = [
+      createMoment('a', '2026-01-01T08:00:00.000Z'),
+      createMoment('b', '2026-01-02T08:00:00.000Z'),
+    ]
     const onActivateMoment = vi.fn()
 
     render(
       <JourneyReaderMomentStrip
-        activeMomentId="a"
+        activeMomentId="b"
         moments={moments}
         onActivateMoment={onActivateMoment}
       />,
@@ -39,11 +42,14 @@ describe('JourneyReaderMomentStrip', () => {
     const listbox = screen.getByRole('listbox')
     fireEvent.keyDown(listbox, { key: 'ArrowRight' })
 
-    expect(onActivateMoment).toHaveBeenCalledWith('b')
+    expect(onActivateMoment).toHaveBeenCalledWith('a')
   })
 
   it('marks the active card with aria-selected', () => {
-    const moments = [createMoment('a'), createMoment('b')]
+    const moments = [
+      createMoment('a', '2026-01-01T08:00:00.000Z'),
+      createMoment('b', '2026-01-02T08:00:00.000Z'),
+    ]
 
     render(
       <JourneyReaderMomentStrip
@@ -54,14 +60,18 @@ describe('JourneyReaderMomentStrip', () => {
     )
 
     const options = screen.getAllByRole('option')
-    expect(options[0]).toHaveAttribute('aria-selected', 'false')
-    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+    expect(options[0]).toHaveAttribute('aria-selected', 'true')
+    expect(options[1]).toHaveAttribute('aria-selected', 'false')
   })
 })
 
 describe('handleStripKeyDown', () => {
   it('moves to the first and last moments with Home and End', () => {
-    const moments = [createMoment('a'), createMoment('b'), createMoment('c')]
+    const moments = [
+      createMoment('a', '2026-01-01T08:00:00.000Z'),
+      createMoment('b', '2026-01-02T08:00:00.000Z'),
+      createMoment('c', '2026-01-03T08:00:00.000Z'),
+    ]
     const onActivateMoment = vi.fn()
 
     handleStripKeyDown(
@@ -85,11 +95,12 @@ describe('getMomentExcerpt', () => {
   })
 })
 
-function createMoment(id: string): JourneyMoment {
+function createMoment(id: string, eventAt: string): JourneyMoment {
   return {
     entry: {
       body: 'Sample body',
-      eventAt: '2026-01-01T08:00:00.000Z',
+      createdAt: eventAt,
+      eventAt,
       id,
       slug: null,
       stageId: null,

@@ -112,10 +112,67 @@ describe('composeJourneyContent', () => {
     const content = composeJourneyContent(journey)
 
     expect(content.stageContents).toHaveLength(2)
-    expect(content.stageContents[0]?.dayKey).toBe('2026-06-12')
-    expect(content.stageContents[0]?.moments[0]?.entry.title).toBe('Morning')
-    expect(content.stageContents[1]?.dayKey).toBe('2026-06-13')
-    expect(content.stageContents[1]?.moments[0]?.entry.title).toBe('Evening')
+    expect(content.stageContents[0]?.dayKey).toBe('2026-06-13')
+    expect(content.stageContents[0]?.moments[0]?.entry.title).toBe('Evening')
+    expect(content.stageContents[1]?.dayKey).toBe('2026-06-12')
+    expect(content.stageContents[1]?.moments[0]?.entry.title).toBe('Morning')
+  })
+
+  it('orders moments within a day newest first using event_at then created_at then id', () => {
+    const day = '2026-06-13'
+    const journey: JourneyDetail = {
+      endsAt: null,
+      entries: [
+        {
+          body: '',
+          createdAt: '2026-06-13T08:00:00.000Z',
+          eventAt: `${day}T10:00:00.000Z`,
+          id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+          slug: null,
+          stageId: null,
+          stopId: null,
+          title: 'Older same day',
+          type: 'story',
+        },
+        {
+          body: '',
+          createdAt: '2026-06-13T12:00:00.000Z',
+          eventAt: `${day}T18:00:00.000Z`,
+          id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+          slug: null,
+          stageId: null,
+          stopId: null,
+          title: 'Newer event',
+          type: 'story',
+        },
+        {
+          body: '',
+          createdAt: '2026-06-13T20:00:00.000Z',
+          eventAt: `${day}T10:00:00.000Z`,
+          id: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+          slug: null,
+          stageId: null,
+          stopId: null,
+          title: 'Same event newer created',
+          type: 'story',
+        },
+      ],
+      guides: [],
+      id: crypto.randomUUID(),
+      spaceId: crypto.randomUUID(),
+      stages: [],
+      startsAt: null,
+      status: 'active',
+      stops: [],
+      summary: '',
+      title: 'Same-day order',
+    }
+
+    const content = composeJourneyContent(journey)
+    expect(content.stageContents).toHaveLength(1)
+    expect(
+      content.stageContents[0]?.moments.map((moment) => moment.entry.title),
+    ).toEqual(['Newer event', 'Same event newer created', 'Older same day'])
   })
 
   it('keeps moments with unknown stage ids in auto day buckets', () => {

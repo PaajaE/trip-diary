@@ -10,13 +10,9 @@ vi.mock('@/features/journeys/lib/journey-reader-section', () => ({
 }))
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    ...props
-  }: {
-    children: React.ReactNode
-    to: string
-  }) => <a href={props.to}>{children}</a>,
+  Link: ({ children, ...props }: { children: React.ReactNode; to: string }) => (
+    <a href={props.to}>{children}</a>
+  ),
 }))
 
 describe('JourneyReaderHero', () => {

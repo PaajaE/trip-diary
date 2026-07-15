@@ -17,12 +17,16 @@ const UUID_PATTERN =
 export interface PhotoUploadPayload {
   byteSize: number
   capturedAt?: string | null
+  entryId?: string | null
   height: number
   journeyId: string
+  latitude?: number | null
   localUri: string
+  longitude?: number | null
   mimeType: PhotoMimeType
   originalFilename: string
   photoId: string
+  position?: number
   variant?: PhotoVariantType
   width: number
 }
@@ -68,16 +72,24 @@ export function parsePhotoUploadPayload(
   const byteSize = readPositiveInteger(payload.byteSize, 'byteSize')
   const variant = readVariant(payload.variant)
   const capturedAt = readOptionalString(payload.capturedAt)
+  const entryId = readOptionalUuid(payload.entryId)
+  const latitude = readOptionalNumber(payload.latitude)
+  const longitude = readOptionalNumber(payload.longitude)
+  const position = readOptionalNonNegativeInteger(payload.position)
 
   return {
     byteSize,
     capturedAt,
+    entryId,
     height,
     journeyId,
+    latitude,
     localUri,
+    longitude,
     mimeType,
     originalFilename,
     photoId,
+    position,
     variant,
     width,
   }
@@ -93,23 +105,44 @@ export function assertPhotoFileWithinStorageLimit(byteSize: number): void {
 }
 
 export interface PhotoUploadDeps {
-  fetchLocalFile: (localUri: string) => Promise<Blob>
+  fetchLocalFile: (localUri: string, mimeType: PhotoMimeType) => Promise<Blob>
   getClient: () => SupabaseClient
   getLocalFileByteSize: (localUri: string) => Promise<number>
   localFileExists: (localUri: string) => Promise<boolean>
 }
 
 const defaultDeps: PhotoUploadDeps = {
-  fetchLocalFile: async (localUri: string) => {
-    const response = await fetch(localUri)
-    if (!response.ok) {
+  fetchLocalFile: async (localUri: string, mimeType: PhotoMimeType) => {
+    try {
+      const response = await fetch(localUri)
+      if (response.ok) {
+        const blob = await response.blob()
+        if (blob.size > 0) {
+          return blob
+        }
+      }
+    } catch {
+      // Fall back to FileSystem below — fetch(file://) is unreliable on iOS.
+    }
+
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    })
+
+    if (base64.length === 0) {
       throw new PhotoUploadError(
-        `Failed to read local photo: HTTP ${String(response.status)}`,
+        `Local photo file is missing or empty: ${localUri}`,
         false,
       )
     }
 
-    return response.blob()
+    const binary = globalThis.atob(base64)
+    const bytes = new Uint8Array(binary.length)
+    for (let index = 0; index < binary.length; index += 1) {
+      bytes[index] = binary.charCodeAt(index)
+    }
+
+    return new Blob([bytes], { type: mimeType })
   },
   getClient: getSupabaseClient,
   getLocalFileByteSize: async (localUri: string) => {
@@ -206,8 +239,17 @@ export async function processPhotoUploadOperation(
   await ensurePhotoRow(client, parsed, creatorId)
   await declarePhotoVariant(client, parsed, creatorId, storagePath, variant)
 
-  const blob = await deps.fetchLocalFile(parsed.localUri)
+  const blob = await deps.fetchLocalFile(parsed.localUri, parsed.mimeType)
   await uploadPhotoBlob(client, storagePath, blob, parsed.mimeType)
+
+  if (parsed.entryId !== null && parsed.entryId !== undefined) {
+    await linkPhotoToEntry(client, {
+      creatorId,
+      entryId: parsed.entryId,
+      photoId: parsed.photoId,
+      position: parsed.position ?? 0,
+    })
+  }
 
   return {
     photoId: parsed.photoId,
@@ -220,13 +262,65 @@ async function ensurePhotoRow(
   payload: PhotoUploadPayload,
   creatorId: string,
 ): Promise<void> {
-  const { error } = await client.from('photos').upsert(
+  // Insert-only for new rows. On conflict, update only metadata columns —
+  // authenticated clients must not UPDATE photos.id / photos.creator_id
+  // (those privileges are revoked; a full upsert fails with
+  // "permission denied for table photos").
+  const metadata = {
+    captured_at: normalizePhotoCapturedAt(payload.capturedAt),
+    creator_id: creatorId,
+    id: payload.photoId,
+    latitude:
+      payload.latitude !== null && payload.latitude !== undefined
+        ? payload.latitude
+        : null,
+    longitude:
+      payload.longitude !== null && payload.longitude !== undefined
+        ? payload.longitude
+        : null,
+  }
+
+  const { error: insertError } = await client.from('photos').insert(metadata)
+  if (insertError === null) {
+    return
+  }
+
+  if (!isDuplicateInsertError(insertError)) {
+    throw classifySupabaseError(insertError)
+  }
+
+  const { error: updateError } = await client
+    .from('photos')
+    .update({
+      captured_at: metadata.captured_at,
+      latitude: metadata.latitude,
+      longitude: metadata.longitude,
+    })
+    .eq('id', payload.photoId)
+    .eq('creator_id', creatorId)
+
+  if (updateError !== null) {
+    throw classifySupabaseError(updateError)
+  }
+}
+
+async function linkPhotoToEntry(
+  client: SupabaseClient,
+  input: {
+    creatorId: string
+    entryId: string
+    photoId: string
+    position: number
+  },
+): Promise<void> {
+  const { error } = await client.from('entry_photos').upsert(
     {
-      captured_at: normalizePhotoCapturedAt(payload.capturedAt),
-      creator_id: creatorId,
-      id: payload.photoId,
+      creator_id: input.creatorId,
+      entry_id: input.entryId,
+      photo_id: input.photoId,
+      position: input.position,
     },
-    { onConflict: 'id' },
+    { ignoreDuplicates: true, onConflict: 'entry_id,photo_id' },
   )
 
   if (error !== null) {
@@ -269,8 +363,6 @@ async function declarePhotoVariant(
     .update({
       byte_size: payload.byteSize,
       height: payload.height,
-      mime_type: payload.mimeType,
-      storage_path: storagePath,
       width: payload.width,
     })
     .eq('photo_id', payload.photoId)
@@ -310,7 +402,10 @@ export function classifySupabaseError(error: {
   const status =
     typeof error.status === 'number'
       ? error.status
-      : Number.parseInt(typeof error.status === 'string' ? error.status : '', 10)
+      : Number.parseInt(
+          typeof error.status === 'string' ? error.status : '',
+          10,
+        )
   const code = error.code?.toUpperCase()
 
   if (isPermanentPostgresCode(code) || isPermanentMessage(normalized)) {
@@ -404,6 +499,38 @@ function readNonEmptyString(value: unknown, field: string): string {
   }
 
   return value.trim()
+}
+
+function readOptionalNumber(value: unknown): number | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error('Invalid photo upload payload: coordinate')
+  }
+
+  return value
+}
+
+function readOptionalNonNegativeInteger(value: unknown): number | undefined {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+    throw new Error('Invalid photo upload payload: position')
+  }
+
+  return Math.trunc(value)
+}
+
+function readOptionalUuid(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  return readUuid(value, 'entryId')
 }
 
 function readOptionalString(value: unknown): string | null {

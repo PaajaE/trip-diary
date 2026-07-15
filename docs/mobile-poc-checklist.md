@@ -32,11 +32,11 @@ All three `EXPO_PUBLIC_*` values are **intentionally embeddable** in the client 
 
 ### What each variable unlocks
 
-| Variable                                                     | Validation unlocked                                                     |
-| ------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Sign-in, journey list, journey detail API load, SQLite cache population |
+| Variable                                                     | Validation unlocked                                                           |
+| ------------------------------------------------------------ | ----------------------------------------------------------------------------- |
+| `EXPO_PUBLIC_SUPABASE_URL` + `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Sign-in, journey list, journey detail API load, SQLite cache population       |
 | `EXPO_PUBLIC_MAPY_API_KEY`                                   | Mapy.com **tourist** raster tiles (`/maptiles/outdoor/` — Tourist Map mapset) |
-| Omitting Mapy key                                            | OSM fallback tiles (see §6)                                             |
+| Omitting Mapy key                                            | OSM fallback tiles (see §6)                                                   |
 
 ### Startup validation
 
@@ -242,37 +242,37 @@ const again = await peekNextSyncOperation()
 
 ## 11. Device checklist summary
 
-| #   | Scenario                  | Auto        | Android device | Blocker if failing |
-| --- | ------------------------- | ----------- | -------------- | ------------------ |
-| 1   | Dev build launches        | prebuild ✅ | ✅             | Signing / SDK      |
-| 2   | Sign-in + session persist | —           | ✅             | Test credentials   |
-| 3   | Journey detail from API   | —           | ✅             | Auth + Supabase    |
-| 4   | SQLite offline read       | unit ✅     | ✅             | Auth + device      |
-| 5   | MapLibre render           | —           | ✅             | Dev client         |
-| 6   | Mapy tourist default      | unit ✅     | ⚠️ Partial     | Mapy key / 404     |
-| 7   | OSM fallback              | unit ✅     | ☐              | Metro env change   |
-| 8   | Style runtime fallback    | —           | ☐              | Not in PoC UI      |
-| 9   | Photo pick                | unit ✅     | ✅             | Permission         |
-| 10  | EXIF / GPS metadata       | unit ✅     | ✅ (null sample) | Sample photo     |
-| 11  | Local file persist        | unit ✅     | ✅             | Photo flow         |
-| 12  | Current location          | —           | ❌             | AVD location off   |
-| 13  | Sync queue enqueue        | unit ✅     | ✅             | Dev checklist      |
-| 14  | Sync retry stub           | unit ✅     | ✅             | Dev checklist      |
-| 15  | Android prebuild          | ✅          | —              | —                  |
-| 16  | iOS prebuild              | ✅          | —              | CocoaPods for run  |
+| #   | Scenario                  | Auto        | Android device   | Blocker if failing |
+| --- | ------------------------- | ----------- | ---------------- | ------------------ |
+| 1   | Dev build launches        | prebuild ✅ | ✅               | Signing / SDK      |
+| 2   | Sign-in + session persist | —           | ✅               | Test credentials   |
+| 3   | Journey detail from API   | —           | ✅               | Auth + Supabase    |
+| 4   | SQLite offline read       | unit ✅     | ✅               | Auth + device      |
+| 5   | MapLibre render           | —           | ✅               | Dev client         |
+| 6   | Mapy tourist default      | unit ✅     | ⚠️ Partial       | Mapy key / 404     |
+| 7   | OSM fallback              | unit ✅     | ☐                | Metro env change   |
+| 8   | Style runtime fallback    | —           | ☐                | Not in PoC UI      |
+| 9   | Photo pick                | unit ✅     | ✅               | Permission         |
+| 10  | EXIF / GPS metadata       | unit ✅     | ✅ (null sample) | Sample photo       |
+| 11  | Local file persist        | unit ✅     | ✅               | Photo flow         |
+| 12  | Current location          | —           | ❌               | AVD location off   |
+| 13  | Sync queue enqueue        | unit ✅     | ✅               | Dev checklist      |
+| 14  | Sync retry stub           | unit ✅     | ✅               | Dev checklist      |
+| 15  | Android prebuild          | ✅          | —                | —                  |
+| 16  | iOS prebuild              | ✅          | —                | CocoaPods for run  |
 
 ### Android results (2026-07-10, Pixel_9a)
 
-| Step | Scenario            | Status          | Notes                                        |
-| ---- | ------------------- | --------------- | -------------------------------------------- |
-| —    | Metro JS bundle     | ✅ Pass         | HTTP 200, React 18 resolver                  |
-| 1    | Startup (no redbox) | ✅ Device-tested | Sign-in / home                               |
-| 2    | Env validation      | ✅ Device-tested | No configuration error screen                |
-| 3    | Supabase auth init  | ✅ Device-tested | Session null → `/sign-in` redirect           |
-| 4    | Sign-in + session   | ✅ Device-tested | User auth; cold start session restore        |
-| 5    | Journey load        | ✅ Device-tested | 2 journeys; **Kanada 2026** detail           |
-| 6    | SQLite offline      | ✅ Device-tested | Offline banner + cached content              |
-| 7–14 | See table above     | Mixed           | Mapy tiles 404; location failed on AVD      |
+| Step | Scenario            | Status           | Notes                                  |
+| ---- | ------------------- | ---------------- | -------------------------------------- |
+| —    | Metro JS bundle     | ✅ Pass          | HTTP 200, React 18 resolver            |
+| 1    | Startup (no redbox) | ✅ Device-tested | Sign-in / home                         |
+| 2    | Env validation      | ✅ Device-tested | No configuration error screen          |
+| 3    | Supabase auth init  | ✅ Device-tested | Session null → `/sign-in` redirect     |
+| 4    | Sign-in + session   | ✅ Device-tested | User auth; cold start session restore  |
+| 5    | Journey load        | ✅ Device-tested | 2 journeys; **Kanada 2026** detail     |
+| 6    | SQLite offline      | ✅ Device-tested | Offline banner + cached content        |
+| 7–14 | See table above     | Mixed            | Mapy tiles 404; location failed on AVD |
 
 See [mobile-device-validation-results.md](./mobile-device-validation-results.md) for logs and Metro fix details.
 

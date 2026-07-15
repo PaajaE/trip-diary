@@ -25,6 +25,10 @@ android/.gradle
 android/app/build
 android/app/src/main/assets/public
 proof-screenshots/
+.pnpm-store/
+apps/mobile/.verify-artifacts/
+apps/mobile/.verify-flows/
+apps/mobile/.verify-tmp/
 
 # Editor directories and files
 .vscode/*

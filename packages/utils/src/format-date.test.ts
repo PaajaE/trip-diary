@@ -29,9 +29,9 @@ describe('formatLocalizedDate', () => {
 
 describe('formatJourneyDateRange', () => {
   it('returns the unknown label when both dates are missing', () => {
-    expect(
-      formatJourneyDateRange(null, null, 'en-US', 'Dates not set'),
-    ).toBe('Dates not set')
+    expect(formatJourneyDateRange(null, null, 'en-US', 'Dates not set')).toBe(
+      'Dates not set',
+    )
   })
 
   it('formats a single-sided range', () => {

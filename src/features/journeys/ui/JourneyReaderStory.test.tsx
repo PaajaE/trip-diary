@@ -8,11 +8,7 @@ import {
 } from '@/features/journeys/ui/JourneyReaderStory'
 
 vi.mock('@/features/journeys/ui/ReaderMomentPhotos', () => ({
-  ReaderMomentPhotos: ({
-    onOpen,
-  }: {
-    onOpen?: () => void
-  }) => (
+  ReaderMomentPhotos: ({ onOpen }: { onOpen?: () => void }) => (
     <button data-testid="moment-photo-control" onClick={onOpen} type="button">
       Photo
     </button>
@@ -150,7 +146,9 @@ describe('ReaderMomentArticle', () => {
       />,
     )
 
-    expect(container.querySelector('.reader-moment-card--active')).not.toBeNull()
+    expect(
+      container.querySelector('.reader-moment-card--active'),
+    ).not.toBeNull()
   })
 })
 

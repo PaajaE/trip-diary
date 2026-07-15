@@ -5,7 +5,10 @@ vi.mock('expo-sqlite', () => ({
 }))
 
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite'
-import { resetMobileDatabaseForTests, getMobileDatabase } from '@/platform/storage/database'
+import {
+  resetMobileDatabaseForTests,
+  getMobileDatabase,
+} from '@/platform/storage/database'
 import {
   clearCachedJourneyListForUser,
   readCachedJourneyList,
@@ -68,7 +71,12 @@ describe('journey list cache repository', () => {
       journeys: [{ id: sampleItem.id, title: 'Summer trip' }],
     })
     await expect(readCachedJourneyList('user-b')).resolves.toMatchObject({
-      journeys: [{ id: '22222222-2222-4222-8222-222222222222', title: 'Other user trip' }],
+      journeys: [
+        {
+          id: '22222222-2222-4222-8222-222222222222',
+          title: 'Other user trip',
+        },
+      ],
     })
   })
 
@@ -82,7 +90,9 @@ describe('journey list cache repository', () => {
     })
 
     await expect(readCachedJourneyList('user-a')).resolves.toMatchObject({
-      journeys: [{ id: sampleItem.id, title: 'Summer trip', startsAt: '2026-07-10' }],
+      journeys: [
+        { id: sampleItem.id, title: 'Summer trip', startsAt: '2026-07-10' },
+      ],
     })
   })
 

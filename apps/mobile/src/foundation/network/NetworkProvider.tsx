@@ -32,8 +32,9 @@ export function NetworkProvider({
   provider?: NetworkStateProvider
 }) {
   const networkProvider = provider ?? getSharedNetworkProvider()
-  const [networkState, setNetworkState] =
-    useState<NetworkState>(INITIAL_UNKNOWN_STATE)
+  const [networkState, setNetworkState] = useState<NetworkState>(
+    INITIAL_UNKNOWN_STATE,
+  )
 
   useEffect(() => {
     let isMounted = true

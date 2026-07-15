@@ -1,5 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
@@ -56,9 +62,7 @@ describe('JourneyReaderGallery', () => {
 
   it('renders nothing when there are no public images', () => {
     photosState.photosByEntryId = new Map()
-    const { container } = renderGallery([
-      createStageContent({ moments: [] }),
-    ])
+    const { container } = renderGallery([createStageContent({ moments: [] })])
     expect(container).toBeEmptyDOMElement()
   })
 

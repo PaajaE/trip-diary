@@ -1,9 +1,5 @@
-export {
-  SyncLifecycleProvider,
-} from './SyncLifecycleProvider'
-export {
-  useSyncCoordinatorSnapshot,
-} from './use-sync-coordinator-snapshot'
+export { SyncLifecycleProvider } from './SyncLifecycleProvider'
+export { useSyncCoordinatorSnapshot } from './use-sync-coordinator-snapshot'
 export {
   canProcessSyncQueue,
   createSyncCoordinator,

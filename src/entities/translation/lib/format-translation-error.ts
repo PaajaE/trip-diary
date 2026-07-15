@@ -13,8 +13,7 @@ export function formatTranslationErrorMessage(
   translate: (key: string) => string,
   fallbackKey = 'entry.translation.error',
 ): string {
-  const message =
-    error instanceof Error ? error.message : 'translation_failed'
+  const message = error instanceof Error ? error.message : 'translation_failed'
 
   if (KNOWN_TRANSLATION_ERROR_CODES.has(message)) {
     return translate(`entry.translation.errors.${message}`)

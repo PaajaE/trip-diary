@@ -1,4 +1,7 @@
-import type { SqlMigration, SqlMigrationExecutor } from '@/foundation/sqlite/migration-runner'
+import type {
+  SqlMigration,
+  SqlMigrationExecutor,
+} from '@/foundation/sqlite/migration-runner'
 
 async function syncQueueHasColumn(
   db: SqlMigrationExecutor,
@@ -39,7 +42,10 @@ export const MOBILE_SQL_MIGRATIONS: readonly SqlMigration[] = [
     id: 3,
     name: 'add_sync_queue_status_updated_at',
     up: async (db) => {
-      const hasStatusUpdatedAt = await syncQueueHasColumn(db, 'status_updated_at')
+      const hasStatusUpdatedAt = await syncQueueHasColumn(
+        db,
+        'status_updated_at',
+      )
 
       if (!hasStatusUpdatedAt) {
         await db.execAsync(

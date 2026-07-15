@@ -46,7 +46,9 @@ describe('query key convention guard', () => {
       const contents = readFileSync(filePath, 'utf8')
       for (const root of guardedRoots) {
         if (contents.includes(`queryKey: [${root}`)) {
-          violations.push(`${relativePath} uses inline queryKey: [${root.slice(1, -1)}, ...]`)
+          violations.push(
+            `${relativePath} uses inline queryKey: [${root.slice(1, -1)}, ...]`,
+          )
         }
       }
     }

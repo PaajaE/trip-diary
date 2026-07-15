@@ -20,18 +20,88 @@ export interface JourneyStageContent {
   stage: JourneyDetail['stages'][number] | null
 }
 
+function timestampMs(value: string | null | undefined): number | null {
+  if (value === null || value === undefined || value.trim() === '') {
+    return null
+  }
+
+  const parsed = new Date(value).getTime()
+  return Number.isNaN(parsed) ? null : parsed
+}
+
+/** Newest first. Null/invalid timestamps sort last. */
+function compareTimestampDesc(
+  left: string | null | undefined,
+  right: string | null | undefined,
+): number {
+  const leftTime = timestampMs(left)
+  const rightTime = timestampMs(right)
+
+  if (leftTime === null && rightTime === null) {
+    return 0
+  }
+
+  if (leftTime === null) {
+    return 1
+  }
+
+  if (rightTime === null) {
+    return -1
+  }
+
+  return rightTime - leftTime
+}
+
+/**
+ * Display order for Moment lists: event_at DESC, created_at DESC, id DESC.
+ * Null event/created times sort after dated Moments.
+ */
+export function sortJourneyMomentsNewestFirst(
+  moments: JourneyMoment[],
+): JourneyMoment[] {
+  return [...moments].sort((left, right) => {
+    const byEvent = compareTimestampDesc(
+      left.entry.eventAt,
+      right.entry.eventAt,
+    )
+    if (byEvent !== 0) {
+      return byEvent
+    }
+
+    const byCreated = compareTimestampDesc(
+      left.entry.createdAt,
+      right.entry.createdAt,
+    )
+    if (byCreated !== 0) {
+      return byCreated
+    }
+
+    return right.entry.id.localeCompare(left.entry.id)
+  })
+}
+
+/**
+ * Oldest → newest by event_at (nulls last). Used for map route approximation
+ * where geographic story progress should follow occurrence order.
+ */
 export function sortJourneyMomentsChronologically(
   moments: JourneyMoment[],
 ): JourneyMoment[] {
   return [...moments].sort((left, right) => {
-    const leftTime =
-      left.entry.eventAt === null
-        ? Number.POSITIVE_INFINITY
-        : new Date(left.entry.eventAt).getTime()
-    const rightTime =
-      right.entry.eventAt === null
-        ? Number.POSITIVE_INFINITY
-        : new Date(right.entry.eventAt).getTime()
+    const leftTime = timestampMs(left.entry.eventAt)
+    const rightTime = timestampMs(right.entry.eventAt)
+
+    if (leftTime === null && rightTime === null) {
+      return left.entry.id.localeCompare(right.entry.id)
+    }
+
+    if (leftTime === null) {
+      return 1
+    }
+
+    if (rightTime === null) {
+      return -1
+    }
 
     if (leftTime !== rightTime) {
       return leftTime - rightTime
@@ -41,7 +111,7 @@ export function sortJourneyMomentsChronologically(
   })
 }
 
-function sortDayKeys(left: string, right: string): number {
+function sortDayKeysNewestFirst(left: string, right: string): number {
   if (left === UNDATED_DAY_KEY) {
     return 1
   }
@@ -50,7 +120,7 @@ function sortDayKeys(left: string, right: string): number {
     return -1
   }
 
-  return left.localeCompare(right)
+  return right.localeCompare(left)
 }
 
 export function composeJourneyContent(journey: JourneyDetail) {
@@ -99,10 +169,10 @@ export function composeJourneyContent(journey: JourneyDetail) {
   }
 
   const dayGroups: JourneyStageContent[] = [...momentsByDay.entries()]
-    .sort(([left], [right]) => sortDayKeys(left, right))
+    .sort(([left], [right]) => sortDayKeysNewestFirst(left, right))
     .map(([dayKey, dayMoments]) => ({
       dayKey,
-      moments: sortJourneyMomentsChronologically(dayMoments),
+      moments: sortJourneyMomentsNewestFirst(dayMoments),
       plannedStops: [],
       stage: null,
     }))
@@ -114,7 +184,7 @@ export function composeJourneyContent(journey: JourneyDetail) {
   const stageContents: JourneyStageContent[] = [
     ...journey.stages.map((stage) => ({
       dayKey: null,
-      moments: sortJourneyMomentsChronologically(
+      moments: sortJourneyMomentsNewestFirst(
         moments.filter((moment) => moment.entry.stageId === stage.id),
       ),
       plannedStops: plannedStops.filter((stop) => stop.stageId === stage.id),
@@ -125,7 +195,7 @@ export function composeJourneyContent(journey: JourneyDetail) {
       ? [
           {
             dayKey: null,
-            moments: [],
+            moments: [] as JourneyMoment[],
             plannedStops: unassignedPlannedStops,
             stage: null,
           },

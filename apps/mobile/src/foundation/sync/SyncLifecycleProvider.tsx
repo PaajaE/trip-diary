@@ -70,10 +70,7 @@ export function SyncLifecycleProvider({
   }, [auth.isLoading, auth.session?.user.id, networkState.status, coordinator])
 
   useEffect(() => {
-    void coordinator.handleNetworkChange(
-      contextRef.current,
-      'network_online',
-    )
+    void coordinator.handleNetworkChange(contextRef.current, 'network_online')
   }, [coordinator, networkState.status])
 
   useEffect(() => {
