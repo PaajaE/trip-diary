@@ -272,6 +272,77 @@ export type Database = {
           },
         ]
       }
+      entry_translations: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          edited_at: string | null
+          entry_id: string
+          error_message: string | null
+          id: string
+          is_manually_edited: boolean
+          model: string | null
+          provider: string | null
+          requested_at: string
+          source_content_hash: string | null
+          source_locale: Database['public']['Enums']['entry_language']
+          source_version: number | null
+          status: Database['public']['Enums']['translation_status']
+          target_locale: Database['public']['Enums']['entry_language']
+          translated_body: string
+          translated_title: string | null
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          edited_at?: string | null
+          entry_id: string
+          error_message?: string | null
+          id?: string
+          is_manually_edited?: boolean
+          model?: string | null
+          provider?: string | null
+          requested_at?: string
+          source_content_hash?: string | null
+          source_locale?: Database['public']['Enums']['entry_language']
+          source_version?: number | null
+          status?: Database['public']['Enums']['translation_status']
+          target_locale?: Database['public']['Enums']['entry_language']
+          translated_body?: string
+          translated_title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          edited_at?: string | null
+          entry_id?: string
+          error_message?: string | null
+          id?: string
+          is_manually_edited?: boolean
+          model?: string | null
+          provider?: string | null
+          requested_at?: string
+          source_content_hash?: string | null
+          source_locale?: Database['public']['Enums']['entry_language']
+          source_version?: number | null
+          status?: Database['public']['Enums']['translation_status']
+          target_locale?: Database['public']['Enums']['entry_language']
+          translated_body?: string
+          translated_title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'entry_translations_entry_id_fkey'
+            columns: ['entry_id']
+            isOneToOne: false
+            referencedRelation: 'entries'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       journey_checklist_items: {
         Row: {
           category: Database['public']['Enums']['checklist_item_category']
@@ -1048,6 +1119,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      compute_source_content_hash: {
+        Args: { p_body: string; p_title: string }
+        Returns: string
+      }
       create_family_space: {
         Args: { p_handle: string; p_name: string }
         Returns: string
@@ -1274,6 +1349,12 @@ export type Database = {
       photo_variant_type: 'thumb' | 'preview' | 'large'
       space_kind: 'personal' | 'family'
       space_role: 'owner' | 'editor' | 'member'
+      translation_status:
+        | 'pending'
+        | 'processing'
+        | 'succeeded'
+        | 'failed'
+        | 'stale'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1424,6 +1505,13 @@ export const Constants = {
       photo_variant_type: ['thumb', 'preview', 'large'],
       space_kind: ['personal', 'family'],
       space_role: ['owner', 'editor', 'member'],
+      translation_status: [
+        'pending',
+        'processing',
+        'succeeded',
+        'failed',
+        'stale',
+      ],
     },
   },
 } as const

@@ -12,6 +12,7 @@ import {
   updateContentComment,
 } from '@/entities/engagement/api/engagement.repository'
 import type { ContentTarget } from '@/entities/engagement/model/engagement'
+import { engagementQueryKeys } from '@/features/engagement/api/engagement-query-keys'
 import { useSession } from '@/features/auth/session'
 import { storeAuthReturnPath } from '@/features/auth/session/auth-return'
 import { cn } from '@/shared/lib/cn'
@@ -38,7 +39,11 @@ export function ContentEngagement({
   const [editingBody, setEditingBody] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
 
-  const queryKey = ['engagement', target.type, target.id, user?.id ?? 'anon']
+  const queryKey = engagementQueryKeys.detail(
+    target.type,
+    target.id,
+    user?.id ?? 'anon',
+  )
   const engagementQuery = useQuery({
     queryFn: () => getEngagementSummary(target, user?.id ?? null),
     queryKey,
@@ -47,7 +52,7 @@ export function ContentEngagement({
 
   const invalidate = () => {
     void queryClient.invalidateQueries({
-      queryKey: ['engagement', target.type, target.id],
+      queryKey: engagementQueryKeys.targetPrefix(target.type, target.id),
     })
   }
 

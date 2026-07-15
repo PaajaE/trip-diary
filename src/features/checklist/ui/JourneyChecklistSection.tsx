@@ -19,8 +19,11 @@ import {
   listJourneyChecklistItems,
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
+import { invalidateJourneyNatureAggregates } from '@/entities/journey/api/invalidate-journey-queries'
 import type { ChecklistItemCategory } from '@/entities/checklist/model/checklist'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { JourneyNatureGuidePanel } from '@/features/nature/ui/JourneyNatureGuidePanel'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { cn } from '@/shared/lib/cn'
@@ -53,12 +56,12 @@ export function JourneyChecklistSection({
 
   const checklistQuery = useQuery({
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
 
   const observationsQuery = useQuery({
     queryFn: () => listJourneyObservations(journeyId),
-    queryKey: ['journey-observations', journeyId],
+    queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
 
   const items = useMemo(() => checklistQuery.data ?? [], [checklistQuery.data])
@@ -88,9 +91,7 @@ export function JourneyChecklistSection({
         translate: t,
       }),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({
-        queryKey: ['journey-checklist', journeyId],
-      })
+      await invalidateJourneyNatureAggregates(queryClient, journeyId)
       onChanged()
       setApplyOpen(false)
     },
@@ -105,9 +106,7 @@ export function JourneyChecklistSection({
         item,
         journeyId,
       })
-      await queryClient.invalidateQueries({
-        queryKey: ['journey-checklist', journeyId],
-      })
+      await invalidateJourneyNatureAggregates(queryClient, journeyId)
       onChanged()
     } finally {
       setSavingItemId(null)

@@ -19,8 +19,8 @@ const gbifResponseSchema = z.object({
 
 function isSupabaseConfigured(): boolean {
   return (
-    publicEnv.VITE_SUPABASE_URL !== undefined &&
-    publicEnv.VITE_SUPABASE_ANON_KEY !== undefined
+    publicEnv.supabaseUrl !== undefined &&
+    publicEnv.supabaseAnonKey !== undefined
   )
 }
 

@@ -3,9 +3,12 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
 import { getPublicJourney } from '@/entities/journey/api/journey.repository'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { listPhotoTagAssignmentsForPhotos } from '@/entities/photo/api/photo-tag.repository'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import { getEntryPhotoDetailPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
@@ -35,7 +38,7 @@ export function MomentReaderPage({
   const navigate = useNavigate()
   const entryQuery = useQuery({
     queryFn: () => getPublicEntry(entryId),
-    queryKey: ['entries', entryId, 'public'],
+    queryKey: entryQueryKeys.public(entryId),
   })
   const entry = entryQuery.data
 
@@ -47,7 +50,7 @@ export function MomentReaderPage({
       }
       return getPublicJourney(journeyId)
     },
-    queryKey: ['public-journeys', journeyId],
+    queryKey: journeyQueryKeys.publicDetail(journeyId ?? ''),
   })
   const journeyContent =
     journeyQuery.data === null || journeyQuery.data === undefined
@@ -57,7 +60,7 @@ export function MomentReaderPage({
   const previewsQuery = useQuery({
     enabled: entry !== null && entry !== undefined,
     queryFn: () => getEntryPhotoDetailPreviews(entryId),
-    queryKey: ['entries', entryId, 'photo-detail-previews'],
+    queryKey: entryQueryKeys.photoDetailPreviews(entryId),
   })
 
   const tagsQuery = useQuery({
@@ -72,13 +75,11 @@ export function MomentReaderPage({
         (previewsQuery.data ?? []).map((preview) => preview.id),
       )
     },
-    queryKey: [
-      'journey-photo-tags',
-      journeyId,
-      'entry',
+    queryKey: photoQueryKeys.journeyTagsForEntry(
+      journeyId ?? '',
       entryId,
-      ...(previewsQuery.data ?? []).map((preview) => preview.id),
-    ],
+      (previewsQuery.data ?? []).map((preview) => preview.id),
+    ),
   })
 
   const tagsByPhotoId = groupTagsByPhotoId(tagsQuery.data ?? [])

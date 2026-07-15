@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, type QueryKey } from '@tanstack/react-query'
 import { useParams } from '@tanstack/react-router'
 import {
   resolvePublicEntry,
   resolvePublicJourneyEntry,
   resolvePublicJourneyMeta,
 } from '@/entities/sharing/api/public-sharing.repository'
+import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { MomentReaderPage } from '@/pages/reader/MomentReaderPage'
 import {
   PublicRouteError,
@@ -19,7 +20,7 @@ export function PublicStandaloneEntryRoutePage() {
   return (
     <ResolvedEntry
       queryFn={() => resolvePublicEntry(spaceHandle, entrySlug)}
-      queryKey={['public-entry', spaceHandle, entrySlug]}
+      queryKey={sharingQueryKeys.publicEntry(spaceHandle, entrySlug)}
     />
   )
 }
@@ -30,7 +31,7 @@ export function PublicJourneyEntryRoutePage() {
   })
   const journeyMetaQuery = useQuery({
     queryFn: () => resolvePublicJourneyMeta(spaceHandle, journeySlug),
-    queryKey: ['public-journey-meta', spaceHandle, journeySlug],
+    queryKey: sharingQueryKeys.publicJourneyMeta(spaceHandle, journeySlug),
   })
 
   return (
@@ -42,7 +43,11 @@ export function PublicJourneyEntryRoutePage() {
       queryFn={() =>
         resolvePublicJourneyEntry(spaceHandle, journeySlug, entrySlug)
       }
-      queryKey={['public-journey-entry', spaceHandle, journeySlug, entrySlug]}
+      queryKey={sharingQueryKeys.publicJourneyEntry(
+        spaceHandle,
+        journeySlug,
+        entrySlug,
+      )}
     />
   )
 }
@@ -56,7 +61,7 @@ function ResolvedEntry({
   journeyId?: string
   publicPaths?: { journeySlug: string; spaceHandle: string }
   queryFn: () => Promise<string | null>
-  queryKey: string[]
+  queryKey: QueryKey
 }) {
   const query = useQuery({ queryFn, queryKey })
 

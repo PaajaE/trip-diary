@@ -5,6 +5,7 @@ import {
   acceptJourneyInvite,
   getJourneyInvitePreview,
 } from '@/entities/journey/api/journey-member.repository'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { useSession } from '@/features/auth/session'
 import { storeAuthReturnPath } from '@/features/auth/session/auth-return'
 import {
@@ -23,7 +24,7 @@ export function AcceptJourneyInviteRoutePage() {
   const [acceptError, setAcceptError] = useState(false)
   const previewQuery = useQuery({
     queryFn: () => getJourneyInvitePreview(token),
-    queryKey: ['journey-invite-preview', token],
+    queryKey: journeyQueryKeys.invitePreview(token),
   })
 
   const preview = previewQuery.data

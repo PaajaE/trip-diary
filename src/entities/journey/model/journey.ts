@@ -1,12 +1,26 @@
 import { z } from 'zod'
 import { entrySyncStatusSchema } from '@/entities/entry/model/entry'
+import {
+  journeyStatusSchema,
+  journeyStopSchema,
+  optionalJourneyDateSchema,
+} from '@/entities/journey/model/core-journey'
 
-const optionalDateSchema = z.iso.date().nullable()
+export {
+  journeyStatusSchema,
+  journeyStopSchema,
+  journeyStopStatusSchema,
+  optionalJourneyDateSchema,
+  parseJourneyStopFromRemoteRecord,
+  type JourneyStatus,
+  type JourneyStop,
+  type JourneyStopStatus,
+} from '@/entities/journey/model/core-journey'
 
 export const createJourneySchema = z
   .object({
-    endsAt: optionalDateSchema,
-    startsAt: optionalDateSchema,
+    endsAt: optionalJourneyDateSchema,
+    startsAt: optionalJourneyDateSchema,
     summary: z.string().max(5000),
     title: z.string().trim().min(1).max(160),
   })
@@ -25,16 +39,6 @@ export const journeyStageSchema = z.object({
 })
 
 export type JourneyStage = z.infer<typeof journeyStageSchema>
-
-export const journeyStopSchema = z.object({
-  id: z.uuid(),
-  mapLatitude: z.number().min(-90).max(90).nullable(),
-  mapLongitude: z.number().min(-180).max(180).nullable(),
-  notes: z.string(),
-  stageId: z.uuid().nullable(),
-  status: z.enum(['planned', 'visited']),
-  title: z.string(),
-})
 
 export const journeyGuideSectionSchema = z.object({
   body: z.string(),
@@ -56,12 +60,12 @@ export const journeyEntrySchema = z.object({
 
 export const journeyDetailSchema = z.object({
   entries: z.array(journeyEntrySchema),
-  endsAt: optionalDateSchema,
+  endsAt: optionalJourneyDateSchema,
   guides: z.array(journeyGuideSectionSchema),
   id: z.uuid(),
   stages: z.array(journeyStageSchema),
-  startsAt: optionalDateSchema,
-  status: z.enum(['planning', 'active', 'completed']),
+  startsAt: optionalJourneyDateSchema,
+  status: journeyStatusSchema,
   stops: z.array(journeyStopSchema),
   spaceId: z.uuid(),
   summary: z.string(),

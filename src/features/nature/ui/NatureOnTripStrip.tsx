@@ -11,10 +11,12 @@ import {
   listJourneyChecklistItems,
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import { goalStopLocation } from '@/entities/checklist/lib/goal-stop-location'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { ApplyChecklistTemplateSheet } from '@/features/checklist/ui/ApplyChecklistTemplateSheet'
 import { NatureDetailSheet } from '@/features/nature/ui/NatureDetailSheet'
 import { JourneyNatureGuidePanel } from '@/features/nature/ui/JourneyNatureGuidePanel'
@@ -65,12 +67,12 @@ export function NatureOnTripStrip({
 
   const checklistQuery = useQuery({
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
 
   const observationsQuery = useQuery({
     queryFn: () => listJourneyObservations(journeyId),
-    queryKey: ['journey-observations', journeyId],
+    queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
 
   const items = checklistQuery.data ?? []
@@ -94,7 +96,7 @@ export function NatureOnTripStrip({
       }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
-        queryKey: ['journey-checklist', journeyId],
+        queryKey: checklistQueryKeys.journey(journeyId),
       })
       onChanged()
       setApplyOpen(false)
@@ -111,7 +113,7 @@ export function NatureOnTripStrip({
         journeyId,
       })
       await queryClient.invalidateQueries({
-        queryKey: ['journey-checklist', journeyId],
+        queryKey: checklistQueryKeys.journey(journeyId),
       })
       onChanged()
       if (activeWish?.id === item.id) {

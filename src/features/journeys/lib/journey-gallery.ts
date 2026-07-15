@@ -2,6 +2,7 @@ import type {
   getJourneyEntryPhotoPreviews,
   PhotoPreview,
 } from '@/entities/photo/api/photo-gallery.repository'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 
 export interface JourneyGalleryMoment {
   entry: {
@@ -26,11 +27,10 @@ export function journeyGalleryQueryKey(
   moments: JourneyGalleryMoment[],
   quality: 'detail' | 'thumb' = 'thumb',
 ) {
-  return [
-    'journey-gallery',
+  return photoQueryKeys.journeyGallery(
+    moments.map((moment) => moment.entry.id),
     quality,
-    ...moments.map((moment) => moment.entry.id),
-  ]
+  )
 }
 
 export async function loadJourneyGalleryPreviews(

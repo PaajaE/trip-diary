@@ -1,5 +1,12 @@
 import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type RefObject,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { PhotoNatureSpotting } from '@/features/nature/ui/PhotoNatureSpotting'
@@ -30,6 +37,7 @@ interface PhotoLightboxProps {
   onTagsChanged?: () => void
   photoEngagement?: boolean
   photos: PhotoLightboxItem[]
+  returnFocusRef?: RefObject<HTMLElement | null>
   tagsByPhotoId?: Map<string, PhotoTagAssignment[]>
 }
 
@@ -46,9 +54,14 @@ export function PhotoLightbox({
   onTagsChanged,
   photoEngagement = false,
   photos,
+  returnFocusRef,
   tagsByPhotoId,
 }: PhotoLightboxProps) {
   const { t } = useTranslation()
+  const counterId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
+  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const returnFocusElementRef = useRef<HTMLElement | null>(null)
   const [index, setIndex] = useState(initialIndex)
   const [detailUrls, setDetailUrls] = useState<Record<string, string>>({})
   const [deleting, setDeleting] = useState(false)
@@ -90,6 +103,70 @@ export function PhotoLightbox({
   }, [activePhoto, fetchDetailUrl, index, photos])
 
   useEffect(() => {
+    returnFocusElementRef.current =
+      returnFocusRef?.current ??
+      (document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null)
+  }, [returnFocusRef])
+
+  const handleClose = useCallback(() => {
+    const elementToFocus = returnFocusElementRef.current
+    onClose()
+    if (elementToFocus !== null && document.contains(elementToFocus)) {
+      elementToFocus.focus()
+    }
+  }, [onClose])
+
+  useEffect(() => {
+    closeButtonRef.current?.focus()
+
+    const root = dialogRef.current
+    if (root === null) {
+      return
+    }
+    const dialogRoot = root
+
+    function getFocusableElements() {
+      return Array.from(
+        dialogRoot.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      ).filter((element) => !element.hasAttribute('disabled'))
+    }
+
+    function onTabKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'Tab') {
+        return
+      }
+
+      const focusable = getFocusableElements()
+      if (focusable.length === 0) {
+        return
+      }
+
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (first === undefined || last === undefined) {
+        return
+      }
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    }
+
+    dialogRoot.addEventListener('keydown', onTabKeyDown)
+    return () => {
+      dialogRoot.removeEventListener('keydown', onTabKeyDown)
+    }
+  }, [])
+
+  useEffect(() => {
     const previousOverflow = document.body.style.overflow
     const previousHtmlOverflow = document.documentElement.style.overflow
     document.body.style.overflow = 'hidden'
@@ -111,7 +188,7 @@ export function PhotoLightbox({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
-        onClose()
+        handleClose()
       } else if (event.key === 'ArrowRight') {
         setIndex((current) => Math.min(current + 1, photos.length - 1))
       } else if (event.key === 'ArrowLeft') {
@@ -122,7 +199,7 @@ export function PhotoLightbox({
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose, photos.length])
+  }, [handleClose, photos.length])
 
   if (activePhoto === undefined) {
     return null
@@ -136,12 +213,14 @@ export function PhotoLightbox({
 
   return (
     <div
+      aria-labelledby={counterId}
       aria-modal="true"
       className="fixed inset-0 z-50 flex h-svh min-h-0 flex-col overflow-hidden bg-black/95"
+      ref={dialogRef}
       role="dialog"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] text-white">
-        <p className="text-sm font-medium">
+        <p className="text-sm font-medium" id={counterId}>
           {t('photos.lightboxCounter', {
             current: index + 1,
             total: photos.length,
@@ -161,7 +240,7 @@ export function PhotoLightbox({
                 void onDelete(activePhoto.id)
                   .then(() => {
                     if (photos.length <= 1) {
-                      onClose()
+                      handleClose()
                       return
                     }
                     setIndex((current) => Math.min(current, photos.length - 2))
@@ -179,7 +258,8 @@ export function PhotoLightbox({
           <button
             aria-label={t('photos.lightboxClose')}
             className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
-            onClick={onClose}
+            onClick={handleClose}
+            ref={closeButtonRef}
             type="button"
           >
             <X aria-hidden="true" size={20} />

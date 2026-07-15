@@ -5,6 +5,7 @@ import {
   createFamilySpace,
   listMySpaces,
 } from '@/entities/space/api/space.repository'
+import { spaceQueryKeys } from '@/entities/space/api/space-query-keys'
 import {
   getActiveSpaceId,
   setActiveSpaceId,
@@ -19,7 +20,7 @@ export function SpacesRoutePage() {
   const query = useQuery({
     enabled: user !== null,
     queryFn: () => listMySpaces(user?.id ?? ''),
-    queryKey: ['spaces', user?.id],
+    queryKey: spaceQueryKeys.byUser(user?.id),
   })
 
   if (loading) return <Message>Načítám vaše prostory…</Message>

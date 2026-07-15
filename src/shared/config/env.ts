@@ -1,10 +1,14 @@
-import { z } from 'zod'
+import { parsePublicEnv, type PublicEnv } from '@trip-diary/config'
 
-const publicEnvSchema = z.object({
-  VITE_MAPY_API_KEY: z.string().min(1).optional(),
-  VITE_SITE_URL: z.url().optional(),
-  VITE_SUPABASE_URL: z.url().optional(),
-  VITE_SUPABASE_ANON_KEY: z.string().min(1).optional(),
-})
+export function readVitePublicEnv(
+  raw: Record<string, unknown>,
+): PublicEnv {
+  return parsePublicEnv({
+    mapyApiKey: raw.VITE_MAPY_API_KEY,
+    siteUrl: raw.VITE_SITE_URL,
+    supabaseAnonKey: raw.VITE_SUPABASE_ANON_KEY,
+    supabaseUrl: raw.VITE_SUPABASE_URL,
+  })
+}
 
-export const publicEnv = publicEnvSchema.parse(import.meta.env)
+export const publicEnv = readVitePublicEnv(import.meta.env)

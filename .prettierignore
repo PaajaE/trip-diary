@@ -8,3 +8,7 @@ android/app/src/main/assets/capacitor.config.json
 android/app/src/main/assets/capacitor.plugins.json
 android/capacitor-cordova-android-plugins
 ios/App/App/capacitor.config.json
+apps/mobile/ios
+apps/mobile/android
+apps/mobile/.expo
+apps/mobile/expo-env.d.ts

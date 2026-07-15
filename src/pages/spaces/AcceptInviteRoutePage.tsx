@@ -5,6 +5,7 @@ import {
   acceptSpaceInvite,
   getSpaceInvitePreview,
 } from '@/entities/space/api/space.repository'
+import { spaceQueryKeys } from '@/entities/space/api/space-query-keys'
 import { setActiveSpaceId } from '@/entities/space/model/active-space'
 import { useSession } from '@/features/auth/session'
 import { storeAuthReturnPath } from '@/features/auth/session/auth-return'
@@ -20,7 +21,7 @@ export function AcceptInviteRoutePage() {
   const [acceptError, setAcceptError] = useState(false)
   const previewQuery = useQuery({
     queryFn: () => getSpaceInvitePreview(token),
-    queryKey: ['space-invite-preview', token],
+    queryKey: spaceQueryKeys.invitePreview(token),
   })
 
   const preview = previewQuery.data

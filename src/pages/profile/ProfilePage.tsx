@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getPublicProfile } from '@/entities/profile/api/profile.repository'
+import { profileQueryKeys } from '@/entities/profile/api/profile-query-keys'
 import { Avatar } from '@/shared/ui/Avatar'
 
 interface ProfilePageProps {
@@ -10,7 +11,7 @@ interface ProfilePageProps {
 export function ProfilePage({ username }: ProfilePageProps) {
   const { t } = useTranslation()
   const profileQuery = useQuery({
-    queryKey: ['profiles', 'public', username],
+    queryKey: profileQueryKeys.public(username),
     queryFn: () => getPublicProfile(username),
   })
 

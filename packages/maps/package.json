@@ -1,0 +1,20 @@
+{
+  "name": "@trip-diary/maps",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "maplibre-gl": "^5.24.0",
+    "typescript": "~6.0.2",
+    "vitest": "^4.1.8"
+  }
+}

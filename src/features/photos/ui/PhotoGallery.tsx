@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
@@ -69,7 +70,7 @@ export function PhotoGallery({
 }: PhotoGalleryProps) {
   const { t } = useTranslation()
   const previewsQuery = useQuery({
-    queryKey: ['entries', entryId, 'photo-previews'],
+    queryKey: entryQueryKeys.photoPreviews(entryId),
     queryFn: () => getEntryPhotoPreviews(entryId),
   })
   const urls = usePhotoObjectUrls(previewsQuery.data ?? [])

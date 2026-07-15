@@ -26,8 +26,21 @@ Copy `.env.example` to `.env.local` after starting or linking Supabase.
 pnpm check
 ```
 
-This runs formatting, lint, strict TypeScript checks, unit tests, and the
-production build.
+This runs formatting, lint (web + shared packages + mobile), strict TypeScript
+checks, unit tests, and the production build.
+
+Focused lint scopes:
+
+```bash
+pnpm lint:web
+pnpm lint:packages
+pnpm lint:mobile
+pnpm --filter mobile lint
+```
+
+See [docs/linting.md](docs/linting.md) for platform-specific rule sets and justified exceptions.
+
+Web React Query keys and invalidation conventions: [docs/query-keys.md](docs/query-keys.md).
 
 ## Supabase
 

@@ -30,7 +30,14 @@
     "noFallthroughCasesInSwitch": true,
 
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@trip-diary/config": ["./packages/config/src/index.ts"],
+      "@trip-diary/i18n": ["./packages/i18n/src/index.ts"],
+      "@trip-diary/core/entry": ["./packages/core/src/entry.ts"],
+      "@trip-diary/core/journey": ["./packages/core/src/journey.ts"],
+      "@trip-diary/maps": ["./packages/maps/src/index.ts"],
+      "@trip-diary/translation": ["./packages/translation/src/index.ts"],
+      "@trip-diary/utils": ["./packages/utils/src/index.ts"]
     }
   },
   "include": ["src"]

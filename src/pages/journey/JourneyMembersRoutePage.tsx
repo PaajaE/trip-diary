@@ -12,6 +12,7 @@ import {
   revokeJourneyInvite,
 } from '@/entities/journey/api/journey-member.repository'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { useSession } from '@/features/auth/session'
 import { JourneyMembersPage } from '@/pages/journey/JourneyMembersPage'
 
@@ -23,17 +24,17 @@ export function JourneyMembersRoutePage() {
   const ownerQuery = useQuery({
     enabled: user !== null,
     queryFn: () => isJourneyOwner(journeyId),
-    queryKey: ['journey-owner', journeyId],
+    queryKey: journeyQueryKeys.owner(journeyId),
   })
   const membersQuery = useQuery({
     enabled: user !== null,
     queryFn: () => listJourneyMembers(journeyId),
-    queryKey: ['journey-members', journeyId],
+    queryKey: journeyQueryKeys.members(journeyId),
   })
   const pendingInvitesQuery = useQuery({
     enabled: user !== null && ownerQuery.data === true,
     queryFn: () => listJourneyPendingInvites(journeyId),
-    queryKey: ['journey-pending-invites', journeyId],
+    queryKey: journeyQueryKeys.pendingInvites(journeyId),
   })
 
   if (loading || journeyQuery.isPending || ownerQuery.isPending) {

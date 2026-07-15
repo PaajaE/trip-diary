@@ -8,6 +8,7 @@ import {
   fetchRegionalSpecies,
   fetchWikipediaSummary,
 } from '@/entities/nature/api/nature-guide.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { fetchWikidataEntry } from '@/entities/nature/lib/wikidata'
 import type {
   NatureObservation,
@@ -99,21 +100,14 @@ export function JourneyNatureGuidePanel({
         limit: compact ? 3 : 12,
         longitude: center?.longitude ?? 0,
       }),
-    queryKey: [
-      'nature-guide-regional',
-      journeyId,
-      bbox?.minLatitude,
-      bbox?.minLongitude,
-      bbox?.maxLatitude,
-      bbox?.maxLongitude,
-    ],
+    queryKey: natureQueryKeys.regionalGuide(journeyId, bbox),
   })
 
   const wikiQuery = useQuery({
     enabled: activeSpecies !== null,
     queryFn: () =>
       fetchWikipediaSummary(activeSpecies?.commonName ?? '', i18n.language),
-    queryKey: ['nature-guide-wiki', activeSpecies?.commonName, i18n.language],
+    queryKey: natureQueryKeys.wiki(activeSpecies?.commonName, i18n.language),
   })
 
   const wikidataQuery = useQuery({
@@ -123,12 +117,11 @@ export function JourneyNatureGuidePanel({
         activeSpecies?.scientificName ?? activeSpecies?.commonName ?? '',
         i18n.language,
       ),
-    queryKey: [
-      'nature-guide-wikidata',
+    queryKey: natureQueryKeys.wikidata(
       activeSpecies?.scientificName,
       activeSpecies?.commonName,
       i18n.language,
-    ],
+    ),
   })
 
   const online = isBrowserOnline()

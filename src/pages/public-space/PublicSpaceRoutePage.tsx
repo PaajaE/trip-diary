@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { getPublicSpace } from '@/entities/sharing/api/public-sharing.repository'
+import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { buildPublicSpaceShare } from '@/features/sharing/lib/build-share-messages'
 import { PublicSpacePage } from '@/pages/public-space'
 import {
@@ -16,7 +17,7 @@ export function PublicSpaceRoutePage() {
   const navigate = useNavigate()
   const query = useQuery({
     queryFn: () => getPublicSpace(spaceHandle),
-    queryKey: ['public-space', spaceHandle],
+    queryKey: sharingQueryKeys.publicSpace(spaceHandle),
   })
 
   if (query.isPending) {

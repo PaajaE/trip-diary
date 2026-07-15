@@ -65,11 +65,38 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@trip-diary/config': fileURLToPath(
+        new URL('./packages/config/src/index.ts', import.meta.url),
+      ),
+      '@trip-diary/i18n': fileURLToPath(
+        new URL('./packages/i18n/src/index.ts', import.meta.url),
+      ),
+      '@trip-diary/core/entry': fileURLToPath(
+        new URL('./packages/core/src/entry.ts', import.meta.url),
+      ),
+      '@trip-diary/core/journey': fileURLToPath(
+        new URL('./packages/core/src/journey.ts', import.meta.url),
+      ),
+      '@trip-diary/maps': fileURLToPath(
+        new URL('./packages/maps/src/index.ts', import.meta.url),
+      ),
+      '@trip-diary/translation': fileURLToPath(
+        new URL('./packages/translation/src/index.ts', import.meta.url),
+      ),
+      '@trip-diary/utils': fileURLToPath(
+        new URL('./packages/utils/src/index.ts', import.meta.url),
+      ),
     },
   },
   test: {
     environment: 'jsdom',
-    exclude: ['tests/e2e/**', 'node_modules/**', 'dist/**'],
+    exclude: [
+      'tests/e2e/**',
+      'node_modules/**',
+      'dist/**',
+      'packages/**',
+      'apps/**',
+    ],
     setupFiles: ['./src/test/setup.ts'],
   },
 })

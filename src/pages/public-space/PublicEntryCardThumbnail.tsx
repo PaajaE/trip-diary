@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { BookOpen } from 'lucide-react'
+import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { cn } from '@/shared/lib/cn'
@@ -18,7 +19,7 @@ export function PublicEntryCardThumbnail({
   const previewsQuery = useQuery({
     enabled: !hasRemoteImage,
     queryFn: () => getEntryPhotoPreviews(entryId),
-    queryKey: ['entries', entryId, 'public-card-thumb'],
+    queryKey: entryQueryKeys.publicCardThumb(entryId),
   })
   const resolvedUrls = usePhotoObjectUrls(previewsQuery.data ?? [])
   const src = hasRemoteImage ? imageUrl : resolvedUrls[0]?.url

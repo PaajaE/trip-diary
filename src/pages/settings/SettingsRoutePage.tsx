@@ -6,6 +6,7 @@ import {
   updateOwnProfile,
   uploadOwnAvatar,
 } from '@/entities/profile/api/profile.repository'
+import { profileQueryKeys } from '@/entities/profile/api/profile-query-keys'
 import { processPhoto } from '@/entities/photo/lib/process-photo'
 import { useSession } from '@/features/auth/session'
 import type { ProfileSettingsSubmission } from '@/features/profile'
@@ -17,7 +18,7 @@ export function SettingsRoutePage() {
   const profileQuery = useQuery({
     enabled: user !== null,
     queryFn: () => getCurrentProfile({ userId: user?.id ?? '' }),
-    queryKey: ['profiles', 'current', user?.id],
+    queryKey: profileQueryKeys.current(user?.id),
   })
 
   if (loading) {

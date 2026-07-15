@@ -1,0 +1,103 @@
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import '@/app/i18n'
+import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
+import {
+  getMomentExcerpt,
+  handleStripKeyDown,
+} from '@/features/journeys/ui/journey-reader-moment-strip.logic'
+import { JourneyReaderMomentStrip } from '@/features/journeys/ui/JourneyReaderMomentStrip'
+
+vi.mock('@/features/journeys/lib/use-journey-moment-photos', () => ({
+  useJourneyMomentPhotos: () => ({
+    isPending: false,
+    photosByEntryId: new Map(),
+  }),
+}))
+
+vi.mock('@/features/photos/lib/use-photo-object-urls', () => ({
+  usePhotoObjectUrls: () => [],
+}))
+
+describe('JourneyReaderMomentStrip', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('activates moments from keyboard navigation', () => {
+    const moments = [createMoment('a'), createMoment('b')]
+    const onActivateMoment = vi.fn()
+
+    render(
+      <JourneyReaderMomentStrip
+        activeMomentId="a"
+        moments={moments}
+        onActivateMoment={onActivateMoment}
+      />,
+    )
+
+    const listbox = screen.getByRole('listbox')
+    fireEvent.keyDown(listbox, { key: 'ArrowRight' })
+
+    expect(onActivateMoment).toHaveBeenCalledWith('b')
+  })
+
+  it('marks the active card with aria-selected', () => {
+    const moments = [createMoment('a'), createMoment('b')]
+
+    render(
+      <JourneyReaderMomentStrip
+        activeMomentId="b"
+        moments={moments}
+        onActivateMoment={vi.fn()}
+      />,
+    )
+
+    const options = screen.getAllByRole('option')
+    expect(options[0]).toHaveAttribute('aria-selected', 'false')
+    expect(options[1]).toHaveAttribute('aria-selected', 'true')
+  })
+})
+
+describe('handleStripKeyDown', () => {
+  it('moves to the first and last moments with Home and End', () => {
+    const moments = [createMoment('a'), createMoment('b'), createMoment('c')]
+    const onActivateMoment = vi.fn()
+
+    handleStripKeyDown(
+      {
+        key: 'End',
+        preventDefault: vi.fn(),
+      } as unknown as React.KeyboardEvent<HTMLDivElement>,
+      moments,
+      'a',
+      onActivateMoment,
+    )
+
+    expect(onActivateMoment).toHaveBeenCalledWith('c')
+  })
+})
+
+describe('getMomentExcerpt', () => {
+  it('truncates long moment bodies', () => {
+    expect(getMomentExcerpt('short body')).toBe('short body')
+    expect(getMomentExcerpt('x'.repeat(120)).endsWith('…')).toBe(true)
+  })
+})
+
+function createMoment(id: string): JourneyMoment {
+  return {
+    entry: {
+      body: 'Sample body',
+      eventAt: '2026-01-01T08:00:00.000Z',
+      id,
+      slug: null,
+      stageId: null,
+      stopId: null,
+      title: `Moment ${id}`,
+      type: 'story',
+    },
+    location: null,
+    stop: null,
+  }
+}

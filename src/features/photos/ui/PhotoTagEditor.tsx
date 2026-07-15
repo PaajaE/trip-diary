@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { invalidateAfterPhotoTagChange } from '@/entities/photo/api/invalidate-after-photo-mutation'
 import {
   assignPhotoTag,
   removePhotoTag,
@@ -35,9 +36,7 @@ export function PhotoTagEditor({
   const assignedSlugs = new Set(assignedTags.map((tag) => tag.slug))
 
   async function invalidate() {
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-photo-tags', journeyId],
-    })
+    await invalidateAfterPhotoTagChange(queryClient, journeyId)
     onChanged?.()
   }
 

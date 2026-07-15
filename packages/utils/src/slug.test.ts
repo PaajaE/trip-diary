@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createPublicSlug } from '@/shared/lib/slug'
+import { createPublicSlug } from './slug.ts'
 
 describe('createPublicSlug', () => {
   it('creates readable deterministic collision-resistant slugs', () => {

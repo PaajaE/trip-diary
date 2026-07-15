@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { fetchMacrostratGeologyHint } from '@/entities/nature/lib/macrostrat'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { isBrowserOnline } from '@/shared/lib/network'
 
 interface MacrostratGeologyHintProps {
@@ -18,14 +19,14 @@ export function MacrostratGeologyHint({
   const online = isBrowserOnline()
 
   const hintQuery = useQuery({
-    enabled: online,
+    enabled: online && latitude !== null && longitude !== null,
     queryFn: () =>
       fetchMacrostratGeologyHint({
         latitude,
         longitude,
         stratName,
       }),
-    queryKey: ['macrostrat-geology', stratName, latitude, longitude],
+    queryKey: natureQueryKeys.macrostratGeology(stratName, latitude, longitude),
     staleTime: 86_400_000,
   })
 

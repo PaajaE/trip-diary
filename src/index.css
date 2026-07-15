@@ -315,6 +315,113 @@ a {
   box-shadow: var(--shadow-soft);
 }
 
+.reader-hero-cover {
+  transform: scale(1.04);
+}
+
+.reader-hero-scroll__icon {
+  animation: reader-hero-bounce 1.8s ease-in-out infinite;
+}
+
+@keyframes reader-hero-bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(0.35rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-hero-scroll__icon {
+    animation: none;
+  }
+}
+
+.reader-page__content {
+  width: 100%;
+}
+
+.reader-moment-card__hit-target {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+
+.reader-moment-card__hit-target:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+
+.reader-moment-card__action-hint {
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.reader-moment-card:hover .reader-moment-card__action-hint,
+.reader-moment-card:focus-within .reader-moment-card__action-hint,
+.reader-moment-card--active .reader-moment-card__action-hint {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.reader-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .reader-gallery-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .reader-gallery-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.reader-gallery-grid--single {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 36rem;
+}
+
+.reader-gallery-item {
+  aspect-ratio: 4 / 3;
+  background: hsl(var(--muted) / 0.25);
+}
+
+.reader-gallery-item:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-gallery-item img {
+    transition: none;
+  }
+}
+
+.journey-timeline__item--reader-card:not(:last-child) {
+  padding-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .journey-timeline__item--reader-card:not(:last-child) {
+    padding-bottom: 2.5rem;
+  }
+}
+
 .reader-stage-divider {
   border-top: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
   padding-top: 2.5rem;
@@ -458,6 +565,22 @@ a {
 
 .reader-map-frame--bleed .maplibregl-map {
   border-radius: 0;
+}
+
+.reader-moment-strip__scroller:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 4px;
+}
+
+.reader-moment-strip__card:focus-visible {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-moment-strip__card {
+    transition: none;
+  }
 }
 
 .journey-map-pin--hidden {

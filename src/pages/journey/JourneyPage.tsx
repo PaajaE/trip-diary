@@ -7,10 +7,18 @@ import {
   listJourneyChecklistItems,
   setJourneyChecklistItemChecked,
 } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
+import {
+  invalidateJourneyContentChange,
+  invalidateJourneyNatureAggregates,
+} from '@/entities/journey/api/invalidate-journey-queries'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import {
   useJourneyContributionQuery,
   useJourneyQuery,
@@ -95,38 +103,37 @@ export function JourneyPage({
   const contributionQuery = useJourneyContributionQuery(journeyId)
   const ownerQuery = useQuery({
     queryFn: () => isJourneyOwner(journeyId),
-    queryKey: ['journey-owner', journeyId],
+    queryKey: journeyQueryKeys.owner(journeyId),
   })
   const myRoleQuery = useQuery({
     enabled: user !== null,
     queryFn: () => getMyJourneyRole(journeyId, user?.id ?? ''),
-    queryKey: ['journey-my-role', journeyId, user?.id],
+    queryKey: journeyQueryKeys.myRole(journeyId, user?.id),
   })
   const journey = query.data
   const content = journey === undefined ? null : composeJourneyContent(journey)
   const photoLocationsQuery = useQuery({
     enabled: content !== null && content.moments.length > 0,
     queryFn: () => getJourneyPhotoLocations(content?.moments ?? []),
-    queryKey: [
-      'journey-photo-locations',
+    queryKey: photoQueryKeys.journeyPhotoLocations(
       journeyId,
-      ...(content?.moments.map((moment) => moment.entry.id) ?? []),
-    ],
+      content?.moments.map((moment) => moment.entry.id) ?? [],
+    ),
   })
   const tagAssignmentsQuery = useQuery({
     enabled: journey !== undefined,
     queryFn: () => listJourneyPhotoTagAssignments(journeyId),
-    queryKey: ['journey-photo-tags', journeyId, 'assignments'],
+    queryKey: photoQueryKeys.journeyTagAssignments(journeyId),
   })
   const checklistQuery = useQuery({
     enabled: journey !== undefined,
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
   const observationsQuery = useQuery({
     enabled: journey !== undefined,
     queryFn: () => listJourneyObservations(journeyId),
-    queryKey: ['journey-observations', journeyId],
+    queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
   const galleryPreviewsQuery = useQuery({
     enabled: (content?.moments.length ?? 0) > 0,
@@ -136,10 +143,9 @@ export function JourneyPage({
           await import('@/entities/photo/api/photo-gallery.repository')
         return getJourneyEntryPhotoPreviews(entryId)
       }),
-    queryKey: [
-      'journey-gallery',
-      ...(content?.moments.map((moment) => moment.entry.id) ?? []),
-    ],
+    queryKey: photoQueryKeys.journeyGalleryByEntries(
+      content?.moments.map((moment) => moment.entry.id) ?? [],
+    ),
   })
   const tagAssignments = useMemo(
     () =>
@@ -316,15 +322,7 @@ export function JourneyPage({
 
   function handleJourneyChanged() {
     void query.refetch()
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-checklist', journeyId],
-    })
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-observations', journeyId],
-    })
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-gallery'],
-    })
+    void invalidateJourneyContentChange(queryClient, journeyId)
   }
 
   useEffect(() => {
@@ -380,12 +378,7 @@ export function JourneyPage({
       item,
       journeyId,
     })
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-checklist', journeyId],
-    })
-    await queryClient.invalidateQueries({
-      queryKey: ['journey-observations', journeyId],
-    })
+    await invalidateJourneyNatureAggregates(queryClient, journeyId)
   }
 
   const pendingMapPointId =

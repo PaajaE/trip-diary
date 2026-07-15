@@ -7,12 +7,13 @@ import {
   getJourneyFromCache,
   getPublicJourney,
 } from '@/entities/journey/api/journey.repository'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { isBrowserOnline } from '@/shared/lib/network'
 
 export function usePublicJourneyQuery(journeyId: string) {
   return useQuery({
     queryFn: () => getPublicJourney(journeyId),
-    queryKey: ['public-journeys', journeyId],
+    queryKey: journeyQueryKeys.publicDetail(journeyId),
   })
 }
 
@@ -21,14 +22,14 @@ export function useJourneyQuery(journeyId: string) {
 
   const cacheQuery = useQuery({
     queryFn: () => getJourneyFromCache(journeyId),
-    queryKey: ['journeys', journeyId, 'local'],
+    queryKey: journeyQueryKeys.detailLocal(journeyId),
   })
 
   const journeyQuery = useQuery({
     enabled: cacheQuery.isFetched && online,
     placeholderData: () => cacheQuery.data ?? undefined,
     queryFn: () => getJourney(journeyId),
-    queryKey: ['journeys', journeyId],
+    queryKey: journeyQueryKeys.detail(journeyId),
   })
 
   const data = pickJourneyQueryData(
@@ -50,14 +51,14 @@ export function useJourneyQuery(journeyId: string) {
 export function useJourneyContributionQuery(journeyId: string) {
   const cacheQuery = useQuery({
     queryFn: () => getCachedCanContributeToJourney(journeyId),
-    queryKey: ['journey-contribution', journeyId, 'local'],
+    queryKey: journeyQueryKeys.contributionLocal(journeyId),
   })
 
   const contributionQuery = useQuery({
     enabled: cacheQuery.isFetched,
     placeholderData: () => cacheQuery.data,
     queryFn: () => canContributeToJourney(journeyId),
-    queryKey: ['journey-contribution', journeyId],
+    queryKey: journeyQueryKeys.contribution(journeyId),
   })
 
   return {

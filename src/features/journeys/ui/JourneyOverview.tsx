@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Camera, MapPin, StickyNote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import type {
@@ -68,7 +69,7 @@ export function JourneyOverview({
   const { t } = useTranslation()
   const checklistQuery = useQuery({
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
   const checklistItems = Array.isArray(checklistQuery.data)
     ? checklistQuery.data

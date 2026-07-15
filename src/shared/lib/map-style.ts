@@ -1,49 +1,22 @@
+import { resolveMapStyle, isMapyApiKeyConfigured } from '@trip-diary/maps'
+import type { ResolvedMapStyle } from '@trip-diary/maps'
 import type { StyleSpecification } from 'maplibre-gl'
 import { publicEnv } from '@/shared/config/env'
 
-const MAPY_OUTDOOR_TILEJSON =
-  'https://api.mapy.com/v1/maptiles/outdoor/tiles.json'
-
-const MAPY_ATTRIBUTION = '© Seznam.cz a.s. a další'
-
 export function isMapyBasemapEnabled(): boolean {
-  const apiKey = publicEnv.VITE_MAPY_API_KEY
-  return apiKey !== undefined && apiKey.trim().length > 0
+  return isMapyApiKeyConfigured(publicEnv.mapyApiKey)
 }
 
 export function getAppMapStyle(language?: string): StyleSpecification {
-  const apiKey = publicEnv.VITE_MAPY_API_KEY?.trim()
-  if (apiKey !== undefined && apiKey.length > 0) {
-    const params = new URLSearchParams({ apikey: apiKey })
-    if (language !== undefined && language.length > 0) {
-      params.set('lang', language)
-    }
+  return resolveMapStyle({
+    apiKey: publicEnv.mapyApiKey,
+    language,
+  }).style
+}
 
-    return {
-      glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-      layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
-      sources: {
-        basemap: {
-          attribution: MAPY_ATTRIBUTION,
-          type: 'raster',
-          url: `${MAPY_OUTDOOR_TILEJSON}?${params.toString()}`,
-        },
-      },
-      version: 8,
-    }
-  }
-
-  return {
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-    layers: [{ id: 'osm', source: 'osm', type: 'raster' }],
-    sources: {
-      osm: {
-        attribution: '© OpenStreetMap contributors',
-        tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-        tileSize: 256,
-        type: 'raster',
-      },
-    },
-    version: 8,
-  }
+export function getResolvedAppMapStyle(language?: string): ResolvedMapStyle {
+  return resolveMapStyle({
+    apiKey: publicEnv.mapyApiKey,
+    language,
+  })
 }

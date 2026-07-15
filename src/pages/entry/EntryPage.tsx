@@ -6,15 +6,23 @@ import { useTranslation } from 'react-i18next'
 import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
+import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
+import {
+  invalidateAfterEntryDelete,
+  invalidateAfterEntryUpdate,
+} from '@/entities/entry/api/invalidate-after-entry-mutation'
+import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repository'
+import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { useSession } from '@/features/auth/session'
 import { EditEntryForm } from '@/features/entries/ui/EditEntryForm'
+import { EntryTranslationPanel } from '@/features/entries/ui/EntryTranslationPanel'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messages'
 import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { CopyShareLink } from '@/features/sharing'
-import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repository'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
+import { localDb } from '@/shared/lib/local-db'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
@@ -39,7 +47,7 @@ export function EntryPage({
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const entryQuery = useQuery({
-    queryKey: ['entries', entryId],
+    queryKey: entryQueryKeys.detail(entryId),
     queryFn: async () => {
       if (await isRecordDeleted('entry', entryId)) {
         return null
@@ -50,7 +58,7 @@ export function EntryPage({
   const publicShareQuery = useQuery({
     enabled: entryQuery.data !== undefined && entryQuery.data !== null,
     queryFn: () => getEntryPublicShare(entryId),
-    queryKey: ['entry-public-share', entryId],
+    queryKey: sharingQueryKeys.entryPublicShare(entryId),
   })
   const entry = entryQuery.data
   const publicShare =
@@ -95,9 +103,14 @@ export function EntryPage({
             onUpdated={(updated) => {
               setEditing(false)
               void entryQuery.refetch()
-              void queryClient.invalidateQueries({
-                queryKey: ['entries', updated.id],
-              })
+              void localDb.journeyLinks.get(updated.id).then((link) =>
+                invalidateAfterEntryUpdate(queryClient, {
+                  entryId: updated.id,
+                  ...(link?.journeyId !== undefined
+                    ? { journeyId: link.journeyId }
+                    : {}),
+                }),
+              )
             }}
           />
         </article>
@@ -159,7 +172,14 @@ export function EntryPage({
                   setDeleting(true)
                   void deleteEntry(entry.id, user.id)
                     .then(async () => {
-                      await queryClient.invalidateQueries()
+                      const link = await localDb.journeyLinks.get(entry.id)
+                      await invalidateAfterEntryDelete(queryClient, {
+                        entryId: entry.id,
+                        userId: user.id,
+                        ...(link?.journeyId !== undefined
+                          ? { journeyId: link.journeyId }
+                          : {}),
+                      })
                       if (returnTo !== undefined) {
                         await navigate({ to: returnTo })
                         return
@@ -175,6 +195,9 @@ export function EntryPage({
                 {deleting ? t('entry.deleting') : t('entry.deleteAction')}
               </Button>
             </div>
+          ) : null}
+          {canManage && entry.language === 'cs' ? (
+            <EntryTranslationPanel entry={entry} />
           ) : null}
           {entry.syncStatus === 'synced' ? null : (
             <Button

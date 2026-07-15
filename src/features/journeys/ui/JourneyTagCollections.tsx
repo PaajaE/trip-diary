@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Images, MapPin } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyPhotoTags } from '@/entities/photo/api/photo-tag.repository'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import type { JourneyPhotoTag } from '@/entities/photo/model/photo-tag'
 import type { NatureObservation } from '@/entities/nature/model/observation'
 import {
@@ -27,7 +28,7 @@ export function JourneyTagCollections({
   const { t } = useTranslation()
   const tagsQuery = useQuery({
     queryFn: () => listJourneyPhotoTags(journeyId),
-    queryKey: ['journey-photo-tags', journeyId],
+    queryKey: photoQueryKeys.journeyTags(journeyId),
   })
 
   if (tagsQuery.isPending) {

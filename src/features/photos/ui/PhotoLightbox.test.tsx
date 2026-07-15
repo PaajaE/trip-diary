@@ -80,4 +80,66 @@ describe('PhotoLightbox', () => {
     )
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('navigates with arrow keys and returns focus to the trigger on close', () => {
+    const onClose = vi.fn()
+    const trigger = document.createElement('button')
+    trigger.type = 'button'
+    trigger.textContent = 'Gallery item'
+    document.body.appendChild(trigger)
+    trigger.focus()
+
+    const returnFocusRef = { current: trigger }
+
+    render(
+      <PhotoLightbox
+        initialIndex={0}
+        onClose={onClose}
+        photos={[
+          {
+            alt: 'First',
+            id: 'photo-1',
+            thumbUrl: 'blob:first-thumb',
+          },
+          {
+            alt: 'Second',
+            id: 'photo-2',
+            thumbUrl: 'blob:second-thumb',
+          },
+        ]}
+        returnFocusRef={returnFocusRef}
+      />,
+    )
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' })
+    expect(screen.getByText('2 / 2')).toBeVisible()
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(trigger)
+
+    trigger.remove()
+  })
+
+  it('falls back to the thumbnail when the detail preview is missing', async () => {
+    vi.mocked(getPhotoDetailPreview).mockResolvedValue(null)
+
+    render(
+      <PhotoLightbox
+        onClose={vi.fn()}
+        photos={[
+          {
+            alt: 'Broken detail',
+            id: 'photo-1',
+            thumbUrl: 'blob:fallback-thumb',
+          },
+        ]}
+      />,
+    )
+
+    expect(screen.getByRole('img', { name: 'Broken detail' })).toHaveAttribute(
+      'src',
+      'blob:fallback-thumb',
+    )
+  })
 })

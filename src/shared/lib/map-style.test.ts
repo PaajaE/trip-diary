@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 const { publicEnvMock } = vi.hoisted(() => ({
   publicEnvMock: {
-    VITE_MAPY_API_KEY: undefined as string | undefined,
+    mapyApiKey: undefined as string | undefined,
   },
 }))
 
@@ -12,17 +12,18 @@ vi.mock('@/shared/config/env', () => ({
 
 describe('map-style', () => {
   afterEach(() => {
-    publicEnvMock.VITE_MAPY_API_KEY = undefined
+    publicEnvMock.mapyApiKey = undefined
     vi.resetModules()
   })
 
-  it('uses Mapy.com outdoor tiles when an API key is configured', async () => {
-    publicEnvMock.VITE_MAPY_API_KEY = 'test-map-key'
+  it('uses Mapy.com tourist tiles when an API key is configured', async () => {
+    publicEnvMock.mapyApiKey = 'test-map-key'
 
-    const { getAppMapStyle, isMapyBasemapEnabled } =
+    const { getAppMapStyle, getResolvedAppMapStyle, isMapyBasemapEnabled } =
       await import('@/shared/lib/map-style')
 
     expect(isMapyBasemapEnabled()).toBe(true)
+    expect(getResolvedAppMapStyle('cs').providerId).toBe('mapy-tourist')
     expect(getAppMapStyle('cs')).toEqual({
       glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
@@ -38,12 +39,13 @@ describe('map-style', () => {
   })
 
   it('falls back to OpenStreetMap tiles without an API key', async () => {
-    publicEnvMock.VITE_MAPY_API_KEY = undefined
+    publicEnvMock.mapyApiKey = undefined
 
-    const { getAppMapStyle, isMapyBasemapEnabled } =
+    const { getAppMapStyle, getResolvedAppMapStyle, isMapyBasemapEnabled } =
       await import('@/shared/lib/map-style')
 
     expect(isMapyBasemapEnabled()).toBe(false)
+    expect(getResolvedAppMapStyle().providerId).toBe('osm')
     expect(getAppMapStyle()).toEqual({
       glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
       layers: [{ id: 'osm', source: 'osm', type: 'raster' }],

@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ExternalLink, Leaf, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
@@ -217,7 +218,7 @@ export function MomentCard({
                 onUpdated?.()
                 showToast({ message: t('moment.updated') })
                 void queryClient.invalidateQueries({
-                  queryKey: ['journeys', journeyId],
+                  queryKey: journeyQueryKeys.detail(journeyId),
                 })
               }}
             />

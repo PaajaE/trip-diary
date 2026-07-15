@@ -12,6 +12,7 @@ import {
   prepareManualSync,
   syncPendingOperations,
 } from '@/shared/sync/sync.service'
+import { invalidateAfterManualSync } from '@/features/sync/lib/invalidate-after-sync'
 import { useSyncProgress } from '@/shared/sync/use-sync-progress'
 import { useLastSyncError } from '@/shared/sync/use-last-sync-error'
 import { useSyncStatus } from '@/shared/sync/use-sync-status'
@@ -49,9 +50,11 @@ export function SyncStatusControl() {
     try {
       if (user !== null) {
         await prepareManualSync(user.id)
+        await syncPendingOperations()
+        await invalidateAfterManualSync(queryClient, user.id)
+        return
       }
       await syncPendingOperations()
-      await queryClient.invalidateQueries()
     } catch {
       // Status badge and lastSyncError will reflect the failure.
     } finally {

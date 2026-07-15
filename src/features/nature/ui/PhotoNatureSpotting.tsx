@@ -2,8 +2,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { observationsForPhoto } from '@/entities/nature/api/observation-mutation.repository'
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import type { NatureObservation } from '@/entities/nature/model/observation'
@@ -33,11 +35,11 @@ export function PhotoNatureSpotting({
 
   const checklistQuery = useQuery({
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
   const observationsQuery = useQuery({
     queryFn: () => listJourneyObservations(journeyId),
-    queryKey: ['journey-observations', journeyId],
+    queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
 
   const items = useMemo(

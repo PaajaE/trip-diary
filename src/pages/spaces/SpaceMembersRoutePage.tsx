@@ -7,6 +7,7 @@ import {
   listSpaceMembers,
   removeSpaceMember,
 } from '@/entities/space/api/space.repository'
+import { spaceQueryKeys } from '@/entities/space/api/space-query-keys'
 import { useSession } from '@/features/auth/session'
 import type { SpaceRole } from '@/features/spaces'
 import { SpaceMembersPage } from '@/pages/spaces/SpaceMembersPage'
@@ -17,12 +18,12 @@ export function SpaceMembersRoutePage() {
   const spacesQuery = useQuery({
     enabled: user !== null,
     queryFn: () => listMySpaces(user?.id ?? ''),
-    queryKey: ['spaces', user?.id],
+    queryKey: spaceQueryKeys.byUser(user?.id),
   })
   const membersQuery = useQuery({
     enabled: user !== null,
     queryFn: () => listSpaceMembers(spaceId),
-    queryKey: ['spaces', spaceId, 'members'],
+    queryKey: spaceQueryKeys.members(spaceId),
   })
 
   if (loading) return <Message>Načítám členy prostoru…</Message>

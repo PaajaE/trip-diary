@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useParams, useSearch } from '@tanstack/react-router'
 import { resolvePublicJourneyMeta } from '@/entities/sharing/api/public-sharing.repository'
+import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { JourneyReaderPage } from '@/pages/reader/JourneyReaderPage'
 import {
   PublicRouteError,
@@ -15,7 +16,7 @@ export function PublicJourneyRoutePage() {
   const search = useSearch({ from: '/$spaceHandle/$journeySlug' })
   const query = useQuery({
     queryFn: () => resolvePublicJourneyMeta(spaceHandle, journeySlug),
-    queryKey: ['public-journey-meta', spaceHandle, journeySlug],
+    queryKey: sharingQueryKeys.publicJourneyMeta(spaceHandle, journeySlug),
   })
 
   if (query.isPending) {

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { searchInaturalistTaxa } from '@/entities/nature/lib/inaturalist'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { cn } from '@/shared/lib/cn'
 import { isBrowserOnline } from '@/shared/lib/network'
 
@@ -43,7 +44,7 @@ export function TaxonNameSuggest({
   const suggestionsQuery = useQuery({
     enabled: online && debouncedQuery.trim().length >= 2,
     queryFn: () => searchInaturalistTaxa(debouncedQuery, i18n.language),
-    queryKey: ['inaturalist-taxon-search', debouncedQuery, i18n.language],
+    queryKey: natureQueryKeys.taxonSearch(debouncedQuery, i18n.language),
     staleTime: 60_000,
   })
 

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getJourneyPublicPaths } from '@/entities/sharing/api/public-sharing.repository'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import {
   buildPublicMomentShare,
   buildPublicTripShare,
@@ -11,7 +12,7 @@ export function useJourneyPublicShare(journeyId: string, title: string) {
   const pathsQuery = useQuery({
     enabled: journeyId !== '',
     queryFn: () => getJourneyPublicPaths(journeyId),
-    queryKey: ['journey-public-paths', journeyId],
+    queryKey: journeyQueryKeys.publicPaths(journeyId),
   })
 
   const paths = pathsQuery.data

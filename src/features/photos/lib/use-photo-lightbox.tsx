@@ -1,7 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { deletePhoto } from '@/entities/photo/api/photo-mutation.repository'
+import {
+  invalidateAfterPhotoDelete,
+  invalidateAfterPhotoTagChange,
+} from '@/entities/photo/api/invalidate-after-photo-mutation'
 import {
   PhotoLightbox,
   type PhotoLightboxItem,
@@ -22,9 +26,15 @@ export function usePhotoLightbox(options?: {
     index: number
     photos: PhotoLightboxItem[]
   } | null>(null)
+  const returnFocusRef = useRef<HTMLElement | null>(null)
 
   const openLightbox = useCallback(
-    (photos: PhotoLightboxItem[], index: number) => {
+    (
+      photos: PhotoLightboxItem[],
+      index: number,
+      returnFocusElement?: HTMLElement | null,
+    ) => {
+      returnFocusRef.current = returnFocusElement ?? null
       setLightbox({ index, photos })
     },
     [],
@@ -52,12 +62,23 @@ export function usePhotoLightbox(options?: {
         }
         initialIndex={lightbox.index}
         onClose={closeLightbox}
+        returnFocusRef={returnFocusRef}
         {...(creatorId !== undefined
           ? {
               creatorId,
               onDelete: async (photoId: string) => {
+                const deletedPhoto = lightbox.photos.find(
+                  (photo) => photo.id === photoId,
+                )
                 await deletePhoto(photoId, creatorId)
-                await queryClient.invalidateQueries()
+                await invalidateAfterPhotoDelete(queryClient, {
+                  ...(deletedPhoto?.entryId !== undefined
+                    ? { entryId: deletedPhoto.entryId }
+                    : {}),
+                  ...(options?.journeyId !== undefined
+                    ? { journeyId: options.journeyId }
+                    : {}),
+                })
                 setLightbox((current) => {
                   if (current === null) {
                     return null
@@ -86,12 +107,7 @@ export function usePhotoLightbox(options?: {
           ? { tagsByPhotoId: options.tagsByPhotoId }
           : {})}
         onTagsChanged={() => {
-          void queryClient.invalidateQueries({
-            queryKey: ['journey-photo-tags'],
-          })
-          void queryClient.invalidateQueries({
-            queryKey: ['journey-observations'],
-          })
+          void invalidateAfterPhotoTagChange(queryClient, options?.journeyId)
         }}
         photoEngagement={options?.photoEngagement === true}
         photos={lightbox.photos}

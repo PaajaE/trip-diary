@@ -7,6 +7,7 @@ import {
   listAppliedTemplateSlugs,
 } from '@/entities/checklist/data/templates'
 import { removeChecklistTemplate } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import type {
   ChecklistTemplate,
   JourneyChecklistItem,
@@ -89,7 +90,7 @@ export function NatureDetailSheet({
       templateSlug,
     })
     await queryClient.invalidateQueries({
-      queryKey: ['journey-checklist', journeyId],
+      queryKey: checklistQueryKeys.journey(journeyId),
     })
     onChanged?.()
   }

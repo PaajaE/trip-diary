@@ -3,6 +3,9 @@ import { Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
+import { invalidateJourneyAfterEntryMutation } from '@/entities/journey/api/invalidate-journey-queries'
+import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import {
   getCachedCanContributeToJourney,
   persistMergedJourneyCache,
@@ -13,7 +16,6 @@ import { saveJourneySnapshot } from '@/entities/journey/api/local-journey-cache.
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyMemoryForm } from '@/features/journeys/ui/CreateJourneyMemoryForm'
-import { isBrowserOnline } from '@/shared/lib/network'
 
 interface CreateJourneyMemoryPageProps {
   focus?: 'note'
@@ -35,7 +37,7 @@ export function CreateJourneyMemoryPage({
   const checklistQuery = useQuery({
     enabled: natureGoalId !== undefined,
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
   const natureGoal = useMemo(() => {
     if (natureGoalId === undefined) {
@@ -72,9 +74,14 @@ export function CreateJourneyMemoryPage({
     }
 
     if (refreshed !== null) {
-      await queryClient.cancelQueries({ queryKey: ['journeys', journeyId] })
-      queryClient.setQueryData(['journeys', journeyId, 'local'], refreshed)
-      queryClient.setQueryData(['journeys', journeyId], refreshed)
+      await queryClient.cancelQueries({
+        queryKey: journeyQueryKeys.detail(journeyId),
+      })
+      queryClient.setQueryData(
+        journeyQueryKeys.detailLocal(journeyId),
+        refreshed,
+      )
+      queryClient.setQueryData(journeyQueryKeys.detail(journeyId), refreshed)
     }
 
     await navigate({
@@ -90,23 +97,7 @@ export function CreateJourneyMemoryPage({
       to: '/j/$journeyId',
     })
 
-    void queryClient.invalidateQueries({ queryKey: ['journey-gallery'] })
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-photo-locations', journeyId],
-    })
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-checklist', journeyId],
-    })
-    void queryClient.invalidateQueries({
-      queryKey: ['journey-observations', journeyId],
-    })
-
-    if (isBrowserOnline()) {
-      void queryClient.invalidateQueries({
-        exact: true,
-        queryKey: ['journeys', journeyId],
-      })
-    }
+    void invalidateJourneyAfterEntryMutation(queryClient, journeyId)
   }
 
   return (

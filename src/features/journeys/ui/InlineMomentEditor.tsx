@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { updateEntry } from '@/entities/entry/api/entry-mutation.repository'
+import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import {
   updateEntrySchema,
@@ -31,7 +32,7 @@ export function InlineMomentEditor({
   const { t } = useTranslation()
   const entryQuery = useQuery({
     queryFn: () => getLocalEntry(entryId),
-    queryKey: ['entries', entryId, 'inline-edit'],
+    queryKey: entryQueryKeys.inlineEdit(entryId),
   })
   const entry = entryQuery.data
 

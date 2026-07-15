@@ -3,7 +3,8 @@ import { useNavigate } from '@tanstack/react-router'
 import { Expand } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
@@ -24,8 +25,16 @@ import {
   scrollToReaderSection,
   type JourneyReaderSection,
 } from '@/features/journeys/lib/journey-reader-section'
+import { buildPublicJourneyGallery } from '@/features/journeys/lib/public-journey-gallery'
 import { pickJourneyCoverPhoto } from '@/features/journeys/lib/pick-journey-cover-photo'
 import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
+import {
+  getEntryIdFromMapPoint,
+  getPublicJourneyMapPoints,
+  resolvePublicJourneyMapBoundsCoordinates,
+  resolvePublicMapFocusPointId,
+  resolvePublicJourneyMapRoute,
+} from '@/features/journeys/lib/public-journey-map'
 import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { DeferredJourneyMap } from '@/features/journeys/ui/DeferredJourneyMap'
 import { JourneyGuidesSection } from '@/features/journeys/ui/JourneyGuidesSection'
@@ -33,11 +42,16 @@ import {
   JourneyMap,
   type JourneyMapView,
 } from '@/features/journeys/ui/JourneyMap'
+import { JourneyReaderClosingSection } from '@/features/journeys/ui/JourneyReaderClosingSection'
 import { JourneyReaderDock } from '@/features/journeys/ui/JourneyReaderDock'
+import { JourneyReaderGallery } from '@/features/journeys/ui/JourneyReaderGallery'
 import { JourneyReaderHero } from '@/features/journeys/ui/JourneyReaderHero'
 import { JourneyReaderStory } from '@/features/journeys/ui/JourneyReaderStory'
+import {
+  JourneyReaderMomentStrip,
+  type JourneyReaderMomentStripHandle,
+} from '@/features/journeys/ui/JourneyReaderMomentStrip'
 import { JourneyTagCollections } from '@/features/journeys/ui/JourneyTagCollections'
-import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
 import { ReaderChrome } from '@/features/journeys/ui/ReaderChrome'
 import { ReaderMapAttribution } from '@/features/journeys/ui/ReaderMapAttribution'
 import {
@@ -75,7 +89,7 @@ export function JourneyReaderPage({
   publicPaths,
   section,
 }: JourneyReaderPageProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const navigate = useNavigate()
   const query = usePublicJourneyQuery(journeyId)
   const journey = query.data
@@ -93,23 +107,16 @@ export function JourneyReaderPage({
   const [embeddedSyncView, setEmbeddedSyncView] =
     useState<JourneyMapView | null>(null)
   const [embeddedMapSyncToken, setEmbeddedMapSyncToken] = useState(0)
-  const [focusedMapPointId, setFocusedMapPointId] = useState<string | null>(
-    null,
-  )
+  const stripRef = useRef<JourneyReaderMomentStripHandle>(null)
+  const [activeMomentId, setActiveMomentId] = useState<string | null>(null)
   const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
     null,
   )
-  const [showNatureGoalsOnMap, setShowNatureGoalsOnMap] = useState(true)
 
-  const checklistQuery = useQuery({
-    enabled: journey !== null && journey !== undefined,
-    queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
-  })
   const observationsQuery = useQuery({
     enabled: journey !== null && journey !== undefined,
     queryFn: () => listJourneyObservations(journeyId),
-    queryKey: ['journey-observations', journeyId],
+    queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
   const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
 
@@ -138,7 +145,7 @@ export function JourneyReaderPage({
   const tagAssignmentsQuery = useQuery({
     enabled: journey !== null && journey !== undefined,
     queryFn: () => listJourneyPhotoTagAssignments(journeyId),
-    queryKey: ['journey-photo-tags', journeyId, 'assignments'],
+    queryKey: photoQueryKeys.journeyTagAssignments(journeyId),
   })
   const tagsByPhotoId = useMemo(
     () => groupTagsByPhotoId(tagAssignmentsQuery.data ?? []),
@@ -150,15 +157,17 @@ export function JourneyReaderPage({
   const photoLocationsQuery = useQuery({
     enabled: content !== null && content.moments.length > 0,
     queryFn: () => getJourneyPhotoLocations(content?.moments ?? []),
-    queryKey: [
-      'journey-photo-locations',
+    queryKey: photoQueryKeys.journeyPhotoLocations(
       journeyId,
-      ...(content?.moments.map((moment) => moment.entry.id) ?? []),
-    ],
+      content?.moments.map((moment) => moment.entry.id) ?? [],
+    ),
   })
 
-  const { isPending: isMomentPhotosPending, photosByEntryId } =
-    useJourneyMomentPhotos(content?.moments ?? [], content !== null, 'detail')
+  const { photosByEntryId } = useJourneyMomentPhotos(
+    content?.moments ?? [],
+    content !== null,
+    'detail',
+  )
   const coverPhoto = useMemo(
     () =>
       content === null
@@ -183,22 +192,28 @@ export function JourneyReaderPage({
     () =>
       content === null
         ? []
-        : getJourneyMapPoints(
+        : getPublicJourneyMapPoints(content.moments, filteredPhotoLocations),
+    [content, filteredPhotoLocations],
+  )
+
+  const mapRoute = useMemo(
+    () =>
+      content === null
+        ? { coordinates: [], source: 'none' as const }
+        : resolvePublicJourneyMapRoute(content.moments, filteredPhotoLocations),
+    [content, filteredPhotoLocations],
+  )
+
+  const mapBoundsCoordinates = useMemo(
+    () =>
+      content === null
+        ? []
+        : resolvePublicJourneyMapBoundsCoordinates(
             content.moments,
-            selectedCollectionTag === null ? content.plannedStops : [],
             filteredPhotoLocations,
-            {
-              checklistItems: checklistQuery.data ?? [],
-              observations: observationsQuery.data ?? [],
-            },
+            mapPoints,
           ),
-    [
-      checklistQuery.data,
-      content,
-      filteredPhotoLocations,
-      observationsQuery.data,
-      selectedCollectionTag,
-    ],
+    [content, filteredPhotoLocations, mapPoints],
   )
 
   const locatedPhotoIds = useMemo(
@@ -206,39 +221,70 @@ export function JourneyReaderPage({
     [photoLocationsQuery.data],
   )
 
-  const photoCount = useMemo(() => {
-    let count = 0
-    for (const photos of photosByEntryId.values()) {
-      count += photos.length
-    }
-    return count
-  }, [photosByEntryId])
-
-  const dateLabel = formatDateRange(
-    journey?.startsAt ?? null,
-    journey?.endsAt ?? null,
-    t('journey.dateUnknown'),
+  const publicGallery = useMemo(
+    () =>
+      content === null
+        ? null
+        : buildPublicJourneyGallery({
+            locale: i18n.language,
+            photosByEntryId,
+            stageContents: content.stageContents,
+            t,
+          }),
+    [content, i18n.language, photosByEntryId, t],
   )
+  const showGallery = (publicGallery?.flatImages.length ?? 0) > 0
+  const photoCount = publicGallery?.flatImages.length ?? 0
 
   useEffect(() => {
     if (section === undefined) {
       return
     }
     const timeout = window.setTimeout(() => {
+      if (
+        section === 'gallery' &&
+        !showGallery &&
+        document.getElementById(JOURNEY_READER_SECTION_IDS.gallery) === null
+      ) {
+        scrollToReaderSection('story')
+        return
+      }
       scrollToReaderSection(section)
     }, 120)
     return () => {
       window.clearTimeout(timeout)
     }
-  }, [section, journeyId])
+  }, [section, journeyId, showGallery])
 
-  const pendingMapPointId =
-    pendingMapPhotoId !== null ? `photo:${pendingMapPhotoId}` : null
-  const mapFocusPointId =
-    pendingMapPointId !== null &&
-    mapPoints.some((point) => point.id === pendingMapPointId)
-      ? pendingMapPointId
-      : focusedMapPointId
+  const focusPointId = useMemo(
+    () =>
+      resolvePublicMapFocusPointId(
+        activeMomentId,
+        pendingMapPhotoId,
+        mapPoints,
+      ),
+    [activeMomentId, mapPoints, pendingMapPhotoId],
+  )
+
+  function handleFocusPointChange(pointId: string | null) {
+    if (pointId === null) {
+      setActiveMomentId(null)
+      setPendingMapPhotoId(null)
+      return
+    }
+
+    const entryId = getEntryIdFromMapPoint(pointId, mapPoints)
+    if (entryId !== null) {
+      setActiveMomentId(entryId)
+      setPendingMapPhotoId(null)
+      stripRef.current?.scrollToMoment(entryId)
+    }
+  }
+
+  function handleActivateMoment(entryId: string) {
+    setActiveMomentId(entryId)
+    setPendingMapPhotoId(null)
+  }
 
   function openMoment(entryId: string) {
     const moment = content?.moments.find((item) => item.entry.id === entryId)
@@ -257,21 +303,28 @@ export function JourneyReaderPage({
   }
 
   function handleShowPhotoOnMap(photoId: string) {
+    const photoLocation = (photoLocationsQuery.data ?? []).find(
+      (photo) => photo.id === photoId,
+    )
     setPendingMapPhotoId(photoId)
-    setFocusedMapPointId(`photo:${photoId}`)
+    if (photoLocation !== undefined) {
+      setActiveMomentId(photoLocation.entryId)
+      stripRef.current?.scrollToMoment(photoLocation.entryId)
+    }
     scrollToReaderSection('map')
   }
 
   const readerMapProps = {
-    checklistItems: checklistQuery.data ?? [],
+    boundsCoordinates: mapBoundsCoordinates,
+    checklistItems: [],
     collocatedSpread: 2.4,
-    focusPointId: mapFocusPointId,
+    focusPointId,
     focusZoom: false as const,
     fitPadding: READER_MAP_FIT_PADDING,
     maxFitZoom: 8,
     moments: content?.moments ?? [],
-    observations: observationsQuery.data ?? [],
-    onFocusPointChange: setFocusedMapPointId,
+    observations: [],
+    onFocusPointChange: handleFocusPointChange,
     onOpenEntry: openMoment,
     onViewChange: (view: JourneyMapView) => {
       mapViewRef.current = view
@@ -280,7 +333,15 @@ export function JourneyReaderPage({
     photoThumbUrls,
     pinVariant: 'reader' as const,
     popupOffset: 24,
-    showNatureGoals: showNatureGoalsOnMap,
+    plannedStops: [],
+    routeLine:
+      mapRoute.coordinates.length >= 2
+        ? {
+            coordinates: mapRoute.coordinates,
+            source: mapRoute.source,
+          }
+        : null,
+    showNatureGoals: false,
     singlePointZoom: 8,
     syncView: embeddedSyncView,
     syncViewToken: embeddedMapSyncToken,
@@ -343,7 +404,6 @@ export function JourneyReaderPage({
 
       <JourneyReaderHero
         {...(coverUrl !== undefined ? { coverUrl } : {})}
-        dateLabel={dateLabel}
         mapPointCount={mapPoints.length}
         momentCount={content.moments.length}
         photoCount={photoCount}
@@ -352,17 +412,19 @@ export function JourneyReaderPage({
         title={journey.title}
       />
 
-      <div className="mx-auto w-full max-w-3xl px-5 sm:px-8">
+      <div className="reader-page__content mx-auto w-full max-w-3xl px-5 sm:px-8 lg:max-w-4xl">
         <section
-          className="scroll-mt-24 py-14 sm:py-20"
+          aria-labelledby="reader-trip-stages-heading"
+          className="scroll-mt-24 py-10 sm:py-14"
           id={JOURNEY_READER_SECTION_IDS.story}
         >
           <ReaderSectionIntro
-            eyebrow={t('reader.storyTimelineEyebrow')}
-            title={t('reader.storyTitle')}
+            eyebrow={t('reader.tripStagesEyebrow')}
+            headingId="reader-trip-stages-heading"
+            title={t('reader.tripStagesTitle')}
           />
           <JourneyReaderStory
-            isPhotosPending={isMomentPhotosPending}
+            activeMomentId={activeMomentId}
             onOpenEntry={openMoment}
             photosByEntryId={photosByEntryId}
             stageContents={content.stageContents}
@@ -370,12 +432,28 @@ export function JourneyReaderPage({
           />
         </section>
 
+        {showGallery ? (
+          <section
+            className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
+            id={JOURNEY_READER_SECTION_IDS.gallery}
+          >
+            <ReaderSectionIntro
+              eyebrow={t('journey.galleryEyebrow')}
+              title={t('reader.galleryTitle')}
+            />
+            <JourneyReaderGallery
+              onOpenMoment={openMoment}
+              stageContents={content.stageContents}
+            />
+          </section>
+        ) : null}
+
         <section
           className="reader-map-section scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
           id={JOURNEY_READER_SECTION_IDS.map}
         >
           <div
-            className="mx-auto w-full max-w-3xl scroll-mt-28 px-5 sm:px-8"
+            className="mx-auto w-full max-w-3xl scroll-mt-28"
             id={JOURNEY_READER_SCROLL_TARGETS.map}
           >
             <ReaderSectionIntro
@@ -383,28 +461,14 @@ export function JourneyReaderPage({
               title={t('reader.mapTitle')}
             />
             <p className="mt-4 max-w-2xl text-sm leading-7 text-muted">
-              {t('reader.mapPhotoPinsHint')}
+              {t('reader.mapInteractionHint')}
             </p>
-            {mapPoints.some((point) => point.type === 'nature-goal') ? (
-              <label className="mt-5 inline-flex min-h-11 items-center gap-2 text-sm text-muted">
-                <input
-                  checked={showNatureGoalsOnMap}
-                  className="size-4 rounded border-border text-primary"
-                  onChange={(event) => {
-                    setShowNatureGoalsOnMap(event.target.checked)
-                  }}
-                  type="checkbox"
-                />
-                {t('journey.mapShowNatureGoals')}
-              </label>
-            ) : null}
           </div>
           {mapPoints.length > 0 ? (
             <div className="reader-bleed relative mt-8">
               <DeferredJourneyMap
                 {...readerMapProps}
                 className="reader-map-frame reader-map-frame--bleed reader-map-frame--embedded h-[min(75vh,46rem)] w-full border-y border-border shadow-soft"
-                plannedStops={content.plannedStops}
                 sectionId={JOURNEY_READER_SECTION_IDS.map}
               />
               <button
@@ -418,33 +482,21 @@ export function JourneyReaderPage({
               </button>
             </div>
           ) : (
-            <p className="mx-auto mt-6 max-w-3xl rounded-2xl border border-dashed border-border bg-surface px-5 py-6 text-muted sm:px-8">
+            <p className="mx-auto mt-6 max-w-3xl rounded-2xl border border-dashed border-border bg-surface px-5 py-6 text-muted">
               {t('journey.mapEmpty')}
             </p>
           )}
+          {content.moments.length > 0 ? (
+            <JourneyReaderMomentStrip
+              activeMomentId={activeMomentId}
+              moments={content.moments}
+              onActivateMoment={handleActivateMoment}
+              ref={stripRef}
+            />
+          ) : null}
           <div className="mx-auto mt-4 w-full max-w-3xl px-5 sm:px-8">
             <ReaderMapAttribution />
           </div>
-        </section>
-
-        <section
-          className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
-          id={JOURNEY_READER_SECTION_IDS.gallery}
-        >
-          <ReaderSectionIntro
-            eyebrow={t('journey.galleryEyebrow')}
-            title={t('reader.galleryTitle')}
-          />
-          <JourneyGallery
-            filterTagSlug={null}
-            locatedPhotoIds={locatedPhotoIds}
-            moments={content.moments}
-            onOpenMoment={openMoment}
-            onShowOnMap={handleShowPhotoOnMap}
-            showPhotoEngagement
-            tagAssignments={tagAssignmentsQuery.data ?? []}
-            tagsByPhotoId={tagsByPhotoId}
-          />
         </section>
 
         {hasCollections ? (
@@ -527,6 +579,12 @@ export function JourneyReaderPage({
           </section>
         ) : null}
 
+        <JourneyReaderClosingSection
+          shareUrl={shareUrl}
+          spaceHandle={publicPaths.spaceHandle}
+          title={journey.title}
+        />
+
         <footer className="border-t border-border/70 py-14 sm:py-16">
           <ReaderSectionIntro
             eyebrow={t('reader.footerEyebrow')}
@@ -541,6 +599,7 @@ export function JourneyReaderPage({
 
       <JourneyReaderDock
         showCollections={hasCollections || tagAssignmentsQuery.isPending}
+        showGallery={showGallery}
         showGuides={hasGuides}
       />
 
@@ -563,7 +622,6 @@ export function JourneyReaderPage({
             onViewChange={(view) => {
               mapViewRef.current = view
             }}
-            plannedStops={content.plannedStops}
             syncView={null}
             syncViewToken={0}
             viewportPadding={READER_MAP_VIEWPORT_PADDING}
@@ -576,9 +634,11 @@ export function JourneyReaderPage({
 
 function ReaderSectionIntro({
   eyebrow,
+  headingId,
   title,
 }: {
   eyebrow: string
+  headingId?: string
   title: string
 }) {
   return (
@@ -586,23 +646,14 @@ function ReaderSectionIntro({
       <p className="text-sm font-medium tracking-[0.16em] text-accent uppercase">
         {eyebrow}
       </p>
-      <h2 className="reader-display mt-3 text-3xl sm:text-4xl">{title}</h2>
+      <h2
+        className="reader-display mt-3 text-3xl sm:text-4xl"
+        {...(headingId !== undefined ? { id: headingId } : {})}
+      >
+        {title}
+      </h2>
     </div>
   )
-}
-
-function formatDateRange(
-  startsAt: string | null,
-  endsAt: string | null,
-  fallback: string,
-) {
-  if (startsAt === null && endsAt === null) {
-    return fallback
-  }
-  if (startsAt !== null && endsAt !== null) {
-    return `${startsAt} - ${endsAt}`
-  }
-  return startsAt ?? endsAt ?? fallback
 }
 
 export type { JourneyReaderSection } from '@/features/journeys/lib/journey-reader-section'

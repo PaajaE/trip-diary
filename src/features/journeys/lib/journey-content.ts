@@ -20,7 +20,9 @@ export interface JourneyStageContent {
   stage: JourneyDetail['stages'][number] | null
 }
 
-function sortMomentsByEventAt(moments: JourneyMoment[]): JourneyMoment[] {
+export function sortJourneyMomentsChronologically(
+  moments: JourneyMoment[],
+): JourneyMoment[] {
   return [...moments].sort((left, right) => {
     const leftTime =
       left.entry.eventAt === null
@@ -100,7 +102,7 @@ export function composeJourneyContent(journey: JourneyDetail) {
     .sort(([left], [right]) => sortDayKeys(left, right))
     .map(([dayKey, dayMoments]) => ({
       dayKey,
-      moments: sortMomentsByEventAt(dayMoments),
+      moments: sortJourneyMomentsChronologically(dayMoments),
       plannedStops: [],
       stage: null,
     }))
@@ -112,7 +114,7 @@ export function composeJourneyContent(journey: JourneyDetail) {
   const stageContents: JourneyStageContent[] = [
     ...journey.stages.map((stage) => ({
       dayKey: null,
-      moments: sortMomentsByEventAt(
+      moments: sortJourneyMomentsChronologically(
         moments.filter((moment) => moment.entry.stageId === stage.id),
       ),
       plannedStops: plannedStops.filter((stop) => stop.stageId === stage.id),

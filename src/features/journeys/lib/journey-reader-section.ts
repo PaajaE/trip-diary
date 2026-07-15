@@ -42,7 +42,14 @@ export function scrollToReaderSection(section: JourneyReaderSection) {
     element.getBoundingClientRect().top + window.scrollY - scrollMarginTop
 
   window.scrollTo({
-    behavior: 'smooth',
+    behavior: prefersReducedMotion() ? 'auto' : 'smooth',
     top: Math.max(0, top),
   })
+}
+
+function prefersReducedMotion() {
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  )
 }

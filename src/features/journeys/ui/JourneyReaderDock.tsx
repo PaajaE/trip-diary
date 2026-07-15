@@ -10,6 +10,7 @@ import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderDockProps {
   showCollections: boolean
+  showGallery: boolean
   showGuides: boolean
 }
 
@@ -31,6 +32,7 @@ const dockSections: {
 
 export function JourneyReaderDock({
   showCollections,
+  showGallery,
   showGuides,
 }: JourneyReaderDockProps) {
   const { t } = useTranslation()
@@ -40,6 +42,9 @@ export function JourneyReaderDock({
   const visibleSections = dockSections.filter(({ section }) => {
     if (section === 'collections') {
       return showCollections
+    }
+    if (section === 'gallery') {
+      return showGallery
     }
     if (section === 'guides') {
       return showGuides
@@ -99,7 +104,7 @@ export function JourneyReaderDock({
     return () => {
       observer.disconnect()
     }
-  }, [showCollections, showGuides])
+  }, [showCollections, showGallery, showGuides])
 
   return (
     <nav

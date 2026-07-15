@@ -1,18 +1,12 @@
 import { z } from 'zod'
+import { journeyListItemSchema } from '@/entities/journey/model/core-journey'
 
 const dateTimeSchema = z.iso.datetime({ offset: true })
-const optionalDateSchema = z.iso.date().nullable()
 
-export const dashboardJourneyCardSchema = z.object({
-  endsAt: optionalDateSchema,
-  id: z.uuid(),
+export const dashboardJourneyCardSchema = journeyListItemSchema.extend({
   role: z.enum(['owner', 'editor', 'member']),
-  startsAt: optionalDateSchema,
-  status: z.enum(['planning', 'active', 'completed']),
   summary: z.string().max(5000),
   syncStatus: z.enum(['pending', 'syncing', 'failed']).optional(),
-  title: z.string().min(1).max(160),
-  updatedAt: dateTimeSchema,
   visibility: z.enum(['public', 'private']),
 })
 

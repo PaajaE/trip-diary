@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
+import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import { spotNatureGoal } from '@/entities/nature/api/spot-nature-goal.repository'
 import { rankGoalsForSpotting } from '@/entities/nature/lib/match-observation-to-goal'
@@ -46,7 +47,7 @@ export function NatureMatchBanner({
 
   const checklistQuery = useQuery({
     queryFn: () => listJourneyChecklistItems(journeyId),
-    queryKey: ['journey-checklist', journeyId],
+    queryKey: checklistQueryKeys.journey(journeyId),
   })
 
   const items = useMemo(

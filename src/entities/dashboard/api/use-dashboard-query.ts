@@ -3,19 +3,20 @@ import {
   getCachedDashboardData,
   getDashboardData,
 } from '@/entities/dashboard/api/dashboard.repository'
+import { dashboardQueryKeys } from '@/entities/dashboard/api/dashboard-query-keys'
 
 export function useDashboardQuery(userId: string | undefined) {
   const cacheQuery = useQuery({
     enabled: userId !== undefined && userId !== '',
     queryFn: () => getCachedDashboardData({ userId: userId ?? '' }),
-    queryKey: ['dashboard', userId, 'local'],
+    queryKey: dashboardQueryKeys.byUserLocal(userId),
   })
 
   const dashboardQuery = useQuery({
     enabled: userId !== undefined && userId !== '' && cacheQuery.isFetched,
     placeholderData: () => cacheQuery.data ?? undefined,
     queryFn: () => getDashboardData({ userId: userId ?? '' }),
-    queryKey: ['dashboard', userId],
+    queryKey: dashboardQueryKeys.byUser(userId),
   })
 
   return {

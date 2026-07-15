@@ -1,7 +1,7 @@
 import { publicEnv } from '@/shared/config/env'
 
 export function getSiteOrigin(): string {
-  const configured = publicEnv.VITE_SITE_URL
+  const configured = publicEnv.siteUrl
   if (configured !== undefined && configured !== '') {
     return configured.replace(/\/$/, '')
   }
@@ -20,7 +20,7 @@ export function buildAppAbsoluteUrl(path: string): string {
 }
 
 export function buildSharePreviewUrl(path: string): string {
-  const supabaseUrl = publicEnv.VITE_SUPABASE_URL
+  const supabaseUrl = publicEnv.supabaseUrl
   if (supabaseUrl === undefined || supabaseUrl === '') {
     return buildAppAbsoluteUrl(path)
   }

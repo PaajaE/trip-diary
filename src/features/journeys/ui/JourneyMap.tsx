@@ -4,11 +4,13 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useTranslation } from 'react-i18next'
+import { computeJourneyStopMapCamera, type MapCoordinate } from '@trip-diary/utils'
 import type { JourneyChecklistItem } from '@/entities/checklist/model/checklist'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { NatureObservation } from '@/entities/nature/model/observation'
 import type { JourneyPhotoLocation } from '@/entities/photo/api/photo-location.repository'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
+import type { JourneyMapRouteSource } from '@/features/journeys/lib/journey-map-route'
 import {
   createJourneyMapPinElement,
   refreshJourneyMapPinElement,
@@ -25,6 +27,7 @@ export interface JourneyMapView {
 }
 
 interface JourneyMapProps {
+  boundsCoordinates?: MapCoordinate[] | null
   canEdit?: boolean
   checklistItems?: JourneyChecklistItem[]
   className?: string
@@ -45,6 +48,10 @@ interface JourneyMapProps {
   pinVariant?: 'default' | 'reader'
   plannedStops: JourneyDetail['stops']
   popupOffset?: number
+  routeLine?: {
+    coordinates: MapCoordinate[]
+    source: JourneyMapRouteSource
+  } | null
   showNatureGoals?: boolean
   singlePointZoom?: number
   syncView?: JourneyMapView | null
@@ -76,6 +83,7 @@ interface MapViewOptions {
 }
 
 export function JourneyMap({
+  boundsCoordinates = null,
   canEdit = false,
   checklistItems = [],
   className = 'mt-8 h-80 overflow-hidden rounded-lg border border-border sm:h-96',
@@ -96,6 +104,7 @@ export function JourneyMap({
   pinVariant = 'default',
   plannedStops,
   popupOffset = 18,
+  routeLine = null,
   showNatureGoals = true,
   singlePointZoom = 10,
   syncView = null,
@@ -114,6 +123,8 @@ export function JourneyMap({
   const focusPointIdRef = useRef(focusPointId)
   const initialViewRef = useRef(initialView)
   const onViewChangeRef = useRef(onViewChange)
+  const boundsCoordinatesRef = useRef(boundsCoordinates)
+  const routeLineRef = useRef(routeLine)
   useEffect(() => {
     focusPointIdRef.current = focusPointId
   }, [focusPointId])
@@ -123,6 +134,12 @@ export function JourneyMap({
   useEffect(() => {
     onViewChangeRef.current = onViewChange
   }, [onViewChange])
+  useEffect(() => {
+    boundsCoordinatesRef.current = boundsCoordinates
+  }, [boundsCoordinates])
+  useEffect(() => {
+    routeLineRef.current = routeLine
+  }, [routeLine])
 
   function publishViewChange(activeMap: maplibregl.Map) {
     const center = activeMap.getCenter()
@@ -239,6 +256,7 @@ export function JourneyMap({
     const onLoad = () => {
       layersReadyRef.current = true
       applyMapViewportPadding(map, viewOptionsRef.current.viewportPadding)
+      syncRouteLayer(map, routeLineRef.current)
       setMapReady(true)
       syncPhotoMarkers(
         map,
@@ -268,7 +286,12 @@ export function JourneyMap({
       } else {
         const first = fittedDisplayPoints[0]
         if (first !== undefined && focusPointIdRef.current === null) {
-          fitMapToPoints(map, fittedDisplayPoints, viewOptionsRef.current)
+          fitMapViewport(
+            map,
+            fittedDisplayPoints,
+            boundsCoordinatesRef.current,
+            viewOptionsRef.current,
+          )
           hasAutoFitRef.current = true
           publishViewChange(map)
         }
@@ -326,11 +349,25 @@ export function JourneyMap({
       initialViewRef.current === null &&
       points.length > 0
     ) {
-      fitMapToPoints(map, displayPoints, viewOptionsRef.current)
+      fitMapViewport(
+        map,
+        displayPoints,
+        boundsCoordinatesRef.current,
+        viewOptionsRef.current,
+      )
       hasAutoFitRef.current = true
       publishViewChange(map)
     }
   }, [displayPoints, focusPointId, mapReady, photoThumbUrls, points.length])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (map === null || !mapReady || !layersReadyRef.current || !map.loaded()) {
+      return
+    }
+
+    syncRouteLayer(map, routeLine)
+  }, [mapReady, routeLine])
 
   useEffect(() => {
     const map = mapRef.current
@@ -410,15 +447,30 @@ export function JourneyMap({
     )
     const focusChanged = lastFocusedPointIdRef.current !== focusPointId
     if (focusChanged) {
+      const center: [number, number] = [
+        displayPoint?.displayLongitude ?? point.longitude,
+        displayPoint?.displayLatitude ?? point.latitude,
+      ]
       if (interactionRef.current.focusZoom !== false) {
         map.flyTo({
-          center: [
-            displayPoint?.displayLongitude ?? point.longitude,
-            displayPoint?.displayLatitude ?? point.latitude,
-          ],
+          center,
           essential: true,
           zoom: interactionRef.current.focusZoom,
         })
+      } else {
+        void map.easeTo({
+          center,
+          duration: prefersReducedMotion() ? 0 : 450,
+          essential: true,
+          zoom: map.getZoom(),
+        })
+        if (viewOptionsRef.current.pinVariant === 'reader') {
+          void map.once('moveend', () => {
+            void map.panBy([0, 52], {
+              duration: prefersReducedMotion() ? 0 : 250,
+            })
+          })
+        }
       }
       lastFocusedPointIdRef.current = focusPointId
       showPointPopup(point, map, interactionRef, activePopupRef, markersRef)
@@ -563,37 +615,148 @@ function applyMapViewportPadding(
   map.setPadding(padding)
 }
 
-function fitMapToPoints(
+const ROUTE_SOURCE_ID = 'journey-route'
+const ROUTE_LAYER_ID = 'journey-route-line'
+
+function syncRouteLayer(
   map: maplibregl.Map,
-  displayPoints: DisplayJourneyMapPoint[],
-  options: MapViewOptions,
+  routeLine: JourneyMapProps['routeLine'],
 ) {
-  if (displayPoints.length === 0) {
+  if (routeLine === null || routeLine === undefined) {
+    removeRouteLayer(map)
     return
   }
 
-  if (displayPoints.length === 1) {
-    const [point] = displayPoints
-    if (point === undefined) {
-      return
-    }
-    map.setCenter([point.displayLongitude, point.displayLatitude])
-    map.setZoom(options.singlePointZoom)
+  if (routeLine.coordinates.length < 2) {
+    removeRouteLayer(map)
+    return
+  }
+
+  const lineCoordinates = routeLine.coordinates.map((point) => [
+    point.longitude,
+    point.latitude,
+  ])
+
+  const source = map.getSource(ROUTE_SOURCE_ID)
+  if (source?.type === 'geojson') {
+    ;(source as maplibregl.GeoJSONSource).setData({
+      geometry: {
+        coordinates: lineCoordinates,
+        type: 'LineString',
+      },
+      properties: {},
+      type: 'Feature',
+    })
+    map.setPaintProperty(
+      ROUTE_LAYER_ID,
+      'line-dasharray',
+      routeLine.source === 'approximate' ? [2, 1.5] : [1, 0],
+    )
+    return
+  }
+
+  map.addSource(ROUTE_SOURCE_ID, {
+    data: {
+      geometry: {
+        coordinates: lineCoordinates,
+        type: 'LineString',
+      },
+      properties: {},
+      type: 'Feature',
+    },
+    type: 'geojson',
+  })
+  map.addLayer({
+    id: ROUTE_LAYER_ID,
+    layout: {
+      'line-cap': 'round',
+      'line-join': 'round',
+    },
+    paint: {
+      'line-color': '#285943',
+      'line-dasharray':
+        routeLine.source === 'approximate' ? [2, 1.5] : [1, 0],
+      'line-opacity': 0.72,
+      'line-width': 3,
+    },
+    source: ROUTE_SOURCE_ID,
+    type: 'line',
+  })
+}
+
+function removeRouteLayer(map: maplibregl.Map) {
+  if (map.getLayer(ROUTE_LAYER_ID) !== undefined) {
+    map.removeLayer(ROUTE_LAYER_ID)
+  }
+  if (map.getSource(ROUTE_SOURCE_ID) !== undefined) {
+    map.removeSource(ROUTE_SOURCE_ID)
+  }
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+function fitMapViewport(
+  map: maplibregl.Map,
+  displayPoints: DisplayJourneyMapPoint[],
+  boundsCoordinates: MapCoordinate[] | null | undefined,
+  options: MapViewOptions,
+) {
+  const fitPoints =
+    boundsCoordinates !== null &&
+    boundsCoordinates !== undefined &&
+    boundsCoordinates.length > 0
+      ? boundsCoordinates
+      : displayPoints.map((point) => ({
+          latitude: point.displayLatitude,
+          longitude: point.displayLongitude,
+        }))
+
+  if (fitPoints.length === 0) {
+    return
+  }
+
+  const numericPadding =
+    typeof options.fitPadding === 'number'
+      ? options.fitPadding
+      : Math.max(
+          options.fitPadding.top ?? 0,
+          options.fitPadding.right ?? 0,
+          options.fitPadding.bottom ?? 0,
+          options.fitPadding.left ?? 0,
+        )
+
+  const camera = computeJourneyStopMapCamera(fitPoints, {
+    boundsPadding: numericPadding,
+    maxFitZoomLevel: options.maxFitZoom,
+    singleStopZoomLevel: options.singlePointZoom,
+  })
+
+  if (camera === null) {
+    return
+  }
+
+  if (camera.type === 'center') {
+    map.setCenter([camera.center.longitude, camera.center.latitude])
+    map.setZoom(camera.zoomLevel)
     if (options.pinVariant === 'reader') {
       map.panBy([0, 52], { duration: 0 })
     }
     return
   }
 
-  const bounds = new maplibregl.LngLatBounds()
-  for (const point of displayPoints) {
-    bounds.extend([point.displayLongitude, point.displayLatitude])
-  }
-  map.fitBounds(bounds, {
-    duration: 0,
-    maxZoom: options.maxFitZoom,
-    padding: options.fitPadding,
-  })
+  map.fitBounds(
+    [
+      [camera.sw[0], camera.sw[1]],
+      [camera.ne[0], camera.ne[1]],
+    ],
+    {
+      duration: 0,
+      maxZoom: camera.maxZoomLevel,
+      padding: options.fitPadding,
+    },
+  )
 }
 
 function showPointPopup(
