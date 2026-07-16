@@ -614,9 +614,7 @@ export function MomentEditorForm({
         <View style={styles.previewGrid}>
           {existingPhotos.map((photo) => {
             const isCover =
-              coverLocalId !== null
-                ? photo.id === coverLocalId
-                : photo.isCover
+              coverLocalId !== null ? photo.id === coverLocalId : photo.isCover
             return (
               <View key={photo.id} style={styles.previewItem}>
                 <Pressable

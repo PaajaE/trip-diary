@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.5'
   }
   public: {
     Tables: {
@@ -1269,6 +1249,10 @@ export type Database = {
         Returns: undefined
       }
       revoke_space_invite: { Args: { p_invite_id: string }; Returns: undefined }
+      set_entry_photo_cover: {
+        Args: { p_entry_id: string; p_photo_id: string }
+        Returns: undefined
+      }
       set_journey_stop_location: {
         Args: {
           p_latitude: number
@@ -1276,13 +1260,6 @@ export type Database = {
           p_map_latitude: number
           p_map_longitude: number
           p_stop_id: string
-        }
-        Returns: undefined
-      }
-      set_entry_photo_cover: {
-        Args: {
-          p_entry_id: string
-          p_photo_id: string
         }
         Returns: undefined
       }
@@ -1490,9 +1467,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       checklist_item_category: [

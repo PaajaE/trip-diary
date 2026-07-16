@@ -200,14 +200,8 @@ describe('getEntryPhotoPreviews', () => {
       error: null,
     })
     const variants = new Map<string, ReturnType<typeof createQuery>>([
-      [
-        firstId,
-        createQuery({ data: { storage_path: 'first' }, error: null }),
-      ],
-      [
-        coverId,
-        createQuery({ data: { storage_path: 'cover' }, error: null }),
-      ],
+      [firstId, createQuery({ data: { storage_path: 'first' }, error: null })],
+      [coverId, createQuery({ data: { storage_path: 'cover' }, error: null })],
     ])
     getSupabaseClientMock.mockReturnValue({
       from: vi.fn((table: string) =>
