@@ -1,44 +1,43 @@
-export function isMeaningfulGpsCoordinate(
-  latitude: number | null | undefined,
-  longitude: number | null | undefined,
-): latitude is number {
-  if (
-    latitude === null ||
-    latitude === undefined ||
-    longitude === null ||
-    longitude === undefined
-  ) {
-    return false
-  }
+import {
+  getMeaningfulGpsCoordinates,
+  isMeaningfulGpsCoordinate,
+} from '@trip-diary/utils'
 
-  if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
-    Math.abs(latitude) > 90 ||
-    Math.abs(longitude) > 180
-  ) {
-    return false
-  }
-
-  if (latitude === 0 && longitude === 0) {
-    return false
-  }
-
-  return true
-}
+export { isMeaningfulGpsCoordinate }
 
 export function selectFirstPhotoGps(
   photos: Array<{ latitude: number | null; longitude: number | null }>,
 ): { latitude: number; longitude: number } | null {
   for (const photo of photos) {
-    const { latitude, longitude } = photo
-    if (
-      isMeaningfulGpsCoordinate(latitude, longitude) &&
-      typeof longitude === 'number'
-    ) {
-      return { latitude, longitude }
+    const meaningful = getMeaningfulGpsCoordinates(
+      photo.latitude,
+      photo.longitude,
+    )
+    if (meaningful !== null) {
+      return meaningful
     }
   }
 
   return null
+}
+
+export function selectCoverPhotoGps(
+  photos: Array<{
+    isCover?: boolean
+    latitude: number | null
+    longitude: number | null
+  }>,
+): { latitude: number; longitude: number } | null {
+  const cover = photos.find((photo) => photo.isCover === true)
+  if (cover !== undefined) {
+    const fromCover = getMeaningfulGpsCoordinates(
+      cover.latitude,
+      cover.longitude,
+    )
+    if (fromCover !== null) {
+      return fromCover
+    }
+  }
+
+  return selectFirstPhotoGps(photos)
 }

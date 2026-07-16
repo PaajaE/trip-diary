@@ -18,9 +18,11 @@ function mapStage(row: Record<string, unknown>): JourneyStage {
 function mapEntry(
   row: Record<string, unknown>,
   link: { stage_id: string | null; stop_id: string | null } | undefined,
+  coverPreviewUrl: string | null = null,
 ): JourneyEntry {
   return {
     body: typeof row.body === 'string' ? row.body : '',
+    coverPreviewUrl,
     createdAt: typeof row.created_at === 'string' ? row.created_at : null,
     eventAt: typeof row.event_at === 'string' ? row.event_at : null,
     id: String(row.id),
@@ -111,6 +113,8 @@ export async function fetchJourneyFullDetail(
     (linksResult.data ?? []).map((link) => [link.entry_id, link]),
   )
 
+  const coverPreviewByEntryId = await loadCoverPreviewUrls(entryIds)
+
   const header = parseJourneyHeaderFromRemoteRecord(journeyResult.data)
   const spaceId =
     typeof journeyResult.data.space_id === 'string'
@@ -123,6 +127,7 @@ export async function fetchJourneyFullDetail(
       mapEntry(
         row as Record<string, unknown>,
         linksByEntryId.get(String(row.id)),
+        coverPreviewByEntryId.get(String(row.id)) ?? null,
       ),
     ),
     spaceId,
@@ -141,4 +146,67 @@ export async function fetchJourneyFullDetail(
       title: typeof row.title === 'string' ? row.title : '',
     })),
   }
+}
+
+async function loadCoverPreviewUrls(
+  entryIds: string[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>()
+  if (entryIds.length === 0 || !isSupabaseConfigured()) {
+    return result
+  }
+
+  const client = getSupabaseClient()
+  const { data: covers } = await client
+    .from('entry_photos')
+    .select('entry_id, photo_id, position, is_cover')
+    .in('entry_id', entryIds)
+    .order('position')
+
+  if (covers === null || covers.length === 0) {
+    return result
+  }
+
+  const coverByEntry = new Map<string, string>()
+  for (const row of covers) {
+    const entryId = String(row.entry_id)
+    if (row.is_cover === true) {
+      coverByEntry.set(entryId, String(row.photo_id))
+      continue
+    }
+    if (!coverByEntry.has(entryId)) {
+      coverByEntry.set(entryId, String(row.photo_id))
+    }
+  }
+
+  const photoIds = [...new Set(coverByEntry.values())]
+  const { data: variants } = await client
+    .from('photo_variants')
+    .select('photo_id, storage_path')
+    .in('photo_id', photoIds)
+    .eq('variant', 'preview')
+
+  const pathByPhotoId = new Map(
+    (variants ?? []).map((variant) => [
+      String(variant.photo_id),
+      String(variant.storage_path),
+    ]),
+  )
+
+  await Promise.all(
+    [...coverByEntry.entries()].map(async ([entryId, photoId]) => {
+      const storagePath = pathByPhotoId.get(photoId)
+      if (storagePath === undefined) {
+        return
+      }
+      const { data, error } = await client.storage
+        .from('photos')
+        .createSignedUrl(storagePath, 60 * 60)
+      if (error === null && typeof data.signedUrl === 'string') {
+        result.set(entryId, data.signedUrl)
+      }
+    }),
+  )
+
+  return result
 }

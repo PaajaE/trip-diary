@@ -1,6 +1,10 @@
 import * as FileSystem from 'expo-file-system'
 import * as ImagePicker from 'expo-image-picker'
 import * as Location from 'expo-location'
+import {
+  getMeaningfulGpsCoordinates,
+  parseNativeExifGps,
+} from '@trip-diary/utils'
 import { createUuid } from '@/platform/id'
 
 export interface PhotoMetadata {
@@ -12,6 +16,7 @@ export interface PhotoMetadata {
 
 export interface PickedPhoto {
   height: number
+  localId: string
   metadata: PhotoMetadata
   mimeType: PhotoMimeType
   uri: string
@@ -86,10 +91,22 @@ async function pickPhotosFromSource(
   const picked: PickedPhoto[] = []
   for (const asset of result.assets) {
     const metadata = await extractPhotoMetadata(asset.uri, asset.exif ?? null)
+    const mimeType = readPhotoMimeType(asset.mimeType, asset.uri)
+    if (
+      __DEV__ &&
+      (asset.mimeType?.includes('heic') || asset.mimeType?.includes('heif'))
+    ) {
+      console.log('[photo-picker] HEIC/HEIF source detected', {
+        convertedMime: mimeType,
+        sourceMime: asset.mimeType,
+        uriSuffix: asset.uri.slice(-24),
+      })
+    }
     picked.push({
       height: readPositiveDimension(asset.height),
+      localId: createUuid(),
       metadata,
-      mimeType: readPhotoMimeType(asset.mimeType),
+      mimeType,
       uri: asset.uri,
       width: readPositiveDimension(asset.width),
     })
@@ -120,13 +137,17 @@ export async function extractPhotoMetadata(
   exif: Record<string, unknown> | null,
 ): Promise<PhotoMetadata> {
   const capturedAt = readExifTimestamp(exif)
-  const { latitude, longitude } = readExifCoordinates(exif)
+  const parsed = parseNativeExifGps(exif ?? undefined)
+  const meaningful = getMeaningfulGpsCoordinates(
+    parsed.latitude ?? null,
+    parsed.longitude ?? null,
+  )
 
   return {
     capturedAt,
-    latitude,
+    latitude: meaningful?.latitude ?? null,
     localUri: _uri,
-    longitude,
+    longitude: meaningful?.longitude ?? null,
   }
 }
 
@@ -237,33 +258,31 @@ function readExifTimestamp(
   return typeof dateTime === 'string' ? dateTime : null
 }
 
-function readExifCoordinates(exif: Record<string, unknown> | null): {
-  latitude: number | null
-  longitude: number | null
-} {
-  if (exif === null) {
-    return { latitude: null, longitude: null }
-  }
-
-  const latitude = toNumber(exif.GPSLatitude ?? exif.latitude)
-  const longitude = toNumber(exif.GPSLongitude ?? exif.longitude)
-
-  return { latitude, longitude }
-}
-
-function toNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null
-}
-
 function readPositiveDimension(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.trunc(value)
     : 1
 }
 
-function readPhotoMimeType(value: string | undefined): PhotoMimeType {
-  if (value === 'image/webp') {
-    return value
+function readPhotoMimeType(
+  value: string | undefined,
+  uri: string,
+): PhotoMimeType {
+  const lowerUri = uri.toLowerCase()
+  // Compatible mode should rewrite HEIC to a JPEG URI. Reject remaining HEIC paths.
+  if (
+    lowerUri.endsWith('.heic') ||
+    lowerUri.endsWith('.heif') ||
+    lowerUri.includes('.heic?') ||
+    lowerUri.includes('.heif?')
+  ) {
+    throw new Error(
+      'HEIC/HEIF is not a supported upload path. Convert to JPEG first.',
+    )
+  }
+
+  if (value === 'image/webp' || lowerUri.endsWith('.webp')) {
+    return 'image/webp'
   }
 
   return 'image/jpeg'

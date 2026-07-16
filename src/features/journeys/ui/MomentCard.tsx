@@ -174,9 +174,11 @@ export function MomentCard({
             alt={title}
             canDelete={canEdit}
             canEditTags={canEdit}
+            canSetCover={canEdit}
             creatorId={creatorId}
             entryId={moment.entry.id}
             journeyId={journey.id}
+            {...(onUpdated !== undefined ? { onCoverChanged: onUpdated } : {})}
             photos={photos}
             showPhotoEngagement
             tagsByPhotoId={tagsByPhotoId}

@@ -238,6 +238,7 @@ export type Database = {
           created_at: string
           creator_id: string
           entry_id: string
+          is_cover: boolean
           photo_id: string
           position: number
         }
@@ -245,6 +246,7 @@ export type Database = {
           created_at?: string
           creator_id: string
           entry_id: string
+          is_cover?: boolean
           photo_id: string
           position: number
         }
@@ -252,6 +254,7 @@ export type Database = {
           created_at?: string
           creator_id?: string
           entry_id?: string
+          is_cover?: boolean
           photo_id?: string
           position?: number
         }
@@ -1273,6 +1276,13 @@ export type Database = {
           p_map_latitude: number
           p_map_longitude: number
           p_stop_id: string
+        }
+        Returns: undefined
+      }
+      set_entry_photo_cover: {
+        Args: {
+          p_entry_id: string
+          p_photo_id: string
         }
         Returns: undefined
       }

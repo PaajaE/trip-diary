@@ -8,6 +8,7 @@ export interface JourneyStage {
 
 export interface JourneyEntry {
   body: string
+  coverPreviewUrl: string | null
   createdAt: string | null
   eventAt: string | null
   id: string

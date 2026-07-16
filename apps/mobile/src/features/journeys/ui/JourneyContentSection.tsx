@@ -1,6 +1,6 @@
 import { Link } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native'
 import {
   composeJourneyContent,
   getJourneyStageContentLabel,
@@ -84,6 +84,13 @@ export function JourneyContentSection({ journey }: JourneyContentSectionProps) {
                     style={styles.momentCard}
                     testID={`moment-card-${moment.entry.id}`}
                   >
+                    {moment.entry.coverPreviewUrl !== null ? (
+                      <Image
+                        accessibilityIgnoresInvertColors
+                        source={{ uri: moment.entry.coverPreviewUrl }}
+                        style={styles.momentCover}
+                      />
+                    ) : null}
                     <Text style={styles.momentTitle}>
                       {moment.entry.title?.trim().length
                         ? moment.entry.title
@@ -161,7 +168,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginTop: spacing.sm,
     minHeight: 44,
+    overflow: 'hidden',
     padding: spacing.md,
+  },
+  momentCover: {
+    backgroundColor: '#d9d9d9',
+    borderRadius: 8,
+    height: 140,
+    marginBottom: spacing.sm,
+    width: '100%',
   },
   momentMeta: {
     color: colors.primary,

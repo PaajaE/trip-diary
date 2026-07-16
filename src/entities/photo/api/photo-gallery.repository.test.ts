@@ -174,6 +174,66 @@ describe('getEntryPhotoPreviews', () => {
     expect(previews[0]?.blob).not.toBe(remoteSharedBlob)
   })
 
+  it('keeps remote cover selection when local still treats position 0 as cover', async () => {
+    const entryId = crypto.randomUUID()
+    const firstId = crypto.randomUUID()
+    const coverId = crypto.randomUUID()
+    const firstBlob = new Blob(['local first'])
+    const coverBlob = new Blob(['local cover'])
+    const remoteFirstBlob = new Blob(['remote first'])
+    const remoteCoverBlob = new Blob(['remote cover'])
+
+    await localDb.photos.bulkAdd([
+      createLocalPhoto(firstId, entryId, 0),
+      createLocalPhoto(coverId, entryId, 1),
+    ])
+    await localDb.photoVariants.bulkAdd([
+      createThumb(firstId, firstBlob),
+      createThumb(coverId, coverBlob),
+    ])
+
+    const links = createQuery({
+      data: [
+        { photo_id: firstId, position: 0, is_cover: false },
+        { photo_id: coverId, position: 1, is_cover: true },
+      ],
+      error: null,
+    })
+    const variants = new Map<string, ReturnType<typeof createQuery>>([
+      [
+        firstId,
+        createQuery({ data: { storage_path: 'first' }, error: null }),
+      ],
+      [
+        coverId,
+        createQuery({ data: { storage_path: 'cover' }, error: null }),
+      ],
+    ])
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) =>
+        table === 'entry_photos' ? links : createVariantLookup(variants),
+      ),
+      storage: {
+        from: vi.fn(() => ({
+          download: vi.fn((path: string) =>
+            Promise.resolve({
+              data: path === 'cover' ? remoteCoverBlob : remoteFirstBlob,
+              error: null,
+            }),
+          ),
+        })),
+      },
+    })
+
+    const previews = await getEntryPhotoPreviews(entryId)
+
+    expect(previews.map(({ id, isCover }) => ({ id, isCover }))).toEqual([
+      { id: coverId, isCover: true },
+      { id: firstId, isCover: false },
+    ])
+    expect(previews[0]?.blob).not.toBe(remoteCoverBlob)
+  })
+
   it('keeps usable previews when one remote preview is broken', async () => {
     const entryId = crypto.randomUUID()
     const usableId = crypto.randomUUID()

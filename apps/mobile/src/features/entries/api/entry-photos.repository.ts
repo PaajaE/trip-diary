@@ -8,10 +8,16 @@ import { PHOTO_UPLOAD_OPERATION } from '@/platform/sync/photo-upload'
 import { enqueueSyncOperationForApp } from '@/platform/sync/enqueue-operation'
 import { getSyncOperation, waitForSyncOperation } from '@/platform/sync/queue'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
+import { isHeicLikeImageInput } from '@trip-diary/utils'
 
 export interface EntryPhotoSummary {
+  hasGps: boolean
   id: string
+  isCover: boolean
+  latitude: number | null
+  longitude: number | null
   position: number
+  previewUrl: string | null
 }
 
 export type EntryPhotoErrorCode =
@@ -35,6 +41,8 @@ export class EntryPhotoError extends Error {
   }
 }
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60
+
 export async function listEntryPhotos(
   entryId: string,
 ): Promise<EntryPhotoSummary[]> {
@@ -42,9 +50,10 @@ export async function listEntryPhotos(
     return []
   }
 
-  const { data, error } = await getSupabaseClient()
+  const client = getSupabaseClient()
+  const { data: links, error } = await client
     .from('entry_photos')
-    .select('photo_id, position')
+    .select('photo_id, position, is_cover')
     .eq('entry_id', entryId)
     .order('position')
 
@@ -52,10 +61,71 @@ export async function listEntryPhotos(
     throw new EntryPhotoError(error.message, 'DATABASE')
   }
 
-  return data.map((row) => ({
-    id: String(row.photo_id),
-    position: typeof row.position === 'number' ? row.position : 0,
-  }))
+  if (links.length === 0) {
+    return []
+  }
+
+  const photoIds = links.map((row) => String(row.photo_id))
+  const [{ data: photos }, { data: variants }] = await Promise.all([
+    client.from('photos').select('id, latitude, longitude').in('id', photoIds),
+    client
+      .from('photo_variants')
+      .select('photo_id, storage_path, variant')
+      .in('photo_id', photoIds)
+      .eq('variant', 'preview'),
+  ])
+
+  const photoById = new Map(
+    (photos ?? []).map((photo) => [String(photo.id), photo]),
+  )
+  const pathByPhotoId = new Map(
+    (variants ?? []).map((variant) => [
+      String(variant.photo_id),
+      String(variant.storage_path),
+    ]),
+  )
+
+  return Promise.all(
+    links.map(async (row) => {
+      const photoId = String(row.photo_id)
+      const photo = photoById.get(photoId)
+      const storagePath = pathByPhotoId.get(photoId) ?? null
+      const previewUrl =
+        storagePath !== null ? await createSignedPhotoUrl(storagePath) : null
+      const latitude =
+        typeof photo?.latitude === 'number' ? photo.latitude : null
+      const longitude =
+        typeof photo?.longitude === 'number' ? photo.longitude : null
+
+      return {
+        hasGps: latitude !== null && longitude !== null,
+        id: photoId,
+        isCover: row.is_cover === true,
+        latitude,
+        longitude,
+        position: typeof row.position === 'number' ? row.position : 0,
+        previewUrl,
+      } satisfies EntryPhotoSummary
+    }),
+  )
+}
+
+export async function setEntryCoverPhoto(
+  entryId: string,
+  photoId: string,
+): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    throw new EntryPhotoError('Supabase is not configured.', 'DATABASE')
+  }
+
+  const { error } = await getSupabaseClient().rpc('set_entry_photo_cover', {
+    p_entry_id: entryId,
+    p_photo_id: photoId,
+  })
+
+  if (error !== null) {
+    throw new EntryPhotoError(error.message, 'DATABASE')
+  }
 }
 
 export async function deleteEntryPhoto(
@@ -67,6 +137,22 @@ export async function deleteEntryPhoto(
   }
 
   const client = getSupabaseClient()
+
+  const { data: variants } = await client
+    .from('photo_variants')
+    .select('storage_path')
+    .eq('photo_id', photoId)
+
+  const paths = (variants ?? [])
+    .map((row) =>
+      typeof row.storage_path === 'string' ? row.storage_path : null,
+    )
+    .filter((path): path is string => path !== null)
+
+  if (paths.length > 0) {
+    await client.storage.from('photos').remove(paths)
+  }
+
   const { error: linkError } = await client
     .from('entry_photos')
     .delete()
@@ -88,6 +174,7 @@ export async function deleteEntryPhoto(
 }
 
 export async function uploadEntryPhotos(input: {
+  coverLocalId?: string | null
   entryId: string
   journeyId: string
   photos: PickedPhoto[]
@@ -105,6 +192,7 @@ export async function uploadEntryPhotos(input: {
   const photoIds: string[] = []
   const operationIds: string[] = []
   let position = input.startingPosition ?? 0
+  const coverLocalId = input.coverLocalId ?? input.photos[0].localId
 
   for (const picked of input.photos) {
     try {
@@ -114,12 +202,14 @@ export async function uploadEntryPhotos(input: {
       const localUri = await persistPhotoLocally(picked.uri, filename)
       const byteSize = await getLocalFileByteSize(localUri)
       const operationId = `photo-upload-${photoId}`
+      const isCover = picked.localId === coverLocalId
 
       if (__DEV__) {
         console.log('[moment-photos] enqueue', {
           byteSize,
           entryId: input.entryId,
           height: picked.height,
+          isCover,
           mimeType: picked.mimeType,
           operationId,
           width: picked.width,
@@ -134,6 +224,7 @@ export async function uploadEntryPhotos(input: {
           capturedAt: picked.metadata.capturedAt,
           entryId: input.entryId,
           height: picked.height,
+          isCover,
           journeyId: input.journeyId,
           latitude: picked.metadata.latitude,
           localUri,
@@ -192,6 +283,20 @@ export async function uploadEntryPhotos(input: {
   return photoIds
 }
 
+async function createSignedPhotoUrl(
+  storagePath: string,
+): Promise<string | null> {
+  const { data, error } = await getSupabaseClient()
+    .storage.from('photos')
+    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
+
+  if (error !== null || typeof data.signedUrl !== 'string') {
+    return null
+  }
+
+  return data.signedUrl
+}
+
 function assertPickedPhotoValid(photo: PickedPhoto): void {
   if (photo.uri.trim().length === 0) {
     throw new EntryPhotoError(
@@ -207,11 +312,22 @@ function assertPickedPhotoValid(photo: PickedPhoto): void {
     )
   }
 
-  // PhotoMimeType is already narrowed by the picker; keep runtime guard for safety.
   const mimeType: string = photo.mimeType
   if (mimeType !== 'image/jpeg' && mimeType !== 'image/webp') {
     throw new EntryPhotoError(
       `Unsupported photo type: ${mimeType}`,
+      'ASSET_INVALID',
+    )
+  }
+
+  if (
+    isHeicLikeImageInput({
+      mimeType: photo.mimeType,
+      nameOrUri: photo.uri,
+    })
+  ) {
+    throw new EntryPhotoError(
+      'HEIC/HEIF photos cannot be uploaded until converted to JPEG or WebP.',
       'ASSET_INVALID',
     )
   }

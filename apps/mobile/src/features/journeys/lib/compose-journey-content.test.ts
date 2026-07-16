@@ -28,6 +28,7 @@ describe('composeJourneyContent', () => {
       entries: [
         {
           body: 'Body',
+          coverPreviewUrl: null,
           createdAt: '2026-07-15T10:00:00.000Z',
           eventAt: '2026-07-15T10:00:00.000Z',
           id: '70000000-0000-4000-8000-000000000001',
@@ -52,6 +53,7 @@ describe('composeJourneyContent', () => {
       entries: [
         {
           body: 'Earlier',
+          coverPreviewUrl: null,
           createdAt: '2026-07-12T09:00:00.000Z',
           eventAt: '2026-07-12T09:00:00.000Z',
           id: '70000000-0000-4000-8000-000000000002',
@@ -63,6 +65,7 @@ describe('composeJourneyContent', () => {
         },
         {
           body: 'Later',
+          coverPreviewUrl: null,
           createdAt: '2026-07-13T18:00:00.000Z',
           eventAt: '2026-07-13T18:00:00.000Z',
           id: '70000000-0000-4000-8000-000000000003',

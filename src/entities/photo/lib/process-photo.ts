@@ -1,5 +1,6 @@
 import exifr from 'exifr'
 import { Capacitor } from '@capacitor/core'
+import { isHeicLikeImageInput } from '@trip-diary/utils'
 import {
   getMeaningfulGpsCoordinates,
   isMeaningfulGpsCoordinate,
@@ -52,6 +53,15 @@ export async function processPhoto(
 ): Promise<ProcessedPhoto> {
   const file = input instanceof File ? input : input.file
   const metadataOverrides = input instanceof File ? undefined : input.metadata
+
+  if (
+    isHeicLikeImageInput({
+      mimeType: file.type,
+      nameOrUri: file.name,
+    })
+  ) {
+    throw new Error('HEIC_UNSUPPORTED')
+  }
 
   const metadata = await extractPhotoMetadata(file)
   const variants = await processVariants(file)

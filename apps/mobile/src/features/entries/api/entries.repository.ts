@@ -245,6 +245,7 @@ export async function fetchJourneyEntry(
 
   return {
     body: typeof entry.body === 'string' ? entry.body : '',
+    coverPreviewUrl: null,
     createdAt: typeof entry.created_at === 'string' ? entry.created_at : null,
     eventAt: typeof entry.event_at === 'string' ? entry.event_at : null,
     id: String(entry.id),

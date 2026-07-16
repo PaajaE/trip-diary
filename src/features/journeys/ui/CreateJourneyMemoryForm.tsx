@@ -3,6 +3,7 @@ import { Camera, MapPin } from 'lucide-react'
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { isHeicLikeImageInput } from '@trip-diary/utils'
 import { saveLocalJourneyLink } from '@/entities/journey/api/local-journey-link.repository'
 import { z } from 'zod'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
@@ -30,6 +31,7 @@ import {
   setJourneyMemoryPhotoDraft,
 } from '@/features/journeys/lib/journey-memory-photo-draft'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
+import { reorderPhotosWithCover } from '@/features/journeys/lib/reorder-photos-with-cover'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import {
   getCurrentDevicePosition,
@@ -80,6 +82,9 @@ export function CreateJourneyMemoryForm({
   const [photos, setPhotos] = useState<SelectedPhotoFile[]>(
     () => restoredDraft?.photos ?? [],
   )
+  const [coverIndex, setCoverIndex] = useState(
+    () => restoredDraft?.coverIndex ?? 0,
+  )
   const [detectedPhotos, setDetectedPhotos] = useState<ProcessedPhoto[]>(
     () => restoredDraft?.detectedPhotos ?? [],
   )
@@ -121,12 +126,14 @@ export function CreateJourneyMemoryForm({
   }, [form, natureGoal])
 
   function persistPhotoDraft(next: {
+    coverIndex?: number
     detectedPhotos?: ProcessedPhoto[]
     locationSource?: 'current' | 'map' | 'photo' | null
     photos?: SelectedPhotoFile[]
     selectedPoint?: { latitude: number; longitude: number } | null
   }) {
     const draft = {
+      coverIndex: next.coverIndex ?? coverIndex,
       detectedPhotos: next.detectedPhotos ?? detectedPhotos,
       locationSource: next.locationSource ?? locationSource,
       photos: next.photos ?? photos,
@@ -144,6 +151,7 @@ export function CreateJourneyMemoryForm({
     setLocationSource(source)
     if (photos.length > 0) {
       setJourneyMemoryPhotoDraft(journey.id, {
+        coverIndex,
         detectedPhotos,
         locationSource: source,
         photos,
@@ -185,7 +193,19 @@ export function CreateJourneyMemoryForm({
   }
 
   async function handlePhotoSelection(files: SelectedPhotoFile[]) {
+    const unsupported = files.filter((file) =>
+      isHeicLikeImageInput({
+        mimeType: file.file.type,
+        nameOrUri: file.file.name,
+      }),
+    )
+    if (unsupported.length > 0) {
+      setLinkError(t('entry.heicUnsupported'))
+      return
+    }
+
     setPhotos(files)
+    setCoverIndex(0)
     setDetectedPhotos([])
     setSelectedPoint(null)
     setLocationSource(null)
@@ -193,6 +213,7 @@ export function CreateJourneyMemoryForm({
     setLinkError(null)
     setDetectingPhotos(true)
     persistPhotoDraft({
+      coverIndex: 0,
       detectedPhotos: [],
       locationSource: null,
       photos: files,
@@ -204,7 +225,13 @@ export function CreateJourneyMemoryForm({
         files.map(async (file) => {
           try {
             return await processPhoto(file)
-          } catch {
+          } catch (error) {
+            if (
+              error instanceof Error &&
+              error.message === 'HEIC_UNSUPPORTED'
+            ) {
+              throw error
+            }
             return {
               capturedAt: null,
               latitude: null,
@@ -223,7 +250,11 @@ export function CreateJourneyMemoryForm({
         form.setValue('eventAt', firstCapturedAt, { shouldDirty: true })
       }
 
-      const firstGps = processed.find(hasValidGpsPoint)
+      const coverGps = processed[0]
+      const firstGps =
+        coverGps !== undefined && hasValidGpsPoint(coverGps)
+          ? coverGps
+          : processed.find(hasValidGpsPoint)
       let nextSelectedPoint: { latitude: number; longitude: number } | null =
         null
       let nextLocationSource: 'current' | 'map' | 'photo' | null = null
@@ -242,6 +273,7 @@ export function CreateJourneyMemoryForm({
       }
 
       persistPhotoDraft({
+        coverIndex: 0,
         detectedPhotos: processed,
         locationSource: nextLocationSource,
         photos: files,
@@ -252,9 +284,13 @@ export function CreateJourneyMemoryForm({
       setSelectedPoint(null)
       setLocationSource(null)
       setSuggestedTitle(null)
-      setLinkError(
-        `${t('journey.photoInsightsError')} (${formatPhotoError(error)})`,
-      )
+      if (error instanceof Error && error.message === 'HEIC_UNSUPPORTED') {
+        setLinkError(t('entry.heicUnsupported'))
+      } else {
+        setLinkError(
+          `${t('journey.photoInsightsError')} (${formatPhotoError(error)})`,
+        )
+      }
     } finally {
       setDetectingPhotos(false)
     }
@@ -350,10 +386,19 @@ export function CreateJourneyMemoryForm({
     let photosFailed = false
     let photoIds: string[] = []
     try {
-      photoIds =
-        photos.length > 0
-          ? await addLocalPhotos(creatorId, entry.id, photos, detectedPhotos)
-          : []
+      if (photos.length > 0) {
+        const orderedPhotos = reorderPhotosWithCover(photos, coverIndex)
+        const orderedDetected = reorderPhotosWithCover(
+          detectedPhotos,
+          coverIndex,
+        )
+        photoIds = await addLocalPhotos(
+          creatorId,
+          entry.id,
+          orderedPhotos,
+          orderedDetected,
+        )
+      }
     } catch {
       // Keep the moment in the journey even if photo processing fails.
       setLinkError(t('journey.photoProcessingFailed'))
@@ -521,14 +566,53 @@ export function CreateJourneyMemoryForm({
               ) : null
             ) : (
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-                {photoPreviewUrls.map((preview) => (
-                  <img
-                    alt=""
-                    className="aspect-square w-full rounded-xl object-cover"
-                    key={preview.id}
-                    src={preview.url}
-                  />
-                ))}
+                {photoPreviewUrls.map((preview, index) => {
+                  const isCover = index === coverIndex
+                  return (
+                    <button
+                      aria-label={
+                        isCover
+                          ? t('entry.coverPhoto')
+                          : t('entry.setCoverPhoto')
+                      }
+                      aria-pressed={isCover}
+                      className={`relative aspect-square overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                        isCover ? 'ring-2 ring-primary ring-offset-2' : ''
+                      }`}
+                      key={preview.id}
+                      onClick={() => {
+                        setCoverIndex(index)
+                        persistPhotoDraft({ coverIndex: index })
+                        const coverGps = detectedPhotos[index]
+                        if (
+                          locationSource === 'photo' &&
+                          coverGps !== undefined &&
+                          hasValidGpsPoint(coverGps)
+                        ) {
+                          handlePointSelected(
+                            {
+                              latitude: coverGps.latitude,
+                              longitude: coverGps.longitude,
+                            },
+                            'photo',
+                          )
+                        }
+                      }}
+                      type="button"
+                    >
+                      <img
+                        alt=""
+                        className="h-full w-full object-cover"
+                        src={preview.url}
+                      />
+                      {isCover ? (
+                        <span className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                          {t('entry.coverPhoto')}
+                        </span>
+                      ) : null}
+                    </button>
+                  )
+                })}
               </div>
             )}
             <div className="flex flex-wrap gap-3">

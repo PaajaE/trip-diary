@@ -19,6 +19,7 @@ export interface PhotoUploadPayload {
   capturedAt?: string | null
   entryId?: string | null
   height: number
+  isCover?: boolean
   journeyId: string
   latitude?: number | null
   localUri: string
@@ -76,12 +77,15 @@ export function parsePhotoUploadPayload(
   const latitude = readOptionalNumber(payload.latitude)
   const longitude = readOptionalNumber(payload.longitude)
   const position = readOptionalNonNegativeInteger(payload.position)
+  const isCover =
+    typeof payload.isCover === 'boolean' ? payload.isCover : position === 0
 
   return {
     byteSize,
     capturedAt,
     entryId,
     height,
+    isCover,
     journeyId,
     latitude,
     localUri,
@@ -246,6 +250,7 @@ export async function processPhotoUploadOperation(
     await linkPhotoToEntry(client, {
       creatorId,
       entryId: parsed.entryId,
+      isCover: parsed.isCover === true || (parsed.position ?? 0) === 0,
       photoId: parsed.photoId,
       position: parsed.position ?? 0,
     })
@@ -309,6 +314,7 @@ async function linkPhotoToEntry(
   input: {
     creatorId: string
     entryId: string
+    isCover: boolean
     photoId: string
     position: number
   },
@@ -320,11 +326,24 @@ async function linkPhotoToEntry(
       photo_id: input.photoId,
       position: input.position,
     },
-    { ignoreDuplicates: true, onConflict: 'entry_id,photo_id' },
+    { onConflict: 'entry_id,photo_id' },
   )
 
   if (error !== null) {
     throw classifySupabaseError(error)
+  }
+
+  if (!input.isCover) {
+    return
+  }
+
+  const { error: coverError } = await client.rpc('set_entry_photo_cover', {
+    p_entry_id: input.entryId,
+    p_photo_id: input.photoId,
+  })
+
+  if (coverError !== null) {
+    throw classifySupabaseError(coverError)
   }
 }
 

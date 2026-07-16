@@ -4,6 +4,7 @@ import type {
 } from '@/entities/photo/lib/process-photo'
 
 export interface JourneyMemoryPhotoDraft {
+  coverIndex: number
   detectedPhotos: ProcessedPhoto[]
   locationSource: 'current' | 'map' | 'photo' | null
   photos: SelectedPhotoFile[]

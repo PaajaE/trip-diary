@@ -63,6 +63,28 @@ describe('extractPhotoMetadata', () => {
     })
   })
 
+  it('applies western hemisphere reference from Expo EXIF', async () => {
+    const metadata = await extractPhotoMetadata('file:///calgary.jpg', {
+      GPSLatitude: 51.0452,
+      GPSLatitudeRef: 'N',
+      GPSLongitude: 114.062972166667,
+      GPSLongitudeRef: 'W',
+    })
+
+    expect(metadata.latitude).toBe(51.0452)
+    expect(metadata.longitude).toBe(-114.062972166667)
+  })
+
+  it('rejects null-island coordinates', async () => {
+    const metadata = await extractPhotoMetadata('file:///photo.jpg', {
+      GPSLatitude: 0,
+      GPSLongitude: 0,
+    })
+
+    expect(metadata.latitude).toBeNull()
+    expect(metadata.longitude).toBeNull()
+  })
+
   it('falls back to DateTime and lowercase dateTimeOriginal', async () => {
     await expect(
       extractPhotoMetadata('file:///a.jpg', {

@@ -121,6 +121,7 @@ describe('photo upload contract', () => {
       capturedAt: '2026:07:10 14:30:00',
       entryId: null,
       height: 1080,
+      isCover: false,
       journeyId: 'journey-1',
       latitude: null,
       localUri: 'file:///mock/documents/photos/test.jpg',

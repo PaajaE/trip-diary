@@ -23,9 +23,14 @@ import {
   deleteEntryPhoto,
   EntryPhotoError,
   listEntryPhotos,
+  setEntryCoverPhoto,
   uploadEntryPhotos,
+  type EntryPhotoSummary,
 } from '@/features/entries/api/entry-photos.repository'
-import { selectFirstPhotoGps } from '@/features/journeys/lib/photo-gps'
+import {
+  selectCoverPhotoGps,
+  selectFirstPhotoGps,
+} from '@/features/journeys/lib/photo-gps'
 import type {
   JourneyEntry,
   JourneyStage,
@@ -103,7 +108,8 @@ export function MomentEditorForm({
     longitude: number
   } | null>(() => readStopPoint(stops, entry?.stopId))
   const [pickedPhotos, setPickedPhotos] = useState<PickedPhoto[]>([])
-  const [existingPhotoIds, setExistingPhotoIds] = useState<string[]>([])
+  const [coverLocalId, setCoverLocalId] = useState<string | null>(null)
+  const [existingPhotos, setExistingPhotos] = useState<EntryPhotoSummary[]>([])
   const [busy, setBusy] = useState(false)
   const [pickingPhotos, setPickingPhotos] = useState(false)
   const [locatingUser, setLocatingUser] = useState(false)
@@ -121,22 +127,32 @@ export function MomentEditorForm({
 
     void listEntryPhotos(entry.id)
       .then((photos) => {
-        setExistingPhotoIds(photos.map((photo) => photo.id))
+        setExistingPhotos(photos)
+        const cover = photos.find((photo) => photo.isCover)
+        if (cover !== undefined) {
+          setCoverLocalId(cover.id)
+        }
       })
       .catch(() => {
-        setExistingPhotoIds([])
+        setExistingPhotos([])
       })
   }, [entry, mode])
 
   const photoGps = useMemo(
     () =>
-      selectFirstPhotoGps(
-        pickedPhotos.map((photo) => ({
+      selectCoverPhotoGps([
+        ...pickedPhotos.map((photo) => ({
+          isCover: photo.localId === coverLocalId,
           latitude: photo.metadata.latitude,
           longitude: photo.metadata.longitude,
         })),
-      ),
-    [pickedPhotos],
+        ...existingPhotos.map((photo) => ({
+          isCover: photo.id === coverLocalId,
+          latitude: photo.latitude,
+          longitude: photo.longitude,
+        })),
+      ]),
+    [coverLocalId, existingPhotos, pickedPhotos],
   )
 
   const resolvedLocation = selectedPoint ?? photoGps ?? null
@@ -159,7 +175,16 @@ export function MomentEditorForm({
       }
 
       const photos = result.photos
-      setPickedPhotos((current) => [...current, ...photos])
+      setPickedPhotos((current) => {
+        const next = [...current, ...photos]
+        setCoverLocalId((currentCover) => {
+          if (currentCover !== null) {
+            return currentCover
+          }
+          return next[0]?.localId ?? null
+        })
+        return next
+      })
       const gps = selectFirstPhotoGps(
         photos.map((photo) => ({
           latitude: photo.metadata.latitude,
@@ -169,9 +194,11 @@ export function MomentEditorForm({
 
       if (gps === null) {
         setGpsNotice(t('journey.photoGpsMissing'))
-      } else {
+      } else if (locationSource === null || locationSource === 'photo') {
         setSelectedPoint(gps)
         setLocationSource('photo')
+        setGpsNotice(t('journey.photoGpsDetected'))
+      } else {
         setGpsNotice(t('journey.photoGpsDetected'))
       }
     } catch (pickError) {
@@ -245,6 +272,7 @@ export function MomentEditorForm({
         if (pickedPhotos.length > 0) {
           try {
             await uploadEntryPhotos({
+              coverLocalId,
               entryId,
               journeyId,
               photos: pickedPhotos,
@@ -294,15 +322,28 @@ export function MomentEditorForm({
         if (pickedPhotos.length > 0) {
           try {
             await uploadEntryPhotos({
+              coverLocalId,
               entryId: entry.id,
               journeyId,
               photos: pickedPhotos,
-              startingPosition: existingPhotoIds.length,
+              startingPosition: existingPhotos.length,
               userId,
             })
           } catch (uploadError) {
             photoUploadError = formatPhotoUploadError(uploadError, t)
           }
+        }
+
+        // Persist cover even when new photos were also uploaded. Upload only
+        // marks cover for newly picked IDs; an existing photo selection needs RPC.
+        if (
+          coverLocalId !== null &&
+          existingPhotos.some((photo) => photo.id === coverLocalId) &&
+          !existingPhotos.some(
+            (photo) => photo.id === coverLocalId && photo.isCover,
+          )
+        ) {
+          await setEntryCoverPhoto(entry.id, coverLocalId)
         }
       }
 
@@ -464,14 +505,52 @@ export function MomentEditorForm({
 
       {pickedPhotos.length > 0 ? (
         <View style={styles.previewGrid}>
-          {pickedPhotos.map((photo) => (
-            <Image
-              accessibilityIgnoresInvertColors
-              key={photo.uri}
-              source={{ uri: photo.uri }}
-              style={styles.previewImage}
-            />
-          ))}
+          {pickedPhotos.map((photo) => {
+            const isCover = photo.localId === coverLocalId
+            return (
+              <Pressable
+                accessibilityLabel={
+                  isCover ? t('entry.coverPhoto') : t('entry.setCoverPhoto')
+                }
+                accessibilityRole="button"
+                key={photo.localId}
+                onPress={() => {
+                  setCoverLocalId(photo.localId)
+                  const gps = selectFirstPhotoGps([
+                    {
+                      latitude: photo.metadata.latitude,
+                      longitude: photo.metadata.longitude,
+                    },
+                  ])
+                  if (
+                    gps !== null &&
+                    (locationSource === null || locationSource === 'photo')
+                  ) {
+                    setSelectedPoint(gps)
+                    setLocationSource('photo')
+                  }
+                }}
+                style={styles.previewItem}
+                testID={`picked-photo-${photo.localId}`}
+              >
+                <Image
+                  accessibilityIgnoresInvertColors
+                  source={{ uri: photo.uri }}
+                  style={[
+                    styles.previewImage,
+                    isCover ? styles.previewImageCover : null,
+                  ]}
+                />
+                <Text style={styles.previewBadge}>
+                  {isCover
+                    ? t('entry.coverPhoto')
+                    : photo.metadata.latitude !== null
+                      ? t('entry.photoHasGps')
+                      : t('entry.photoNoGps')}
+                </Text>
+              </Pressable>
+            )
+          })}
         </View>
       ) : null}
 
@@ -531,56 +610,103 @@ export function MomentEditorForm({
         </Text>
       )}
 
-      {existingPhotoIds.length > 0 ? (
-        <View style={styles.photoList}>
-          {existingPhotoIds.map((photoId) => (
-            <View key={photoId} style={styles.photoRow}>
-              <Text style={styles.photoId}>{photoId.slice(0, 8)}…</Text>
-              <Pressable
-                accessibilityRole="button"
-                disabled={busy || entry === null || entry === undefined}
-                onPress={() => {
-                  if (entry === null || entry === undefined) {
-                    return
+      {existingPhotos.length > 0 ? (
+        <View style={styles.previewGrid}>
+          {existingPhotos.map((photo) => {
+            const isCover =
+              coverLocalId !== null
+                ? photo.id === coverLocalId
+                : photo.isCover
+            return (
+              <View key={photo.id} style={styles.previewItem}>
+                <Pressable
+                  accessibilityLabel={
+                    isCover ? t('entry.coverPhoto') : t('entry.setCoverPhoto')
                   }
+                  accessibilityRole="button"
+                  onPress={() => {
+                    setCoverLocalId(photo.id)
+                  }}
+                  testID={`existing-photo-${photo.id}`}
+                >
+                  {photo.previewUrl !== null ? (
+                    <Image
+                      accessibilityIgnoresInvertColors
+                      source={{ uri: photo.previewUrl }}
+                      style={[
+                        styles.previewImage,
+                        isCover ? styles.previewImageCover : null,
+                      ]}
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.previewImage,
+                        styles.previewPlaceholder,
+                        isCover ? styles.previewImageCover : null,
+                      ]}
+                    />
+                  )}
+                  <Text style={styles.previewBadge}>
+                    {isCover
+                      ? t('entry.coverPhoto')
+                      : photo.hasGps
+                        ? t('entry.photoHasGps')
+                        : t('entry.photoNoGps')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={busy || entry === null || entry === undefined}
+                  onPress={() => {
+                    if (entry === null || entry === undefined) {
+                      return
+                    }
 
-                  Alert.alert(
-                    t('entry.deleteAction'),
-                    t('entry.deleteConfirm'),
-                    [
-                      { style: 'cancel', text: t('common.cancel') },
-                      {
-                        style: 'destructive',
-                        text: t('entry.deleteAction'),
-                        onPress: () => {
-                          void (async () => {
-                            setBusy(true)
-                            try {
-                              await deleteEntryPhoto(entry.id, photoId)
-                              setExistingPhotoIds((current) =>
-                                current.filter((id) => id !== photoId),
-                              )
-                            } catch (deletePhotoError) {
-                              setError(
-                                deletePhotoError instanceof Error
-                                  ? deletePhotoError.message
-                                  : t('journey.addError'),
-                              )
-                            } finally {
-                              setBusy(false)
-                            }
-                          })()
+                    Alert.alert(
+                      t('entry.deletePhoto'),
+                      t('entry.deleteConfirm'),
+                      [
+                        { style: 'cancel', text: t('common.cancel') },
+                        {
+                          style: 'destructive',
+                          text: t('entry.deleteAction'),
+                          onPress: () => {
+                            void (async () => {
+                              setBusy(true)
+                              try {
+                                await deleteEntryPhoto(entry.id, photo.id)
+                                setExistingPhotos((current) => {
+                                  const next = current.filter(
+                                    (item) => item.id !== photo.id,
+                                  )
+                                  if (coverLocalId === photo.id) {
+                                    setCoverLocalId(next[0]?.id ?? null)
+                                  }
+                                  return next
+                                })
+                              } catch (deletePhotoError) {
+                                setError(
+                                  deletePhotoError instanceof Error
+                                    ? deletePhotoError.message
+                                    : t('journey.addError'),
+                                )
+                              } finally {
+                                setBusy(false)
+                              }
+                            })()
+                          },
                         },
-                      },
-                    ],
-                  )
-                }}
-                style={styles.linkButton}
-              >
-                <Text style={styles.linkText}>{t('entry.deletePhoto')}</Text>
-              </Pressable>
-            </View>
-          ))}
+                      ],
+                    )
+                  }}
+                  style={styles.linkButton}
+                >
+                  <Text style={styles.linkText}>{t('entry.deletePhoto')}</Text>
+                </Pressable>
+              </View>
+            )
+          })}
         </View>
       ) : null}
 
@@ -736,6 +862,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  previewBadge: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 4,
+    maxWidth: 88,
+  },
   previewGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -744,9 +876,23 @@ const styles = StyleSheet.create({
   },
   previewImage: {
     backgroundColor: colors.surface,
+    borderColor: colors.border,
     borderRadius: 8,
+    borderWidth: 1,
     height: 72,
     width: 72,
+  },
+  previewImageCover: {
+    borderColor: colors.primary,
+    borderWidth: 3,
+  },
+  previewItem: {
+    marginBottom: spacing.xs,
+    marginRight: spacing.xs,
+    width: 88,
+  },
+  previewPlaceholder: {
+    backgroundColor: '#d9d9d9',
   },
   primaryButton: {
     alignItems: 'center',

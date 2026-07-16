@@ -6,10 +6,24 @@ import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 export interface PhotoPreview {
   blob: Blob
   id: string
+  isCover?: boolean
 }
 
 interface PositionedPhotoPreview extends PhotoPreview {
+  isCover?: boolean
   position: number
+}
+
+function comparePositionedPhotoPreviews(
+  left: PositionedPhotoPreview,
+  right: PositionedPhotoPreview,
+): number {
+  const coverDelta =
+    Number(right.isCover === true) - Number(left.isCover === true)
+  if (coverDelta !== 0) {
+    return coverDelta
+  }
+  return left.position - right.position
 }
 
 function pickLocalThumbVariant(
@@ -65,13 +79,28 @@ function mergePositionedPreviews(
   }
   if (localResult.status === 'fulfilled') {
     for (const preview of localResult.value) {
-      previewsById.set(preview.id, preview)
+      const remote = previewsById.get(preview.id)
+      if (remote === undefined) {
+        previewsById.set(preview.id, preview)
+        continue
+      }
+      // Prefer local blob (fresher offline), but keep remote cover/position.
+      previewsById.set(preview.id, {
+        blob: preview.blob,
+        id: preview.id,
+        position: remote.position,
+        ...(remote.isCover === undefined ? {} : { isCover: remote.isCover }),
+      })
     }
   }
 
   return [...previewsById.values()]
-    .sort((left, right) => left.position - right.position)
-    .map(({ blob, id }) => ({ blob, id }))
+    .sort(comparePositionedPhotoPreviews)
+    .map(({ blob, id, isCover }) => ({
+      blob,
+      id,
+      ...(isCover === undefined ? {} : { isCover }),
+    }))
 }
 
 function mergeEntryPreviews(
@@ -114,7 +143,12 @@ async function getLocalPhotoPreviewsForPicker(
       const variant = pickVariant(variants)
       return variant === undefined
         ? null
-        : { blob: variant.blob, id: photo.id, position: photo.position }
+        : {
+            blob: variant.blob,
+            id: photo.id,
+            isCover: photo.position === 0,
+            position: photo.position,
+          }
     }),
   )
 
@@ -171,13 +205,14 @@ async function getLocalPhotoPreviewsBatchForPicker(
     previews.push({
       blob: variant.blob,
       id: photo.id,
+      isCover: photo.position === 0,
       position: photo.position,
     })
     result.set(photo.entryId, previews)
   }
 
   for (const previews of result.values()) {
-    previews.sort((left, right) => left.position - right.position)
+    previews.sort(comparePositionedPhotoPreviews)
   }
 
   return result
@@ -202,7 +237,7 @@ async function getRemotePhotoPreviewsForVariant(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('photo_id, position')
+    .select('photo_id, position, is_cover')
     .eq('entry_id', entryId)
     .order('position')
   if (linksError !== null) {
@@ -229,7 +264,12 @@ async function getRemotePhotoPreviewsForVariant(
       if (downloadError !== null) {
         throw downloadError
       }
-      return { blob, id: link.photo_id, position: link.position }
+      return {
+        blob,
+        id: link.photo_id,
+        isCover: link.is_cover,
+        position: link.position,
+      }
     }),
   )
 
@@ -264,7 +304,7 @@ async function getRemotePhotoPreviewsBatch(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('entry_id, photo_id, position')
+    .select('entry_id, photo_id, position, is_cover')
     .in('entry_id', entryIds)
     .order('position')
   if (linksError !== null) {
@@ -305,6 +345,7 @@ async function getRemotePhotoPreviewsBatch(
         blob,
         entryId: link.entry_id,
         id: link.photo_id,
+        isCover: link.is_cover,
         position: link.position,
       }
     }),
@@ -323,13 +364,14 @@ async function getRemotePhotoPreviewsBatch(
     previews.push({
       blob: download.value.blob,
       id: link.photo_id,
+      isCover: link.is_cover,
       position: link.position,
     })
     result.set(link.entry_id, previews)
   }
 
   for (const previews of result.values()) {
-    previews.sort((left, right) => left.position - right.position)
+    previews.sort(comparePositionedPhotoPreviews)
   }
 
   return result

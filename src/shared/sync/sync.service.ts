@@ -1253,6 +1253,8 @@ async function syncPhotoUpload(
     await declareAndUploadVariant(variant, creatorId)
   }
 
+  const isCover = photo.position === 0
+
   const { error: linkError } = await client.from('entry_photos').upsert(
     {
       creator_id: creatorId,
@@ -1264,6 +1266,16 @@ async function syncPhotoUpload(
   )
   if (linkError !== null) {
     throw linkError
+  }
+
+  if (isCover) {
+    const { error: coverError } = await client.rpc('set_entry_photo_cover', {
+      p_entry_id: photo.entryId,
+      p_photo_id: photo.id,
+    })
+    if (coverError !== null) {
+      throw coverError
+    }
   }
 
   const { data: confirmedPhoto, error: confirmationError } = await client

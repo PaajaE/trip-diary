@@ -150,3 +150,16 @@ export async function deletePhotoOnRemote(photoId: string): Promise<void> {
     throw photoError
   }
 }
+
+export async function setEntryCoverPhoto(
+  entryId: string,
+  photoId: string,
+): Promise<void> {
+  const { error } = await getSupabaseClient().rpc('set_entry_photo_cover', {
+    p_entry_id: entryId,
+    p_photo_id: photoId,
+  })
+  if (error !== null) {
+    throw error
+  }
+}
