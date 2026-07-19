@@ -15,6 +15,8 @@ interface MomentPhotoMapProps {
   thumbUrls?: Record<string, string>
 }
 
+const PRIMARY_MARKER_ID = '__moment-primary__'
+
 export function MomentPhotoMap({
   activePhotoId = null,
   className,
@@ -23,13 +25,18 @@ export function MomentPhotoMap({
   primaryLocation = null,
   thumbUrls = {},
 }: MomentPhotoMapProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map())
   const userMovedRef = useRef(false)
-  const cameraRef = useRef<ReturnType<typeof computePhotoMapCamera>>(null)
+  const onSelectPhotoRef = useRef(onSelectPhoto)
   const [ready, setReady] = useState(false)
+  const [initError, setInitError] = useState<string | null>(null)
+
+  useEffect(() => {
+    onSelectPhotoRef.current = onSelectPhoto
+  }, [onSelectPhoto])
 
   const geotagged = useMemo(
     () =>
@@ -40,8 +47,8 @@ export function MomentPhotoMap({
   )
 
   const camera = useMemo(() => computePhotoMapCamera(geotagged), [geotagged])
-
   const mapMountKey = camera === null ? 'none' : 'map'
+  const cameraRef = useRef(camera)
 
   const geotaggedKey = useMemo(
     () =>
@@ -59,63 +66,97 @@ export function MomentPhotoMap({
   }, [camera])
 
   useEffect(() => {
-    const initialCamera = cameraRef.current
-    if (initialCamera === null || containerRef.current === null) {
+    if (mapMountKey === 'none') {
       return
     }
 
+    const container = containerRef.current
+    const initialCamera = cameraRef.current
+    if (container === null || initialCamera === null) {
+      return
+    }
+
+    setInitError(null)
+    userMovedRef.current = false
     const markers = markersRef.current
-    const map = new maplibregl.Map({
-      attributionControl: { compact: true },
-      container: containerRef.current,
-      style: getAppMapStyle(),
-      ...(initialCamera.type === 'center'
-        ? {
-            center: [
-              initialCamera.center.longitude,
-              initialCamera.center.latitude,
-            ],
-            zoom: initialCamera.zoomLevel,
-          }
-        : {
-            bounds: [initialCamera.sw, initialCamera.ne],
-            fitBoundsOptions: {
-              maxZoom: initialCamera.maxZoomLevel,
-              padding: initialCamera.padding,
-            },
-          }),
-    })
+
+    let map: maplibregl.Map
+    try {
+      map = new maplibregl.Map({
+        attributionControl: { compact: true },
+        container,
+        style: getAppMapStyle(i18n.language),
+        ...(initialCamera.type === 'center'
+          ? {
+              center: [
+                initialCamera.center.longitude,
+                initialCamera.center.latitude,
+              ],
+              zoom: initialCamera.zoomLevel,
+            }
+          : {
+              bounds: [initialCamera.sw, initialCamera.ne],
+              fitBoundsOptions: {
+                maxZoom: initialCamera.maxZoomLevel,
+                padding: initialCamera.padding,
+              },
+            }),
+      })
+    } catch {
+      const message = t('reader.mapInitError')
+      queueMicrotask(() => {
+        setInitError(message)
+      })
+      return
+    }
+
     map.addControl(
       new maplibregl.NavigationControl({ showCompass: false }),
       'top-right',
     )
     mapRef.current = map
 
-    const onLoad = () => {
-      setReady(true)
+    const finishReady = () => {
       map.resize()
+      setReady(true)
     }
+
     const onDrag = () => {
       userMovedRef.current = true
     }
-    map.on('load', onLoad)
+
+    if (map.loaded()) {
+      finishReady()
+    } else {
+      void map.once('load', finishReady)
+    }
     map.on('dragstart', onDrag)
     map.on('zoomstart', onDrag)
 
+    const observer = new ResizeObserver(() => {
+      if (container.clientWidth > 0 && container.clientHeight > 0) {
+        map.resize()
+      }
+    })
+    observer.observe(container)
+
     return () => {
-      map.off('load', onLoad)
+      observer.disconnect()
       map.off('dragstart', onDrag)
       map.off('zoomstart', onDrag)
       for (const marker of markers.values()) {
         marker.remove()
       }
       markers.clear()
-      map.remove()
       mapRef.current = null
       setReady(false)
-      userMovedRef.current = false
+      try {
+        map.remove()
+      } catch {
+        // MapLibre may throw if already removed during Strict Mode remounts.
+      }
     }
-  }, [mapMountKey])
+  }, [i18n.language, mapMountKey, t])
 
   useEffect(() => {
     const map = mapRef.current
@@ -157,9 +198,10 @@ export function MomentPhotoMap({
       primary.type = 'button'
       primary.className = 'moment-map-primary-marker'
       primary.setAttribute('aria-label', t('reader.momentPrimaryLocation'))
-      new maplibregl.Marker({ element: primary })
+      const marker = new maplibregl.Marker({ element: primary })
         .setLngLat([primaryLocation.longitude, primaryLocation.latitude])
         .addTo(map)
+      markers.set(PRIMARY_MARKER_ID, marker)
     }
 
     for (const photo of geotagged) {
@@ -188,22 +230,14 @@ export function MomentPhotoMap({
         button.append(img)
       }
       button.addEventListener('click', () => {
-        onSelectPhoto(photo.id)
+        onSelectPhotoRef.current(photo.id)
       })
       const marker = new maplibregl.Marker({ element: button })
         .setLngLat([photo.longitude, photo.latitude])
         .addTo(map)
       markers.set(photo.id, marker)
     }
-  }, [
-    activePhotoId,
-    geotagged,
-    onSelectPhoto,
-    primaryLocation,
-    ready,
-    t,
-    thumbUrls,
-  ])
+  }, [activePhotoId, geotagged, primaryLocation, ready, t, thumbUrls])
 
   if (camera === null || geotagged.length === 0) {
     return null
@@ -220,9 +254,18 @@ export function MomentPhotoMap({
       <p className="mt-2 text-sm text-muted">
         {t('reader.photosOnMapHint', { count: geotagged.length })}
       </p>
-      <div className="reader-map-frame mt-4 overflow-hidden rounded-[1.5rem] border border-border shadow-soft">
-        <div className="h-[min(22rem,55vw)] w-full" ref={containerRef} />
-      </div>
+      {initError !== null ? (
+        <p
+          className="mt-4 rounded-[1.5rem] border border-border bg-surface px-4 py-6 text-sm text-muted"
+          role="alert"
+        >
+          {t('reader.mapInitError')}
+        </p>
+      ) : (
+        <div className="reader-map-frame reader-map-frame--moment mt-4 overflow-hidden rounded-[1.5rem] border border-border shadow-soft">
+          <div className="moment-photo-map-canvas" ref={containerRef} />
+        </div>
+      )}
     </section>
   )
 }

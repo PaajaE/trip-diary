@@ -202,6 +202,17 @@ a {
   min-height: 22rem;
 }
 
+.reader-map-frame--moment {
+  height: min(22rem, 70vh);
+  min-height: 16rem;
+}
+
+.moment-photo-map-canvas {
+  height: 100%;
+  min-height: inherit;
+  width: 100%;
+}
+
 .reader-map-frame--fullscreen {
   min-height: 0;
 }
@@ -211,6 +222,98 @@ a {
   height: 100%;
   overflow: hidden;
   width: 100%;
+}
+
+.reader-map-frame--moment .maplibregl-map {
+  min-height: 16rem;
+}
+
+.moment-photo-mosaic {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  max-height: min(28rem, 75vw);
+  width: 100%;
+}
+
+.moment-photo-mosaic--1 {
+  aspect-ratio: 16 / 10;
+  grid-template-columns: 1fr;
+}
+
+.moment-photo-mosaic--2 {
+  aspect-ratio: 16 / 9;
+  grid-template-columns: 1fr 1fr;
+}
+
+.moment-photo-mosaic--3 {
+  aspect-ratio: 16 / 10;
+  grid-template-columns: 1.35fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.moment-photo-mosaic--3 > .moment-photo-mosaic__tile:first-child {
+  grid-row: 1 / -1;
+}
+
+.moment-photo-mosaic--4 {
+  aspect-ratio: 4 / 3;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.moment-photo-mosaic--5 {
+  aspect-ratio: 16 / 10;
+  grid-template-columns: 1.35fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+}
+
+.moment-photo-mosaic--5 > .moment-photo-mosaic__tile:first-child {
+  grid-row: 1 / -1;
+}
+
+.moment-photo-mosaic__tile {
+  border-radius: 1.25rem;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.moment-photo-mosaic--1 > .moment-photo-mosaic__tile {
+  border-radius: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .moment-photo-mosaic--2 {
+    aspect-ratio: 3 / 4;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    max-height: min(32rem, 90vh);
+  }
+
+  .moment-photo-mosaic--3 {
+    aspect-ratio: 3 / 4;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.2fr 1fr;
+    max-height: min(32rem, 90vh);
+  }
+
+  .moment-photo-mosaic--3 > .moment-photo-mosaic__tile:first-child {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .moment-photo-mosaic--5 {
+    aspect-ratio: 3 / 4;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1.15fr 1fr 1fr;
+    max-height: min(34rem, 92vh);
+  }
+
+  .moment-photo-mosaic--5 > .moment-photo-mosaic__tile:first-child {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
 }
 
 .reader-photo-placeholder {

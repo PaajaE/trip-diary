@@ -717,6 +717,9 @@ export const en = {
     photoPreviewSection: 'Photo preview',
     viewAllPhotos: 'View all {{count}} photos',
     morePhotosCount: '{{count}} more photos',
+    morePhotosCountOne: '{{count}} more photo',
+    morePhotosCountFew: '{{count}} more photos',
+    morePhotosCountMany: '{{count}} more photos',
     photosOnMap: 'Photos on the map',
     photosOnMapHint:
       '{{count}} geotagged photos. Tap a marker to open that photo.',
@@ -724,6 +727,8 @@ export const en = {
     openCoverPhoto: 'Open cover photo',
     momentPrimaryLocation: 'Moment primary location',
     noGeotaggedPhotos: 'No photos in this moment have GPS coordinates.',
+    mapInitError:
+      'The map could not be loaded. Refresh the page and try again.',
     shareMomentPendingSync:
       'The moment link works after the trip syncs to the cloud.',
     sharePromptContinue: 'Continue to trip',

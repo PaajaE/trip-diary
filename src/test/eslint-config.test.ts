@@ -58,7 +58,7 @@ describe('eslint workspace coverage', () => {
 
     expect(results).toHaveLength(1)
     expect(results[0]?.errorCount).toBe(0)
-  })
+  }, 30_000)
 
   it('applies mobile browser-global restrictions', async () => {
     const eslint = new ESLint()

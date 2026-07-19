@@ -718,6 +718,9 @@ export const cs: TranslationResources = {
     photoPreviewSection: 'Náhled fotografií',
     viewAllPhotos: 'Zobrazit všech {{count}} fotografií',
     morePhotosCount: 'Dalších {{count}} fotografií',
+    morePhotosCountOne: 'Další {{count}} fotografii',
+    morePhotosCountFew: 'Další {{count}} fotografie',
+    morePhotosCountMany: 'Dalších {{count}} fotografií',
     photosOnMap: 'Fotografie na mapě',
     photosOnMapHint:
       '{{count}} fotografií s polohou. Klepněte na značku a otevřete snímek.',
@@ -725,6 +728,8 @@ export const cs: TranslationResources = {
     openCoverPhoto: 'Otevřít titulní fotografii',
     momentPrimaryLocation: 'Hlavní poloha momentu',
     noGeotaggedPhotos: 'Žádná fotografie v tomto momentu nemá GPS polohu.',
+    mapInitError:
+      'Mapu se nepodařilo načíst. Obnovte stránku a zkuste to znovu.',
     shareMomentPendingSync:
       'Odkaz na moment bude fungovat po synchronizaci cesty do cloudu.',
     sharePromptContinue: 'Pokračovat na cestu',
