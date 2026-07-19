@@ -42,7 +42,9 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
   upload: ReturnType<typeof vi.fn>
 } {
   const upload = vi.fn(
-    async (_path: string, _blob: Blob, _options: unknown) => ({ error: null }),
+    async (_path: string, _bytes: ArrayBuffer, _options: unknown) => ({
+      error: null,
+    }),
   )
   const insertPhoto = vi.fn(async () => ({ error: null }))
   const insertVariant = vi.fn(async () => ({ error: null }))
@@ -77,7 +79,7 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
 
       if (table === 'entry_photos') {
         return {
-          upsert: vi.fn(async () => ({ error: null })),
+          insert: vi.fn(async () => ({ error: null })),
         }
       }
 
@@ -90,14 +92,14 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
     },
   } as unknown as SupabaseClient
 
+  const photoBytes = new TextEncoder().encode('photo-bytes').buffer
+
   return {
     deps: {
-      fetchLocalFile: vi.fn(
-        async () => new Blob(['photo-bytes'], { type: 'image/jpeg' }),
-      ),
       getClient: () => client,
       getLocalFileByteSize: vi.fn(async () => 120_000),
       localFileExists: vi.fn(async () => true),
+      readLocalFileBytes: vi.fn(async () => photoBytes),
       ...overrides,
     },
     insertPhoto,
@@ -252,7 +254,7 @@ describe('processPhotoUploadOperation', () => {
     vi.clearAllMocks()
   })
 
-  it('uploads a photo and returns the remote storage path', async () => {
+  it('uploads photo bytes as ArrayBuffer, not Blob', async () => {
     const { deps, upload } = createDeps()
 
     const result = await processPhotoUploadOperation(createValidPayload(), deps)
@@ -263,12 +265,14 @@ describe('processPhotoUploadOperation', () => {
     })
     expect(upload).toHaveBeenCalledWith(
       'user-1/40000000-0000-4000-8000-000000000099/preview.jpg',
-      expect.any(Blob),
+      expect.any(ArrayBuffer),
       {
         contentType: 'image/jpeg',
         upsert: true,
       },
     )
+    const uploaded = upload.mock.calls[0]?.[1] as ArrayBuffer
+    expect(uploaded.byteLength).toBeGreaterThan(0)
   })
 
   it('inserts photo metadata without upserting protected identity columns', async () => {
@@ -315,7 +319,7 @@ describe('processPhotoUploadOperation', () => {
     }))
     const insertVariant = vi.fn(async () => ({ error: null }))
     const upload = vi.fn(
-      async (_path: string, _blob: Blob, _options: unknown) => ({
+      async (_path: string, _bytes: ArrayBuffer, _options: unknown) => ({
         error: null,
       }),
     )
@@ -335,7 +339,7 @@ describe('processPhotoUploadOperation', () => {
           return { insert: insertVariant }
         }
         if (table === 'entry_photos') {
-          return { upsert: vi.fn(async () => ({ error: null })) }
+          return { insert: vi.fn(async () => ({ error: null })) }
         }
         throw new Error(`Unexpected table: ${table}`)
       }),
@@ -345,10 +349,12 @@ describe('processPhotoUploadOperation', () => {
     } as unknown as SupabaseClient
 
     await processPhotoUploadOperation(createValidPayload(), {
-      fetchLocalFile: vi.fn(async () => new Blob(['photo-bytes'])),
       getClient: () => client,
       getLocalFileByteSize: vi.fn(async () => 120_000),
       localFileExists: vi.fn(async () => true),
+      readLocalFileBytes: vi.fn(
+        async () => new TextEncoder().encode('photo-bytes').buffer,
+      ),
     })
 
     expect(updatePhoto).toHaveBeenCalledWith({
@@ -414,13 +420,15 @@ describe('processPhotoUploadOperation', () => {
     })
   })
 
-  it('fails before Blob creation when the file exceeds the Storage limit', async () => {
-    const fetchLocalFile = vi.fn(async () => new Blob(['photo-bytes']))
+  it('fails before reading bytes when the file exceeds the Storage limit', async () => {
+    const readLocalFileBytes = vi.fn(
+      async () => new TextEncoder().encode('photo-bytes').buffer,
+    )
     const { deps, upload } = createDeps({
-      fetchLocalFile,
       getLocalFileByteSize: vi.fn(
         async () => PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES + 1,
       ),
+      readLocalFileBytes,
     })
 
     await expect(
@@ -432,14 +440,30 @@ describe('processPhotoUploadOperation', () => {
       retryable: false,
     })
 
-    expect(fetchLocalFile).not.toHaveBeenCalled()
+    expect(readLocalFileBytes).not.toHaveBeenCalled()
     expect(upload).not.toHaveBeenCalled()
+  })
+
+  it('refuses to upload zero-byte payloads', async () => {
+    const { deps } = createDeps({
+      readLocalFileBytes: vi.fn(async () => new ArrayBuffer(0)),
+    })
+
+    await expect(
+      processPhotoUploadOperation(createValidPayload(), deps),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('zero bytes'),
+      retryable: false,
+    })
   })
 
   it('proceeds when the file is exactly at the Storage limit', async () => {
     const { deps, upload } = createDeps({
       getLocalFileByteSize: vi.fn(
         async () => PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES,
+      ),
+      readLocalFileBytes: vi.fn(
+        async () => new ArrayBuffer(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES),
       ),
     })
 
@@ -450,7 +474,7 @@ describe('processPhotoUploadOperation', () => {
 
   it('retries against the same storage path without creating a duplicate object', async () => {
     const upload = vi.fn(
-      async (_path: string, _blob: Blob, _options: unknown) => ({
+      async (_path: string, _bytes: ArrayBuffer, _options: unknown) => ({
         error: null,
       }),
     )
@@ -486,7 +510,7 @@ describe('processPhotoUploadOperation', () => {
             }
 
             if (table === 'entry_photos') {
-              return { upsert: vi.fn(async () => ({ error: null })) }
+              return { insert: vi.fn(async () => ({ error: null })) }
             }
 
             throw new Error(`Unexpected table: ${table}`)
@@ -504,6 +528,133 @@ describe('processPhotoUploadOperation', () => {
     expect(first.storagePath).toBe(second.storagePath)
     expect(upload).toHaveBeenCalledTimes(2)
     expect(upload.mock.calls[0]?.[0]).toEqual(upload.mock.calls[1]?.[0])
+  })
+
+  it('links photos to entries with insert instead of upsert', async () => {
+    const insertEntryPhoto = vi.fn(async () => ({ error: null }))
+    const rpc = vi.fn(async () => ({ error: null }))
+    const insertPhoto = vi.fn(async () => ({ error: null }))
+    const insertVariant = vi.fn(async () => ({ error: null }))
+    const upload = vi.fn(
+      async (_path: string, _bytes: ArrayBuffer, _options: unknown) => ({
+        error: null,
+      }),
+    )
+
+    const client = {
+      auth: {
+        getSession: vi.fn(async () => ({
+          data: { session: { user: { id: 'user-1' } } },
+          error: null,
+        })),
+      },
+      from: vi.fn((table: string) => {
+        if (table === 'photos') {
+          return { insert: insertPhoto }
+        }
+        if (table === 'photo_variants') {
+          return { insert: insertVariant }
+        }
+        if (table === 'entry_photos') {
+          return { insert: insertEntryPhoto }
+        }
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+      rpc,
+      storage: {
+        from: vi.fn(() => ({ upload })),
+      },
+    } as unknown as SupabaseClient
+
+    await processPhotoUploadOperation(
+      {
+        ...createValidPayload(),
+        entryId: '10000000-0000-4000-8000-000000000001',
+        isCover: true,
+        position: 0,
+      },
+      {
+        getClient: () => client,
+        getLocalFileByteSize: vi.fn(async () => 120_000),
+        localFileExists: vi.fn(async () => true),
+        readLocalFileBytes: vi.fn(
+          async () => new TextEncoder().encode('photo-bytes').buffer,
+        ),
+      },
+    )
+
+    expect(insertEntryPhoto).toHaveBeenCalledWith({
+      creator_id: 'user-1',
+      entry_id: '10000000-0000-4000-8000-000000000001',
+      photo_id: '40000000-0000-4000-8000-000000000099',
+      position: 0,
+    })
+    expect(rpc).toHaveBeenCalledWith('set_entry_photo_cover', {
+      p_entry_id: '10000000-0000-4000-8000-000000000001',
+      p_photo_id: '40000000-0000-4000-8000-000000000099',
+    })
+  })
+
+  it('on duplicate entry_photos row, updates only position', async () => {
+    const updateEqCreator = vi.fn(async () => ({ error: null }))
+    const updateEqPhoto = vi.fn(() => ({ eq: updateEqCreator }))
+    const updateEqEntry = vi.fn(() => ({ eq: updateEqPhoto }))
+    const updateEntryPhoto = vi.fn(() => ({ eq: updateEqEntry }))
+    const insertEntryPhoto = vi.fn(async () => ({
+      error: { message: 'duplicate key value violates unique constraint' },
+    }))
+    const rpc = vi.fn(async () => ({ error: null }))
+
+    const client = {
+      auth: {
+        getSession: vi.fn(async () => ({
+          data: { session: { user: { id: 'user-1' } } },
+          error: null,
+        })),
+      },
+      from: vi.fn((table: string) => {
+        if (table === 'photos') {
+          return { insert: vi.fn(async () => ({ error: null })) }
+        }
+        if (table === 'photo_variants') {
+          return { insert: vi.fn(async () => ({ error: null })) }
+        }
+        if (table === 'entry_photos') {
+          return { insert: insertEntryPhoto, update: updateEntryPhoto }
+        }
+        throw new Error(`Unexpected table: ${table}`)
+      }),
+      rpc,
+      storage: {
+        from: vi.fn(() => ({
+          upload: vi.fn(async () => ({ error: null })),
+        })),
+      },
+    } as unknown as SupabaseClient
+
+    await processPhotoUploadOperation(
+      {
+        ...createValidPayload(),
+        entryId: '10000000-0000-4000-8000-000000000001',
+        isCover: false,
+        position: 2,
+      },
+      {
+        getClient: () => client,
+        getLocalFileByteSize: vi.fn(async () => 120_000),
+        localFileExists: vi.fn(async () => true),
+        readLocalFileBytes: vi.fn(
+          async () => new TextEncoder().encode('photo-bytes').buffer,
+        ),
+      },
+    )
+
+    expect(updateEntryPhoto).toHaveBeenCalledWith({ position: 2 })
+    expect(updateEqEntry).toHaveBeenCalledWith(
+      'entry_id',
+      '10000000-0000-4000-8000-000000000001',
+    )
+    expect(rpc).not.toHaveBeenCalled()
   })
 
   it('does not throw for malformed payloads and instead returns terminal PhotoUploadError', async () => {

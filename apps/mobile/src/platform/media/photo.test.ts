@@ -1,9 +1,29 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('expo-file-system', () => ({
+  EncodingType: { Base64: 'base64' },
   copyAsync: vi.fn(async () => {}),
+  deleteAsync: vi.fn(async () => {}),
   documentDirectory: 'file:///mock/documents/',
+  getInfoAsync: vi.fn(async () => ({ exists: true, size: 1024 })),
   makeDirectoryAsync: vi.fn(async () => {}),
+  readAsStringAsync: vi.fn(async () => ''),
+}))
+
+vi.mock('expo-image-manipulator', () => ({
+  ImageManipulator: {
+    manipulate: vi.fn(() => ({
+      resize: vi.fn().mockReturnThis(),
+      renderAsync: vi.fn(async () => ({
+        saveAsync: vi.fn(async () => ({
+          height: 100,
+          uri: 'file:///mock/documents/photos/converted.jpg',
+          width: 100,
+        })),
+      })),
+    })),
+  },
+  SaveFormat: { JPEG: 'jpeg' },
 }))
 
 vi.mock('expo-image-picker', () => ({

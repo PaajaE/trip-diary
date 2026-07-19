@@ -1,3 +1,4 @@
+import { decode } from 'base64-arraybuffer'
 import * as FileSystem from 'expo-file-system'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizePhotoCapturedAt } from '@/platform/media/normalize-captured-at'
@@ -109,45 +110,13 @@ export function assertPhotoFileWithinStorageLimit(byteSize: number): void {
 }
 
 export interface PhotoUploadDeps {
-  fetchLocalFile: (localUri: string, mimeType: PhotoMimeType) => Promise<Blob>
   getClient: () => SupabaseClient
   getLocalFileByteSize: (localUri: string) => Promise<number>
   localFileExists: (localUri: string) => Promise<boolean>
+  readLocalFileBytes: (localUri: string) => Promise<ArrayBuffer>
 }
 
 const defaultDeps: PhotoUploadDeps = {
-  fetchLocalFile: async (localUri: string, mimeType: PhotoMimeType) => {
-    try {
-      const response = await fetch(localUri)
-      if (response.ok) {
-        const blob = await response.blob()
-        if (blob.size > 0) {
-          return blob
-        }
-      }
-    } catch {
-      // Fall back to FileSystem below — fetch(file://) is unreliable on iOS.
-    }
-
-    const base64 = await FileSystem.readAsStringAsync(localUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    })
-
-    if (base64.length === 0) {
-      throw new PhotoUploadError(
-        `Local photo file is missing or empty: ${localUri}`,
-        false,
-      )
-    }
-
-    const binary = globalThis.atob(base64)
-    const bytes = new Uint8Array(binary.length)
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index)
-    }
-
-    return new Blob([bytes], { type: mimeType })
-  },
   getClient: getSupabaseClient,
   getLocalFileByteSize: async (localUri: string) => {
     const info = await FileSystem.getInfoAsync(localUri, { size: true })
@@ -170,6 +139,30 @@ const defaultDeps: PhotoUploadDeps = {
   localFileExists: async (localUri: string) => {
     const info = await FileSystem.getInfoAsync(localUri)
     return info.exists
+  },
+  readLocalFileBytes: async (localUri: string) => {
+    // React Native: Blob/File/FormData uploads to Supabase Storage often land as
+    // 0-byte objects. Always upload an ArrayBuffer decoded from base64.
+    const base64 = await FileSystem.readAsStringAsync(localUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    })
+
+    if (base64.length === 0) {
+      throw new PhotoUploadError(
+        `Local photo file is missing or empty: ${localUri}`,
+        false,
+      )
+    }
+
+    const buffer = decode(base64)
+    if (buffer.byteLength === 0) {
+      throw new PhotoUploadError(
+        `Local photo file decoded to zero bytes: ${localUri}`,
+        false,
+      )
+    }
+
+    return buffer
   },
 }
 
@@ -240,11 +233,28 @@ export async function processPhotoUploadOperation(
   const fileByteSize = await deps.getLocalFileByteSize(parsed.localUri)
   assertPhotoFileWithinStorageLimit(fileByteSize)
 
-  await ensurePhotoRow(client, parsed, creatorId)
-  await declarePhotoVariant(client, parsed, creatorId, storagePath, variant)
+  const fileBytes = await deps.readLocalFileBytes(parsed.localUri)
+  if (fileBytes.byteLength === 0) {
+    throw new PhotoUploadError(
+      `Local photo file decoded to zero bytes: ${parsed.localUri}`,
+      false,
+    )
+  }
 
-  const blob = await deps.fetchLocalFile(parsed.localUri, parsed.mimeType)
-  await uploadPhotoBlob(client, storagePath, blob, parsed.mimeType)
+  // Prefer the on-disk size for the variant metadata so Storage and DB agree.
+  const uploadByteSize = fileBytes.byteLength
+  assertPhotoFileWithinStorageLimit(uploadByteSize)
+
+  await ensurePhotoRow(client, parsed, creatorId)
+  await declarePhotoVariant(
+    client,
+    { ...parsed, byteSize: uploadByteSize },
+    creatorId,
+    storagePath,
+    variant,
+  )
+
+  await uploadPhotoBytes(client, storagePath, fileBytes, parsed.mimeType)
 
   if (parsed.entryId !== null && parsed.entryId !== undefined) {
     await linkPhotoToEntry(client, {
@@ -319,18 +329,34 @@ async function linkPhotoToEntry(
     position: number
   },
 ): Promise<void> {
-  const { error } = await client.from('entry_photos').upsert(
-    {
-      creator_id: input.creatorId,
-      entry_id: input.entryId,
-      photo_id: input.photoId,
-      position: input.position,
-    },
-    { onConflict: 'entry_id,photo_id' },
-  )
+  // Insert-only for new links. On conflict, update only `position`.
+  // Authenticated clients have INSERT on (entry_id, photo_id, creator_id,
+  // position, is_cover) but UPDATE only on (position, is_cover). A full
+  // upsert fails with "permission denied for table entry_photos" because
+  // PostgREST's ON CONFLICT DO UPDATE also targets identity columns.
+  const row = {
+    creator_id: input.creatorId,
+    entry_id: input.entryId,
+    photo_id: input.photoId,
+    position: input.position,
+  }
 
-  if (error !== null) {
-    throw classifySupabaseError(error)
+  const { error: insertError } = await client.from('entry_photos').insert(row)
+  if (insertError !== null && !isDuplicateInsertError(insertError)) {
+    throw classifySupabaseError(insertError)
+  }
+
+  if (insertError !== null) {
+    const { error: updateError } = await client
+      .from('entry_photos')
+      .update({ position: input.position })
+      .eq('entry_id', input.entryId)
+      .eq('photo_id', input.photoId)
+      .eq('creator_id', input.creatorId)
+
+    if (updateError !== null) {
+      throw classifySupabaseError(updateError)
+    }
   }
 
   if (!input.isCover) {
@@ -393,15 +419,19 @@ async function declarePhotoVariant(
   }
 }
 
-async function uploadPhotoBlob(
+async function uploadPhotoBytes(
   client: SupabaseClient,
   storagePath: string,
-  blob: Blob,
+  bytes: ArrayBuffer,
   mimeType: PhotoMimeType,
 ): Promise<void> {
+  if (bytes.byteLength === 0) {
+    throw new PhotoUploadError('Refusing to upload an empty photo file.', false)
+  }
+
   const { error } = await client.storage
     .from(PHOTOS_STORAGE_BUCKET)
-    .upload(storagePath, blob, {
+    .upload(storagePath, bytes, {
       contentType: mimeType,
       upsert: true,
     })

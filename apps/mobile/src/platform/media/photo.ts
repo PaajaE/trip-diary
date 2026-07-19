@@ -1,11 +1,16 @@
 import * as FileSystem from 'expo-file-system'
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
 import * as Location from 'expo-location'
 import {
   getMeaningfulGpsCoordinates,
+  isHeicLikeImageInput,
+  looksLikeHeicBytes,
+  looksLikeJpegBytes,
   parseNativeExifGps,
 } from '@trip-diary/utils'
 import { createUuid } from '@/platform/id'
+import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from '@/platform/sync/photo-storage-limits'
 
 export interface PhotoMetadata {
   capturedAt: string | null
@@ -31,6 +36,9 @@ export interface PickPhotosResult {
   photos: PickedPhoto[]
   status: PickPhotosStatus
 }
+
+const MAX_JPEG_EDGE = 2560
+const JPEG_COMPRESS_QUALITY = 0.82
 
 const imageLibraryOptions: ImagePicker.ImagePickerOptions = {
   allowsEditing: false,
@@ -89,27 +97,24 @@ async function pickPhotosFromSource(
   }
 
   const picked: PickedPhoto[] = []
+  const failures: string[] = []
+
   for (const asset of result.assets) {
-    const metadata = await extractPhotoMetadata(asset.uri, asset.exif ?? null)
-    const mimeType = readPhotoMimeType(asset.mimeType, asset.uri)
-    if (
-      __DEV__ &&
-      (asset.mimeType?.includes('heic') || asset.mimeType?.includes('heif'))
-    ) {
-      console.log('[photo-picker] HEIC/HEIF source detected', {
-        convertedMime: mimeType,
-        sourceMime: asset.mimeType,
-        uriSuffix: asset.uri.slice(-24),
-      })
+    try {
+      // Copy/convert while the picker result is still valid — never queue a
+      // temporary ph:// or short-lived file:// URI for later background work.
+      const materialized = await materializePickedAsset(asset)
+      picked.push(materialized)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Photo could not be prepared.'
+      failures.push(message)
+      console.warn('[photo-picker] materialize failed', message)
     }
-    picked.push({
-      height: readPositiveDimension(asset.height),
-      localId: createUuid(),
-      metadata,
-      mimeType,
-      uri: asset.uri,
-      width: readPositiveDimension(asset.width),
-    })
+  }
+
+  if (picked.length === 0 && failures.length > 0) {
+    throw new Error(failures[0] ?? 'Selected photos could not be prepared.')
   }
 
   return {
@@ -130,6 +135,76 @@ export async function pickPhotos(): Promise<PickPhotosResult> {
 
 export async function capturePhoto(): Promise<PickedPhoto | null> {
   return pickImageFromSource('camera')
+}
+
+/**
+ * Persist a picker asset into app-owned storage as a real JPEG, preserving
+ * EXIF-derived GPS/date in metadata even when the JPEG no longer embeds them.
+ */
+export async function materializePickedAsset(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<PickedPhoto> {
+  if (typeof asset.uri !== 'string' || asset.uri.trim().length === 0) {
+    throw new Error('Selected photo has an empty URI.')
+  }
+
+  const localId = createUuid()
+  const metadataFromExif = await extractPhotoMetadata(
+    asset.uri,
+    asset.exif ?? null,
+  )
+
+  const stagingFilename = `staging-${localId}`
+  const stagingUri = await copyPickerUriToDocuments(asset.uri, stagingFilename)
+
+  try {
+    const needsJpegConversion = await detectNeedsJpegConversion(
+      asset,
+      stagingUri,
+    )
+
+    const prepared = needsJpegConversion
+      ? await convertToPersistentJpeg(stagingUri, localId)
+      : await ensurePersistentJpegCopy(stagingUri, localId, asset)
+
+    const byteSize = await getLocalFileByteSize(prepared.uri)
+    if (byteSize <= 0) {
+      throw new Error('Prepared photo file is empty.')
+    }
+
+    if (byteSize > PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES) {
+      const resized = await convertToPersistentJpeg(prepared.uri, localId)
+      await safeDeleteAsync(prepared.uri === stagingUri ? null : prepared.uri)
+
+      return {
+        height: resized.height,
+        localId,
+        metadata: {
+          ...metadataFromExif,
+          localUri: resized.uri,
+        },
+        mimeType: 'image/jpeg',
+        uri: resized.uri,
+        width: resized.width,
+      }
+    }
+
+    return {
+      height: prepared.height,
+      localId,
+      metadata: {
+        ...metadataFromExif,
+        localUri: prepared.uri,
+      },
+      mimeType: 'image/jpeg',
+      uri: prepared.uri,
+      width: prepared.width,
+    }
+  } finally {
+    if (!stagingUri.endsWith(`/${localId}.jpg`)) {
+      await safeDeleteAsync(stagingUri)
+    }
+  }
 }
 
 export async function extractPhotoMetadata(
@@ -155,16 +230,7 @@ export async function persistPhotoLocally(
   sourceUri: string,
   filename: string,
 ): Promise<string> {
-  const documentDirectory = FileSystem.documentDirectory
-  if (documentDirectory === null) {
-    throw new Error('Document directory is unavailable')
-  }
-
-  const directory = `${documentDirectory}photos`
-  await FileSystem.makeDirectoryAsync(directory, { intermediates: true })
-  const destination = `${directory}/${filename}`
-  await FileSystem.copyAsync({ from: sourceUri, to: destination })
-  return destination
+  return copyPickerUriToDocuments(sourceUri, filename)
 }
 
 export async function getLocalFileByteSize(localUri: string): Promise<number> {
@@ -200,6 +266,161 @@ export async function getCurrentLocation(): Promise<{
   return {
     latitude: position.coords.latitude,
     longitude: position.coords.longitude,
+  }
+}
+
+async function copyPickerUriToDocuments(
+  sourceUri: string,
+  filename: string,
+): Promise<string> {
+  const documentDirectory = FileSystem.documentDirectory
+  if (documentDirectory === null) {
+    throw new Error('Document directory is unavailable')
+  }
+
+  const directory = `${documentDirectory}photos`
+  await FileSystem.makeDirectoryAsync(directory, { intermediates: true })
+  const destination = `${directory}/${filename}`
+  await FileSystem.copyAsync({ from: sourceUri, to: destination })
+
+  const info = await FileSystem.getInfoAsync(destination, { size: true })
+  if (!info.exists || !('size' in info) || info.size <= 0) {
+    throw new Error(
+      'Could not copy the selected photo into app storage. The iOS photo URI may have expired.',
+    )
+  }
+
+  return destination
+}
+
+async function detectNeedsJpegConversion(
+  asset: ImagePicker.ImagePickerAsset,
+  localUri: string,
+): Promise<boolean> {
+  if (
+    isHeicLikeImageInput({
+      mimeType: asset.mimeType,
+      nameOrUri: asset.uri,
+    }) ||
+    isHeicLikeImageInput({
+      mimeType: asset.mimeType,
+      nameOrUri: localUri,
+    })
+  ) {
+    return true
+  }
+
+  const header = await readFileHeaderBytes(localUri, 16)
+  if (looksLikeHeicBytes(header)) {
+    return true
+  }
+
+  if (looksLikeJpegBytes(header)) {
+    return false
+  }
+
+  // Unknown container — force a JPEG re-encode so Storage always gets JPEG.
+  return true
+}
+
+async function ensurePersistentJpegCopy(
+  stagingUri: string,
+  localId: string,
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<{ height: number; uri: string; width: number }> {
+  const header = await readFileHeaderBytes(stagingUri, 16)
+  if (!looksLikeJpegBytes(header)) {
+    return convertToPersistentJpeg(stagingUri, localId)
+  }
+
+  const documentDirectory = FileSystem.documentDirectory
+  if (documentDirectory === null) {
+    throw new Error('Document directory is unavailable')
+  }
+
+  const destination = `${documentDirectory}photos/${localId}.jpg`
+  await FileSystem.copyAsync({ from: stagingUri, to: destination })
+
+  return {
+    height: readPositiveDimension(asset.height),
+    uri: destination,
+    width: readPositiveDimension(asset.width),
+  }
+}
+
+async function convertToPersistentJpeg(
+  sourceUri: string,
+  localId: string,
+): Promise<{ height: number; uri: string; width: number }> {
+  try {
+    const imageRef = await ImageManipulator.manipulate(sourceUri)
+      .resize({ width: MAX_JPEG_EDGE })
+      .renderAsync()
+    const result = await imageRef.saveAsync({
+      compress: JPEG_COMPRESS_QUALITY,
+      format: SaveFormat.JPEG,
+    })
+
+    const documentDirectory = FileSystem.documentDirectory
+    if (documentDirectory === null) {
+      throw new Error('Document directory is unavailable')
+    }
+
+    const destination = `${documentDirectory}photos/${localId}.jpg`
+    await FileSystem.copyAsync({ from: result.uri, to: destination })
+    await safeDeleteAsync(result.uri)
+
+    const header = await readFileHeaderBytes(destination, 16)
+    if (!looksLikeJpegBytes(header)) {
+      throw new Error('HEIC conversion did not produce a JPEG file.')
+    }
+
+    const byteSize = await getLocalFileByteSize(destination)
+    if (byteSize <= 0) {
+      throw new Error('HEIC conversion produced an empty JPEG file.')
+    }
+
+    return {
+      height: readPositiveDimension(result.height),
+      uri: destination,
+      width: readPositiveDimension(result.width),
+    }
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Unknown conversion error.'
+    throw new Error(
+      `HEIC/HEIF conversion to JPEG failed: ${message}`,
+    )
+  }
+}
+
+async function readFileHeaderBytes(
+  localUri: string,
+  byteCount: number,
+): Promise<Uint8Array> {
+  const base64 = await FileSystem.readAsStringAsync(localUri, {
+    encoding: FileSystem.EncodingType.Base64,
+    length: byteCount,
+    position: 0,
+  })
+
+  const binary = globalThis.atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let index = 0; index < binary.length; index += 1) {
+    bytes[index] = binary.charCodeAt(index)
+  }
+  return bytes
+}
+
+async function safeDeleteAsync(uri: string | null): Promise<void> {
+  if (uri === null || uri.trim().length === 0) {
+    return
+  }
+
+  try {
+    await FileSystem.deleteAsync(uri, { idempotent: true })
+  } catch {
+    // Best-effort cleanup of staging files.
   }
 }
 
@@ -262,28 +483,4 @@ function readPositiveDimension(value: number | undefined): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.trunc(value)
     : 1
-}
-
-function readPhotoMimeType(
-  value: string | undefined,
-  uri: string,
-): PhotoMimeType {
-  const lowerUri = uri.toLowerCase()
-  // Compatible mode should rewrite HEIC to a JPEG URI. Reject remaining HEIC paths.
-  if (
-    lowerUri.endsWith('.heic') ||
-    lowerUri.endsWith('.heif') ||
-    lowerUri.includes('.heic?') ||
-    lowerUri.includes('.heif?')
-  ) {
-    throw new Error(
-      'HEIC/HEIF is not a supported upload path. Convert to JPEG first.',
-    )
-  }
-
-  if (value === 'image/webp' || lowerUri.endsWith('.webp')) {
-    return 'image/webp'
-  }
-
-  return 'image/jpeg'
 }

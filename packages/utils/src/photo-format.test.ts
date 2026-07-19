@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   isHeicLikeImageInput,
+  looksLikeHeicBytes,
   looksLikeJpegBytes,
   looksLikeWebpBytes,
 } from './photo-format'
@@ -23,6 +24,17 @@ describe('byte sniffers', () => {
       looksLikeWebpBytes(
         Uint8Array.from([
           0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50,
+        ]),
+      ),
+    ).toBe(true)
+  })
+
+  it('recognizes HEIC brands from ISO BMFF headers', () => {
+    expect(
+      looksLikeHeicBytes(
+        Uint8Array.from([
+          0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x68, 0x65, 0x69,
+          0x63,
         ]),
       ),
     ).toBe(true)

@@ -29,6 +29,42 @@ export function looksLikeJpegBytes(bytes: Uint8Array): boolean {
   return bytes.length >= 2 && bytes[0] === 0xff && bytes[1] === 0xd8
 }
 
+/**
+ * HEIC/HEIF are ISO BMFF files whose `ftyp` brand is one of the HEIF brands.
+ * Used when the picker reports image/jpeg but the bytes are still HEIC.
+ */
+export function looksLikeHeicBytes(bytes: Uint8Array): boolean {
+  if (bytes.length < 12) {
+    return false
+  }
+
+  if (
+    bytes[4] !== 0x66 ||
+    bytes[5] !== 0x74 ||
+    bytes[6] !== 0x79 ||
+    bytes[7] !== 0x70
+  ) {
+    return false
+  }
+
+  const brand = String.fromCharCode(
+    bytes[8] ?? 0,
+    bytes[9] ?? 0,
+    bytes[10] ?? 0,
+    bytes[11] ?? 0,
+  ).toLowerCase()
+
+  return (
+    brand === 'heic' ||
+    brand === 'heif' ||
+    brand === 'heix' ||
+    brand === 'hevc' ||
+    brand === 'hevx' ||
+    brand === 'mif1' ||
+    brand === 'msf1'
+  )
+}
+
 /** RIFF....WEBP */
 export function looksLikeWebpBytes(bytes: Uint8Array): boolean {
   if (bytes.length < 12) {
