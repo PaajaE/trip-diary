@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
 import { useAuth } from '@/platform/auth/AuthProvider'
 import { useNetworkState } from '@/foundation/network/NetworkProvider'
@@ -26,11 +26,7 @@ function resolveWaitingPhase(context: SyncCoordinatorContext) {
   return 'waiting_for_network' as const
 }
 
-export function SyncLifecycleProvider({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export function SyncLifecycleProvider({ children }: { children: ReactNode }) {
   const auth = useAuth()
   const networkState = useNetworkState()
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
