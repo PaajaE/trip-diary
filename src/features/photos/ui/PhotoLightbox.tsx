@@ -19,8 +19,12 @@ import { Button } from '@/shared/ui/Button'
 
 export interface PhotoLightboxItem {
   alt: string
+  caption?: string | null
+  capturedAt?: string | null
   entryId?: string
   id: string
+  latitude?: number | null
+  longitude?: number | null
   thumbUrl: string
 }
 
@@ -34,6 +38,7 @@ interface PhotoLightboxProps {
   onClose: () => void
   onDelete?: (photoId: string) => Promise<void>
   onOpenMoment?: (entryId: string) => void
+  onShowOnMap?: (photoId: string) => void
   onTagsChanged?: () => void
   photoEngagement?: boolean
   photos: PhotoLightboxItem[]
@@ -51,6 +56,7 @@ export function PhotoLightbox({
   onClose,
   onDelete,
   onOpenMoment,
+  onShowOnMap,
   onTagsChanged,
   photoEngagement = false,
   photos,
@@ -321,9 +327,40 @@ export function PhotoLightbox({
       </div>
 
       <div className="mx-auto flex w-full max-w-2xl shrink-0 touch-pan-y flex-col items-center gap-3 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] text-center text-white [max-height:min(50svh,28rem)]">
-        <p className="max-w-xl truncate text-sm text-white/80">
-          {activePhoto.alt}
-        </p>
+        {activePhoto.caption !== null &&
+        activePhoto.caption !== undefined &&
+        activePhoto.caption.trim().length > 0 ? (
+          <p className="max-w-xl whitespace-pre-wrap text-base leading-relaxed text-white">
+            {activePhoto.caption}
+          </p>
+        ) : (
+          <p className="max-w-xl truncate text-sm text-white/80">
+            {activePhoto.alt}
+          </p>
+        )}
+        {activePhoto.capturedAt !== null &&
+        activePhoto.capturedAt !== undefined ? (
+          <p className="text-xs text-white/60">
+            {t('photos.capturedAt', {
+              date: activePhoto.capturedAt,
+            })}
+          </p>
+        ) : null}
+        {activePhoto.latitude !== null &&
+        activePhoto.latitude !== undefined &&
+        activePhoto.longitude !== null &&
+        activePhoto.longitude !== undefined &&
+        onShowOnMap !== undefined ? (
+          <button
+            className="text-sm font-semibold text-white underline-offset-4 hover:underline"
+            onClick={() => {
+              onShowOnMap(activePhoto.id)
+            }}
+            type="button"
+          >
+            {t('reader.openPhotoOnMap')}
+          </button>
+        ) : null}
         {activeTags.length > 0 ? (
           <PhotoTagList className="justify-center" tags={activeTags} />
         ) : null}

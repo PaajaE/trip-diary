@@ -198,7 +198,21 @@ export const cs: TranslationResources = {
     photoPickerLimitedAccess:
       'Trip Diary má přístup jen k vybraným fotkám. Povol plný přístup v Nastavení nebo přidej fotky do omezeného výběru.',
     photoProcessingFailed:
-      'Vzpomínka se uložila, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
+      'Vzpomínka se uložila, ale fotky se nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
+    photoUploadFailed:
+      'Fotky se nepodařilo nahrát. Zkus to prosím znovu.',
+    photoUploadDatabaseError:
+      'Fotky se nepodařilo uložit do databáze. Zkontroluj připojení a zkus to znovu.',
+    photoUploadNetworkError:
+      'Nahrávání fotek selhalo kvůli síti. Zkontroluj připojení a zkus to znovu.',
+    photoUploadQueueError:
+      'Fotky čekají ve frontě na synchronizaci. Zkus synchronizaci znovu.',
+    photoUploadStorageError:
+      'Fotky se nepodařilo nahrát do úložiště. Zkus menší fotky nebo to zkus znovu.',
+    photoUploadTimeoutError:
+      'Nahrávání fotek vypršelo. Zkus to prosím znovu.',
+    photosPartialUpload:
+      'Vzpomínka byla uložena, ale podařilo se nahrát pouze {{uploaded}} z {{total}} fotografií.',
     filePickerAction: 'Vybrat fotky ze souborů',
     filePickerFallbackHint:
       'Když prohlížeč neumí systémový výběr souborů, zůstává k dispozici běžný výběr fotek.',
@@ -210,6 +224,11 @@ export const cs: TranslationResources = {
     setCoverPhoto: 'Nastavit jako titulní',
     coverUpdated: 'Titulní fotka byla aktualizována.',
     coverUpdateFailed: 'Titulní fotku se nepodařilo aktualizovat.',
+    photoCaption: 'Popisek fotografie',
+    photoCaptionPlaceholder: 'Krátký popisek k fotografii (volitelné)',
+    photoCaptionSaved: 'Popisek byl uložen.',
+    photoCaptionSaveFailed: 'Popisek se nepodařilo uložit.',
+    editPhotoCaption: 'Upravit popisek',
     heicUnsupported:
       'Fotky HEIC/HEIF v tomto prohlížeči nepodporujeme. Nejdřív je převeďte do JPEG nebo WebP.',
     photoHasGps: 'Poloha fotky',
@@ -243,7 +262,7 @@ export const cs: TranslationResources = {
       syncing: 'Synchronizuje se…',
     },
     photosFailedNotice:
-      'Vzpomínka se uložila, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
+      'Vzpomínka se uložila, ale fotky se nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     translation: {
       error: 'Překlad se nepodařilo dokončit. Zkus to znovu.',
       errors: {
@@ -292,6 +311,10 @@ export const cs: TranslationResources = {
       'Obnovte seznam potáhnutím, až budete znovu online.',
     journeyListRefreshFailed:
       'Obnovení se nepodařilo — zobrazuji uložené cesty',
+    journeyCreateRequiresConnection:
+      'Pro vytvoření cesty je potřeba připojení k internetu.',
+    journeyListSpaceUnresolved:
+      'Nepodařilo se určit váš prostor. Obnovte seznam nebo se znovu přihlaste.',
     journeyMapError: 'Mapu cesty se nepodařilo načíst.',
     journeyMapLoading: 'Načítám mapu cesty…',
     journeyMapNoLocatedStops:
@@ -304,6 +327,7 @@ export const cs: TranslationResources = {
       'Mapu se nepodařilo obnovit — zobrazuji uložená místa',
     journeyMapSectionLabel: 'Mapa cesty s plánovanými a navštívenými místy',
     journeyMapStopLabel: '{{title}}, {{status}}',
+    journeyMapPhotoLabel: 'Fotka z {{title}}',
     missingJourneyId: 'Odkaz na cestu je neúplný.',
     supabaseNotConfigured:
       'Supabase není v tomto buildu nakonfigurován. Pro načtení cest doplňte EXPO_PUBLIC_SUPABASE_URL a EXPO_PUBLIC_SUPABASE_ANON_KEY.',
@@ -533,9 +557,9 @@ export const cs: TranslationResources = {
     photoInsightsError:
       'Metadata z fotek se nepodařilo přečíst, ale můžeš pokračovat a místo doplnit ručně na mapě.',
     photoProcessingFailed:
-      'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
+      'Moment se uložil, ale fotky se nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
     photosFailedNotice:
-      'Moment se uložil, ale fotky se v tomto prohlížeči nepodařilo zpracovat. Fotky můžeš přidat později z jiného zařízení.',
+      'Moment se uložil, ale fotky se nepodařilo zpracovat. Fotky můžeš přidat později.',
     templateFailedNotice:
       'Výlet se vytvořil, ale přírodní cíle se nepodařilo přidat. Zkus to znovu v sekci Příroda na přehledu výletu.',
     photoInsightsLoading: 'Čtu čas a GPS z vybraných fotek…',
@@ -600,6 +624,7 @@ export const cs: TranslationResources = {
     error: 'Fotografie se nepodařilo načíst.',
     lightboxClose: 'Zavřít prohlížeč fotek',
     lightboxCounter: '{{current}} / {{total}}',
+    capturedAt: '{{date}}',
     lightboxNext: 'Další fotka',
     lightboxPrevious: 'Předchozí fotka',
     loading: 'Načítám fotografie…',
@@ -689,6 +714,18 @@ export const cs: TranslationResources = {
     shareWhatsAppHint:
       'WhatsApp se otevře — vyberte rodinnou skupinu nebo konkrétní kontakt.',
     share: 'Sdílet',
+    shortMomentHint:
+      'Krátký moment — nechte promluvit fotografie a místa na mapě.',
+    photosHeading: 'Fotografie',
+    photoPreviewSection: 'Náhled fotografií',
+    viewAllPhotos: 'Zobrazit všech {{count}} fotografií',
+    morePhotosCount: 'Dalších {{count}} fotografií',
+    photosOnMap: 'Fotografie na mapě',
+    photosOnMapHint: '{{count}} fotografií s polohou. Klepněte na značku a otevřete snímek.',
+    openPhotoOnMap: 'Ukázat na mapě',
+    openCoverPhoto: 'Otevřít titulní fotografii',
+    momentPrimaryLocation: 'Hlavní poloha momentu',
+    noGeotaggedPhotos: 'Žádná fotografie v tomto momentu nemá GPS polohu.',
     shareMomentPendingSync:
       'Odkaz na moment bude fungovat po synchronizaci cesty do cloudu.',
     sharePromptContinue: 'Pokračovat na cestu',

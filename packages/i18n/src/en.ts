@@ -197,6 +197,18 @@ export const en = {
       'Trip Diary only has access to selected photos. Allow full photo access in Settings or add photos to the limited selection.',
     photoProcessingFailed:
       'The memory was saved, but the photos could not be processed on this device. Try again with different photos, or continue without them.',
+    photoUploadFailed: 'The photos could not be uploaded. Please try again.',
+    photoUploadDatabaseError:
+      'The photos could not be saved to the database. Check your connection and try again.',
+    photoUploadNetworkError:
+      'Photo upload failed because of a network problem. Check your connection and try again.',
+    photoUploadQueueError:
+      'Photos are waiting in the sync queue. Try synchronizing again.',
+    photoUploadStorageError:
+      'The photos could not be uploaded to storage. Try smaller photos or try again.',
+    photoUploadTimeoutError: 'Photo upload timed out. Please try again.',
+    photosPartialUpload:
+      'The memory was saved, but only {{uploaded}} of {{total}} photos uploaded successfully.',
     filePickerAction: 'Choose photos from files',
     filePickerFallbackHint:
       'If the browser does not support the system file picker, the regular photo chooser still stays available.',
@@ -208,6 +220,11 @@ export const en = {
     setCoverPhoto: 'Set as cover',
     coverUpdated: 'Cover photo updated.',
     coverUpdateFailed: 'Could not update the cover photo.',
+    photoCaption: 'Photo caption',
+    photoCaptionPlaceholder: 'Short caption for this photo (optional)',
+    photoCaptionSaved: 'Caption saved.',
+    photoCaptionSaveFailed: 'Could not save the caption.',
+    editPhotoCaption: 'Edit caption',
     heicUnsupported:
       'HEIC/HEIF photos are not supported in this browser. Convert them to JPEG or WebP first.',
     photoHasGps: 'Photo location',
@@ -291,6 +308,10 @@ export const en = {
     journeyListPullToRefreshOffline:
       'Pull to refresh when you are back online.',
     journeyListRefreshFailed: 'Could not refresh — showing saved journeys',
+    journeyCreateRequiresConnection:
+      'Creating a trip requires an internet connection.',
+    journeyListSpaceUnresolved:
+      'Your account space could not be resolved. Pull to refresh or sign in again.',
     journeyMapError: 'Could not load the journey map.',
     journeyMapLoading: 'Loading journey map…',
     journeyMapNoLocatedStops:
@@ -302,6 +323,7 @@ export const en = {
     journeyMapRefreshFailed: 'Could not refresh the map — showing saved places',
     journeyMapSectionLabel: 'Journey map with planned and visited places',
     journeyMapStopLabel: '{{title}}, {{status}}',
+    journeyMapPhotoLabel: 'Photo from {{title}}',
     missingJourneyId: 'This journey link is incomplete.',
     supabaseNotConfigured:
       'Supabase is not configured in this build. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to load your journeys.',
@@ -600,6 +622,7 @@ export const en = {
     error: 'Photos could not be loaded.',
     lightboxClose: 'Close photo viewer',
     lightboxCounter: '{{current}} / {{total}}',
+    capturedAt: '{{date}}',
     lightboxNext: 'Next photo',
     lightboxPrevious: 'Previous photo',
     loading: 'Loading photos…',
@@ -689,6 +712,19 @@ export const en = {
     shareWhatsAppHint:
       'WhatsApp opens next — choose a family group or an individual contact.',
     share: 'Share',
+    shortMomentHint:
+      'A short moment — let the photos and map carry the story.',
+    photosHeading: 'Photos',
+    photoPreviewSection: 'Photo preview',
+    viewAllPhotos: 'View all {{count}} photos',
+    morePhotosCount: '{{count}} more photos',
+    photosOnMap: 'Photos on the map',
+    photosOnMapHint:
+      '{{count}} geotagged photos. Tap a marker to open that photo.',
+    openPhotoOnMap: 'Show on map',
+    openCoverPhoto: 'Open cover photo',
+    momentPrimaryLocation: 'Moment primary location',
+    noGeotaggedPhotos: 'No photos in this moment have GPS coordinates.',
     shareMomentPendingSync:
       'The moment link works after the trip syncs to the cloud.',
     sharePromptContinue: 'Continue to trip',

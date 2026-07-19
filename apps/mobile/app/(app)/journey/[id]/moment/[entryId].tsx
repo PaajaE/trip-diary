@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useQueryClient } from '@tanstack/react-query'
 import { fetchJourneyEntry } from '@/features/entries/api/entries.repository'
 import { journeyQueryKeys } from '@/features/journeys'
+import { invalidateJourneyPhotoQueries } from '@/features/journeys/lib/journey-cache-mutations'
 import { useJourneyFullDetailQuery } from '@/features/journeys/use-journey-full-detail-query'
 import { MomentEditorForm } from '@/features/journeys/ui/MomentEditorForm'
 import { useAuth } from '@/platform/auth/AuthProvider'
@@ -59,9 +60,7 @@ export default function EditMomentScreen() {
           router.back()
         }}
         onSaved={() => {
-          void queryClient.invalidateQueries({
-            queryKey: journeyQueryKeys.content(id),
-          })
+          invalidateJourneyPhotoQueries(queryClient, id, session.user.id)
           void queryClient.invalidateQueries({
             queryKey: journeyQueryKeys.entry(entryId),
           })

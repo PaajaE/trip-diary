@@ -173,6 +173,7 @@ export function MomentCard({
           <EntryPhotoGrid
             alt={title}
             canDelete={canEdit}
+            canEditCaptions={canEdit}
             canEditTags={canEdit}
             canSetCover={canEdit}
             creatorId={creatorId}

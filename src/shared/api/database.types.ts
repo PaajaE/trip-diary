@@ -235,6 +235,7 @@ export type Database = {
       }
       entry_photos: {
         Row: {
+          caption: string | null
           created_at: string
           creator_id: string
           entry_id: string
@@ -243,6 +244,7 @@ export type Database = {
           position: number
         }
         Insert: {
+          caption?: string | null
           created_at?: string
           creator_id: string
           entry_id: string
@@ -251,6 +253,7 @@ export type Database = {
           position: number
         }
         Update: {
+          caption?: string | null
           created_at?: string
           creator_id?: string
           entry_id?: string

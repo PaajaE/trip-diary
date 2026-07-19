@@ -1,3 +1,4 @@
+import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -7,13 +8,20 @@ import {
   Text,
   View,
 } from 'react-native'
-import { computeJourneyStopMapCamera } from '@trip-diary/utils'
+import { computePhotoMapCamera } from '@trip-diary/utils'
 import { resolveJourneyMapPresentation } from '@/features/journeys/journey-map-presentation'
 import { toMappableJourneyStops } from '@/features/journeys/lib/journey-map-stops'
+import { useJourneyFullDetailQuery } from '@/features/journeys/use-journey-full-detail-query'
 import { useJourneyStopsQuery } from '@/features/journeys/use-journey-stops-query'
+import { listJourneyPhotoLocations } from '@/features/photos/api/journey-photo-locations.repository'
+import {
+  PHOTO_SIGNED_URL_STALE_TIME_MS,
+  photoQueryKeys,
+} from '@/features/photos/query-keys'
 import { colors, spacing } from '@/foundation/theme'
 import {
   MapViewScreen,
+  type MapPhotoMarker,
   type MapStopMarker,
 } from '@/platform/maps/MapViewScreen'
 import { isNetworkOnline, useNetworkState } from '@/foundation/network'
@@ -40,12 +48,49 @@ export function JourneyMapSection({
     refetch,
     result,
   } = useJourneyStopsQuery(userId, journeyId)
+  const { data: contentData } = useJourneyFullDetailQuery(journeyId)
+
+  const entryIds = useMemo(
+    () => contentData?.detail.entries.map((entry) => entry.id) ?? [],
+    [contentData],
+  )
+  const entryTitles = useMemo(() => {
+    const titles = new Map<string, string | null>()
+    for (const entry of contentData?.detail.entries ?? []) {
+      titles.set(entry.id, entry.title)
+    }
+    return titles
+  }, [contentData])
+
+  const photoLocationsQuery = useQuery({
+    enabled: isOnline && entryIds.length > 0,
+    queryFn: () => listJourneyPhotoLocations(entryIds, entryTitles),
+    queryKey: photoQueryKeys.journeyPhotoLocations(journeyId),
+    staleTime: PHOTO_SIGNED_URL_STALE_TIME_MS,
+  })
 
   const mappableStops = useMemo(() => toMappableJourneyStops(stops), [stops])
-  const camera = useMemo(
-    () => computeJourneyStopMapCamera(mappableStops),
-    [mappableStops],
+  const photoLocations = useMemo(
+    () => photoLocationsQuery.data ?? [],
+    [photoLocationsQuery.data],
   )
+
+  const camera = useMemo(
+    () =>
+      computePhotoMapCamera([
+        ...mappableStops.map((stop) => ({
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+        })),
+        ...photoLocations.map((photo) => ({
+          id: photo.id,
+          latitude: photo.latitude,
+          longitude: photo.longitude,
+        })),
+      ]),
+    [mappableStops, photoLocations],
+  )
+
   const presentation = resolveJourneyMapPresentation({
     camera,
     isError,
@@ -73,9 +118,31 @@ export function JourneyMapSection({
     [mappableStops, t],
   )
 
+  const photoMarkers = useMemo<MapPhotoMarker[]>(
+    () =>
+      photoLocations.map((photo) => ({
+        accessibilityLabel: t('mobile.journeyMapPhotoLabel', {
+          title:
+            photo.entryTitle?.trim().length
+              ? photo.entryTitle
+              : t('journey.galleryUntitled'),
+        }),
+        id: photo.id,
+        latitude: photo.latitude,
+        longitude: photo.longitude,
+        title:
+          photo.entryTitle?.trim().length
+            ? photo.entryTitle
+            : t('journey.galleryUntitled'),
+      })),
+    [photoLocations, t],
+  )
+
+  const hasMappableContent =
+    mappableStops.length > 0 || photoMarkers.length > 0
   const showMap =
     camera !== null &&
-    mappableStops.length > 0 &&
+    hasMappableContent &&
     !presentation.showInitialLoading &&
     !presentation.showRemoteError &&
     !presentation.showMapUnavailable
@@ -128,11 +195,11 @@ export function JourneyMapSection({
         </Text>
       ) : null}
 
-      {presentation.showAuthoritativeEmpty ? (
+      {presentation.showAuthoritativeEmpty && photoMarkers.length === 0 ? (
         <Text style={styles.stateText}>{t('mobile.journeyMapNoStops')}</Text>
       ) : null}
 
-      {presentation.showNoMappableStops ? (
+      {presentation.showNoMappableStops && photoMarkers.length === 0 ? (
         <Text style={styles.stateText}>
           {t('mobile.journeyMapNoLocatedStops')}
         </Text>
@@ -140,7 +207,11 @@ export function JourneyMapSection({
 
       {showMap ? (
         <View style={styles.mapContainer}>
-          <MapViewScreen camera={camera} markers={markers} />
+          <MapViewScreen
+            camera={camera}
+            markers={markers}
+            photoMarkers={photoMarkers}
+          />
         </View>
       ) : null}
     </View>

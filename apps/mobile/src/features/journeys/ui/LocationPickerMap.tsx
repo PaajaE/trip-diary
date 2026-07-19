@@ -9,8 +9,8 @@ import {
   resolveMapStyle,
 } from '@trip-diary/maps'
 import type { JourneyStop } from '@trip-diary/core/journey'
-import { computeJourneyStopMapCamera } from '@trip-diary/utils'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { computePhotoMapCamera } from '@trip-diary/utils'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { StyleSheet, Text, View } from 'react-native'
 import { toMappableJourneyStops } from '@/features/journeys/lib/journey-map-stops'
@@ -20,8 +20,17 @@ import { colors, spacing } from '@/foundation/theme'
 const DEFAULT_CENTER = { latitude: 50.0755, longitude: 14.4378 }
 const SELECTED_ZOOM = 13
 
+export interface LocationPickerPhotoMarker {
+  id: string
+  latitude: number
+  longitude: number
+  title?: string
+}
+
 interface LocationPickerMapProps {
+  onSelectPhotoMarker?: (photoId: string) => void
   onSelectPoint: (point: { latitude: number; longitude: number }) => void
+  photoMarkers?: LocationPickerPhotoMarker[]
   selectedPoint: { latitude: number; longitude: number } | null
   stops: JourneyStop[]
 }
@@ -48,7 +57,9 @@ function readPointFromFeature(
 }
 
 export function LocationPickerMap({
+  onSelectPhotoMarker,
   onSelectPoint,
+  photoMarkers = [],
   selectedPoint,
   stops,
 }: LocationPickerMapProps) {
@@ -66,14 +77,48 @@ export function LocationPickerMap({
     useState(false)
 
   const mappableStops = useMemo(() => toMappableJourneyStops(stops), [stops])
-  const journeyCamera = useMemo(
-    () => computeJourneyStopMapCamera(mappableStops),
-    [mappableStops],
+  const userMovedRef = useRef(false)
+  const contentCamera = useMemo(
+    () =>
+      computePhotoMapCamera([
+        ...mappableStops.map((stop) => ({
+          latitude: stop.latitude,
+          longitude: stop.longitude,
+        })),
+        ...photoMarkers.map((photo) => ({
+          id: photo.id,
+          latitude: photo.latitude,
+          longitude: photo.longitude,
+        })),
+      ]),
+    [mappableStops, photoMarkers],
   )
+
+  const photoKey = useMemo(
+    () =>
+      photoMarkers
+        .map(
+          (photo) =>
+            `${photo.id}:${String(photo.latitude)}:${String(photo.longitude)}`,
+        )
+        .join('|'),
+    [photoMarkers],
+  )
+
+  useEffect(() => {
+    userMovedRef.current = false
+  }, [photoKey])
 
   const initialCenter = useMemo(() => {
     if (selectedPoint !== null) {
       return selectedPoint
+    }
+
+    if (photoMarkers.length > 0) {
+      return {
+        latitude: photoMarkers[0].latitude,
+        longitude: photoMarkers[0].longitude,
+      }
     }
 
     if (mappableStops.length > 0) {
@@ -84,7 +129,7 @@ export function LocationPickerMap({
     }
 
     return DEFAULT_CENTER
-  }, [mappableStops, selectedPoint])
+  }, [mappableStops, photoMarkers, selectedPoint])
 
   const applyRuntimeOsmFallback = useCallback(() => {
     if (runtimeFallbackAttempted || resolved.providerId === 'osm') {
@@ -113,12 +158,20 @@ export function LocationPickerMap({
     }
   }, [resolved.providerId, resolved.reason])
 
+  const fitPhotoBounds =
+    !userMovedRef.current &&
+    (photoMarkers.length > 1 ||
+      (photoMarkers.length > 0 && mappableStops.length > 0))
+
   return (
     <View style={styles.container}>
       <MapView
         attributionEnabled
         mapStyle={resolved.style}
         onDidFailLoadingMap={applyRuntimeOsmFallback}
+        onRegionDidChange={() => {
+          userMovedRef.current = true
+        }}
         onPress={(feature) => {
           const point = readPointFromFeature(feature)
           if (point !== null) {
@@ -127,39 +180,61 @@ export function LocationPickerMap({
         }}
         style={styles.map}
       >
-        {selectedPoint !== null ? (
+        {fitPhotoBounds && contentCamera?.type === 'bounds' ? (
+          <Camera
+            animationDuration={200}
+            bounds={{
+              ne: contentCamera.ne,
+              paddingBottom: contentCamera.padding,
+              paddingLeft: contentCamera.padding,
+              paddingRight: contentCamera.padding,
+              paddingTop: contentCamera.padding,
+              sw: contentCamera.sw,
+            }}
+            maxZoomLevel={contentCamera.maxZoomLevel}
+          />
+        ) : contentCamera?.type === 'center' && photoMarkers.length > 0 ? (
+          <Camera
+            animationDuration={200}
+            centerCoordinate={[
+              contentCamera.center.longitude,
+              contentCamera.center.latitude,
+            ]}
+            zoomLevel={contentCamera.zoomLevel}
+          />
+        ) : selectedPoint !== null ? (
           <Camera
             animationDuration={200}
             centerCoordinate={[selectedPoint.longitude, selectedPoint.latitude]}
             zoomLevel={SELECTED_ZOOM}
           />
-        ) : journeyCamera?.type === 'bounds' ? (
+        ) : contentCamera?.type === 'bounds' ? (
           <Camera
             animationDuration={0}
             bounds={{
-              ne: journeyCamera.ne,
-              paddingBottom: journeyCamera.padding,
-              paddingLeft: journeyCamera.padding,
-              paddingRight: journeyCamera.padding,
-              paddingTop: journeyCamera.padding,
-              sw: journeyCamera.sw,
+              ne: contentCamera.ne,
+              paddingBottom: contentCamera.padding,
+              paddingLeft: contentCamera.padding,
+              paddingRight: contentCamera.padding,
+              paddingTop: contentCamera.padding,
+              sw: contentCamera.sw,
             }}
-            maxZoomLevel={journeyCamera.maxZoomLevel}
+            maxZoomLevel={contentCamera.maxZoomLevel}
           />
-        ) : journeyCamera?.type === 'center' ? (
+        ) : contentCamera?.type === 'center' ? (
           <Camera
             animationDuration={0}
             centerCoordinate={[
-              journeyCamera.center.longitude,
-              journeyCamera.center.latitude,
+              contentCamera.center.longitude,
+              contentCamera.center.latitude,
             ]}
-            zoomLevel={journeyCamera.zoomLevel}
+            zoomLevel={contentCamera.zoomLevel}
           />
         ) : (
           <Camera
             animationDuration={0}
             centerCoordinate={[initialCenter.longitude, initialCenter.latitude]}
-            zoomLevel={mappableStops.length > 0 ? 8 : 5}
+            zoomLevel={mappableStops.length > 0 || photoMarkers.length > 0 ? 8 : 5}
           />
         )}
 
@@ -170,6 +245,29 @@ export function LocationPickerMap({
             key={stop.id}
           >
             <View style={styles.existingStopMarker} />
+          </PointAnnotation>
+        ))}
+
+        {photoMarkers.map((photo) => (
+          <PointAnnotation
+            coordinate={[photo.longitude, photo.latitude]}
+            id={`picker-photo-${photo.id}`}
+            key={photo.id}
+            onSelected={() => {
+              onSelectPoint({
+                latitude: photo.latitude,
+                longitude: photo.longitude,
+              })
+              onSelectPhotoMarker?.(photo.id)
+            }}
+            title={photo.title}
+          >
+            <View
+              accessibilityLabel={
+                photo.title ?? t('entry.photoHasGps')
+              }
+              style={styles.photoMarker}
+            />
           </PointAnnotation>
         ))}
 
@@ -233,6 +331,14 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
     minHeight: 200,
+  },
+  photoMarker: {
+    backgroundColor: '#2f6fed',
+    borderColor: '#ffffff',
+    borderRadius: 8,
+    borderWidth: 2,
+    height: 14,
+    width: 14,
   },
   selectedMarker: {
     backgroundColor: '#b85f42',

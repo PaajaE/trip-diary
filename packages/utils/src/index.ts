@@ -7,6 +7,12 @@ export {
   type MapCoordinate,
 } from './journey-map-camera.ts'
 export {
+  collectValidPhotoMapPoints,
+  computePhotoMapCamera,
+  isValidPhotoMapCoordinate,
+  type PhotoMapPoint,
+} from './photo-map-camera.ts'
+export {
   formatJourneyDateRange,
   formatLocalizedDate,
   resolveDateLocale,
@@ -19,6 +25,7 @@ export {
 } from './photo-exif-gps.ts'
 export {
   isHeicLikeImageInput,
+  looksLikeHeicBytes,
   looksLikeJpegBytes,
   looksLikeWebpBytes,
 } from './photo-format.ts'

@@ -24,6 +24,7 @@ import {
   EntryPhotoError,
   listEntryPhotos,
   setEntryCoverPhoto,
+  updateEntryPhotoCaption,
   uploadEntryPhotos,
   type EntryPhotoSummary,
 } from '@/features/entries/api/entry-photos.repository'
@@ -110,6 +111,8 @@ export function MomentEditorForm({
   const [pickedPhotos, setPickedPhotos] = useState<PickedPhoto[]>([])
   const [coverLocalId, setCoverLocalId] = useState<string | null>(null)
   const [existingPhotos, setExistingPhotos] = useState<EntryPhotoSummary[]>([])
+  const [captionPhotoId, setCaptionPhotoId] = useState<string | null>(null)
+  const [captionDraft, setCaptionDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [pickingPhotos, setPickingPhotos] = useState(false)
   const [locatingUser, setLocatingUser] = useState(false)
@@ -132,11 +135,19 @@ export function MomentEditorForm({
         if (cover !== undefined) {
           setCoverLocalId(cover.id)
         }
+        if (photos.length === 0) {
+          setPhotoNotice(null)
+        }
       })
-      .catch(() => {
+      .catch((loadError: unknown) => {
         setExistingPhotos([])
+        const message =
+          loadError instanceof Error
+            ? loadError.message
+            : t('entry.photoPickerError')
+        setPhotoNotice(message)
       })
-  }, [entry, mode])
+  }, [entry, mode, t])
 
   const photoGps = useMemo(
     () =>
@@ -156,6 +167,59 @@ export function MomentEditorForm({
   )
 
   const resolvedLocation = selectedPoint ?? photoGps ?? null
+
+  const photoMapMarkers = useMemo(() => {
+    const markers: Array<{
+      id: string
+      latitude: number
+      longitude: number
+      title: string
+    }> = []
+
+    for (const photo of pickedPhotos) {
+      const latitude = photo.metadata.latitude
+      const longitude = photo.metadata.longitude
+      if (
+        latitude === null ||
+        longitude === null ||
+        !Number.isFinite(latitude) ||
+        !Number.isFinite(longitude)
+      ) {
+        continue
+      }
+      markers.push({
+        id: photo.localId,
+        latitude,
+        longitude,
+        title:
+          photo.localId === coverLocalId
+            ? t('entry.coverPhoto')
+            : t('entry.photoHasGps'),
+      })
+    }
+
+    for (const photo of existingPhotos) {
+      if (
+        photo.latitude === null ||
+        photo.longitude === null ||
+        !Number.isFinite(photo.latitude) ||
+        !Number.isFinite(photo.longitude)
+      ) {
+        continue
+      }
+      markers.push({
+        id: photo.id,
+        latitude: photo.latitude,
+        longitude: photo.longitude,
+        title:
+          photo.id === coverLocalId
+            ? t('entry.coverPhoto')
+            : t('entry.photoHasGps'),
+      })
+    }
+
+    return markers
+  }, [coverLocalId, existingPhotos, pickedPhotos, t])
 
   async function handlePickPhotos(): Promise<void> {
     setError(null)
@@ -271,13 +335,19 @@ export function MomentEditorForm({
 
         if (pickedPhotos.length > 0) {
           try {
-            await uploadEntryPhotos({
+            const uploadResult = await uploadEntryPhotos({
               coverLocalId,
               entryId,
               journeyId,
               photos: pickedPhotos,
               userId,
             })
+            if (uploadResult.failed.length > 0) {
+              photoUploadError = t('entry.photosPartialUpload', {
+                uploaded: uploadResult.succeededPhotoIds.length,
+                total: pickedPhotos.length,
+              })
+            }
           } catch (uploadError) {
             photoUploadError = formatPhotoUploadError(uploadError, t)
             if (__DEV__) {
@@ -321,7 +391,7 @@ export function MomentEditorForm({
 
         if (pickedPhotos.length > 0) {
           try {
-            await uploadEntryPhotos({
+            const uploadResult = await uploadEntryPhotos({
               coverLocalId,
               entryId: entry.id,
               journeyId,
@@ -329,6 +399,12 @@ export function MomentEditorForm({
               startingPosition: existingPhotos.length,
               userId,
             })
+            if (uploadResult.failed.length > 0) {
+              photoUploadError = t('entry.photosPartialUpload', {
+                uploaded: uploadResult.succeededPhotoIds.length,
+                total: pickedPhotos.length,
+              })
+            }
           } catch (uploadError) {
             photoUploadError = formatPhotoUploadError(uploadError, t)
           }
@@ -348,11 +424,9 @@ export function MomentEditorForm({
       }
 
       if (photoUploadError !== null) {
-        Alert.alert(
-          t('entry.photos'),
-          `${t('entry.photoProcessingFailed')}\n\n${photoUploadError}`,
-          [{ onPress: () => onSaved(), text: 'OK' }],
-        )
+        Alert.alert(t('entry.photos'), photoUploadError, [
+          { onPress: () => onSaved(), text: 'OK' },
+        ])
         return
       }
 
@@ -587,10 +661,31 @@ export function MomentEditorForm({
         )}
       </Pressable>
       <LocationPickerMap
+        onSelectPhotoMarker={(photoId) => {
+          const pickedIndex = pickedPhotos.findIndex(
+            (photo) => photo.localId === photoId,
+          )
+          if (pickedIndex >= 0) {
+            setPhotoNotice(
+              `${t('entry.photoHasGps')} · ${String(pickedIndex + 1)}/${String(pickedPhotos.length)}`,
+            )
+            return
+          }
+
+          const existingIndex = existingPhotos.findIndex(
+            (photo) => photo.id === photoId,
+          )
+          if (existingIndex >= 0) {
+            setPhotoNotice(
+              `${t('entry.photoHasGps')} · ${String(existingIndex + 1)}/${String(existingPhotos.length)}`,
+            )
+          }
+        }}
         onSelectPoint={(point) => {
           setSelectedPoint(point)
           setLocationSource('map')
         }}
+        photoMarkers={photoMapMarkers}
         selectedPoint={resolvedLocation}
         stops={stops}
       />
@@ -654,6 +749,20 @@ export function MomentEditorForm({
                   </Text>
                 </Pressable>
                 <Pressable
+                  accessibilityLabel={t('entry.editPhotoCaption')}
+                  accessibilityRole="button"
+                  disabled={busy}
+                  onPress={() => {
+                    setCaptionPhotoId(photo.id)
+                    setCaptionDraft(photo.caption ?? '')
+                  }}
+                  style={styles.linkButton}
+                >
+                  <Text style={styles.linkText}>
+                    {t('entry.editPhotoCaption')}
+                  </Text>
+                </Pressable>
+                <Pressable
                   accessibilityRole="button"
                   disabled={busy || entry === null || entry === undefined}
                   onPress={() => {
@@ -705,6 +814,72 @@ export function MomentEditorForm({
               </View>
             )
           })}
+        </View>
+      ) : null}
+
+      {captionPhotoId !== null ? (
+        <View style={styles.captionEditor}>
+          <Text style={styles.label}>{t('entry.photoCaption')}</Text>
+          <TextInput
+            multiline
+            onChangeText={setCaptionDraft}
+            placeholder={t('entry.photoCaptionPlaceholder')}
+            style={[styles.input, styles.captionInput]}
+            value={captionDraft}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy || entry === null || entry === undefined}
+            onPress={() => {
+              if (entry === null || entry === undefined) {
+                return
+              }
+              void (async () => {
+                setBusy(true)
+                try {
+                  await updateEntryPhotoCaption(
+                    entry.id,
+                    captionPhotoId,
+                    captionDraft,
+                  )
+                  setExistingPhotos((current) =>
+                    current.map((photo) =>
+                      photo.id === captionPhotoId
+                        ? {
+                            ...photo,
+                            caption:
+                              captionDraft.trim().length > 0
+                                ? captionDraft.trim()
+                                : null,
+                          }
+                        : photo,
+                    ),
+                  )
+                  setCaptionPhotoId(null)
+                  setPhotoNotice(t('entry.photoCaptionSaved'))
+                } catch {
+                  setError(t('entry.photoCaptionSaveFailed'))
+                } finally {
+                  setBusy(false)
+                }
+              })()
+            }}
+            style={[styles.secondaryButton, busy ? styles.buttonDisabled : null]}
+          >
+            <Text style={styles.secondaryButtonText}>
+              {t('entry.saveChanges')}
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={() => {
+              setCaptionPhotoId(null)
+            }}
+            style={styles.linkButton}
+          >
+            <Text style={styles.linkText}>{t('entry.cancelEdit')}</Text>
+          </Pressable>
         </View>
       ) : null}
 
@@ -765,18 +940,25 @@ function formatPhotoUploadError(
   if (error instanceof EntryPhotoError) {
     switch (error.code) {
       case 'PERMISSION':
-        return `${t('entry.photoPickerLimitedAccess')} (${error.message})`
+        return t('entry.photoPickerLimitedAccess')
       case 'NETWORK':
-        return `Network error (${error.message})`
+        return t('entry.photoUploadNetworkError')
       case 'ASSET_INVALID':
-        return `${t('entry.photoPickerError')} (${error.message})`
+        return t('entry.photoPickerError')
       case 'DATABASE':
+        return t('entry.photoUploadDatabaseError')
       case 'QUEUE':
+        return t('entry.photoUploadQueueError')
       case 'STORAGE':
+        return t('entry.photoUploadStorageError')
       case 'TIMEOUT':
+        return t('entry.photoUploadTimeoutError')
       case 'UPLOAD':
+        return t('entry.photoUploadFailed')
       case 'UNKNOWN':
-        return error.message
+        return error.message.length > 0
+          ? error.message
+          : t('entry.photoUploadFailed')
     }
   }
 
@@ -786,6 +968,14 @@ function formatPhotoUploadError(
 const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.6,
+  },
+  captionEditor: {
+    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+  },
+  captionInput: {
+    minHeight: 88,
+    textAlignVertical: 'top',
   },
   container: {
     padding: spacing.lg,

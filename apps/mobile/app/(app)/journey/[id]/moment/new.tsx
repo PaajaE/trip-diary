@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { ActivityIndicator, View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { journeyQueryKeys } from '@/features/journeys'
+import { invalidateJourneyPhotoQueries } from '@/features/journeys/lib/journey-cache-mutations'
 import { useJourneyFullDetailQuery } from '@/features/journeys/use-journey-full-detail-query'
 import { MomentEditorForm } from '@/features/journeys/ui/MomentEditorForm'
 import { useAuth } from '@/platform/auth/AuthProvider'
@@ -43,9 +44,7 @@ export default function NewMomentScreen() {
           router.back()
         }}
         onSaved={() => {
-          void queryClient.invalidateQueries({
-            queryKey: journeyQueryKeys.content(id),
-          })
+          invalidateJourneyPhotoQueries(queryClient, id, session.user.id)
           void queryClient.invalidateQueries({
             queryKey: journeyQueryKeys.stops(session.user.id, id),
           })

@@ -315,6 +315,45 @@ a {
   box-shadow: var(--shadow-soft);
 }
 
+.moment-map-photo-marker,
+.moment-map-primary-marker {
+  align-items: center;
+  background: #fff;
+  border: 2px solid #fff;
+  border-radius: 999px;
+  box-shadow: 0 8px 20px rgb(16 24 20 / 0.28);
+  cursor: pointer;
+  display: inline-flex;
+  height: 44px;
+  justify-content: center;
+  overflow: hidden;
+  padding: 0;
+  width: 44px;
+}
+
+.moment-map-photo-marker img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.moment-map-photo-marker--active {
+  box-shadow:
+    0 0 0 3px #b85f42,
+    0 8px 20px rgb(16 24 20 / 0.28);
+}
+
+.moment-map-primary-marker {
+  background: #285845;
+  border-color: #fff;
+  height: 18px;
+  width: 18px;
+}
+
+.prose-reader {
+  overflow-wrap: anywhere;
+}
+
 .reader-hero-cover {
   transform: scale(1.04);
 }

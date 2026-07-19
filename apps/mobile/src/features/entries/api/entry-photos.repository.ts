@@ -1,16 +1,23 @@
+import * as FileSystem from 'expo-file-system'
 import {
   createPhotoId,
   getLocalFileByteSize,
   persistPhotoLocally,
   type PickedPhoto,
 } from '@/platform/media/photo'
+import { createSignedPhotoUrls } from '@/features/photos/api/signed-photo-url'
+import {
+  groupVariantsByPhotoId,
+  pickDetailPhotoVariantPath,
+} from '@/features/photos/lib/pick-photo-variant-path'
+import { readMeaningfulPhotoGps } from '@/features/photos/lib/read-photo-coordinate'
 import { PHOTO_UPLOAD_OPERATION } from '@/platform/sync/photo-upload'
 import { enqueueSyncOperationForApp } from '@/platform/sync/enqueue-operation'
-import { getSyncOperation, waitForSyncOperation } from '@/platform/sync/queue'
+import { waitForSyncOperation } from '@/platform/sync/queue'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
-import { isHeicLikeImageInput } from '@trip-diary/utils'
 
 export interface EntryPhotoSummary {
+  caption: string | null
   hasGps: boolean
   id: string
   isCover: boolean
@@ -41,8 +48,6 @@ export class EntryPhotoError extends Error {
   }
 }
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60
-
 export async function listEntryPhotos(
   entryId: string,
 ): Promise<EntryPhotoSummary[]> {
@@ -53,7 +58,7 @@ export async function listEntryPhotos(
   const client = getSupabaseClient()
   const { data: links, error } = await client
     .from('entry_photos')
-    .select('photo_id, position, is_cover')
+    .select('photo_id, position, is_cover, caption')
     .eq('entry_id', entryId)
     .order('position')
 
@@ -66,48 +71,89 @@ export async function listEntryPhotos(
   }
 
   const photoIds = links.map((row) => String(row.photo_id))
-  const [{ data: photos }, { data: variants }] = await Promise.all([
+  const [
+    { data: photos, error: photosError },
+    { data: variants, error: variantsError },
+  ] = await Promise.all([
     client.from('photos').select('id, latitude, longitude').in('id', photoIds),
     client
       .from('photo_variants')
       .select('photo_id, storage_path, variant')
-      .in('photo_id', photoIds)
-      .eq('variant', 'preview'),
+      .in('photo_id', photoIds),
   ])
 
-  const photoById = new Map(
-    (photos ?? []).map((photo) => [String(photo.id), photo]),
-  )
-  const pathByPhotoId = new Map(
-    (variants ?? []).map((variant) => [
-      String(variant.photo_id),
-      String(variant.storage_path),
-    ]),
-  )
+  if (photosError !== null) {
+    throw new EntryPhotoError(photosError.message, 'DATABASE')
+  }
 
-  return Promise.all(
-    links.map(async (row) => {
-      const photoId = String(row.photo_id)
-      const photo = photoById.get(photoId)
-      const storagePath = pathByPhotoId.get(photoId) ?? null
-      const previewUrl =
-        storagePath !== null ? await createSignedPhotoUrl(storagePath) : null
-      const latitude =
-        typeof photo?.latitude === 'number' ? photo.latitude : null
-      const longitude =
-        typeof photo?.longitude === 'number' ? photo.longitude : null
+  if (variantsError !== null) {
+    throw new EntryPhotoError(variantsError.message, 'DATABASE')
+  }
 
-      return {
-        hasGps: latitude !== null && longitude !== null,
-        id: photoId,
-        isCover: row.is_cover === true,
-        latitude,
-        longitude,
-        position: typeof row.position === 'number' ? row.position : 0,
-        previewUrl,
-      } satisfies EntryPhotoSummary
-    }),
-  )
+  const photoById = new Map(photos.map((photo) => [String(photo.id), photo]))
+  const variantsByPhotoId = groupVariantsByPhotoId(variants)
+  const storagePathByPhotoId = new Map<string, string>()
+
+  for (const photoId of photoIds) {
+    const storagePath = pickDetailPhotoVariantPath(
+      variantsByPhotoId.get(photoId) ?? [],
+    )
+    if (storagePath !== null) {
+      storagePathByPhotoId.set(photoId, storagePath)
+    }
+  }
+
+  const signedByPath = await createSignedPhotoUrls([
+    ...storagePathByPhotoId.values(),
+  ])
+
+  return links.map((row) => {
+    const photoId = String(row.photo_id)
+    const photo = photoById.get(photoId)
+    const storagePath = storagePathByPhotoId.get(photoId)
+    const previewUrl =
+      storagePath !== undefined ? (signedByPath.get(storagePath) ?? null) : null
+    const coords = readMeaningfulPhotoGps(photo?.latitude, photo?.longitude)
+
+    return {
+      caption:
+        typeof row.caption === 'string' && row.caption.trim().length > 0
+          ? row.caption.trim()
+          : null,
+      hasGps: coords !== null,
+      id: photoId,
+      isCover: row.is_cover === true,
+      latitude: coords?.latitude ?? null,
+      longitude: coords?.longitude ?? null,
+      position: typeof row.position === 'number' ? row.position : 0,
+      previewUrl,
+    } satisfies EntryPhotoSummary
+  })
+}
+
+export async function updateEntryPhotoCaption(
+  entryId: string,
+  photoId: string,
+  caption: string | null,
+): Promise<void> {
+  if (!isSupabaseConfigured()) {
+    throw new EntryPhotoError('Supabase is not configured.', 'DATABASE')
+  }
+
+  const normalized =
+    caption === null || caption.trim().length === 0
+      ? null
+      : caption.trim().slice(0, 500)
+
+  const { error } = await getSupabaseClient()
+    .from('entry_photos')
+    .update({ caption: normalized })
+    .eq('entry_id', entryId)
+    .eq('photo_id', photoId)
+
+  if (error !== null) {
+    throw new EntryPhotoError(error.message, 'DATABASE')
+  }
 }
 
 export async function setEntryCoverPhoto(
@@ -180,41 +226,47 @@ export async function uploadEntryPhotos(input: {
   photos: PickedPhoto[]
   startingPosition?: number
   userId: string
-}): Promise<string[]> {
+}): Promise<{
+  failed: Array<{ localId: string; reason: string }>
+  succeededPhotoIds: string[]
+}> {
   if (input.photos.length === 0) {
-    return []
+    return { failed: [], succeededPhotoIds: [] }
   }
 
   if (!isSupabaseConfigured()) {
     throw new EntryPhotoError('Supabase is not configured.', 'DATABASE')
   }
 
-  const photoIds: string[] = []
-  const operationIds: string[] = []
+  const succeededPhotoIds: string[] = []
+  const failed: Array<{ localId: string; reason: string }> = []
   let position = input.startingPosition ?? 0
   const coverLocalId = input.coverLocalId ?? input.photos[0].localId
+  let coverAssigned = false
 
   for (const picked of input.photos) {
+    const photoId = createPhotoId()
+    const operationId = `photo-upload-${photoId}`
     try {
       assertPickedPhotoValid(picked)
-      const photoId = createPhotoId()
       const filename = `entry-${input.entryId}-${String(position)}-${photoId}.jpg`
-      const localUri = await persistPhotoLocally(picked.uri, filename)
-      const byteSize = await getLocalFileByteSize(localUri)
-      const operationId = `photo-upload-${photoId}`
-      const isCover = picked.localId === coverLocalId
 
-      if (__DEV__) {
-        console.log('[moment-photos] enqueue', {
-          byteSize,
-          entryId: input.entryId,
-          height: picked.height,
-          isCover,
-          mimeType: picked.mimeType,
-          operationId,
-          width: picked.width,
-        })
-      }
+      // Photos are already materialized into app-owned storage at pick time.
+      // Re-copy only when the URI is somehow outside the documents photos dir.
+      const localUri = await ensureUploadLocalCopy(picked.uri, filename)
+      const byteSize = await getLocalFileByteSize(localUri)
+      const preferCover = !coverAssigned && picked.localId === coverLocalId
+
+      console.log('[moment-photos] enqueue', {
+        byteSize,
+        entryId: input.entryId,
+        height: picked.height,
+        isCover: preferCover,
+        localUriSuffix: localUri.slice(-48),
+        mimeType: picked.mimeType,
+        operationId,
+        width: picked.width,
+      })
 
       await enqueueSyncOperationForApp({
         id: operationId,
@@ -224,7 +276,7 @@ export async function uploadEntryPhotos(input: {
           capturedAt: picked.metadata.capturedAt,
           entryId: input.entryId,
           height: picked.height,
-          isCover,
+          isCover: preferCover,
           journeyId: input.journeyId,
           latitude: picked.metadata.latitude,
           localUri,
@@ -239,62 +291,71 @@ export async function uploadEntryPhotos(input: {
         userId: input.userId,
       })
 
-      photoIds.push(photoId)
-      operationIds.push(operationId)
-      position += 1
-    } catch (error) {
-      throw classifyEntryPhotoFailure(error, 'ASSET_INVALID')
-    }
-  }
-
-  for (const operationId of operationIds) {
-    let settled
-    try {
-      settled = await waitForSyncOperation(operationId, {
+      const settled = await waitForSyncOperation(operationId, {
         timeoutMs: 180_000,
       })
-    } catch (error) {
-      const existing = await getSyncOperation(operationId)
-      if (__DEV__) {
-        console.log('[moment-photos] wait failed', {
-          operationId,
-          status: existing?.status ?? 'missing',
-        })
-      }
-      throw classifyEntryPhotoFailure(error, 'TIMEOUT')
-    }
 
-    if (__DEV__) {
       console.log('[moment-photos] settled', {
+        lastError:
+          typeof settled.payload.lastError === 'string'
+            ? settled.payload.lastError
+            : null,
         operationId,
         status: settled.status,
       })
-    }
 
-    if (settled.status === 'failed') {
-      const message =
-        typeof settled.payload.lastError === 'string'
-          ? settled.payload.lastError
-          : 'Photo upload failed.'
-      throw classifyEntryPhotoFailure(new Error(message), 'UPLOAD')
+      if (settled.status === 'failed') {
+        const message =
+          typeof settled.payload.lastError === 'string'
+            ? settled.payload.lastError
+            : 'Photo upload failed.'
+        failed.push({ localId: picked.localId, reason: message })
+        position += 1
+        continue
+      }
+
+      succeededPhotoIds.push(photoId)
+      if (preferCover) {
+        coverAssigned = true
+      }
+      position += 1
+    } catch (error) {
+      const classified = classifyEntryPhotoFailure(error, 'UPLOAD')
+      console.warn('[moment-photos] photo failed', {
+        localId: picked.localId,
+        message: classified.message,
+      })
+      failed.push({ localId: picked.localId, reason: classified.message })
+      position += 1
     }
   }
 
-  return photoIds
+  if (succeededPhotoIds.length === 0 && failed.length > 0) {
+    throw new EntryPhotoError(
+      failed[0]?.reason ?? 'Photo upload failed.',
+      'UPLOAD',
+    )
+  }
+
+  return { failed, succeededPhotoIds }
 }
 
-async function createSignedPhotoUrl(
-  storagePath: string,
-): Promise<string | null> {
-  const { data, error } = await getSupabaseClient()
-    .storage.from('photos')
-    .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
-
-  if (error !== null || typeof data.signedUrl !== 'string') {
-    return null
+async function ensureUploadLocalCopy(
+  sourceUri: string,
+  filename: string,
+): Promise<string> {
+  const documentDirectory = FileSystem.documentDirectory
+  if (
+    documentDirectory !== null &&
+    sourceUri.startsWith(`${documentDirectory}photos/`)
+  ) {
+    const info = await FileSystem.getInfoAsync(sourceUri, { size: true })
+    if (info.exists && 'size' in info && info.size > 0) {
+      return sourceUri
+    }
   }
 
-  return data.signedUrl
+  return persistPhotoLocally(sourceUri, filename)
 }
 
 function assertPickedPhotoValid(photo: PickedPhoto): void {
@@ -319,18 +380,6 @@ function assertPickedPhotoValid(photo: PickedPhoto): void {
       'ASSET_INVALID',
     )
   }
-
-  if (
-    isHeicLikeImageInput({
-      mimeType: photo.mimeType,
-      nameOrUri: photo.uri,
-    })
-  ) {
-    throw new EntryPhotoError(
-      'HEIC/HEIF photos cannot be uploaded until converted to JPEG or WebP.',
-      'ASSET_INVALID',
-    )
-  }
 }
 
 function classifyEntryPhotoFailure(
@@ -350,9 +399,14 @@ function classifyEntryPhotoFailure(
   }
 
   if (
-    normalized.includes('permission') ||
-    normalized.includes('row-level security') ||
-    normalized.includes('42501')
+    normalized.includes('photo library permission') ||
+    normalized.includes('media library permission') ||
+    normalized.includes('limited library') ||
+    normalized.includes('phphotoserror') ||
+    (normalized.includes('permission') &&
+      !normalized.includes('permission denied for table') &&
+      !normalized.includes('row-level security') &&
+      !normalized.includes('42501'))
   ) {
     return new EntryPhotoError(message, 'PERMISSION')
   }
@@ -383,8 +437,12 @@ function classifyEntryPhotoFailure(
   }
 
   if (
+    normalized.includes('permission denied for table') ||
+    normalized.includes('row-level security') ||
+    normalized.includes('42501') ||
     normalized.includes('duplicate') ||
     normalized.includes('violates') ||
+    normalized.includes('entry_photos') ||
     normalized.includes('photos') ||
     normalized.includes('database')
   ) {
