@@ -1,10 +1,6 @@
 import type { JourneyListPresentation } from '@/features/journeys/journey-list-presentation'
 
-export type JourneyListCreateCta =
-  | 'empty'
-  | 'header'
-  | 'offline-hint'
-  | 'none'
+export type JourneyListCreateCta = 'empty' | 'header' | 'offline-hint' | 'none'
 
 /**
  * Exactly one primary create action placement for the journey list screen.

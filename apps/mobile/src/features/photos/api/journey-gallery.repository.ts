@@ -94,9 +94,7 @@ export async function listJourneyGalleryPhotos(
     throw new JourneyGalleryError(variantsError.message)
   }
 
-  const photoById = new Map(
-    photos.map((photo) => [String(photo.id), photo]),
-  )
+  const photoById = new Map(photos.map((photo) => [String(photo.id), photo]))
   const variantsByPhotoId = groupVariantsByPhotoId(variants)
 
   const storagePathByPhotoId = new Map<string, string>()

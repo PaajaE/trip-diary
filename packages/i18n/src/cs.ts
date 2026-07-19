@@ -199,8 +199,7 @@ export const cs: TranslationResources = {
       'Trip Diary má přístup jen k vybraným fotkám. Povol plný přístup v Nastavení nebo přidej fotky do omezeného výběru.',
     photoProcessingFailed:
       'Vzpomínka se uložila, ale fotky se nepodařilo zpracovat. Zkus to prosím znovu s jinými fotkami, nebo pokračuj bez nich.',
-    photoUploadFailed:
-      'Fotky se nepodařilo nahrát. Zkus to prosím znovu.',
+    photoUploadFailed: 'Fotky se nepodařilo nahrát. Zkus to prosím znovu.',
     photoUploadDatabaseError:
       'Fotky se nepodařilo uložit do databáze. Zkontroluj připojení a zkus to znovu.',
     photoUploadNetworkError:
@@ -209,8 +208,7 @@ export const cs: TranslationResources = {
       'Fotky čekají ve frontě na synchronizaci. Zkus synchronizaci znovu.',
     photoUploadStorageError:
       'Fotky se nepodařilo nahrát do úložiště. Zkus menší fotky nebo to zkus znovu.',
-    photoUploadTimeoutError:
-      'Nahrávání fotek vypršelo. Zkus to prosím znovu.',
+    photoUploadTimeoutError: 'Nahrávání fotek vypršelo. Zkus to prosím znovu.',
     photosPartialUpload:
       'Vzpomínka byla uložena, ale podařilo se nahrát pouze {{uploaded}} z {{total}} fotografií.',
     filePickerAction: 'Vybrat fotky ze souborů',
@@ -721,7 +719,8 @@ export const cs: TranslationResources = {
     viewAllPhotos: 'Zobrazit všech {{count}} fotografií',
     morePhotosCount: 'Dalších {{count}} fotografií',
     photosOnMap: 'Fotografie na mapě',
-    photosOnMapHint: '{{count}} fotografií s polohou. Klepněte na značku a otevřete snímek.',
+    photosOnMapHint:
+      '{{count}} fotografií s polohou. Klepněte na značku a otevřete snímek.',
     openPhotoOnMap: 'Ukázat na mapě',
     openCoverPhoto: 'Otevřít titulní fotografii',
     momentPrimaryLocation: 'Hlavní poloha momentu',

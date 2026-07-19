@@ -73,7 +73,10 @@ export function groupVariantsByPhotoId(
     storage_path: string
     variant: string
   }>,
-): Map<string, Array<{ photoId: string; storagePath: string; variant: string }>> {
+): Map<
+  string,
+  Array<{ photoId: string; storagePath: string; variant: string }>
+> {
   const grouped = new Map<
     string,
     Array<{ photoId: string; storagePath: string; variant: string }>

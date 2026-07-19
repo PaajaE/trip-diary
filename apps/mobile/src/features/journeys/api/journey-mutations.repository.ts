@@ -42,17 +42,19 @@ export async function createJourneyRemote(
     throw new JourneyMutationError('End date must not be before start date.')
   }
 
-  const { error } = await requireClient().from('journeys').insert({
-    creator_id: input.creatorId,
-    ends_at: endsAt,
-    id,
-    slug: createPublicSlug(title, id),
-    space_id: input.spaceId,
-    starts_at: startsAt,
-    summary: input.summary?.trim() ?? '',
-    title,
-    visibility: 'public',
-  })
+  const { error } = await requireClient()
+    .from('journeys')
+    .insert({
+      creator_id: input.creatorId,
+      ends_at: endsAt,
+      id,
+      slug: createPublicSlug(title, id),
+      space_id: input.spaceId,
+      starts_at: startsAt,
+      summary: input.summary?.trim() ?? '',
+      title,
+      visibility: 'public',
+    })
 
   if (error !== null) {
     throw new JourneyMutationError(error.message)
@@ -86,7 +88,9 @@ export async function deleteJourneyRemote(journeyId: string): Promise<void> {
   }
 }
 
-function normalizeOptionalDate(value: string | null | undefined): string | null {
+function normalizeOptionalDate(
+  value: string | null | undefined,
+): string | null {
   if (value === null || value === undefined) {
     return null
   }

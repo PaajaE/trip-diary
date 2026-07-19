@@ -864,7 +864,10 @@ export function MomentEditorForm({
                 }
               })()
             }}
-            style={[styles.secondaryButton, busy ? styles.buttonDisabled : null]}
+            style={[
+              styles.secondaryButton,
+              busy ? styles.buttonDisabled : null,
+            ]}
           >
             <Text style={styles.secondaryButtonText}>
               {t('entry.saveChanges')}

@@ -116,7 +116,8 @@ export function MapViewScreen({
     useState(false)
   const [deviceCenter, setDeviceCenter] = useState<MapCoordinate | null>(null)
 
-  const journeyMode = camera !== null || markers.length > 0 || photoMarkers.length > 0
+  const journeyMode =
+    camera !== null || markers.length > 0 || photoMarkers.length > 0
   const shouldUseDeviceLocation = shouldRequestDeviceLocation({
     journeyMode,
     propCenterAvailable: toMapCoordinate(propLatitude, propLongitude) !== null,

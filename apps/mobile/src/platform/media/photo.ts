@@ -388,9 +388,7 @@ async function convertToPersistentJpeg(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Unknown conversion error.'
-    throw new Error(
-      `HEIC/HEIF conversion to JPEG failed: ${message}`,
-    )
+    throw new Error(`HEIC/HEIF conversion to JPEG failed: ${message}`)
   }
 }
 

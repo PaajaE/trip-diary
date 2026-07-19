@@ -234,7 +234,9 @@ export function LocationPickerMap({
           <Camera
             animationDuration={0}
             centerCoordinate={[initialCenter.longitude, initialCenter.latitude]}
-            zoomLevel={mappableStops.length > 0 || photoMarkers.length > 0 ? 8 : 5}
+            zoomLevel={
+              mappableStops.length > 0 || photoMarkers.length > 0 ? 8 : 5
+            }
           />
         )}
 
@@ -263,9 +265,7 @@ export function LocationPickerMap({
             title={photo.title}
           >
             <View
-              accessibilityLabel={
-                photo.title ?? t('entry.photoHasGps')
-              }
+              accessibilityLabel={photo.title ?? t('entry.photoHasGps')}
               style={styles.photoMarker}
             />
           </PointAnnotation>

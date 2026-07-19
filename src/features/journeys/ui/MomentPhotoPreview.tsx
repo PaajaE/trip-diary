@@ -24,7 +24,12 @@ function PreviewTile({
 }) {
   const [broken, setBroken] = useState(false)
   if (broken) {
-    return <div aria-hidden="true" className={`${className} reader-photo-placeholder`} />
+    return (
+      <div
+        aria-hidden="true"
+        className={`${className} reader-photo-placeholder`}
+      />
+    )
   }
 
   return (
@@ -56,7 +61,10 @@ export function MomentPhotoPreview({
 }: MomentPhotoPreviewProps) {
   const { t } = useTranslation()
   const remaining = Math.max(0, totalCount - preview.length)
-  const mosaic = useMemo(() => preview.slice(0, MOMENT_PHOTO_PREVIEW_LIMIT), [preview])
+  const mosaic = useMemo(
+    () => preview.slice(0, MOMENT_PHOTO_PREVIEW_LIMIT),
+    [preview],
+  )
 
   if (mosaic.length === 0) {
     return null

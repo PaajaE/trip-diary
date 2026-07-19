@@ -188,7 +188,10 @@ export function MomentReaderPage({
   const showPhotoOnMap = useCallback((photoId: string) => {
     setGalleryIndex(null)
     setActiveMapPhotoId(photoId)
-    mapSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    mapSectionRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'center',
+    })
   }, [])
 
   function openSiblingMoment(slug: string | null | undefined) {
@@ -236,9 +239,15 @@ export function MomentReaderPage({
   const nextMoment = navigation?.next ?? null
   const hasPhotos = (photosQuery.data?.totalCount ?? 0) > 0
   const previewThumbs = Object.fromEntries(
-    (photosQuery.data?.preview ?? []).map((photo) => [photo.id, photo.thumbUrl]),
+    (photosQuery.data?.preview ?? []).map((photo) => [
+      photo.id,
+      photo.thumbUrl,
+    ]),
   )
-  if (photosQuery.data?.cover !== null && photosQuery.data?.cover !== undefined) {
+  if (
+    photosQuery.data?.cover !== null &&
+    photosQuery.data?.cover !== undefined
+  ) {
     previewThumbs[photosQuery.data.cover.id] = photosQuery.data.cover.thumbUrl
   }
 

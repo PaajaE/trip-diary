@@ -26,7 +26,10 @@ export interface PublicMomentPhotos {
   totalCount: number
 }
 
-function compareMomentPhotos(left: MomentPhotoMeta, right: MomentPhotoMeta): number {
+function compareMomentPhotos(
+  left: MomentPhotoMeta,
+  right: MomentPhotoMeta,
+): number {
   const coverDelta = Number(right.isCover) - Number(left.isCover)
   if (coverDelta !== 0) {
     return coverDelta
@@ -36,7 +39,9 @@ function compareMomentPhotos(left: MomentPhotoMeta, right: MomentPhotoMeta): num
 
 async function downloadThumbUrl(storagePath: string): Promise<string | null> {
   const client = getSupabaseClient()
-  const { data, error } = await client.storage.from('photos').download(storagePath)
+  const { data, error } = await client.storage
+    .from('photos')
+    .download(storagePath)
   if (error !== null || data.size === 0) {
     return null
   }
@@ -66,18 +71,20 @@ export async function getPublicMomentPhotos(
   }
 
   const photoIds = links.map((link) => link.photo_id)
-  const [{ data: photos, error: photosError }, { data: variants, error: variantsError }] =
-    await Promise.all([
-      client
-        .from('photos')
-        .select('id, latitude, longitude, captured_at')
-        .in('id', photoIds),
-      client
-        .from('photo_variants')
-        .select('photo_id, storage_path, variant')
-        .in('photo_id', photoIds)
-        .in('variant', ['thumb', 'preview']),
-    ])
+  const [
+    { data: photos, error: photosError },
+    { data: variants, error: variantsError },
+  ] = await Promise.all([
+    client
+      .from('photos')
+      .select('id, latitude, longitude, captured_at')
+      .in('id', photoIds),
+    client
+      .from('photo_variants')
+      .select('photo_id, storage_path, variant')
+      .in('photo_id', photoIds)
+      .in('variant', ['thumb', 'preview']),
+  ])
 
   if (photosError !== null) {
     throw photosError

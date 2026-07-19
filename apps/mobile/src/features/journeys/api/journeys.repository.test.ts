@@ -100,7 +100,9 @@ describe('fetchJourneyListRemote', () => {
       }),
     })
 
-    await expect(fetchJourneyListRemote('space-a')).resolves.toEqual([sampleListItem])
+    await expect(fetchJourneyListRemote('space-a')).resolves.toEqual([
+      sampleListItem,
+    ])
   })
 
   it('throws NOT_CONFIGURED when Supabase env is missing', async () => {

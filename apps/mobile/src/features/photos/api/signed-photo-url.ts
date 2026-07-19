@@ -26,7 +26,9 @@ export async function createSignedPhotoUrls(
   ttlSeconds: number = SIGNED_PHOTO_URL_TTL_SECONDS,
 ): Promise<Map<string, string>> {
   const result = new Map<string, string>()
-  const uniquePaths = [...new Set(storagePaths.filter((path) => path.trim().length > 0))]
+  const uniquePaths = [
+    ...new Set(storagePaths.filter((path) => path.trim().length > 0)),
+  ]
 
   if (uniquePaths.length === 0 || !isSupabaseConfigured()) {
     return result

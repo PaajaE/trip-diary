@@ -2,6 +2,10 @@ import { parsePublicEnv, type PublicEnv } from '@trip-diary/config'
 
 export type MobilePublicEnv = PublicEnv
 
+function asOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
 /**
  * Direct `process.env.EXPO_PUBLIC_*` reads so babel-preset-expo can inline
  * values into Release/standalone bundles. Dynamic `process.env[name]` /
@@ -9,9 +13,15 @@ export type MobilePublicEnv = PublicEnv
  */
 export function expoPublicEnvFromProcess(): Record<string, string | undefined> {
   return {
-    EXPO_PUBLIC_MAPY_API_KEY: process.env.EXPO_PUBLIC_MAPY_API_KEY,
-    EXPO_PUBLIC_SUPABASE_ANON_KEY: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
-    EXPO_PUBLIC_SUPABASE_URL: process.env.EXPO_PUBLIC_SUPABASE_URL,
+    EXPO_PUBLIC_MAPY_API_KEY: asOptionalString(
+      process.env.EXPO_PUBLIC_MAPY_API_KEY,
+    ),
+    EXPO_PUBLIC_SUPABASE_ANON_KEY: asOptionalString(
+      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    ),
+    EXPO_PUBLIC_SUPABASE_URL: asOptionalString(
+      process.env.EXPO_PUBLIC_SUPABASE_URL,
+    ),
   }
 }
 

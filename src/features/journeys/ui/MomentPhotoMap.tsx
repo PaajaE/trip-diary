@@ -39,10 +39,7 @@ export function MomentPhotoMap({
     [photos],
   )
 
-  const camera = useMemo(
-    () => computePhotoMapCamera(geotagged),
-    [geotagged],
-  )
+  const camera = useMemo(() => computePhotoMapCamera(geotagged), [geotagged])
 
   const mapMountKey = camera === null ? 'none' : 'map'
 
@@ -88,7 +85,10 @@ export function MomentPhotoMap({
             },
           }),
     })
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right')
+    map.addControl(
+      new maplibregl.NavigationControl({ showCompass: false }),
+      'top-right',
+    )
     mapRef.current = map
 
     const onLoad = () => {
@@ -195,7 +195,15 @@ export function MomentPhotoMap({
         .addTo(map)
       markers.set(photo.id, marker)
     }
-  }, [activePhotoId, geotagged, onSelectPhoto, primaryLocation, ready, t, thumbUrls])
+  }, [
+    activePhotoId,
+    geotagged,
+    onSelectPhoto,
+    primaryLocation,
+    ready,
+    t,
+    thumbUrls,
+  ])
 
   if (camera === null || geotagged.length === 0) {
     return null

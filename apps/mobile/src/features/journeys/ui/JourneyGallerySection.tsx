@@ -1,12 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import {
-  ActivityIndicator,
-  Image,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native'
+import { ActivityIndicator, Image, StyleSheet, Text, View } from 'react-native'
 import { listJourneyGalleryPhotos } from '@/features/photos/api/journey-gallery.repository'
 import {
   PHOTO_SIGNED_URL_STALE_TIME_MS,
@@ -67,10 +61,7 @@ export function JourneyGallerySection({
         </Text>
       ) : null}
 
-      {isOnline &&
-      !query.isLoading &&
-      !query.isError &&
-      photos.length === 0 ? (
+      {isOnline && !query.isLoading && !query.isError && photos.length === 0 ? (
         <Text style={styles.stateText}>{t('journey.galleryEmpty')}</Text>
       ) : null}
 

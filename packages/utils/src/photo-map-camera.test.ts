@@ -19,7 +19,9 @@ describe('isValidPhotoMapCoordinate', () => {
 
   it('rejects Null Island by default and allows it when requested', () => {
     expect(isValidPhotoMapCoordinate(0, 0)).toBe(false)
-    expect(isValidPhotoMapCoordinate(0, 0, { allowNullIsland: true })).toBe(true)
+    expect(isValidPhotoMapCoordinate(0, 0, { allowNullIsland: true })).toBe(
+      true,
+    )
   })
 })
 

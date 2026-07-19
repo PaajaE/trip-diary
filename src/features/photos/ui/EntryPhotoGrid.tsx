@@ -188,15 +188,13 @@ export function EntryPhotoGrid({
   })
 
   const captionMutation = useMutation({
-    mutationFn: ({
-      caption,
-      photoId,
-    }: {
-      caption: string
-      photoId: string
-    }) => updateEntryPhotoCaption(entryId, photoId, caption),
+    mutationFn: ({ caption, photoId }: { caption: string; photoId: string }) =>
+      updateEntryPhotoCaption(entryId, photoId, caption),
     onError: () => {
-      showToast({ message: t('entry.photoCaptionSaveFailed'), variant: 'error' })
+      showToast({
+        message: t('entry.photoCaptionSaveFailed'),
+        variant: 'error',
+      })
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({

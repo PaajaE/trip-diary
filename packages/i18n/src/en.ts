@@ -712,8 +712,7 @@ export const en = {
     shareWhatsAppHint:
       'WhatsApp opens next — choose a family group or an individual contact.',
     share: 'Share',
-    shortMomentHint:
-      'A short moment — let the photos and map carry the story.',
+    shortMomentHint: 'A short moment — let the photos and map carry the story.',
     photosHeading: 'Photos',
     photoPreviewSection: 'Photo preview',
     viewAllPhotos: 'View all {{count}} photos',

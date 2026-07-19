@@ -122,24 +122,21 @@ export function JourneyMapSection({
     () =>
       photoLocations.map((photo) => ({
         accessibilityLabel: t('mobile.journeyMapPhotoLabel', {
-          title:
-            photo.entryTitle?.trim().length
-              ? photo.entryTitle
-              : t('journey.galleryUntitled'),
+          title: photo.entryTitle?.trim().length
+            ? photo.entryTitle
+            : t('journey.galleryUntitled'),
         }),
         id: photo.id,
         latitude: photo.latitude,
         longitude: photo.longitude,
-        title:
-          photo.entryTitle?.trim().length
-            ? photo.entryTitle
-            : t('journey.galleryUntitled'),
+        title: photo.entryTitle?.trim().length
+          ? photo.entryTitle
+          : t('journey.galleryUntitled'),
       })),
     [photoLocations, t],
   )
 
-  const hasMappableContent =
-    mappableStops.length > 0 || photoMarkers.length > 0
+  const hasMappableContent = mappableStops.length > 0 || photoMarkers.length > 0
   const showMap =
     camera !== null &&
     hasMappableContent &&
