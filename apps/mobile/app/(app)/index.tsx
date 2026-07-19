@@ -9,15 +9,16 @@ import {
   Text,
   View,
 } from 'react-native'
-import { formatJourneyDateRange, resolveDateLocale } from '@trip-diary/utils'
 import { useJourneysQuery } from '@/features/journeys'
+import { resolveJourneyListCreateCta } from '@/features/journeys/journey-list-create-cta'
+import { JourneyListCardContent } from '@/features/journeys/ui/JourneyListCardContent'
 import { colors, spacing } from '@/foundation/theme'
 import { useAuth } from '@/platform/auth/AuthProvider'
 import { isSupabaseConfigured } from '@/platform/supabase'
 
 export default function JourneysHomeScreen() {
   const { session, signOut } = useAuth()
-  const { i18n, t } = useTranslation()
+  const { t } = useTranslation()
   const userId = session?.user.id
   const {
     data: journeys,
@@ -29,12 +30,26 @@ export default function JourneysHomeScreen() {
     showInitialLoading,
     showOfflineUnavailable,
     showRemoteError,
+    showSpaceUnresolved,
     statusMessageKey,
     error,
+    spaceError,
   } = useJourneysQuery(userId)
 
   const supabaseConfigured = isSupabaseConfigured()
-  const dateLocale = resolveDateLocale(i18n.language)
+  const canAttemptCreate = supabaseConfigured && isOnline
+  const createCta = resolveJourneyListCreateCta({
+    canAttemptCreate,
+    isOnline,
+    journeysCount: journeys.length,
+    presentation: {
+      showAuthoritativeEmpty,
+      showInitialLoading,
+      showOfflineUnavailable,
+      showRemoteError,
+      showSpaceUnresolved,
+    },
+  })
 
   return (
     <ScrollView
@@ -51,6 +66,27 @@ export default function JourneysHomeScreen() {
       }
     >
       <Text style={styles.description}>{t('dashboard.description')}</Text>
+
+      {createCta === 'header' ? (
+        <Link href="/journey/new" asChild>
+          <Pressable
+            accessibilityLabel={t('dashboard.addJourney')}
+            accessibilityRole="button"
+            style={styles.createButton}
+            testID="create-journey-cta"
+          >
+            <Text style={styles.createButtonText}>
+              {t('dashboard.addJourney')}
+            </Text>
+          </Pressable>
+        </Link>
+      ) : null}
+
+      {createCta === 'offline-hint' ? (
+        <Text accessibilityRole="text" style={styles.hint}>
+          {t('mobile.journeyCreateRequiresConnection')}
+        </Text>
+      ) : null}
 
       {!supabaseConfigured ? (
         <Text accessibilityRole="text" style={styles.hint}>
@@ -70,6 +106,22 @@ export default function JourneysHomeScreen() {
           color={colors.primary}
           style={styles.loader}
         />
+      ) : null}
+
+      {showSpaceUnresolved ? (
+        <View accessibilityRole="alert" style={styles.errorPanel}>
+          <Text style={styles.error}>
+            {spaceError?.message ?? t('mobile.journeyListSpaceUnresolved')}
+          </Text>
+          <Pressable
+            accessibilityLabel={t('common.tryAgain')}
+            accessibilityRole="button"
+            onPress={() => void refetch()}
+            style={styles.retryButton}
+          >
+            <Text style={styles.retryText}>{t('common.tryAgain')}</Text>
+          </Pressable>
+        </View>
       ) : null}
 
       {showRemoteError ? (
@@ -94,32 +146,40 @@ export default function JourneysHomeScreen() {
         </Text>
       ) : null}
 
-      {showAuthoritativeEmpty ? (
+      {showAuthoritativeEmpty && createCta === 'empty' ? (
+        <View style={styles.emptyPanel}>
+          <Text style={styles.empty}>{t('dashboard.noJourneys')}</Text>
+          <Link href="/journey/new" asChild>
+            <Pressable
+              accessibilityLabel={t('dashboard.addJourney')}
+              accessibilityRole="button"
+              style={styles.emptyCreateButton}
+              testID="create-journey-empty-cta"
+            >
+              <Text style={styles.createButtonText}>
+                {t('dashboard.addJourney')}
+              </Text>
+            </Pressable>
+          </Link>
+        </View>
+      ) : null}
+
+      {showAuthoritativeEmpty && createCta !== 'empty' ? (
         <Text style={styles.empty}>{t('dashboard.noJourneys')}</Text>
       ) : null}
 
-      {journeys.map((journey) => {
-        const dateLabel = formatJourneyDateRange(
-          journey.startsAt,
-          journey.endsAt,
-          dateLocale,
-          t('journey.dateUnknown'),
-        )
-
-        return (
-          <Link key={journey.id} href={`/journey/${journey.id}`} asChild>
-            <Pressable
-              accessibilityHint={t('journey.explore')}
-              accessibilityLabel={`${journey.title}, ${dateLabel}`}
-              accessibilityRole="button"
-              style={styles.card}
-            >
-              <Text style={styles.cardTitle}>{journey.title}</Text>
-              <Text style={styles.cardMeta}>{dateLabel}</Text>
-            </Pressable>
-          </Link>
-        )
-      })}
+      {journeys.map((journey) => (
+        <Link key={journey.id} href={`/journey/${journey.id}`} asChild>
+          <Pressable
+            accessibilityHint={t('journey.explore')}
+            accessibilityLabel={journey.title}
+            accessibilityRole="button"
+            style={styles.card}
+          >
+            <JourneyListCardContent journey={journey} />
+          </Pressable>
+        </Link>
+      ))}
 
       <Pressable
         accessibilityRole="button"
@@ -152,17 +212,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: spacing.sm,
     minHeight: 48,
+    overflow: 'hidden',
     padding: spacing.md,
-  },
-  cardMeta: {
-    color: colors.textMuted,
-    fontSize: 14,
-    marginTop: 4,
-  },
-  cardTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '600',
   },
   cachedBanner: {
     backgroundColor: '#fff4d6',
@@ -182,6 +233,20 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     padding: spacing.lg,
   },
+  createButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+  },
+  createButtonText: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   description: {
     color: colors.textMuted,
     fontSize: 15,
@@ -199,6 +264,18 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 15,
     lineHeight: 22,
+  },
+  emptyCreateButton: {
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    justifyContent: 'center',
+    marginTop: spacing.md,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+  },
+  emptyPanel: {
+    marginBottom: spacing.md,
     marginTop: spacing.sm,
   },
   error: {

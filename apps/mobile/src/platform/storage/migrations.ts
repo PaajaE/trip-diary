@@ -88,4 +88,24 @@ export const MOBILE_SQL_MIGRATIONS: readonly SqlMigration[] = [
       );
     `,
   },
+  {
+    id: 6,
+    name: 'add_journey_list_cache_space_id',
+    up: async (db) => {
+      const columns = await db.getAllAsync<{ name: string }>(
+        'PRAGMA table_info(journey_list_cache)',
+      )
+      const hasSpaceId = columns.some((column) => column.name === 'space_id')
+      if (!hasSpaceId) {
+        await db.execAsync(
+          "ALTER TABLE journey_list_cache ADD COLUMN space_id TEXT NOT NULL DEFAULT '';",
+        )
+      }
+
+      await db.execAsync(`
+        CREATE INDEX IF NOT EXISTS idx_journey_list_cache_user_space_sort
+          ON journey_list_cache (user_id, space_id, sort_order);
+      `)
+    },
+  },
 ]

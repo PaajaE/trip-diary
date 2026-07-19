@@ -4,6 +4,11 @@ import type {
   JourneyFullDetail,
   JourneyStage,
 } from '@/features/journeys/model/journey-detail'
+import { createSignedPhotoUrls } from '@/features/photos/api/signed-photo-url'
+import {
+  groupVariantsByPhotoId,
+  pickCardPhotoVariantPath,
+} from '@/features/photos/lib/pick-photo-variant-path'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 import { JourneyRepositoryError } from '@/features/journeys/api/journeys.repository'
 
@@ -157,13 +162,13 @@ async function loadCoverPreviewUrls(
   }
 
   const client = getSupabaseClient()
-  const { data: covers } = await client
+  const { data: covers, error: coversError } = await client
     .from('entry_photos')
     .select('entry_id, photo_id, position, is_cover')
     .in('entry_id', entryIds)
     .order('position')
 
-  if (covers === null || covers.length === 0) {
+  if (coversError !== null || covers.length === 0) {
     return result
   }
 
@@ -180,33 +185,35 @@ async function loadCoverPreviewUrls(
   }
 
   const photoIds = [...new Set(coverByEntry.values())]
-  const { data: variants } = await client
+  const { data: variants, error: variantsError } = await client
     .from('photo_variants')
-    .select('photo_id, storage_path')
+    .select('photo_id, storage_path, variant')
     .in('photo_id', photoIds)
-    .eq('variant', 'preview')
 
-  const pathByPhotoId = new Map(
-    (variants ?? []).map((variant) => [
-      String(variant.photo_id),
-      String(variant.storage_path),
-    ]),
-  )
+  if (variantsError !== null) {
+    return result
+  }
 
-  await Promise.all(
-    [...coverByEntry.entries()].map(async ([entryId, photoId]) => {
-      const storagePath = pathByPhotoId.get(photoId)
-      if (storagePath === undefined) {
-        return
-      }
-      const { data, error } = await client.storage
-        .from('photos')
-        .createSignedUrl(storagePath, 60 * 60)
-      if (error === null && typeof data.signedUrl === 'string') {
-        result.set(entryId, data.signedUrl)
-      }
-    }),
-  )
+  const variantsByPhotoId = groupVariantsByPhotoId(variants)
+  const storagePathByEntryId = new Map<string, string>()
+
+  for (const [entryId, photoId] of coverByEntry.entries()) {
+    const path = pickCardPhotoVariantPath(variantsByPhotoId.get(photoId) ?? [])
+    if (path !== null) {
+      storagePathByEntryId.set(entryId, path)
+    }
+  }
+
+  const signedByPath = await createSignedPhotoUrls([
+    ...storagePathByEntryId.values(),
+  ])
+
+  for (const [entryId, storagePath] of storagePathByEntryId.entries()) {
+    const signedUrl = signedByPath.get(storagePath)
+    if (signedUrl !== undefined) {
+      result.set(entryId, signedUrl)
+    }
+  }
 
   return result
 }

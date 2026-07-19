@@ -1,4 +1,5 @@
 import { Link, Stack, useLocalSearchParams } from 'expo-router'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
@@ -19,7 +20,9 @@ import {
 } from '@/features/journeys'
 import { useJourneyFullDetailQuery } from '@/features/journeys/use-journey-full-detail-query'
 import { JourneyContentSection } from '@/features/journeys/ui/JourneyContentSection'
+import { JourneyGallerySection } from '@/features/journeys/ui/JourneyGallerySection'
 import { JourneyMapSection } from '@/features/journeys/ui/JourneyMapSection'
+import { photoQueryKeys } from '@/features/photos/query-keys'
 import { useAuth } from '@/platform/auth/AuthProvider'
 import { colors, spacing } from '@/foundation/theme'
 
@@ -40,6 +43,18 @@ export default function JourneyDetailScreen() {
   const { isFetching: isStopsFetching, refetch: refetchStops } =
     useJourneyStopsQuery(userId, id)
 
+  const entryIds = useMemo(
+    () => contentData?.detail.entries.map((entry) => entry.id) ?? [],
+    [contentData],
+  )
+  const entryTitles = useMemo(() => {
+    const titles = new Map<string, string | null>()
+    for (const entry of contentData?.detail.entries ?? []) {
+      titles.set(entry.id, entry.title)
+    }
+    return titles
+  }, [contentData])
+
   function refreshAll(): void {
     void refetch()
     void refetchContent()
@@ -47,6 +62,12 @@ export default function JourneyDetailScreen() {
     if (id !== undefined) {
       void queryClient.invalidateQueries({
         queryKey: journeyQueryKeys.content(id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: photoQueryKeys.journeyGallery(id),
+      })
+      void queryClient.invalidateQueries({
+        queryKey: photoQueryKeys.journeyPhotoLocations(id),
       })
     }
   }
@@ -185,6 +206,14 @@ export default function JourneyDetailScreen() {
 
         {fullDetail !== undefined ? (
           <JourneyContentSection journey={fullDetail} />
+        ) : null}
+
+        {fullDetail !== undefined ? (
+          <JourneyGallerySection
+            entryIds={entryIds}
+            entryTitles={entryTitles}
+            journeyId={journey.id}
+          />
         ) : null}
 
         {session?.user.id !== undefined ? (

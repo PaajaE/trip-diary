@@ -29,6 +29,7 @@ proof-screenshots/
 apps/mobile/.verify-artifacts/
 apps/mobile/.verify-flows/
 apps/mobile/.verify-tmp/
+apps/mobile/.maestro-qa/
 
 # Editor directories and files
 .vscode/*

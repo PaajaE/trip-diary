@@ -34,6 +34,7 @@ export interface InMemorySQLiteDatabase extends SqlMigrationExecutor {
     journey_id: string
     payload: string
     sort_order: number
+    space_id?: string
     user_id: string
   }): void
   seedJourneyStopCacheRow(row: {
@@ -135,12 +136,20 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
     seedJourneyListCacheRow(row) {
       const table = ensureTable('journey_list_cache', [
         'user_id',
+        'space_id',
         'journey_id',
         'payload',
         'sort_order',
         'cached_at',
       ])
-      table.rows.set(`${row.user_id}:${row.journey_id}`, { ...row })
+      const spaceId =
+        typeof row.space_id === 'string' && row.space_id.length > 0
+          ? row.space_id
+          : ''
+      table.rows.set(`${row.user_id}:${spaceId}:${row.journey_id}`, {
+        ...row,
+        space_id: spaceId,
+      })
     },
 
     seedJourneyStopCacheRow(row) {
@@ -234,6 +243,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'payload',
           'sort_order',
           'cached_at',
+          'space_id',
         ])
         return
       }
@@ -241,8 +251,20 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
       if (
         normalized.includes(
           'CREATE INDEX IF NOT EXISTS idx_journey_list_cache_user_sort',
+        ) ||
+        normalized.includes(
+          'CREATE INDEX IF NOT EXISTS idx_journey_list_cache_user_space_sort',
         )
       ) {
+        return
+      }
+
+      if (
+        normalized.includes(
+          'ALTER TABLE journey_list_cache ADD COLUMN space_id',
+        )
+      ) {
+        addColumn('journey_list_cache', 'space_id', '')
         return
       }
 
@@ -285,6 +307,15 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return table.columns.map((name) => ({ name })) as T[]
       }
 
+      if (sql.includes('PRAGMA table_info(journey_list_cache)')) {
+        const table = tables.get('journey_list_cache')
+        if (table === undefined) {
+          return []
+        }
+
+        return table.columns.map((name) => ({ name })) as T[]
+      }
+
       if (sql.includes("FROM sync_queue WHERE status = 'failed'")) {
         const table = tables.get('sync_queue')
         if (table === undefined) {
@@ -306,9 +337,19 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           return []
         }
 
-        const userId = params[0]
+        const [userId, spaceId] = params as [string, string?]
         return [...table.rows.values()]
-          .filter((row) => row.user_id === userId)
+          .filter((row) => {
+            if (row.user_id !== userId) {
+              return false
+            }
+            if (spaceId !== undefined) {
+              const rowSpaceId =
+                typeof row.space_id === 'string' ? row.space_id : ''
+              return rowSpaceId === spaceId
+            }
+            return true
+          })
           .sort(
             (left, right) => Number(left.sort_order) - Number(right.sort_order),
           )
@@ -319,6 +360,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
                 journey_id: row.journey_id,
                 payload: row.payload,
                 sort_order: row.sort_order,
+                space_id: row.space_id ?? '',
               }) as T,
           )
       }
@@ -406,23 +448,20 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
       if (sql.includes('INSERT INTO journey_list_cache')) {
         const table = ensureTable('journey_list_cache', [
           'user_id',
+          'space_id',
           'journey_id',
           'payload',
           'sort_order',
           'cached_at',
         ])
-        const [userId, journeyId, payload, sortOrder, cachedAt] = params as [
-          string,
-          string,
-          string,
-          number,
-          string,
-        ]
-        table.rows.set(`${userId}:${journeyId}`, {
+        const [userId, spaceId, journeyId, payload, sortOrder, cachedAt] =
+          params as [string, string, string, string, number, string]
+        table.rows.set(`${userId}:${spaceId}:${journeyId}`, {
           cached_at: cachedAt,
           journey_id: journeyId,
           payload,
           sort_order: sortOrder,
+          space_id: spaceId,
           user_id: userId,
         })
         return { changes: 1 }
@@ -575,6 +614,42 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         const [id] = params as [string]
         const existed = table?.rows.delete(id) ?? false
         return { changes: existed ? 1 : 0 }
+      }
+
+      if (
+        sql.includes(
+          'DELETE FROM journey_list_cache WHERE user_id = ? AND space_id = ? AND journey_id = ?',
+        )
+      ) {
+        const table = tables.get('journey_list_cache')
+        const [userId, spaceId, journeyId] = params as [string, string, string]
+        const existed =
+          table?.rows.delete(`${userId}:${spaceId}:${journeyId}`) ?? false
+        return { changes: existed ? 1 : 0 }
+      }
+
+      if (
+        sql.includes(
+          'DELETE FROM journey_list_cache WHERE user_id = ? AND space_id = ?',
+        )
+      ) {
+        const table = tables.get('journey_list_cache')
+        const [userId, spaceId] = params as [string, string]
+        if (table === undefined) {
+          return { changes: 0 }
+        }
+
+        let changes = 0
+        for (const [key, row] of table.rows.entries()) {
+          const rowSpaceId =
+            typeof row.space_id === 'string' ? row.space_id : ''
+          if (row.user_id === userId && rowSpaceId === spaceId) {
+            table.rows.delete(key)
+            changes += 1
+          }
+        }
+
+        return { changes }
       }
 
       if (sql.includes('DELETE FROM journey_list_cache WHERE user_id = ?')) {

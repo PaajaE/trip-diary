@@ -25,7 +25,7 @@ import { colors, spacing } from '@/foundation/theme'
 interface JourneyManagePanelProps {
   journey: JourneyFullDetail
   onChanged: () => void
-  onDeleted: () => void
+  onDeleted: () => void | Promise<void>
 }
 
 export function JourneyManagePanel({
@@ -181,10 +181,22 @@ export function JourneyManagePanel({
                   style: 'destructive',
                   text: t('journey.deleteTripAction'),
                   onPress: () => {
-                    void runMutation(async () => {
-                      await deleteJourneyRemote(journey.id)
-                      onDeleted()
-                    })
+                    void (async () => {
+                      setBusy(true)
+                      setError(null)
+                      try {
+                        await deleteJourneyRemote(journey.id)
+                        await onDeleted()
+                      } catch (mutationError) {
+                        setError(
+                          mutationError instanceof Error
+                            ? mutationError.message
+                            : t('journey.addError'),
+                        )
+                      } finally {
+                        setBusy(false)
+                      }
+                    })()
                   },
                 },
               ],

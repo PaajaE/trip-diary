@@ -46,6 +46,10 @@ export default function AppGroupLayout() {
         name="index"
         options={{ title: t('dashboard.yourTrips') }}
       />
+      <Stack.Screen
+        name="journey/new"
+        options={{ title: t('journey.createTitle') }}
+      />
       <Stack.Screen name="journey/[id]" options={{ headerShown: false }} />
       {__DEV__ ? (
         <Stack.Screen

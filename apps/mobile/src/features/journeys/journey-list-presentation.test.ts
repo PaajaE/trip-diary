@@ -26,6 +26,7 @@ function loadResult(
     isOffline: false,
     journeys: [sampleJourney],
     refreshFailed: false,
+    spaceId: 'space-1',
     ...overrides,
   }
 }
@@ -63,6 +64,7 @@ describe('journey list presentation', () => {
         isOffline: true,
         journeys: [],
       }),
+      spaceResolved: true,
       supabaseConfigured: true,
     })
 
@@ -76,6 +78,7 @@ describe('journey list presentation', () => {
         isAuthoritativeEmpty: true,
         journeys: [],
       }),
+      spaceResolved: true,
       supabaseConfigured: true,
     })
 
@@ -94,7 +97,8 @@ describe('journey list presentation', () => {
         isOnline: false,
         journeysCount: 1,
         result: loadResult({ isFromCache: true, isOffline: true }),
-        supabaseConfigured: true,
+        spaceResolved: true,
+      supabaseConfigured: true,
       }).showCachedBanner,
     ).toBe(true)
 
@@ -106,7 +110,8 @@ describe('journey list presentation', () => {
         isOnline: true,
         journeysCount: 1,
         result: loadResult({ isFromCache: true, refreshFailed: true }),
-        supabaseConfigured: true,
+        spaceResolved: true,
+      supabaseConfigured: true,
       }).showCachedBanner,
     ).toBe(true)
   })
@@ -120,7 +125,8 @@ describe('journey list presentation', () => {
         isOnline: true,
         journeysCount: 0,
         result: undefined,
-        supabaseConfigured: true,
+        spaceResolved: true,
+      supabaseConfigured: true,
       }).showRemoteError,
     ).toBe(true)
 
@@ -132,7 +138,8 @@ describe('journey list presentation', () => {
         isOnline: true,
         journeysCount: 1,
         result: loadResult({ isFromCache: true, refreshFailed: true }),
-        supabaseConfigured: true,
+        spaceResolved: true,
+      supabaseConfigured: true,
       }).showRemoteError,
     ).toBe(false)
   })

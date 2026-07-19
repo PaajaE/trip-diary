@@ -60,7 +60,7 @@ describe('mobile database bootstrap', () => {
   it('applies all migrations on a fresh database', async () => {
     await initializeMobileDatabase()
 
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
     expect(memoryDb.getTableRowCount('journey_cache')).toBe(0)
     expect(memoryDb.getTableRowCount('sync_queue')).toBe(0)
     expect(memoryDb.getTableRowCount('journey_list_cache')).toBe(0)
@@ -75,7 +75,7 @@ describe('mobile database bootstrap', () => {
     await initializeMobileDatabase()
     await getMobileDatabase()
 
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
   })
 
   it('shares one migration run across concurrent initialization calls', async () => {
@@ -87,7 +87,7 @@ describe('mobile database bootstrap', () => {
 
     expect(first).toBe(second)
     expect(second).toBe(third)
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
   })
 
   it('upgrades a Stage 3 database without losing journey cache or queue data', async () => {
@@ -114,7 +114,7 @@ describe('mobile database bootstrap', () => {
 
     await getMobileDatabase()
 
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
     expect(memoryDb.getJourneyCacheRow('journey-legacy')?.payload).toBe(
       sampleJourneyPayload,
     )
@@ -148,7 +148,7 @@ describe('mobile database bootstrap', () => {
   it('does not re-run completed migrations', async () => {
     await runSqlMigrations(memoryDb, MOBILE_SQL_MIGRATIONS)
     expect(await runSqlMigrations(memoryDb, MOBILE_SQL_MIGRATIONS)).toBe(0)
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
   })
 
   it('does not record a migration when it fails', async () => {
@@ -167,7 +167,7 @@ describe('mobile database bootstrap', () => {
     ).rejects.toBeInstanceOf(SqlMigrationError)
 
     expect(memoryDb.getMigrationIds()).not.toContain(99)
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
   })
 
   it('allows a later initialization retry after a failed open attempt', async () => {
@@ -182,7 +182,7 @@ describe('mobile database bootstrap', () => {
 
     resetMobileDatabaseForTests()
     await expect(getMobileDatabase()).resolves.toBe(memoryDb)
-    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5])
+    expect(memoryDb.getMigrationIds()).toEqual([1, 2, 3, 4, 5, 6])
   })
 })
 

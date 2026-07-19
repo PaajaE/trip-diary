@@ -32,16 +32,6 @@ const sampleItem = {
   updatedAt: '2026-07-10T08:00:00.000+00:00',
 }
 
-const legacyListCachePayload = JSON.stringify({
-  ends_at: '2026-07-20',
-  id: sampleItem.id,
-  starts_at: '2026-07-10',
-  status: 'active',
-  summary: 'Coastal route',
-  title: 'Summer trip',
-  updated_at: '2026-07-10T08:00:00.000+00:00',
-})
-
 describe('journey list cache repository', () => {
   beforeEach(async () => {
     memoryDb.reset()
@@ -49,127 +39,119 @@ describe('journey list cache repository', () => {
     await getMobileDatabase()
   })
 
-  it('returns an empty snapshot for a user with no cached rows', async () => {
-    await expect(readCachedJourneyList('user-a')).resolves.toEqual({
+  it('returns an empty snapshot for a user/space with no cached rows', async () => {
+    await expect(readCachedJourneyList('user-a', 'space-a')).resolves.toEqual({
       cachedAt: null,
       journeys: [],
+      spaceId: 'space-a',
     })
   })
 
-  it('reads cached journeys scoped to the requested user', async () => {
-    await replaceCachedJourneyList('user-a', [sampleItem])
-    await replaceCachedJourneyList('user-b', [
+  it('scopes cached journeys by user and space', async () => {
+    await replaceCachedJourneyList('user-a', 'space-a', [sampleItem])
+    await replaceCachedJourneyList('user-a', 'space-b', [
       {
         ...sampleItem,
         id: '22222222-2222-4222-8222-222222222222',
-        title: 'Other user trip',
+        title: 'Other space trip',
         updatedAt: '2026-07-11T08:00:00.000+00:00',
       },
     ])
+    await replaceCachedJourneyList('user-b', 'space-a', [
+      {
+        ...sampleItem,
+        id: '33333333-3333-4333-8333-333333333333',
+        title: 'Other user trip',
+        updatedAt: '2026-07-12T08:00:00.000+00:00',
+      },
+    ])
 
-    await expect(readCachedJourneyList('user-a')).resolves.toMatchObject({
+    await expect(
+      readCachedJourneyList('user-a', 'space-a'),
+    ).resolves.toMatchObject({
       journeys: [{ id: sampleItem.id, title: 'Summer trip' }],
+      spaceId: 'space-a',
     })
-    await expect(readCachedJourneyList('user-b')).resolves.toMatchObject({
+    await expect(
+      readCachedJourneyList('user-a', 'space-b'),
+    ).resolves.toMatchObject({
       journeys: [
         {
           id: '22222222-2222-4222-8222-222222222222',
+          title: 'Other space trip',
+        },
+      ],
+      spaceId: 'space-b',
+    })
+    await expect(
+      readCachedJourneyList('user-b', 'space-a'),
+    ).resolves.toMatchObject({
+      journeys: [
+        {
+          id: '33333333-3333-4333-8333-333333333333',
           title: 'Other user trip',
         },
       ],
     })
   })
 
-  it('reads legacy pre-H7 snake_case list cache payloads', async () => {
-    memoryDb.seedJourneyListCacheRow({
-      cached_at: '2026-07-10T08:00:00.000Z',
-      journey_id: sampleItem.id,
-      payload: legacyListCachePayload,
-      sort_order: 0,
-      user_id: 'user-a',
-    })
-
-    await expect(readCachedJourneyList('user-a')).resolves.toMatchObject({
-      journeys: [
-        { id: sampleItem.id, title: 'Summer trip', startsAt: '2026-07-10' },
-      ],
-    })
-  })
-
-  it('replaces the cached snapshot and removes journeys no longer present remotely', async () => {
-    await replaceCachedJourneyList('user-a', [
-      sampleItem,
+  it('replaces only the matching user/space cache on empty remote success', async () => {
+    await replaceCachedJourneyList('user-a', 'space-a', [sampleItem])
+    await replaceCachedJourneyList('user-a', 'space-b', [
       {
         ...sampleItem,
         id: '22222222-2222-4222-8222-222222222222',
-        title: 'Old trip',
-        updatedAt: '2026-07-09T08:00:00.000+00:00',
+        title: 'Other space trip',
       },
     ])
 
-    await replaceCachedJourneyList('user-a', [sampleItem])
+    await replaceCachedJourneyList('user-a', 'space-a', [])
 
-    const snapshot = await readCachedJourneyList('user-a')
-    expect(snapshot.journeys).toHaveLength(1)
-    expect(snapshot.journeys[0]?.id).toBe(sampleItem.id)
-    expect(memoryDb.getJourneyListCacheRowsForUser('user-a')).toHaveLength(1)
-  })
-
-  it('clears cached rows when an authoritative empty list is stored', async () => {
-    await replaceCachedJourneyList('user-a', [sampleItem])
-    await replaceCachedJourneyList('user-a', [])
-
-    await expect(readCachedJourneyList('user-a')).resolves.toEqual({
+    await expect(readCachedJourneyList('user-a', 'space-a')).resolves.toEqual({
       cachedAt: null,
       journeys: [],
+      spaceId: 'space-a',
+    })
+    await expect(
+      readCachedJourneyList('user-a', 'space-b'),
+    ).resolves.toMatchObject({
+      journeys: [{ title: 'Other space trip' }],
     })
   })
 
-  it('skips malformed cached rows without failing the entire read', async () => {
-    memoryDb.seedJourneyListCacheRow({
-      cached_at: '2026-07-10T08:00:00.000Z',
-      journey_id: sampleItem.id,
-      payload: legacyListCachePayload,
-      sort_order: 0,
-      user_id: 'user-a',
-    })
-    memoryDb.seedJourneyListCacheRow({
-      cached_at: '2026-07-10T08:00:00.000Z',
-      journey_id: 'broken-json',
-      payload: '{not-json',
-      sort_order: 1,
-      user_id: 'user-a',
-    })
-    memoryDb.seedJourneyListCacheRow({
-      cached_at: '2026-07-10T08:00:00.000Z',
-      journey_id: 'broken-shape',
-      payload: JSON.stringify({ id: 'missing-title' }),
-      sort_order: 2,
-      user_id: 'user-a',
-    })
-
-    await expect(readCachedJourneyList('user-a')).resolves.toMatchObject({
-      journeys: [{ id: sampleItem.id }],
-    })
-  })
-
-  it('clears only the requested user cache', async () => {
-    await replaceCachedJourneyList('user-a', [sampleItem])
-    await replaceCachedJourneyList('user-b', [
+  it('clearCachedJourneyListForUser removes every space for that user', async () => {
+    await replaceCachedJourneyList('user-a', 'space-a', [sampleItem])
+    await replaceCachedJourneyList('user-a', 'space-b', [
       {
         ...sampleItem,
         id: '22222222-2222-4222-8222-222222222222',
-        updatedAt: '2026-07-11T08:00:00.000+00:00',
+        title: 'Other space trip',
+      },
+    ])
+    await replaceCachedJourneyList('user-b', 'space-a', [
+      {
+        ...sampleItem,
+        id: '33333333-3333-4333-8333-333333333333',
+        title: 'Other user trip',
       },
     ])
 
     await clearCachedJourneyListForUser('user-a')
 
-    await expect(readCachedJourneyList('user-a')).resolves.toMatchObject({
+    await expect(readCachedJourneyList('user-a', 'space-a')).resolves.toEqual({
+      cachedAt: null,
       journeys: [],
+      spaceId: 'space-a',
     })
-    await expect(readCachedJourneyList('user-b')).resolves.toMatchObject({
-      journeys: [{ id: '22222222-2222-4222-8222-222222222222' }],
+    await expect(readCachedJourneyList('user-a', 'space-b')).resolves.toEqual({
+      cachedAt: null,
+      journeys: [],
+      spaceId: 'space-b',
+    })
+    await expect(
+      readCachedJourneyList('user-b', 'space-a'),
+    ).resolves.toMatchObject({
+      journeys: [{ title: 'Other user trip' }],
     })
   })
 })

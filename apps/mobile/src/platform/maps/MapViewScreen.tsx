@@ -27,6 +27,14 @@ export interface MapStopMarker {
   title: string
 }
 
+export interface MapPhotoMarker {
+  accessibilityLabel: string
+  id: string
+  latitude: number
+  longitude: number
+  title: string
+}
+
 interface MapCoordinate {
   latitude: number
   longitude: number
@@ -37,6 +45,7 @@ interface MapViewScreenProps {
   latitude?: number
   longitude?: number
   markers?: MapStopMarker[]
+  photoMarkers?: MapPhotoMarker[]
   useDeviceLocationFallback?: boolean
 }
 
@@ -81,11 +90,16 @@ function JourneyStopMarkerView({
   return <View style={styles.markerPlanned} />
 }
 
+function JourneyPhotoMarkerView() {
+  return <View style={styles.markerPhoto} />
+}
+
 export function MapViewScreen({
   camera = null,
   latitude: propLatitude,
   longitude: propLongitude,
   markers = [],
+  photoMarkers = [],
   useDeviceLocationFallback = false,
 }: MapViewScreenProps = {}) {
   const mapConfig = useMemo(
@@ -102,7 +116,7 @@ export function MapViewScreen({
     useState(false)
   const [deviceCenter, setDeviceCenter] = useState<MapCoordinate | null>(null)
 
-  const journeyMode = camera !== null || markers.length > 0
+  const journeyMode = camera !== null || markers.length > 0 || photoMarkers.length > 0
   const shouldUseDeviceLocation = shouldRequestDeviceLocation({
     journeyMode,
     propCenterAvailable: toMapCoordinate(propLatitude, propLongitude) !== null,
@@ -238,6 +252,22 @@ export function MapViewScreen({
             </View>
           </PointAnnotation>
         ))}
+
+        {photoMarkers.map((marker) => (
+          <PointAnnotation
+            key={`photo-${marker.id}`}
+            coordinate={[marker.longitude, marker.latitude]}
+            id={`journey-photo-${marker.id}`}
+            title={marker.title}
+          >
+            <View
+              accessibilityLabel={marker.accessibilityLabel}
+              accessibilityRole="image"
+            >
+              <JourneyPhotoMarkerView />
+            </View>
+          </PointAnnotation>
+        ))}
       </MapView>
       <View style={styles.attribution}>
         <Text style={styles.attributionText}>
@@ -278,6 +308,14 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     height: 16,
     width: 16,
+  },
+  markerPhoto: {
+    backgroundColor: '#c45c26',
+    borderColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 2,
+    height: 14,
+    width: 14,
   },
   markerVisitedInner: {
     backgroundColor: '#ffffff',

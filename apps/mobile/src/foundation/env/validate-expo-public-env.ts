@@ -1,4 +1,8 @@
-import { readExpoPublicEnv, type MobilePublicEnv } from '@/platform/env'
+import {
+  expoPublicEnvFromProcess,
+  readExpoPublicEnv,
+  type MobilePublicEnv,
+} from '@/platform/env'
 
 const REQUIRED_EXPO_PUBLIC_VARS = [
   'EXPO_PUBLIC_SUPABASE_URL',
@@ -29,7 +33,7 @@ function collectMissingVars(raw: Record<string, unknown>): readonly string[] {
 }
 
 export function validateExpoPublicEnv(
-  raw: Record<string, unknown> = process.env,
+  raw: Record<string, unknown> = expoPublicEnvFromProcess(),
 ): MobilePublicEnv {
   const missingVars = collectMissingVars(raw)
   if (missingVars.length > 0) {

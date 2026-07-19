@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native'
 import { useAuth } from '@/platform/auth/AuthProvider'
 import { fetchJourneyListRemote } from '@/features/journeys/api/journeys.repository'
+import { resolveDefaultSpaceId } from '@/features/spaces/api/spaces.repository'
 import {
   capturePhoto,
   createPhotoId,
@@ -65,14 +66,20 @@ export default function DevChecklistScreen() {
   >(null)
 
   useEffect(() => {
-    void fetchJourneyListRemote()
+    if (user?.id === undefined) {
+      setJourneyId(null)
+      return
+    }
+
+    void resolveDefaultSpaceId(user.id)
+      .then((spaceId) => fetchJourneyListRemote(spaceId))
       .then((journeys) => {
         setJourneyId(journeys[0]?.id ?? null)
       })
       .catch(() => {
         setJourneyId(null)
       })
-  }, [])
+  }, [user?.id])
 
   function append(message: string): void {
     setLog((current) => `${current}\n${message}`)

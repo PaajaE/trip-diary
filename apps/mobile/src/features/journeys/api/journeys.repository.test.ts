@@ -79,33 +79,56 @@ describe('fetchJourneyListRemote', () => {
     mockIsSupabaseConfigured.mockReturnValue(true)
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: [
-              {
-                ends_at: sampleListItem.endsAt,
-                id: sampleListItem.id,
-                starts_at: sampleListItem.startsAt,
-                status: sampleListItem.status,
-                summary: sampleListItem.summary,
-                title: sampleListItem.title,
-                updated_at: sampleListItem.updatedAt,
-              },
-            ],
-            error: null,
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  ends_at: sampleListItem.endsAt,
+                  id: sampleListItem.id,
+                  starts_at: sampleListItem.startsAt,
+                  status: sampleListItem.status,
+                  summary: sampleListItem.summary,
+                  title: sampleListItem.title,
+                  updated_at: sampleListItem.updatedAt,
+                },
+              ],
+              error: null,
+            }),
           }),
         }),
       }),
     })
 
-    await expect(fetchJourneyListRemote()).resolves.toEqual([sampleListItem])
+    await expect(fetchJourneyListRemote('space-a')).resolves.toEqual([sampleListItem])
   })
 
   it('throws NOT_CONFIGURED when Supabase env is missing', async () => {
     mockIsSupabaseConfigured.mockReturnValue(false)
 
-    await expect(fetchJourneyListRemote()).rejects.toMatchObject({
+    await expect(fetchJourneyListRemote('space-a')).rejects.toMatchObject({
       code: 'NOT_CONFIGURED',
+    } satisfies Partial<JourneyRepositoryError>)
+  })
+
+  it('throws FETCH_FAILED when Supabase returns a non-array payload', async () => {
+    mockIsSupabaseConfigured.mockReturnValue(true)
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: null,
+              error: null,
+            }),
+          }),
+        }),
+      }),
+    })
+
+    await expect(fetchJourneyListRemote('space-a')).rejects.toMatchObject({
+      code: 'FETCH_FAILED',
+      message: 'Journey list response was incomplete.',
     } satisfies Partial<JourneyRepositoryError>)
   })
 
@@ -113,16 +136,18 @@ describe('fetchJourneyListRemote', () => {
     mockIsSupabaseConfigured.mockReturnValue(true)
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Network error' },
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Network error' },
+            }),
           }),
         }),
       }),
     })
 
-    await expect(fetchJourneyListRemote()).rejects.toMatchObject({
+    await expect(fetchJourneyListRemote('space-a')).rejects.toMatchObject({
       code: 'FETCH_FAILED',
       message: 'Network error',
     } satisfies Partial<JourneyRepositoryError>)
@@ -143,6 +168,7 @@ describe('loadJourneyList', () => {
   it('returns cached journeys when offline without attempting remote fetch', async () => {
     const result = await loadJourneyList({
       isOnline: false,
+      spaceId: 'space-a',
       userId: 'user-a',
     })
 
@@ -158,20 +184,22 @@ describe('loadJourneyList', () => {
   it('replaces the cache after a successful online refresh', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: [
-              {
-                ends_at: sampleListItem.endsAt,
-                id: sampleListItem.id,
-                starts_at: sampleListItem.startsAt,
-                status: sampleListItem.status,
-                summary: sampleListItem.summary,
-                title: sampleListItem.title,
-                updated_at: sampleListItem.updatedAt,
-              },
-            ],
-            error: null,
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  ends_at: sampleListItem.endsAt,
+                  id: sampleListItem.id,
+                  starts_at: sampleListItem.startsAt,
+                  status: sampleListItem.status,
+                  summary: sampleListItem.summary,
+                  title: sampleListItem.title,
+                  updated_at: sampleListItem.updatedAt,
+                },
+              ],
+              error: null,
+            }),
           }),
         }),
       }),
@@ -179,42 +207,25 @@ describe('loadJourneyList', () => {
 
     const result = await loadJourneyList({
       isOnline: true,
+      spaceId: 'space-a',
       userId: 'user-a',
     })
 
     expect(result.journeys).toEqual([sampleListItem])
     expect(result.isFromCache).toBe(false)
-    expect(mockReplaceCachedJourneyList).toHaveBeenCalledWith('user-a', [
-      sampleListItem,
-    ])
+    expect(mockReplaceCachedJourneyList).toHaveBeenCalledWith(
+      'user-a',
+      'space-a',
+      [sampleListItem],
+    )
   })
 
   it('clears cached rows when the remote list is authoritatively empty', async () => {
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({ data: [], error: null }),
-        }),
-      }),
-    })
-
-    const result = await loadJourneyList({
-      isOnline: true,
-      userId: 'user-a',
-    })
-
-    expect(result.journeys).toEqual([])
-    expect(result.isAuthoritativeEmpty).toBe(true)
-    expect(mockReplaceCachedJourneyList).toHaveBeenCalledWith('user-a', [])
-  })
-
-  it('preserves cached journeys when a remote refresh fails', async () => {
-    mockFrom.mockReturnValue({
-      select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Network error' },
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({ data: [], error: null }),
           }),
         }),
       }),
@@ -222,6 +233,36 @@ describe('loadJourneyList', () => {
 
     const result = await loadJourneyList({
       isOnline: true,
+      spaceId: 'space-a',
+      userId: 'user-a',
+    })
+
+    expect(result.journeys).toEqual([])
+    expect(result.isAuthoritativeEmpty).toBe(true)
+    expect(mockReplaceCachedJourneyList).toHaveBeenCalledWith(
+      'user-a',
+      'space-a',
+      [],
+    )
+  })
+
+  it('preserves cached journeys when a remote refresh fails', async () => {
+    mockFrom.mockReturnValue({
+      select: vi.fn().mockReturnValue({
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Network error' },
+            }),
+          }),
+        }),
+      }),
+    })
+
+    const result = await loadJourneyList({
+      isOnline: true,
+      spaceId: 'space-a',
       userId: 'user-a',
     })
 
@@ -240,10 +281,12 @@ describe('loadJourneyList', () => {
     })
     mockFrom.mockReturnValue({
       select: vi.fn().mockReturnValue({
-        order: vi.fn().mockReturnValue({
-          limit: vi.fn().mockResolvedValue({
-            data: null,
-            error: { message: 'Network error' },
+        eq: vi.fn().mockReturnValue({
+          order: vi.fn().mockReturnValue({
+            limit: vi.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Network error' },
+            }),
           }),
         }),
       }),
@@ -252,6 +295,7 @@ describe('loadJourneyList', () => {
     await expect(
       loadJourneyList({
         isOnline: true,
+        spaceId: 'space-a',
         userId: 'user-a',
       }),
     ).rejects.toMatchObject({

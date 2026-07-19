@@ -38,6 +38,7 @@ export interface JourneyListLoadResult {
   isOffline: boolean
   journeys: JourneyListItem[]
   refreshFailed: boolean
+  spaceId: string
 }
 
 export type { JourneyListItem } from '@/features/journeys/model/journey-list-item'
@@ -46,7 +47,9 @@ function mapRemoteListRow(row: Record<string, unknown>): JourneyListItem {
   return toJourneyListItem(parseJourneyListItemFromRemoteRecord(row))
 }
 
-export async function fetchJourneyListRemote(): Promise<JourneyListItem[]> {
+export async function fetchJourneyListRemote(
+  spaceId: string,
+): Promise<JourneyListItem[]> {
   if (!isSupabaseConfigured()) {
     throw new JourneyRepositoryError(
       'Supabase is not configured.',
@@ -57,6 +60,7 @@ export async function fetchJourneyListRemote(): Promise<JourneyListItem[]> {
   const { data, error } = await getSupabaseClient()
     .from('journeys')
     .select('id, title, summary, starts_at, ends_at, status, updated_at')
+    .eq('space_id', spaceId)
     .order('updated_at', { ascending: false })
     .limit(20)
 
@@ -64,23 +68,32 @@ export async function fetchJourneyListRemote(): Promise<JourneyListItem[]> {
     throw new JourneyRepositoryError(error.message, 'FETCH_FAILED')
   }
 
+  if (!Array.isArray(data)) {
+    throw new JourneyRepositoryError(
+      'Journey list response was incomplete.',
+      'FETCH_FAILED',
+    )
+  }
+
   return data.map((row) => mapRemoteListRow(row))
 }
 
 export async function loadJourneyList(input: {
   isOnline: boolean
+  spaceId: string
   userId: string
 }): Promise<JourneyListLoadResult> {
-  const cached = await readCachedJourneyList(input.userId)
+  const cached = await readCachedJourneyList(input.userId, input.spaceId)
 
   if (!isSupabaseConfigured()) {
     return {
       cachedAt: cached.cachedAt,
-      isAuthoritativeEmpty: cached.journeys.length === 0,
+      isAuthoritativeEmpty: false,
       isFromCache: cached.journeys.length > 0,
       isOffline: true,
       journeys: cached.journeys,
       refreshFailed: false,
+      spaceId: input.spaceId,
     }
   }
 
@@ -92,13 +105,15 @@ export async function loadJourneyList(input: {
       isOffline: true,
       journeys: cached.journeys,
       refreshFailed: false,
+      spaceId: input.spaceId,
     }
   }
 
   try {
-    const remote = await fetchJourneyListRemote()
+    const remote = await fetchJourneyListRemote(input.spaceId)
     await replaceCachedJourneyList(
       input.userId,
+      input.spaceId,
       remote.map((journey) => assertCachedJourneyListItem(journey)),
     )
 
@@ -109,6 +124,7 @@ export async function loadJourneyList(input: {
       isOffline: false,
       journeys: remote,
       refreshFailed: false,
+      spaceId: input.spaceId,
     }
   } catch (error) {
     if (cached.journeys.length > 0) {
@@ -119,6 +135,7 @@ export async function loadJourneyList(input: {
         isOffline: false,
         journeys: cached.journeys,
         refreshFailed: true,
+        spaceId: input.spaceId,
       }
     }
 
@@ -127,8 +144,10 @@ export async function loadJourneyList(input: {
 }
 
 /** @deprecated Use fetchJourneyListRemote or loadJourneyList */
-export async function fetchJourneyList(): Promise<JourneyListItem[]> {
-  return fetchJourneyListRemote()
+export async function fetchJourneyList(
+  spaceId: string,
+): Promise<JourneyListItem[]> {
+  return fetchJourneyListRemote(spaceId)
 }
 
 export async function fetchJourneyDetail(

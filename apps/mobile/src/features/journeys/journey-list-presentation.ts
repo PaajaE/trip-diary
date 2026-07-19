@@ -6,6 +6,7 @@ export interface JourneyListPresentation {
   showInitialLoading: boolean
   showOfflineUnavailable: boolean
   showRemoteError: boolean
+  showSpaceUnresolved: boolean
   statusMessageKey: string | null
 }
 
@@ -36,9 +37,16 @@ export function resolveJourneyListPresentation(input: {
   isOnline: boolean
   journeysCount: number
   result: JourneyListLoadResult | undefined
+  spaceResolved: boolean
   supabaseConfigured: boolean
 }): JourneyListPresentation {
   const { result, journeysCount } = input
+  const showSpaceUnresolved =
+    input.supabaseConfigured &&
+    input.isOnline &&
+    !input.spaceResolved &&
+    !input.isLoading &&
+    journeysCount === 0
   const showCachedBanner =
     result?.isFromCache === true && (result.isOffline || result.refreshFailed)
   const showOfflineUnavailable =
@@ -47,14 +55,21 @@ export function resolveJourneyListPresentation(input: {
     input.isFetched &&
     !input.isLoading
   const showAuthoritativeEmpty =
-    result?.isAuthoritativeEmpty === true && journeysCount === 0
+    input.spaceResolved &&
+    result?.isAuthoritativeEmpty === true &&
+    journeysCount === 0 &&
+    !input.isError
   const showInitialLoading =
-    input.isLoading && journeysCount === 0 && !showOfflineUnavailable
+    (input.isLoading || !input.spaceResolved) &&
+    journeysCount === 0 &&
+    !showOfflineUnavailable &&
+    !showSpaceUnresolved
   const showRemoteError =
     input.isError &&
     journeysCount === 0 &&
     input.isOnline &&
-    input.supabaseConfigured
+    input.supabaseConfigured &&
+    input.spaceResolved
 
   return {
     showAuthoritativeEmpty,
@@ -62,6 +77,7 @@ export function resolveJourneyListPresentation(input: {
     showInitialLoading,
     showOfflineUnavailable,
     showRemoteError,
+    showSpaceUnresolved,
     statusMessageKey: resolveStatusMessageKey(result),
   }
 }
