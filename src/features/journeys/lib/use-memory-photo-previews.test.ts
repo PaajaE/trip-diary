@@ -47,7 +47,7 @@ describe('useMemoryPhotoPreviews', () => {
     capacitorState.isNative = true
     const file = new File(['original'], 'photo.jpg', { type: 'image/jpeg' })
 
-    const { result, rerender } = renderHook(
+    const { result, rerender, unmount } = renderHook(
       ({ detectedPhotos }) =>
         useMemoryPhotoPreviews([{ file }], detectedPhotos),
       {
@@ -65,5 +65,10 @@ describe('useMemoryPhotoPreviews', () => {
       expect(result.current).toHaveLength(1)
     })
     expect(result.current[0]?.url).toMatch(/^data:image\/jpeg;base64,/)
+
+    // Flush async preview work before jsdom teardown — otherwise React's
+    // scheduler can throw "window is not defined" as an unhandled error.
+    unmount()
+    await Promise.resolve()
   })
 })

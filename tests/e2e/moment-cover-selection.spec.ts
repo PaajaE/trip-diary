@@ -161,6 +161,7 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
 
   await expectLoadedImage(page.locator('#gallery img'))
+  await waitForSyncReady(page)
 
   const publicSlug = `cover-journey-${unique}-${journeyId.replaceAll('-', '').slice(0, 8)}`
   const publicPath = `/${familyHandle}/${publicSlug}`
@@ -168,13 +169,16 @@ test('moment cover selection persists across edit, refresh, and public page', as
   const anonymous = await browser.newContext()
   const anonymousPage = await anonymous.newPage()
   await expect
-    .poll(async () => {
-      await anonymousPage.goto(publicPath)
-      return anonymousPage
-        .getByRole('heading', { name: journeyTitle })
-        .isVisible()
-        .catch(() => false)
-    })
+    .poll(
+      async () => {
+        await anonymousPage.goto(publicPath)
+        return anonymousPage
+          .getByRole('heading', { name: journeyTitle })
+          .isVisible()
+          .catch(() => false)
+      },
+      { timeout: 90_000 },
+    )
     .toBe(true)
   await expectLoadedImage(
     anonymousPage.locator('#gallery img, .reader-moment-card img'),

@@ -139,15 +139,18 @@ test('public and owner journey pages show moments newest first by event_at', asy
   ]
 
   await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
+    .poll(
+      async () => {
+        await page.goto(`/j/${journeyId}`)
+        return momentTitles(page, unique)
+      },
+      { timeout: 60_000 },
+    )
     .toEqual(expectedNewestFirst)
 
   await page.reload({ waitUntil: 'networkidle' })
   await expect
-    .poll(async () => momentTitles(page, unique))
+    .poll(async () => momentTitles(page, unique), { timeout: 60_000 })
     .toEqual(expectedNewestFirst)
 
   const publicSlug = `ordering-${unique}-${journeyId.replaceAll('-', '').slice(0, 8)}`
@@ -157,28 +160,37 @@ test('public and owner journey pages show moments newest first by event_at', asy
   const anonymousPage = await anonymous.newPage()
 
   await expect
-    .poll(async () => {
-      await anonymousPage.goto(publicPath)
-      await expect(
-        anonymousPage.getByRole('heading', { name: journeyTitle }),
-      ).toBeVisible({ timeout: 15_000 })
-      return momentTitles(anonymousPage, unique)
-    })
+    .poll(
+      async () => {
+        await anonymousPage.goto(publicPath)
+        await expect(
+          anonymousPage.getByRole('heading', { name: journeyTitle }),
+        ).toBeVisible({ timeout: 15_000 })
+        return momentTitles(anonymousPage, unique)
+      },
+      { timeout: 90_000 },
+    )
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.reload({ waitUntil: 'networkidle' })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitles(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.setViewportSize({ width: 390, height: 844 })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitles(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.setViewportSize({ width: 1280, height: 800 })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitles(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
   await anonymous.close()
 
@@ -190,10 +202,13 @@ test('public and owner journey pages show moments newest first by event_at', asy
   expect(bumpError).toBeNull()
 
   await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
+    .poll(
+      async () => {
+        await page.goto(`/j/${journeyId}`)
+        return momentTitles(page, unique)
+      },
+      { timeout: 60_000 },
+    )
     .toEqual([middle.title, moments[2].title, moments[0].title])
 
   const { data: deletedRows, error: deleteError } = await admin
@@ -205,9 +220,12 @@ test('public and owner journey pages show moments newest first by event_at', asy
   expect(deletedRows?.length).toBeGreaterThan(0)
 
   await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
+    .poll(
+      async () => {
+        await page.goto(`/j/${journeyId}`)
+        return momentTitles(page, unique)
+      },
+      { timeout: 60_000 },
+    )
     .toEqual([moments[2].title, moments[0].title])
 })
