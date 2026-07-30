@@ -10,10 +10,8 @@ async function expectLoadedImage(image: Locator): Promise<void> {
       async () => {
         try {
           return await image.first().evaluate((element) => {
-            if (!(element instanceof HTMLImageElement)) {
-              return 0
-            }
-            return element.naturalWidth
+            const width = (element as { naturalWidth?: number }).naturalWidth
+            return typeof width === 'number' ? width : 0
           })
         } catch {
           return 0
