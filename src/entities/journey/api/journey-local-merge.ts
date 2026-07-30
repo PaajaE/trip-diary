@@ -144,7 +144,14 @@ export async function applyLocalJourneyDeltas(
       return {
         body: localEntry?.body ?? entry.body,
         createdAt: localEntry?.createdAt ?? entry.createdAt,
-        eventAt: localEntry?.eventAt ?? entry.eventAt,
+        // Prefer remote eventAt once the local row is synced — otherwise
+        // stale Dexie timestamps shadow server edits (and e2e admin updates).
+        eventAt:
+          localEntry !== undefined &&
+          (localEntry.syncStatus === 'pending' ||
+            localEntry.syncStatus === 'failed')
+            ? localEntry.eventAt
+            : entry.eventAt,
         id: entry.id,
         slug: localEntry?.slug ?? entry.slug,
         stageId: link?.stageId ?? entry.stageId,

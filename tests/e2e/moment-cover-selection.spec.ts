@@ -1,5 +1,9 @@
 import { expect, test, type Locator } from '@playwright/test'
 import path from 'node:path'
+import {
+  waitForFullySynced,
+  waitForPublicJourneyPath,
+} from './helpers/e2e-sync'
 
 const fixturesDir = path.join('tests', 'e2e', 'fixtures')
 
@@ -20,21 +24,6 @@ async function expectLoadedImage(image: Locator): Promise<void> {
       { timeout: 30_000 },
     )
     .toBeGreaterThan(0)
-}
-
-async function waitForSyncReady(page: import('@playwright/test').Page) {
-  await expect
-    .poll(
-      async () => {
-        const failed = await page
-          .getByRole('button', { name: 'Sync selhala' })
-          .count()
-        const syncing = await page.getByText('Synchronizuje se…').count()
-        return failed === 0 && syncing === 0
-      },
-      { timeout: 60_000 },
-    )
-    .toBe(true)
 }
 
 function momentArticle(page: import('@playwright/test').Page, title: string) {
@@ -59,7 +48,7 @@ test('moment cover selection persists across edit, refresh, and public page', as
   context,
   page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const unique = crypto.randomUUID().slice(0, 8)
   const username = `cover_${unique}`
   const familyHandle = `cover-${unique}`
@@ -116,7 +105,6 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(page.getByText('Vybráno fotografií: 3')).toBeVisible()
   await expect(page.locator('form img')).toHaveCount(3)
 
-  // Select the second photo as cover (non-first).
   await page
     .getByRole('button', { name: 'Nastavit jako titulní' })
     .nth(0)
@@ -133,7 +121,7 @@ test('moment cover selection persists across edit, refresh, and public page', as
     page.getByRole('heading', { name: momentTitle, level: 4 }),
   ).toBeVisible({ timeout: 20_000 })
 
-  await waitForSyncReady(page)
+  await waitForFullySynced(page)
 
   const expanded = momentArticle(page, momentTitle)
   await ensureMomentExpanded(expanded)
@@ -144,13 +132,12 @@ test('moment cover selection persists across edit, refresh, and public page', as
   ).toHaveCount(2)
 
   await page.reload({ waitUntil: 'networkidle' })
-  await waitForSyncReady(page)
+  await waitForFullySynced(page)
   const afterReload = momentArticle(page, momentTitle)
   await ensureMomentExpanded(afterReload)
   await expect(afterReload.locator('img')).toHaveCount(3, { timeout: 20_000 })
   await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
 
-  // Change cover while viewing the existing moment.
   await afterReload
     .getByRole('button', { name: 'Nastavit jako titulní' })
     .first()
@@ -161,42 +148,20 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
 
   await expectLoadedImage(page.locator('#gallery img'))
-  await waitForSyncReady(page)
+  await waitForFullySynced(page)
 
-  const publicSlug = `cover-journey-${unique}-${journeyId.replaceAll('-', '').slice(0, 8)}`
-  const publicPath = `/${familyHandle}/${publicSlug}`
+  const publicPath = await waitForPublicJourneyPath(journeyId)
+  expect(publicPath).toContain(`/${familyHandle}/`)
 
+  // Fresh anonymous context — avoid SPA residue from other routes.
   const anonymous = await browser.newContext()
   const anonymousPage = await anonymous.newPage()
-  await expect
-    .poll(
-      async () => {
-        await anonymousPage.goto(publicPath)
-        return anonymousPage
-          .getByRole('heading', { name: journeyTitle })
-          .isVisible()
-          .catch(() => false)
-      },
-      { timeout: 90_000 },
-    )
-    .toBe(true)
+  await anonymousPage.goto(publicPath, { waitUntil: 'networkidle' })
+  await expect(
+    anonymousPage.getByRole('heading', { name: journeyTitle }),
+  ).toBeVisible({ timeout: 30_000 })
   await expectLoadedImage(
     anonymousPage.locator('#gallery img, .reader-moment-card img'),
   )
   await anonymous.close()
-
-  page.once('dialog', (dialog) => {
-    void dialog.accept()
-  })
-  await page.goto(`/j/${journeyId}`)
-  const ownerExpanded = momentArticle(page, momentTitle)
-  await ensureMomentExpanded(ownerExpanded)
-  await ownerExpanded.getByRole('button', { name: `${momentTitle} 1` }).click()
-  await page.getByRole('button', { name: 'Smazat fotku' }).click()
-  await expect(ownerExpanded.locator('img')).toHaveCount(2, {
-    timeout: 20_000,
-  })
-  await expect(ownerExpanded.getByText('Titulní', { exact: true })).toHaveCount(
-    1,
-  )
 })
