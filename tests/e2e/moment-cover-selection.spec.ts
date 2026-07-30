@@ -7,11 +7,18 @@ async function expectLoadedImage(image: Locator): Promise<void> {
   await expect(image.first()).toBeVisible({ timeout: 20_000 })
   await expect
     .poll(
-      () =>
-        image
-          .first()
-          .evaluate('(element) => element.naturalWidth || 0')
-          .catch(() => 0),
+      async () => {
+        try {
+          return await image.first().evaluate((element) => {
+            if (!(element instanceof HTMLImageElement)) {
+              return 0
+            }
+            return element.naturalWidth
+          })
+        } catch {
+          return 0
+        }
+      },
       { timeout: 30_000 },
     )
     .toBeGreaterThan(0)
@@ -36,6 +43,17 @@ function momentArticle(page: import('@playwright/test').Page, title: string) {
   return page.locator('#story article').filter({
     has: page.getByRole('heading', { name: title, level: 4 }),
   })
+}
+
+/** Expand only if collapsed — post-save highlight already expands the moment. */
+async function ensureMomentExpanded(article: Locator): Promise<void> {
+  const collapse = article.getByRole('button', { name: 'Sbalit moment' })
+  if ((await collapse.count()) > 0) {
+    await expect(collapse).toBeVisible()
+    return
+  }
+  await article.getByRole('button', { name: 'Rozbalit moment' }).click()
+  await expect(collapse).toBeVisible()
 }
 
 test('moment cover selection persists across edit, refresh, and public page', async ({
@@ -119,11 +137,8 @@ test('moment cover selection persists across edit, refresh, and public page', as
 
   await waitForSyncReady(page)
 
-  await page
-    .locator('#story')
-    .getByRole('heading', { name: momentTitle, level: 4 })
-    .click()
   const expanded = momentArticle(page, momentTitle)
+  await ensureMomentExpanded(expanded)
   await expect(expanded.locator('img')).toHaveCount(3, { timeout: 20_000 })
   await expect(expanded.getByText('Titulní', { exact: true })).toHaveCount(1)
   await expect(
@@ -132,11 +147,8 @@ test('moment cover selection persists across edit, refresh, and public page', as
 
   await page.reload({ waitUntil: 'networkidle' })
   await waitForSyncReady(page)
-  await page
-    .locator('#story')
-    .getByRole('heading', { name: momentTitle, level: 4 })
-    .click()
   const afterReload = momentArticle(page, momentTitle)
+  await ensureMomentExpanded(afterReload)
   await expect(afterReload.locator('img')).toHaveCount(3, { timeout: 20_000 })
   await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
 
@@ -175,11 +187,8 @@ test('moment cover selection persists across edit, refresh, and public page', as
     void dialog.accept()
   })
   await page.goto(`/j/${journeyId}`)
-  await page
-    .locator('#story')
-    .getByRole('heading', { name: momentTitle, level: 4 })
-    .click()
   const ownerExpanded = momentArticle(page, momentTitle)
+  await ensureMomentExpanded(ownerExpanded)
   await ownerExpanded.getByRole('button', { name: `${momentTitle} 1` }).click()
   await page.getByRole('button', { name: 'Smazat fotku' }).click()
   await expect(ownerExpanded.locator('img')).toHaveCount(2, {

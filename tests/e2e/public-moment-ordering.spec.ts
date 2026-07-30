@@ -89,7 +89,7 @@ test('public and owner journey pages show moments newest first by event_at', asy
   await page.getByLabel('Veřejná adresa').fill(familyHandle)
   await page.getByRole('button', { name: 'Vytvořit rodinný prostor' }).click()
   await expect(
-    page.getByRole('button', { name: new RegExp(unique) }),
+    page.getByRole('button', { name: new RegExp(`@${familyHandle}`) }),
   ).toBeVisible()
 
   await page.goto('/journeys/new')
