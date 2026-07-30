@@ -102,12 +102,30 @@ vi.mock('@/platform/storage/database', () => ({
         sql.includes("SET status = 'pending', status_updated_at") &&
         sql.includes("status = 'processing'")
       ) {
+        const orphanRecovery = !sql.includes('status_updated_at < ?')
+        let changes = 0
+
+        if (orphanRecovery) {
+          const [now, ...excludes] = params as [string, ...string[]]
+          for (const row of syncQueue.values()) {
+            if (row.status !== 'processing') {
+              continue
+            }
+            if (excludes.includes(row.id)) {
+              continue
+            }
+            row.status = 'pending'
+            row.status_updated_at = now
+            changes += 1
+          }
+          return { changes }
+        }
+
         const [now, cutoff, ...excludes] = params as [
           string,
           string,
           ...string[],
         ]
-        let changes = 0
 
         for (const row of syncQueue.values()) {
           if (row.status !== 'processing' || row.status_updated_at >= cutoff) {
@@ -429,6 +447,30 @@ describe('sync queue', () => {
 
     expect(processed?.status).toBe('synced')
     expect(syncQueue.get('stale-photo')?.status).toBe('synced')
+  })
+
+  it('recovers orphaned recent processing ops immediately on cold drain', async () => {
+    processPhotoUploadOperation.mockResolvedValue({
+      photoId: 'photo-1',
+      storagePath: 'user-1/photo-1/preview.jpg',
+    })
+
+    // Simulates force-kill mid-upload: row left `processing` with a fresh
+    // timestamp, but the next process has no in-memory owner.
+    syncQueue.set('orphaned-photo', {
+      created_at: '2026-07-10T10:00:00.000Z',
+      id: 'orphaned-photo',
+      operation_type: PHOTO_UPLOAD_OPERATION,
+      payload: JSON.stringify(photoUploadPayload),
+      status: 'processing',
+      status_updated_at: new Date().toISOString(),
+    })
+
+    const processed = await processNextSyncOperation()
+
+    expect(processed?.status).toBe('synced')
+    expect(processed?.operation.id).toBe('orphaned-photo')
+    expect(syncQueue.get('orphaned-photo')?.status).toBe('synced')
   })
 
   it('recovery does not affect synced, failed, or normal pending operations', async () => {

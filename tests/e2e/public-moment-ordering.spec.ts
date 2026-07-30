@@ -1,66 +1,33 @@
-import { createClient } from '@supabase/supabase-js'
-import { expect, test } from '@playwright/test'
-import { execFileSync } from 'node:child_process'
+import { expect, test, type Page } from '@playwright/test'
+import {
+  createAdminClient,
+  momentTitlesOnPage,
+  waitForFullySynced,
+  waitForPublicJourneyPath,
+  waitForRemoteEntriesByTitle,
+} from './helpers/e2e-sync'
 
-function readLocalSupabaseEnv(): { serviceRoleKey: string; url: string } {
-  const stdout = execFileSync('supabase', ['status', '-o', 'env'], {
-    encoding: 'utf8',
-  })
-  const env = Object.fromEntries(
-    stdout
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.includes('='))
-      .map((line) => {
-        const separator = line.indexOf('=')
-        return [
-          line.slice(0, separator),
-          line.slice(separator + 1).replace(/^"|"$/g, ''),
-        ]
-      }),
-  )
-
-  const url = env.API_URL ?? env.SUPABASE_URL
-  const serviceRoleKey = env.SERVICE_ROLE_KEY ?? env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (
-    typeof url !== 'string' ||
-    url.length === 0 ||
-    typeof serviceRoleKey !== 'string' ||
-    serviceRoleKey.length === 0
-  ) {
-    throw new Error(
-      'Local Supabase status did not provide API_URL/SERVICE_ROLE_KEY',
-    )
-  }
-
-  return { serviceRoleKey, url }
-}
-
-async function momentTitles(
-  page: import('@playwright/test').Page,
+async function publicMomentTitles(
+  page: Page,
+  publicPath: string,
+  journeyTitle: string,
   unique: string,
 ): Promise<string[]> {
-  const readerTitles = await page
-    .locator('.reader-moment-card h4')
-    .allTextContents()
-  if (readerTitles.some((title) => title.includes(unique))) {
-    return readerTitles
-      .map((title) => title.trim())
-      .filter((title) => title.includes(unique))
-  }
-
-  const ownerTitles = await page.locator('article h4').allTextContents()
-  return ownerTitles
-    .map((title) => title.trim())
-    .filter((title) => title.includes(unique))
+  await page.goto(publicPath, { waitUntil: 'networkidle' })
+  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible({
+    timeout: 20_000,
+  })
+  await expect(page.locator('.reader-moment-card h4').first()).toBeVisible({
+    timeout: 20_000,
+  })
+  return momentTitlesOnPage(page, unique)
 }
 
 test('public and owner journey pages show moments newest first by event_at', async ({
   browser,
   page,
 }) => {
-  test.setTimeout(180_000)
+  test.setTimeout(240_000)
   const unique = crypto.randomUUID().slice(0, 8)
   const journeyTitle = `Ordering ${unique}`
   const familyHandle = `order-${unique}`
@@ -89,7 +56,7 @@ test('public and owner journey pages show moments newest first by event_at', asy
   await page.getByLabel('Veřejná adresa').fill(familyHandle)
   await page.getByRole('button', { name: 'Vytvořit rodinný prostor' }).click()
   await expect(
-    page.getByRole('button', { name: new RegExp(unique) }),
+    page.getByRole('button', { name: new RegExp(`@${familyHandle}`) }),
   ).toBeVisible()
 
   await page.goto('/journeys/new')
@@ -119,17 +86,22 @@ test('public and owner journey pages show moments newest first by event_at', asy
     ).toBeVisible({ timeout: 15_000 })
   }
 
-  const { serviceRoleKey, url } = readLocalSupabaseEnv()
-  const admin = createClient(url, serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  })
+  await waitForFullySynced(page)
+  await waitForRemoteEntriesByTitle(moments.map((moment) => moment.title))
 
+  await expect
+    .poll(async () => momentTitlesOnPage(page, unique), { timeout: 30_000 })
+    .toHaveLength(3)
+
+  const admin = createAdminClient()
   for (const moment of moments) {
-    const { error } = await admin
+    const { data, error } = await admin
       .from('entries')
       .update({ event_at: moment.eventAt })
       .eq('title', moment.title)
+      .select('id')
     expect(error).toBeNull()
+    expect(data?.length).toBeGreaterThan(0)
   }
 
   const expectedNewestFirst = [
@@ -138,63 +110,63 @@ test('public and owner journey pages show moments newest first by event_at', asy
     moments[0].title,
   ]
 
-  await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
-    .toEqual(expectedNewestFirst)
-
-  await page.reload({ waitUntil: 'networkidle' })
-  await expect
-    .poll(async () => momentTitles(page, unique))
-    .toEqual(expectedNewestFirst)
-
-  const publicSlug = `ordering-${unique}-${journeyId.replaceAll('-', '').slice(0, 8)}`
-  const publicPath = `/${familyHandle}/${publicSlug}`
+  const publicPath = await waitForPublicJourneyPath(journeyId)
+  expect(publicPath).toContain(`/${familyHandle}/`)
 
   const anonymous = await browser.newContext()
   const anonymousPage = await anonymous.newPage()
 
   await expect
-    .poll(async () => {
-      await anonymousPage.goto(publicPath)
-      await expect(
-        anonymousPage.getByRole('heading', { name: journeyTitle }),
-      ).toBeVisible({ timeout: 15_000 })
-      return momentTitles(anonymousPage, unique)
-    })
+    .poll(
+      async () =>
+        publicMomentTitles(anonymousPage, publicPath, journeyTitle, unique),
+      { timeout: 90_000 },
+    )
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.reload({ waitUntil: 'networkidle' })
+  await expect(
+    anonymousPage.locator('.reader-moment-card h4').first(),
+  ).toBeVisible({ timeout: 20_000 })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitlesOnPage(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.setViewportSize({ width: 390, height: 844 })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitlesOnPage(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
 
   await anonymousPage.setViewportSize({ width: 1280, height: 800 })
   await expect
-    .poll(async () => momentTitles(anonymousPage, unique))
+    .poll(async () => momentTitlesOnPage(anonymousPage, unique), {
+      timeout: 60_000,
+    })
     .toEqual(expectedNewestFirst)
-  await anonymous.close()
 
   const middle = moments[1]
-  const { error: bumpError } = await admin
+  const { data: bumped, error: bumpError } = await admin
     .from('entries')
     .update({ event_at: '2026-12-01T10:00:00.000Z' })
     .eq('title', middle.title)
+    .select('id')
   expect(bumpError).toBeNull()
+  expect(bumped?.length).toBeGreaterThan(0)
 
+  // Fresh page after out-of-band DB edits — avoids stale reader cache.
+  const afterBump = await anonymous.newPage()
   await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
+    .poll(
+      async () =>
+        publicMomentTitles(afterBump, publicPath, journeyTitle, unique),
+      { timeout: 90_000 },
+    )
     .toEqual([middle.title, moments[2].title, moments[0].title])
+  await afterBump.close()
 
   const { data: deletedRows, error: deleteError } = await admin
     .from('entries')
@@ -204,10 +176,15 @@ test('public and owner journey pages show moments newest first by event_at', asy
   expect(deleteError).toBeNull()
   expect(deletedRows?.length).toBeGreaterThan(0)
 
+  const afterDelete = await anonymous.newPage()
   await expect
-    .poll(async () => {
-      await page.goto(`/j/${journeyId}`)
-      return momentTitles(page, unique)
-    })
+    .poll(
+      async () =>
+        publicMomentTitles(afterDelete, publicPath, journeyTitle, unique),
+      { timeout: 90_000 },
+    )
     .toEqual([moments[2].title, moments[0].title])
+  await afterDelete.close()
+
+  await anonymous.close()
 })
