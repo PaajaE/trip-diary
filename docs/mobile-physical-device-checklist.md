@@ -26,20 +26,46 @@
 | 10  | Map centers on GPS           | Journey map (no journey coords in cache)                                                             | Map centers on device location + marker when GPS available; world view otherwise                                   | ☐      |
 | 11  | Gallery photo with EXIF time | Pick a **real gallery photo** that has EXIF capture time                                             | Log shows non-null `EXIF capturedAt`; file under `files/photos/`                                                   | ☐      |
 | 12  | Gallery upload (EXIF)        | Enqueue → Process sync queue                                                                         | Status `synced`; `Remote storage path: {userId}/{photoId}/preview.jpg`; `photos.captured_at` populated in Supabase | ☐      |
-| 13  | Missing / malformed EXIF     | Pick image without EXIF date or use camera with no timestamp                                         | Log shows `EXIF capturedAt: null`; upload still `synced`; `photos.captured_at` is null                             | ☐      |
+| 13  | Missing / truncated EXIF     | Pick image without EXIF date or use camera with no timestamp                                         | Log shows `EXIF capturedAt: null`; upload still `synced`; `photos.captured_at` is null                             | ☐      |
 | 14  | Camera capture persist       | Dev checklist → Capture photo + persist                                                              | Photo saved; persists after app restart                                                                            | ☐      |
 | 15  | Camera photo upload          | Capture photo → enqueue → process                                                                    | Same as #12 with camera source                                                                                     | ☐      |
 | 16  | Camera EXIF GPS              | Capture outdoors or with GPS enabled                                                                 | EXIF latitude/longitude non-null when device provides them                                                         | ☐      |
 | 17  | Normal image under limit     | Image &lt; 8 MiB (8 388 608 bytes)                                                                   | Staged size shown in dev checklist; upload `synced`                                                                | ☐      |
 | 18  | Oversized image              | Use image &gt; 8 MiB if available                                                                    | Process fails with message containing limit + actual size; `retryable=false`; **Retry last upload** refuses        | ☐      |
 | 19  | Oversized not retried        | After #18, tap **Retry last upload**                                                                 | Terminal failure message; operation stays `failed`                                                                 | ☐      |
-| 20  | Stale queue recovery         | Enqueue upload → Process (starts `processing`) → **kill app** before completion → relaunch → Process | Stale op returns to `pending` within ~5 min (or immediately if killed long enough); eventually `synced`            | ☐      |
+| 20  | Stale queue recovery         | Enqueue upload → Process (starts `processing`) → **kill app** before completion → relaunch → Process | Orphaned `processing` resets on next drain and eventually `synced` without manual re-upload                        | ☐      |
 | 21  | Offline enqueue              | Airplane mode → pick/capture → enqueue upload                                                        | Operation stays `pending`; local file remains                                                                      | ☐      |
 | 22  | Online retry upload          | Disable airplane mode → **Process sync queue** (or **Retry last upload** for retryable failures)     | Operation becomes `synced`; remote path logged                                                                     | ☐      |
 | 23  | Storage object exists        | Supabase dashboard → Storage → `photos`                                                              | Object at logged path exists for signed-in user                                                                    | ☐      |
 | 24  | Retry idempotency            | Reset retryable failed op to pending → process again                                                 | **Same** storage path; no duplicate object for same `photoId`                                                      | ☐      |
 | 25  | Offline journey cache        | Airplane mode → open cached journey                                                                  | Yellow offline banner; cached content shown                                                                        | ☐      |
 | 26  | Network restore              | Disable airplane mode                                                                                | Offline banner clears; online refresh works                                                                        | ☐      |
+
+## iOS travel-day production readiness (simulator or device)
+
+**Goal:** Capture Reliability = 100% and no manual recovery for a full travel day.
+
+**Platform note:** Prefer a physical iPhone when available. When the phone is unavailable, run on the **iOS Simulator** and mark GPS/Camera EXIF items as simulator-limited (not false passes).
+
+| #   | Scenario                    | Steps                                                      | Pass criteria                                                                         | Result            |
+| --- | --------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------- |
+| T1  | Cold launch                 | Install Release/Debug → launch                             | Sign-in or home; no crash                                                             | ✅ Sim 2026-07-29 |
+| T2  | Volume 50+ photos           | Attach 50+ photos across one or more moments in a day      | All photos reach Storage size &gt; 0, DB links, gallery; no missing/dupes/wrong order | ☐ Manual          |
+| T3  | Camera + Library            | Mix camera captures and library picks                      | Both sources upload and appear in gallery                                             | ☐ Manual          |
+| T4  | HEIC + JPG                  | Include HEIC (iPhone library) and JPG                      | HEIC converted/uploaded; JPG uploaded; both viewable                                  | ☐ Manual          |
+| T5  | EXIF GPS end-to-end         | Photos with GPS (real device) or documented simulator null | Lat/lon preserved through upload → DB → map when present                              | ☐ Sim-limited     |
+| T6  | Offline capture             | Airplane/offline → capture/pick → enqueue                  | Ops stay `pending`; local files kept; no data loss                                    | ☐ Manual          |
+| T7  | Network flaps               | Toggle Wi-Fi/cellular/airplane mid-upload                  | Queue drains when online; no permanent stuck state without retryable reason           | ☐ Manual          |
+| T8  | Force-kill during upload    | Start upload → force-quit app mid-flight                   | On relaunch, orphaned `processing` resets and resumes **without** manual re-upload    | ✅ Code + sim     |
+| T9  | App restart                 | Kill and relaunch after pending uploads                    | Session restored; queue drains automatically                                          | ✅ Sim terminate  |
+| T10 | Phone / Simulator reboot    | Reboot device/simulator with pending queue                 | After unlock/launch, queue resumes; no manual repair                                  | ✅ Sim reboot     |
+| T11 | Upload resume / idempotency | Interrupt and resume same photo                            | Single Storage object path; no duplicate `entry_photos`                               | ✅ Unit-tested    |
+| T12 | Public / gallery integrity  | Open in-app gallery + public web moment after sync         | Every captured photo visible; GPS markers when coords exist                           | ☐ Manual          |
+
+**Success gates**
+
+- **Capture Reliability = 100%:** every captured photo completes capture → metadata → upload → storage → DB link → gallery/public view.
+- **No manual recovery required:** never re-upload or hand-repair sync after crash, restart, offline, or network interruption.
 
 ## Dev checklist upload sequence
 
@@ -55,7 +81,7 @@
 - **Storage path convention:** `{userId}/{photoId}/preview.jpg` (canonical project format; not `journeys/...`)
 - **Storage limit:** 8 MiB (`8388608` bytes) per `supabase/migrations/20260609000300_create_photos.sql`
 - **EXIF dates:** `YYYY:MM:DD HH:mm:ss` normalized to ISO before upsert; invalid → `null`, upload continues
-- **Stale recovery:** `processing` older than 5 minutes reset to `pending` on next queue process
+- **Orphan recovery:** After force-kill, the next queue drain resets orphaned `processing` rows immediately (no live in-process owner). The 5-minute stale threshold only protects an in-flight op owned by the current process.
 - **Idempotency:** Retries use `upsert: true` on the same path; safe for duplicate queue processing
 - **Terminal failures:** Missing file, malformed payload, oversize file, constraint/RLS errors → `retryable: false`
 - **Mapy mapset:** Product “Tourist Map” uses API mapset id `outdoor`, not `tourist`.
@@ -72,6 +98,6 @@ retryable=
 Photo exceeds Storage limit
 ```
 
-## Do not mark items passed until executed on physical hardware
+## Do not mark items passed until executed on physical hardware or simulator as documented
 
-Emulator results are documented separately in [mobile-device-validation-results.md](./mobile-device-validation-results.md).
+Emulator/Android results are documented separately in [mobile-device-validation-results.md](./mobile-device-validation-results.md).

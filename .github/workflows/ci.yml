@@ -35,6 +35,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter mobile lint
       - run: pnpm --filter mobile typecheck
+      - run: pnpm --filter mobile test
 
   database-security:
     runs-on: ubuntu-latest
@@ -87,7 +88,7 @@ jobs:
             );
           "
       - run: PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts tests/e2e/nature-flow.spec.ts
+      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts tests/e2e/nature-flow.spec.ts tests/e2e/moment-cover-selection.spec.ts tests/e2e/public-moment-ordering.spec.ts
       - name: Print Playwright failure context
         if: failure()
         run: find test-results -name 'error-context.md' -print -exec cat {} \;

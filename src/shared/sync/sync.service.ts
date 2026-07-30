@@ -1255,18 +1255,12 @@ async function syncPhotoUpload(
 
   const isCover = photo.position === 0
 
-  const { error: linkError } = await client.from('entry_photos').upsert(
-    {
-      creator_id: creatorId,
-      entry_id: photo.entryId,
-      photo_id: photo.id,
-      position: photo.position,
-    },
-    { ignoreDuplicates: true, onConflict: 'entry_id,photo_id' },
-  )
-  if (linkError !== null) {
-    throw linkError
-  }
+  await linkPhotoToEntry(client, {
+    creatorId,
+    entryId: photo.entryId,
+    photoId: photo.id,
+    position: photo.position,
+  })
 
   if (isCover) {
     const { error: coverError } = await client.rpc('set_entry_photo_cover', {
@@ -1574,6 +1568,49 @@ async function syncPhotoMetadata(
     })
     .eq('id', photo.id)
     .eq('creator_id', creatorId)
+
+  if (updateError !== null) {
+    throw updateError
+  }
+}
+
+/**
+ * Canonical entry_photos link flow (shared semantics with mobile
+ * `apps/mobile/src/platform/sync/photo-upload.ts`):
+ * insert first; on duplicate update only `position`.
+ * Avoids full upsert — PostgREST ON CONFLICT DO UPDATE requires UPDATE on
+ * identity columns that authenticated clients do not have.
+ */
+async function linkPhotoToEntry(
+  client: ReturnType<typeof getSupabaseClient>,
+  input: {
+    creatorId: string
+    entryId: string
+    photoId: string
+    position: number
+  },
+): Promise<void> {
+  const row = {
+    creator_id: input.creatorId,
+    entry_id: input.entryId,
+    photo_id: input.photoId,
+    position: input.position,
+  }
+  const { error: insertError } = await client.from('entry_photos').insert(row)
+  if (insertError === null) {
+    return
+  }
+
+  if (!isDuplicateInsertError(insertError)) {
+    throw insertError
+  }
+
+  const { error: updateError } = await client
+    .from('entry_photos')
+    .update({ position: input.position })
+    .eq('entry_id', input.entryId)
+    .eq('photo_id', input.photoId)
+    .eq('creator_id', input.creatorId)
 
   if (updateError !== null) {
     throw updateError

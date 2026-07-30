@@ -318,4 +318,119 @@ describe('syncPendingOperations', () => {
       title: 'Offline trip',
     })
   })
+
+  it('updates only entry photo position when the link already exists', async () => {
+    const userId = crypto.randomUUID()
+    const entryId = crypto.randomUUID()
+    const photoId = crypto.randomUUID()
+    const now = new Date().toISOString()
+    const updateEntryPhoto = vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          eq: vi.fn(() => Promise.resolve({ error: null })),
+        })),
+      })),
+    }))
+    const insertEntryPhoto = vi.fn(() =>
+      Promise.resolve({ error: new Error('duplicate key value') }),
+    )
+    const selectEntryPhoto = vi.fn(() => ({
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          single: vi.fn(() =>
+            Promise.resolve({ data: { photo_id: photoId }, error: null }),
+          ),
+        })),
+      })),
+    }))
+
+    getSupabaseClientMock.mockReturnValue({
+      auth: {
+        getSession: vi.fn(() =>
+          Promise.resolve({
+            data: { session: { user: { id: userId } } },
+          }),
+        ),
+        getUser: vi.fn(() =>
+          Promise.resolve({
+            data: { user: { id: userId } },
+          }),
+        ),
+      },
+      from: vi.fn((table: string) => {
+        if (table === 'photos') {
+          return {
+            insert: vi.fn(() => Promise.resolve({ error: null })),
+          }
+        }
+        if (table === 'photo_variants') {
+          return {
+            insert: vi.fn(() => Promise.resolve({ error: null })),
+          }
+        }
+        if (table === 'entry_photos') {
+          return {
+            insert: insertEntryPhoto,
+            select: selectEntryPhoto,
+            update: updateEntryPhoto,
+          }
+        }
+        throw new Error(`Unexpected table ${table}`)
+      }),
+      rpc: vi.fn(() => Promise.resolve({ error: null })),
+      storage: {
+        from: vi.fn(() => ({
+          upload: vi.fn(() => Promise.resolve({ error: null })),
+        })),
+      },
+    })
+
+    await localDb.photos.add({
+      capturedAt: now,
+      createdAt: now,
+      creatorId: userId,
+      entryId,
+      id: photoId,
+      latitude: 49.1967,
+      longitude: 16.607,
+      position: 2,
+      syncStatus: 'pending',
+    })
+    await localDb.photoVariants.add({
+      blob: new Blob(['photo-bytes'], { type: 'image/jpeg' }),
+      createdAt: now,
+      ext: 'jpg',
+      height: 1200,
+      id: crypto.randomUUID(),
+      kind: 'preview',
+      mimeType: 'image/jpeg',
+      photoId,
+      sizeBytes: 11,
+      width: 1600,
+    })
+    await localDb.syncOperations.add(
+      syncOperationSchema.parse({
+        createdAt: now,
+        creatorId: userId,
+        id: crypto.randomUUID(),
+        photoId,
+        status: 'pending',
+        type: 'photo.upload',
+      }),
+    )
+
+    await syncPendingOperations()
+
+    expect(insertEntryPhoto).toHaveBeenCalledWith({
+      creator_id: userId,
+      entry_id: entryId,
+      photo_id: photoId,
+      position: 2,
+    })
+    expect(updateEntryPhoto).toHaveBeenCalledWith({ position: 2 })
+    await expect(localDb.photos.get(photoId)).resolves.toMatchObject({
+      syncStatus: 'synced',
+    })
+    await expect(localDb.syncOperations.count()).resolves.toBe(0)
+  })
 })

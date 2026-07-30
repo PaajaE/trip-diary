@@ -1,10 +1,10 @@
 # Mobile device validation results
 
-**Last updated:** 2026-07-10  
+**Last updated:** 2026-07-29  
 **Final report:** [stage-3-final-report.md](./stage-3-final-report.md)  
 **Checklist:** [mobile-poc-checklist.md](./mobile-poc-checklist.md)  
 **Physical device checklist:** [mobile-physical-device-checklist.md](./mobile-physical-device-checklist.md)  
-**Emulator:** Pixel_9a (`emulator-5554`)
+**Emulator:** Pixel_9a (`emulator-5554`) · **iOS Simulator:** iPhone 17 Pro (`FEAFA6DF-492A-4972-8FFB-51EDB2ED8E5E`)
 
 ## Environment audit (mobile `.env`)
 
@@ -88,21 +88,30 @@ No `MapLibre error` / 404 after fix. Journey detail map renders world tiles (not
 
 ## iOS
 
-| Item      | Result     | Notes               |
-| --------- | ---------- | ------------------- |
-| CocoaPods | 🚫 Blocked | `pod` not installed |
-| Runtime   | 🚫 Blocked | Independent         |
+| Item                         | Result               | Notes                                                                                                                             |
+| ---------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| CocoaPods / Xcode workspace  | ✅ Available         | `ios/TripDiary.xcworkspace` builds                                                                                                |
+| Simulator Debug build        | ✅ Pass (2026-07-29) | `DerivedData-Simulator` — **BUILD SUCCEEDED**                                                                                     |
+| Simulator install + launch   | ✅ Pass              | iPhone 17 Pro (`FEAFA6DF…`); `cz.tripdiary.app` launched                                                                          |
+| Force-kill → relaunch        | ✅ Pass              | `simctl terminate` + `launch`; process restarts                                                                                   |
+| Simulator reboot → relaunch  | ✅ Pass              | `shutdown` + `boot` + `launch`; app starts without reinstall                                                                      |
+| Orphan queue recovery (code) | ✅ Unit-tested       | Cold drain resets orphaned `processing` immediately (`queue.test.ts`)                                                             |
+| Travel-day photo volume 50+  | ☐ Manual             | Requires interactive gallery/camera; checklist T2 in [mobile-physical-device-checklist.md](./mobile-physical-device-checklist.md) |
+| Camera + Library / HEIC+JPG  | ☐ Manual / limited   | Simulator camera/EXIF GPS limited; re-run on physical iPhone when available                                                       |
+| Offline + network flaps      | ☐ Manual             | Exercise via Network Link Conditioner / airplane on device                                                                        |
+| Physical iPhone              | ☐ Unavailable        | Device offline at validation time; simulator used per plan                                                                        |
 
 ## Remaining blockers
 
-1. **Photo upload on physical device** — gallery EXIF, oversize, stale recovery, Storage object verification.
-2. **GPS on AVD** — mock coordinates set; `expo-location` `getCurrentPositionAsync` did not return on emulator (validate on physical device).
-3. **Runtime OSM fallback** — invalid key or tile failure does not switch style without Metro env change.
-4. **Camera capture** — full path needs physical device or emulator camera scene configuration.
-5. **iOS** — CocoaPods / simulator checklist not started.
+1. **Interactive travel-day photo matrix on hardware** — 50+ photos, HEIC+JPG, EXIF GPS outdoors (simulator-limited).
+2. **Offline / network-flap interactive pass** — needs manual Network Link Conditioner or physical radio toggles.
+3. **GPS on AVD** — mock coordinates set; `expo-location` `getCurrentPositionAsync` did not return on emulator (validate on physical device).
+4. **Runtime OSM fallback** — invalid key or tile failure does not switch style without Metro env change.
 
-## Stage 3 recommendation
+## Stage 3 / travel-capture recommendation
 
-**Android PoC: code-complete for Stage 3 scope** — auth, journeys, offline SQLite, sync queue hardening, photo gallery + persist, Mapy tiles (after mapset fix), and config-time OSM fallback.
+**Android PoC:** code-complete for Stage 3 scope — auth, journeys, offline SQLite, sync queue hardening, photo gallery + persist, Mapy tiles (after mapset fix), and config-time OSM fallback.
 
-**Not complete for Stage 3 sign-off:** physical-device photo upload validation (EXIF, oversize, stale recovery), GPS receive on device, camera capture E2E, iOS parity. Use [mobile-physical-device-checklist.md](./mobile-physical-device-checklist.md) for final hardware validation. **Do not mark hardware checks as passed until executed.**
+**iOS travel-capture (2026-07-29):** Simulator build/install/launch + crash/reboot relaunch verified. Critical **force-kill orphan queue recovery** fixed and unit-tested (no 5-minute wait after kill). Web/mobile `entry_photos` link semantics aligned. Remaining interactive photo-volume and GPS/HEIC scenarios stay on the physical-device checklist — do not claim Capture Reliability = 100% until T2–T7/T11–T12 are executed with real photos.
+
+Use [mobile-physical-device-checklist.md](./mobile-physical-device-checklist.md) (Android table + iOS travel-day T1–T12) for final hardware sign-off.

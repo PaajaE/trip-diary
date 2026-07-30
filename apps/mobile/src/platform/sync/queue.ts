@@ -6,8 +6,11 @@ import {
 } from './photo-upload'
 
 /**
- * Five minutes — longer than expected mobile preview upload on slow networks,
- * short enough to recover quickly after an app kill during `processing`.
+ * Five minutes — longer than expected mobile preview upload on slow networks.
+ * Used only while this process still owns an in-flight operation.
+ * After force-kill / cold start (`activeProcessingOperationId === null`),
+ * orphaned `processing` rows are recovered immediately (threshold 0) so
+ * uploads resume without waiting or manual repair.
  */
 export const STALE_PROCESSING_THRESHOLD_MS = 5 * 60 * 1000
 
@@ -54,6 +57,33 @@ export async function recoverStaleProcessingOperations(
   excludeOperationIds: string[] = [],
 ): Promise<number> {
   const db = await getMobileDatabase()
+  const nowIso = new Date().toISOString()
+
+  // thresholdMs === 0 means cold-start / post-kill orphan recovery: every
+  // `processing` row without a live in-process owner is reset immediately.
+  if (thresholdMs <= 0) {
+    if (excludeOperationIds.length === 0) {
+      const result = await db.runAsync(
+        `UPDATE sync_queue
+         SET status = 'pending', status_updated_at = ?
+         WHERE status = 'processing'`,
+        nowIso,
+      )
+      return result.changes
+    }
+
+    const placeholders = excludeOperationIds.map(() => '?').join(', ')
+    const result = await db.runAsync(
+      `UPDATE sync_queue
+       SET status = 'pending', status_updated_at = ?
+       WHERE status = 'processing'
+         AND id NOT IN (${placeholders})`,
+      nowIso,
+      ...excludeOperationIds,
+    )
+    return result.changes
+  }
+
   const cutoff = new Date(Date.now() - thresholdMs).toISOString()
 
   if (excludeOperationIds.length === 0) {
@@ -61,7 +91,7 @@ export async function recoverStaleProcessingOperations(
       `UPDATE sync_queue
        SET status = 'pending', status_updated_at = ?
        WHERE status = 'processing' AND status_updated_at < ?`,
-      new Date().toISOString(),
+      nowIso,
       cutoff,
     )
     return result.changes
@@ -74,7 +104,7 @@ export async function recoverStaleProcessingOperations(
      WHERE status = 'processing'
        AND status_updated_at < ?
        AND id NOT IN (${placeholders})`,
-    new Date().toISOString(),
+    nowIso,
     cutoff,
     ...excludeOperationIds,
   )
@@ -360,8 +390,13 @@ async function markSyncOperationSynced(
 }
 
 async function processNextSyncOperationUnsafe(): Promise<SyncProcessResult | null> {
+  // Cold start / post-kill: no live owner → treat every `processing` row as
+  // orphaned and reset immediately. Same-process drain still protects the
+  // in-flight id with the network-tolerant stale threshold.
+  const recoveryThresholdMs =
+    activeProcessingOperationId === null ? 0 : STALE_PROCESSING_THRESHOLD_MS
   await recoverStaleProcessingOperations(
-    STALE_PROCESSING_THRESHOLD_MS,
+    recoveryThresholdMs,
     activeProcessingOperationId === null ? [] : [activeProcessingOperationId],
   )
 
