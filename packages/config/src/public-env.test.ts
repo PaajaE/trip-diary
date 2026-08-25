@@ -21,4 +21,15 @@ describe('parsePublicEnv', () => {
   it('accepts an empty env object', () => {
     expect(parsePublicEnv({})).toEqual({})
   })
+
+  it('treats blank optional strings as unset', () => {
+    expect(
+      parsePublicEnv({
+        mapyApiKey: '',
+        siteUrl: '   ',
+        supabaseAnonKey: '',
+        supabaseUrl: '',
+      }),
+    ).toEqual({})
+  })
 })
