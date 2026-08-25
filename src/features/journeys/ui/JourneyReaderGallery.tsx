@@ -14,12 +14,16 @@ import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderGalleryProps {
+  layout?: 'full' | 'preview'
   onOpenMoment?: (entryId: string) => void
+  previewLimit?: number
   stageContents: JourneyStageContent[]
 }
 
 export function JourneyReaderGallery({
+  layout = 'full',
   onOpenMoment,
+  previewLimit = 10,
   stageContents,
 }: JourneyReaderGalleryProps) {
   const { i18n, t } = useTranslation()
@@ -66,11 +70,84 @@ export function JourneyReaderGallery({
     return null
   }
 
+  const previewImages =
+    layout === 'preview'
+      ? gallery.flatImages.slice(0, previewLimit)
+      : gallery.flatImages
+  const overflowCount = Math.max(
+    0,
+    gallery.flatImages.length - previewImages.length,
+  )
+
   const lightboxPhotos = publicGalleryImagesToLightboxItems(
     gallery.flatImages,
     (image) => urlByPhotoId.get(image.id),
     t,
   )
+
+  if (layout === 'preview') {
+    return (
+      <>
+        <div className="editorial-photo-strip mt-8">
+          {previewImages.map((image, index) => {
+            const url = urlByPhotoId.get(image.id)
+            if (url === undefined) {
+              return null
+            }
+            const alt = getPublicGalleryImageAlt(image, t)
+            const isLast =
+              index === previewImages.length - 1 && overflowCount > 0
+            return (
+              <button
+                aria-label={alt}
+                className="editorial-photo-strip__item group relative"
+                key={image.id}
+                onClick={(event) => {
+                  const photoIndex = getPublicGalleryImageIndex(
+                    gallery,
+                    image.id,
+                  )
+                  if (photoIndex < 0) {
+                    return
+                  }
+                  openLightbox(lightboxPhotos, photoIndex, event.currentTarget)
+                }}
+                type="button"
+              >
+                <img
+                  alt=""
+                  aria-hidden="true"
+                  className="size-full object-cover"
+                  decoding="async"
+                  loading="lazy"
+                  src={url}
+                />
+                {isLast ? (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold text-white">
+                    +{overflowCount}
+                  </span>
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+        {gallery.flatImages.length > 0 ? (
+          <div className="mt-5 flex justify-center">
+            <button
+              className="min-h-11 text-sm font-semibold text-primary hover:underline"
+              onClick={(event) => {
+                openLightbox(lightboxPhotos, 0, event.currentTarget)
+              }}
+              type="button"
+            >
+              {t('reader.galleryPreviewAction')}
+            </button>
+          </div>
+        ) : null}
+        {lightboxElement}
+      </>
+    )
+  }
 
   return (
     <>

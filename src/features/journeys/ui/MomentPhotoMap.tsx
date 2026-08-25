@@ -262,7 +262,7 @@ export function MomentPhotoMap({
           {t('reader.mapInitError')}
         </p>
       ) : (
-        <div className="reader-map-frame reader-map-frame--moment mt-4 overflow-hidden rounded-[1.5rem] border border-border shadow-soft">
+        <div className="editorial-map-frame reader-map-frame reader-map-frame--moment mt-4">
           <div className="moment-photo-map-canvas" ref={containerRef} />
         </div>
       )}

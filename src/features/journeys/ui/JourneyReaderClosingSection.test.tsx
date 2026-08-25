@@ -12,11 +12,6 @@ vi.mock('@tanstack/react-router', () => ({
   ),
 }))
 
-vi.mock('@/shared/lib/share', () => ({
-  copyText: vi.fn(async () => undefined),
-  shareUrl: vi.fn(async () => undefined),
-}))
-
 import { JourneyReaderClosingSection } from '@/features/journeys/ui/JourneyReaderClosingSection'
 
 describe('JourneyReaderClosingSection', () => {
@@ -24,7 +19,7 @@ describe('JourneyReaderClosingSection', () => {
     cleanup()
   })
 
-  it('renders only supported actions', () => {
+  it('renders the journal invitation without requiring comments', () => {
     render(
       <JourneyReaderClosingSection
         shareUrl="https://example.test/trip"
@@ -34,41 +29,20 @@ describe('JourneyReaderClosingSection', () => {
     )
 
     expect(
-      screen.getByRole('button', {
-        name: /Share this trip|Sdílet tuto cestu/i,
+      screen.getByRole('heading', {
+        name: /Save your travel memories|Uložte si cestovní vzpomínky/i,
       }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('button', { name: /Copy link|Kopírovat odkaz/i }),
+      screen.getByRole('link', {
+        name: /Create a free account|Vytvořit účet zdarma/i,
+      }),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('link', { name: /Visit @family|Navštívit @family/i }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('link', {
-        name: /Sign in \(optional\)|Přihlásit se \(volitelné\)/i,
-      }),
-    ).toBeInTheDocument()
-    expect(screen.queryByText(/coming soon|již brzy/i)).not.toBeInTheDocument()
-    expect(
-      screen.queryByText(/follow this trip|sledovat cestu/i),
-    ).not.toBeInTheDocument()
-  })
-
-  it('does not claim sign-in is required for commenting', () => {
-    render(
-      <JourneyReaderClosingSection
-        shareUrl="https://example.test/trip"
-        spaceHandle="family"
-        title="Summer trip"
-      />,
-    )
-
-    expect(
       screen.queryByText(/required to comment|nutné pro koment/i),
     ).toBeNull()
-    expect(
-      screen.getByText(/Chcete vidět víc\?|Want to see more\?/),
-    ).toBeInTheDocument()
   })
 })

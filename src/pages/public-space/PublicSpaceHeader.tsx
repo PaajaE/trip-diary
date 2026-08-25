@@ -34,8 +34,8 @@ export function PublicSpaceHeader({
   const displayName = name.trim() === '' ? `@${handle}` : name
 
   return (
-    <header className="overflow-hidden rounded-2xl border border-border/70 bg-surface shadow-soft">
-      <div className="flex flex-col gap-6 p-6 sm:flex-row sm:items-start sm:justify-between sm:p-8">
+    <header className="overflow-hidden rounded-[1.5rem] bg-surface p-6 sm:p-8">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-4 sm:gap-5">
           <Avatar
             className="size-16 text-xl sm:size-20 sm:text-2xl"
@@ -46,7 +46,7 @@ export function PublicSpaceHeader({
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
               {t('publicSpace.tagline')}
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">
+            <h1 className="reader-display mt-2 text-3xl tracking-[-0.04em] sm:text-4xl">
               {displayName}
             </h1>
             {showHandle ? (

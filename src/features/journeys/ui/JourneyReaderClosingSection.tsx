@@ -1,11 +1,11 @@
 import { Link } from '@tanstack/react-router'
-import { Copy, Share2 } from 'lucide-react'
-import { useState } from 'react'
+import { Lock, MapPinned, WifiOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { storeAuthReturnPath } from '@/features/auth/session/auth-return'
-import { copyText, shareUrl } from '@/shared/lib/share'
-import { Button } from '@/shared/ui/Button'
+import { buttonVariants } from '@/shared/ui/button-variants'
+import { SectionHeader } from '@/shared/ui/SectionHeader'
+import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderClosingSectionProps {
   shareUrl: string
@@ -14,85 +14,65 @@ interface JourneyReaderClosingSectionProps {
 }
 
 export function JourneyReaderClosingSection({
-  shareUrl: url,
   spaceHandle,
-  title,
 }: JourneyReaderClosingSectionProps) {
   const { t } = useTranslation()
   const { user } = useSession()
-  const [copied, setCopied] = useState(false)
-
-  const actions = [
-    {
-      id: 'share',
-      label: t('reader.closingShareTrip'),
-      onClick: () => {
-        void shareUrl(url, title).catch(() => copyText(url))
-      },
-    },
-    {
-      id: 'copy',
-      label: copied ? t('reader.linkCopied') : t('reader.copyLink'),
-      onClick: () => {
-        void copyText(url).then(() => {
-          setCopied(true)
-          window.setTimeout(() => {
-            setCopied(false)
-          }, 2000)
-        })
-      },
-    },
-  ] as const
 
   return (
     <section
       aria-labelledby="reader-closing-heading"
-      className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
+      className="scroll-mt-24 py-10 sm:py-14"
     >
-      <div>
-        <p className="text-sm font-medium tracking-[0.16em] text-accent uppercase">
-          {t('reader.closingEyebrow')}
-        </p>
-        <h2
-          className="reader-display mt-3 text-3xl sm:text-4xl"
-          id="reader-closing-heading"
-        >
-          {t('reader.closingTitle')}
-        </h2>
-        <p className="mt-4 max-w-2xl text-base leading-8 text-muted">
-          {t('reader.closingDescription')}
-        </p>
-      </div>
+      <div className="reader-closing-band px-5 py-8 sm:px-8 sm:py-10">
+        <SectionHeader
+          description={t('reader.closingDescription')}
+          eyebrow={t('reader.closingEyebrow')}
+          headingId="reader-closing-heading"
+          title={t('reader.closingTitle')}
+        />
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <Button onClick={actions[0].onClick} type="button" variant="primary">
-          <Share2 aria-hidden="true" size={16} />
-          {actions[0].label}
-        </Button>
-        <Button onClick={actions[1].onClick} type="button" variant="secondary">
-          <Copy aria-hidden="true" size={16} />
-          {actions[1].label}
-        </Button>
-        <Link
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold text-foreground transition-colors hover:bg-white active:bg-background"
-          params={{ spaceHandle }}
-          to="/$spaceHandle"
-        >
-          {t('reader.closingVisitSpace', { handle: spaceHandle })}
-        </Link>
-        {user === null ? (
+        <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+          <li className="inline-flex min-h-11 items-center gap-2">
+            <WifiOff aria-hidden="true" size={16} />
+            {t('reader.closingFeatureOffline')}
+          </li>
+          <li className="inline-flex min-h-11 items-center gap-2">
+            <MapPinned aria-hidden="true" size={16} />
+            {t('reader.closingFeatureMaps')}
+          </li>
+          <li className="inline-flex min-h-11 items-center gap-2">
+            <Lock aria-hidden="true" size={16} />
+            {t('reader.closingFeaturePrivacy')}
+          </li>
+        </ul>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          {user === null ? (
+            <Link
+              className={buttonVariants({ variant: 'primary' })}
+              onClick={() => {
+                storeAuthReturnPath(
+                  `${window.location.pathname}${window.location.search}`,
+                )
+              }}
+              to="/sign-up"
+            >
+              {t('reader.closingCreateAccount')}
+            </Link>
+          ) : null}
           <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-md px-5 text-sm font-semibold text-foreground transition-colors hover:bg-surface"
-            onClick={() => {
-              storeAuthReturnPath(
-                `${window.location.pathname}${window.location.search}`,
-              )
-            }}
-            to="/sign-in"
+            className={cn(
+              buttonVariants({
+                variant: user === null ? 'secondary' : 'primary',
+              }),
+            )}
+            params={{ spaceHandle }}
+            to="/$spaceHandle"
           >
-            {t('reader.closingSignInOptional')}
+            {t('reader.closingVisitSpace', { handle: spaceHandle })}
           </Link>
-        ) : null}
+        </div>
       </div>
     </section>
   )

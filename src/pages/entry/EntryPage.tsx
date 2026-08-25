@@ -119,17 +119,21 @@ export function EntryPage({
           />
         </article>
       ) : (
-        <article className={returnTo === undefined ? 'mt-16' : 'mt-8'}>
+        <article className={returnTo === undefined ? 'mt-10' : 'mt-6'}>
           {notice === 'photos_failed' ? (
             <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('entry.photosFailedNotice')}
             </p>
           ) : null}
-          <p className="text-sm text-accent">{t(`entry.type.${entry.type}`)}</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-[-0.04em]">
+          <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
+            {t(`entry.type.${entry.type}`)}
+          </p>
+          <h1 className="reader-display mt-3 text-[clamp(1.85rem,5vw,3rem)] leading-[1.05] tracking-[-0.04em]">
             {entry.title}
           </h1>
-          <p className="mt-8 whitespace-pre-wrap leading-8">{entry.body}</p>
+          <p className="prose-reader mt-8 max-w-[40rem] whitespace-pre-wrap text-lg leading-[1.8]">
+            {entry.body}
+          </p>
           {publicShare !== null ? (
             <ShareActions
               className="mt-6"
@@ -144,7 +148,7 @@ export function EntryPage({
             />
           )}
           <ContentEngagement
-            className="mt-8 border-t border-border pt-8"
+            className="mt-8 min-h-32 border-t border-border/60 pt-8"
             target={{ id: entry.id, type: 'entry' }}
           />
           <PhotoGallery
@@ -194,7 +198,7 @@ export function EntryPage({
                       setDeleting(false)
                     })
                 }}
-                variant="secondary"
+                variant="destructive"
               >
                 {deleting ? t('entry.deleting') : t('entry.deleteAction')}
               </Button>

@@ -86,14 +86,14 @@ function PublicSection({
   title,
 }: PublicSectionProps) {
   return (
-    <section className="border-b border-border py-10 last:border-b-0 sm:py-12">
-      <h2 className="flex items-center gap-3 text-2xl font-semibold">
+    <section className="py-10 last:border-b-0 sm:py-12">
+      <h2 className="reader-display flex items-center gap-3 text-2xl">
         <Icon aria-hidden="true" size={22} />
         {title}
       </h2>
       {children.length === 0 ? (
-        <div className="mt-6 rounded-md border border-dashed border-border p-6">
-          <p className="font-semibold">{emptyTitle}</p>
+        <div className="mt-6 max-w-xl">
+          <p className="reader-display text-xl">{emptyTitle}</p>
           <p className="mt-2 leading-7 text-muted">{emptyDescription}</p>
         </div>
       ) : (

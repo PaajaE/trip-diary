@@ -55,6 +55,7 @@ import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { FullScreenSheet } from '@/shared/ui/FullScreenSheet'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
+import { SectionHeader } from '@/shared/ui/SectionHeader'
 import { useToast } from '@/shared/ui/use-toast'
 
 interface JourneyPageProps {
@@ -390,7 +391,7 @@ export function JourneyPage({
       : focusedMapPointId
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
+    <main className="mx-auto min-h-svh w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
       {query.isError ? (
         <p className="mt-16 text-destructive">{t('journey.error')}</p>
       ) : query.isLoading ? (
@@ -409,10 +410,10 @@ export function JourneyPage({
               {t('journey.templateFailedNotice')}
             </p>
           ) : null}
-          <header className="mt-8 border-b border-border/60 pb-6">
+          <header className="mt-4 pb-6">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0 flex-1 px-0.5">
-                <p className="text-sm text-muted">
+                <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
                   {t(`journey.status.${journey.status}`)}
                   {myRoleQuery.data === null ||
                   myRoleQuery.data === undefined ? null : (
@@ -424,7 +425,7 @@ export function JourneyPage({
                     </>
                   )}
                 </p>
-                <h1 className="mt-2 max-w-3xl text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
+                <h1 className="reader-display mt-3 max-w-3xl text-3xl tracking-[-0.03em] sm:text-4xl">
                   {journey.title}
                 </h1>
                 <RevalidatingIndicator
@@ -493,28 +494,30 @@ export function JourneyPage({
               />
 
               <section
-                className="scroll-mt-24 border-t border-border/60 py-8 sm:scroll-mt-20 sm:py-10"
+                className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
                 id="map"
               >
-                <div className="flex items-end justify-between gap-4">
-                  <SectionHeading
-                    eyebrow={t('journey.mapEyebrow')}
-                    title={t('journey.map')}
-                  />
-                  {mapPoints.length > 0 ? (
-                    <button
-                      aria-label={t('journey.mapExpand')}
-                      className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm font-semibold shadow-soft transition hover:bg-background"
-                      onClick={() => {
-                        setMapExpanded(true)
-                      }}
-                      type="button"
-                    >
-                      <Expand aria-hidden="true" size={16} />
-                      {t('journey.mapExpand')}
-                    </button>
-                  ) : null}
-                </div>
+                <SectionHeader
+                  {...(mapPoints.length > 0
+                    ? {
+                        action: (
+                          <button
+                            aria-label={t('reader.mapViewAction')}
+                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border/80 bg-surface px-3 text-sm font-semibold transition hover:bg-white"
+                            onClick={() => {
+                              setMapExpanded(true)
+                            }}
+                            type="button"
+                          >
+                            <Expand aria-hidden="true" size={16} />
+                            {t('reader.mapViewAction')}
+                          </button>
+                        ),
+                      }
+                    : {})}
+                  eyebrow={t('journey.mapEyebrow')}
+                  title={t('journey.map')}
+                />
                 {mapPoints.some((point) => point.type === 'nature-goal') ? (
                   <label className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted">
                     <input
@@ -534,39 +537,36 @@ export function JourneyPage({
                   </p>
                 ) : null}
                 {mapPoints.length > 0 && !mapExpanded ? (
-                  <div className="mt-4">
-                    <JourneyMap
-                      canEdit={canEdit}
-                      checklistItems={checklistQuery.data ?? []}
-                      focusPointId={mapFocusPointId}
-                      moments={content.moments}
-                      observations={observationsQuery.data ?? []}
-                      onFocusPointChange={setFocusedMapPointId}
-                      onMarkNatureGoalSpotted={(item) => {
-                        void handleMarkNatureGoalFromMap(item)
-                      }}
-                      onOpenEntry={(entryId) => {
-                        openMomentOnTimeline(entryId)
-                      }}
-                      photoLocations={photoLocationsQuery.data ?? []}
-                      photoThumbUrls={photoThumbUrls}
-                      plannedStops={content.plannedStops}
-                      showNatureGoals={showNatureGoalsOnMap}
-                    />
-                  </div>
+                  <JourneyMap
+                    canEdit={canEdit}
+                    checklistItems={checklistQuery.data ?? []}
+                    className="editorial-map-frame mt-4 h-[min(26rem,70vh)]"
+                    focusPointId={mapFocusPointId}
+                    moments={content.moments}
+                    observations={observationsQuery.data ?? []}
+                    onFocusPointChange={setFocusedMapPointId}
+                    onMarkNatureGoalSpotted={(item) => {
+                      void handleMarkNatureGoalFromMap(item)
+                    }}
+                    onOpenEntry={(entryId) => {
+                      openMomentOnTimeline(entryId)
+                    }}
+                    photoLocations={photoLocationsQuery.data ?? []}
+                    photoThumbUrls={photoThumbUrls}
+                    plannedStops={content.plannedStops}
+                    showNatureGoals={showNatureGoalsOnMap}
+                  />
                 ) : null}
                 {mapPoints.length === 0 ? (
-                  <p className="mt-6 rounded-2xl border border-dashed border-border bg-surface p-6 text-muted">
-                    {t('journey.mapEmpty')}
-                  </p>
+                  <p className="mt-6 text-muted">{t('journey.mapEmpty')}</p>
                 ) : null}
               </section>
 
               <section
-                className="scroll-mt-24 border-t border-border/60 py-8 sm:scroll-mt-20 sm:py-10"
+                className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
                 id="gallery"
               >
-                <SectionHeading
+                <SectionHeader
                   eyebrow={t('journey.galleryEyebrow')}
                   title={t('journey.gallery')}
                 />
@@ -676,21 +676,6 @@ export function JourneyPage({
         </>
       )}
     </main>
-  )
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-}: {
-  eyebrow: string
-  title: string
-}) {
-  return (
-    <div>
-      <p className="text-sm font-medium text-accent">{eyebrow}</p>
-      <h2 className="mt-3 text-2xl font-semibold">{title}</h2>
-    </div>
   )
 }
 

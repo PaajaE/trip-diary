@@ -21,6 +21,7 @@ import { Button } from '@/shared/ui/Button'
 interface ContentEngagementProps {
   className?: string
   compact?: boolean
+  countsOnly?: boolean
   target: ContentTarget
   tone?: 'default' | 'inverse'
 }
@@ -28,6 +29,7 @@ interface ContentEngagementProps {
 export function ContentEngagement({
   className,
   compact = false,
+  countsOnly = false,
   target,
   tone = 'default',
 }: ContentEngagementProps) {
@@ -117,9 +119,14 @@ export function ContentEngagement({
 
   if (engagementQuery.isPending) {
     return (
-      <p className={cn('text-sm text-muted', className)} role="status">
-        {t('engagement.loading')}
-      </p>
+      <div
+        className={cn('flex min-h-11 items-center gap-3', className)}
+        role="status"
+      >
+        <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-border/80" />
+        <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-border/80" />
+        <span className="sr-only">{t('engagement.loading')}</span>
+      </div>
     )
   }
 
@@ -141,8 +148,40 @@ export function ContentEngagement({
 
   const inverse = tone === 'inverse'
 
+  const metaButtonClass = countsOnly
+    ? 'inline-flex min-h-11 items-center gap-1.5 text-sm text-muted'
+    : cn(
+        'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold',
+        inverse
+          ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+          : 'border-border bg-surface text-primary hover:bg-white',
+      )
+
+  const heartButtonClass = countsOnly
+    ? cn(
+        'inline-flex min-h-11 items-center gap-1.5 text-sm transition-colors',
+        engagement.viewerHasHearted
+          ? 'text-primary'
+          : 'text-muted hover:text-foreground',
+      )
+    : cn(
+        'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors',
+        engagement.viewerHasHearted
+          ? inverse
+            ? 'border-white bg-white text-black'
+            : 'border-primary bg-primary text-primary-foreground'
+          : inverse
+            ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
+            : 'border-border bg-surface text-foreground hover:bg-white',
+      )
+
   return (
-    <section className={cn(compact ? 'space-y-3' : 'space-y-5', className)}>
+    <section
+      className={cn(
+        compact || countsOnly ? 'space-y-3' : 'space-y-5',
+        className,
+      )}
+    >
       {actionError === null ? null : (
         <p className="text-sm text-destructive" role="alert">
           {actionError}
@@ -151,12 +190,7 @@ export function ContentEngagement({
       <div className="flex flex-wrap items-center gap-3">
         {user === null ? (
           <Link
-            className={cn(
-              'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold',
-              inverse
-                ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-                : 'border-border bg-surface text-primary hover:bg-white',
-            )}
+            className={metaButtonClass}
             onClick={requireSignIn}
             to="/sign-in"
           >
@@ -167,16 +201,7 @@ export function ContentEngagement({
           <button
             aria-label={t('engagement.heartAction')}
             aria-pressed={engagement.viewerHasHearted}
-            className={cn(
-              'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors',
-              engagement.viewerHasHearted
-                ? inverse
-                  ? 'border-white bg-white text-black'
-                  : 'border-primary bg-primary text-primary-foreground'
-                : inverse
-                  ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-                  : 'border-border bg-surface text-foreground hover:bg-white',
-            )}
+            className={heartButtonClass}
             disabled={heartMutation.isPending}
             onClick={() => {
               heartMutation.mutate()
@@ -193,17 +218,22 @@ export function ContentEngagement({
             {t('engagement.heartCount', { count: engagement.heartCount })}
           </button>
         )}
-        {!compact ? (
-          <span className="inline-flex items-center gap-2 text-sm text-muted">
+        {compact && !countsOnly ? null : (
+          <span
+            className={cn(
+              'inline-flex min-h-11 items-center gap-1.5 text-sm text-muted',
+              countsOnly ? '' : 'gap-2',
+            )}
+          >
             <MessageCircle aria-hidden="true" size={16} />
             {t('engagement.commentCount', {
               count: engagement.comments.length,
             })}
           </span>
-        ) : null}
+        )}
       </div>
 
-      {!compact ? (
+      {compact || countsOnly ? null : (
         <>
           {user === null ? (
             <p className="text-sm text-muted">
@@ -364,7 +394,7 @@ export function ContentEngagement({
             </ul>
           )}
         </>
-      ) : null}
+      )}
     </section>
   )
 }

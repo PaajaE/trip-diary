@@ -12,7 +12,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
 
   return (
     <button
-      className="group overflow-hidden rounded-md bg-surface text-left shadow-soft transition-colors hover:bg-white"
+      className="group overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface text-left shadow-soft transition-colors hover:bg-white"
       onClick={() => {
         onOpen(journey.id)
       }}
@@ -38,7 +38,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
             <span className="text-muted">{journey.dateLabel}</span>
           )}
         </div>
-        <h3 className="mt-2 text-xl font-semibold">{journey.title}</h3>
+        <h3 className="reader-display mt-2 text-xl">{journey.title}</h3>
         {journey.summary === undefined ||
         journey.summary === null ||
         journey.summary === '' ? null : (

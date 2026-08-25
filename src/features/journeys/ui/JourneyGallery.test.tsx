@@ -79,9 +79,7 @@ describe('JourneyGallery', () => {
     })
     renderGallery()
     expect(
-      await screen.findByText(
-        'Fotky se tu objeví společně s prvními momenty cesty.',
-      ),
+      await screen.findByText('Zatím tu nejsou žádné fotografie.'),
     ).toBeVisible()
   })
 

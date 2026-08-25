@@ -14,8 +14,8 @@ export function AuthPage({ mode }: AuthPageProps) {
 
   return (
     <main className="mx-auto min-h-svh w-full max-w-md px-5 py-8 sm:py-16">
-      <section className="mt-16 rounded-md bg-surface p-6 shadow-soft sm:p-8">
-        <h1 className="text-3xl font-semibold tracking-[-0.03em]">
+      <section className="mt-16 rounded-2xl bg-surface p-6 sm:p-8">
+        <h1 className="reader-display text-3xl tracking-[-0.03em]">
           {t(`auth.${mode}.title`)}
         </h1>
         <p className="mt-3 leading-7 text-muted">

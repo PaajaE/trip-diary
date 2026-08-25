@@ -7,12 +7,20 @@ import {
   ReaderMomentArticle,
 } from '@/features/journeys/ui/JourneyReaderStory'
 
-vi.mock('@/features/journeys/ui/ReaderMomentPhotos', () => ({
-  ReaderMomentPhotos: ({ onOpen }: { onOpen?: () => void }) => (
-    <button data-testid="moment-photo-control" onClick={onOpen} type="button">
-      Photo
-    </button>
-  ),
+vi.mock('@/features/photos/lib/use-photo-lightbox', () => ({
+  usePhotoLightbox: () => ({
+    lightboxElement: null,
+    openLightbox: vi.fn(),
+  }),
+}))
+
+vi.mock('@/features/photos/lib/use-photo-object-urls', () => ({
+  usePhotoObjectUrls: <T extends { id: string }>(photos: T[]) =>
+    photos.map((photo) => ({ ...photo, url: `blob:${photo.id}` })),
+}))
+
+vi.mock('@/features/engagement/ui/ContentEngagement', () => ({
+  ContentEngagement: () => <div data-testid="engagement-meta" />,
 }))
 
 describe('JourneyReaderStory', () => {
@@ -124,7 +132,7 @@ describe('ReaderMomentArticle', () => {
       />,
     )
 
-    fireEvent.click(screen.getByTestId('moment-photo-control'))
+    fireEvent.click(screen.getByRole('button', { name: 'Morning view' }))
 
     expect(onOpenEntry).not.toHaveBeenCalled()
   })
@@ -149,6 +157,36 @@ describe('ReaderMomentArticle', () => {
     expect(
       container.querySelector('.reader-moment-card--active'),
     ).not.toBeNull()
+  })
+
+  it('omits a planned-stop label that repeats the moment title', () => {
+    const base = createStageContent().moments[0]
+    if (base === undefined) {
+      throw new Error('Expected a moment fixture')
+    }
+
+    render(
+      <ReaderMomentArticle
+        index={1}
+        moment={{
+          ...base,
+          stop: {
+            id: '00000000-0000-4000-8000-000000000099',
+            mapLatitude: null,
+            mapLongitude: null,
+            notes: '',
+            stageId: null,
+            status: 'planned',
+            title: 'Morning view',
+          },
+        }}
+        onOpenEntry={vi.fn()}
+        photos={[]}
+        tagsByPhotoId={new Map()}
+      />,
+    )
+
+    expect(screen.getAllByText('Morning view')).toHaveLength(1)
   })
 })
 

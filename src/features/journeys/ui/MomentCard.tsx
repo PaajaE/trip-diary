@@ -114,7 +114,7 @@ export function MomentCard({
   return (
     <article
       className={cn(
-        'overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5 transition-shadow',
+        'overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft',
         highlighted &&
           'ring-2 ring-primary/40 motion-safe:animate-pulse motion-reduce:ring-primary/60',
         editing && 'ring-1 ring-primary/25',
@@ -133,10 +133,12 @@ export function MomentCard({
             onClick={toggleExpanded}
             type="button"
           >
-            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+            <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
               {t(`entry.type.${moment.entry.type}`)}
             </p>
-            <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+            <h4 className="reader-display mt-2 text-xl leading-tight sm:text-2xl">
+              {title}
+            </h4>
           </button>
         )}
         <div className="flex shrink-0 items-center gap-1">

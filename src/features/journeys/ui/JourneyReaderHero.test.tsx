@@ -27,7 +27,6 @@ describe('JourneyReaderHero', () => {
         mapPointCount={3}
         momentCount={5}
         photoCount={12}
-        spaceHandle="family-trips"
         summary="A coastal walk"
         title="Iceland Ring Road"
       />,
@@ -39,20 +38,21 @@ describe('JourneyReaderHero', () => {
     expect(screen.queryByText(/2026/)).not.toBeInTheDocument()
   })
 
-  it('scrolls to the trip stages section from the scroll-down control', () => {
+  it('scrolls to the trip stages section from the explore control', () => {
     render(
       <JourneyReaderHero
         mapPointCount={0}
         momentCount={1}
         photoCount={0}
-        spaceHandle="family-trips"
         summary=""
         title="Weekend hike"
       />,
     )
 
     fireEvent.click(
-      screen.getByRole('button', { name: /trip stages|etapám cesty/i }),
+      screen.getByRole('button', {
+        name: /Explore the journey|Prozkoumat cestu/i,
+      }),
     )
 
     expect(scrollToReaderSection).toHaveBeenCalledWith('story')

@@ -23,7 +23,7 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <>
       {immersiveReaderShell ? null : (
-        <header className="sticky top-0 z-20 border-b border-border/80 bg-background/95 px-5 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 px-5 backdrop-blur sm:px-8">
           <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
             <Link className="text-sm font-semibold tracking-wide" to="/">
               {t('brand')}
@@ -122,7 +122,7 @@ function AccountMenu({
       </button>
       {open ? (
         <div
-          className="absolute right-0 mt-2 w-56 rounded-md border border-border bg-surface p-2 shadow-soft"
+          className="absolute right-0 mt-2 w-56 rounded-xl border border-border/80 bg-surface p-2 shadow-soft"
           role="menu"
         >
           <Link

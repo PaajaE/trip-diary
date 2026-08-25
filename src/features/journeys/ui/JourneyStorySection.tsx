@@ -69,13 +69,15 @@ export function JourneyStorySection({
 
   if (moments.length === 0) {
     return (
-      <div className="mt-8 rounded-[1.5rem] border border-dashed border-border bg-surface p-6 shadow-soft">
-        <h3 className="text-xl font-semibold">{t('journey.emptyTitle')}</h3>
+      <div className="mt-8">
+        <h3 className="reader-display text-2xl sm:text-3xl">
+          {t('journey.emptyTitle')}
+        </h3>
         <p className="mt-3 max-w-2xl leading-7 text-muted">
           {t('journey.emptyRoute')}
         </p>
         <Link
-          className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
+          className="mt-6 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 sm:w-auto"
           params={{ journeyId }}
           to="/j/$journeyId/memory/new"
         >

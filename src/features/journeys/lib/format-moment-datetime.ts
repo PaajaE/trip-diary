@@ -33,6 +33,26 @@ export function formatMomentDateTimeLabel(
   }).format(date)
 }
 
+export function formatMomentDateLabel(
+  eventAt: string | null,
+  locale: string,
+): string | null {
+  if (eventAt === null) {
+    return null
+  }
+
+  const date = new Date(eventAt)
+  if (Number.isNaN(date.getTime())) {
+    return null
+  }
+
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
 export function formatMomentTimelineLabel(
   eventAt: string | null,
   locale: string,
@@ -44,7 +64,7 @@ export function formatMomentTimelineLabel(
 
   return inDayGroup
     ? formatMomentTimeLabel(eventAt, locale)
-    : formatMomentDateTimeLabel(eventAt, locale)
+    : formatMomentDateLabel(eventAt, locale)
 }
 
 import type { JourneyStageContent } from '@/features/journeys/lib/journey-content'

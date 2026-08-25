@@ -54,6 +54,14 @@ import {
 import { JourneyTagCollections } from '@/features/journeys/ui/JourneyTagCollections'
 import { ReaderChrome } from '@/features/journeys/ui/ReaderChrome'
 import { ReaderMapAttribution } from '@/features/journeys/ui/ReaderMapAttribution'
+import { countJourneyDays } from '@/features/journeys/lib/count-journey-days'
+import {
+  INITIAL_VISIBLE_MOMENTS,
+  limitStageMoments,
+} from '@/features/journeys/lib/limit-stage-moments'
+import { SectionHeader } from '@/shared/ui/SectionHeader'
+import { buttonVariants } from '@/shared/ui/button-variants'
+import { cn } from '@/shared/lib/cn'
 import {
   buildAbsoluteUrl,
   buildPublicJourneyPath,
@@ -111,6 +119,9 @@ export function JourneyReaderPage({
   const [activeMomentId, setActiveMomentId] = useState<string | null>(null)
   const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
     null,
+  )
+  const [visibleMomentCount, setVisibleMomentCount] = useState(
+    INITIAL_VISIBLE_MOMENTS,
   )
 
   const observationsQuery = useQuery({
@@ -235,6 +246,14 @@ export function JourneyReaderPage({
   )
   const showGallery = (publicGallery?.flatImages.length ?? 0) > 0
   const photoCount = publicGallery?.flatImages.length ?? 0
+  const dayCount = countJourneyDays(
+    journey?.startsAt ?? null,
+    journey?.endsAt ?? null,
+  )
+  const limitedStory =
+    content === null
+      ? null
+      : limitStageMoments(content.stageContents, visibleMomentCount)
 
   useEffect(() => {
     if (section === undefined) {
@@ -379,8 +398,12 @@ export function JourneyReaderPage({
 
   if (query.isLoading) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-16">
-        <p className="text-muted">{t('journey.loading')}</p>
+      <main className="mx-auto min-h-svh w-full max-w-4xl px-5 py-16">
+        <div
+          aria-hidden="true"
+          className="reader-photo-placeholder aspect-[16/9] rounded-[1.5rem]"
+        />
+        <p className="mt-6 text-muted">{t('journey.loading')}</p>
       </main>
     )
   }
@@ -404,10 +427,10 @@ export function JourneyReaderPage({
 
       <JourneyReaderHero
         {...(coverUrl !== undefined ? { coverUrl } : {})}
+        {...(dayCount === null ? {} : { dayCount })}
         mapPointCount={mapPoints.length}
         momentCount={content.moments.length}
         photoCount={photoCount}
-        spaceHandle={publicPaths.spaceHandle}
         summary={journey.summary}
         title={journey.title}
       />
@@ -418,73 +441,67 @@ export function JourneyReaderPage({
           className="scroll-mt-24 py-10 sm:py-14"
           id={JOURNEY_READER_SECTION_IDS.story}
         >
-          <ReaderSectionIntro
-            eyebrow={t('reader.tripStagesEyebrow')}
+          <SectionHeader
+            eyebrow={t('reader.timelineEyebrow')}
             headingId="reader-trip-stages-heading"
-            title={t('reader.tripStagesTitle')}
+            title={t('reader.timelineTitle')}
           />
           <JourneyReaderStory
             activeMomentId={activeMomentId}
             onOpenEntry={openMoment}
             photosByEntryId={photosByEntryId}
-            stageContents={content.stageContents}
+            stageContents={limitedStory?.stages ?? content.stageContents}
             tagsByPhotoId={tagsByPhotoId}
           />
+          {(limitedStory?.hiddenCount ?? 0) > 0 ? (
+            <div className="mt-8 flex justify-center">
+              <button
+                className={cn(buttonVariants({ variant: 'secondary' }))}
+                onClick={() => {
+                  setVisibleMomentCount(
+                    (current) => current + INITIAL_VISIBLE_MOMENTS,
+                  )
+                }}
+                type="button"
+              >
+                {t('reader.showMoreMomentsCount', {
+                  count: limitedStory?.hiddenCount ?? 0,
+                })}
+              </button>
+            </div>
+          ) : null}
         </section>
 
-        {showGallery ? (
-          <section
-            className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
-            id={JOURNEY_READER_SECTION_IDS.gallery}
-          >
-            <ReaderSectionIntro
-              eyebrow={t('journey.galleryEyebrow')}
-              title={t('reader.galleryTitle')}
-            />
-            <JourneyReaderGallery
-              onOpenMoment={openMoment}
-              stageContents={content.stageContents}
-            />
-          </section>
-        ) : null}
-
         <section
-          className="reader-map-section scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
+          className="reader-map-section scroll-mt-24 py-10 sm:py-14"
           id={JOURNEY_READER_SECTION_IDS.map}
         >
-          <div
-            className="mx-auto w-full max-w-3xl scroll-mt-28"
-            id={JOURNEY_READER_SCROLL_TARGETS.map}
-          >
-            <ReaderSectionIntro
+          <div className="scroll-mt-28" id={JOURNEY_READER_SCROLL_TARGETS.map}>
+            <SectionHeader
+              description={t('reader.mapInteractionHint')}
               eyebrow={t('journey.mapEyebrow')}
               title={t('reader.mapTitle')}
             />
-            <p className="mt-4 max-w-2xl text-sm leading-7 text-muted">
-              {t('reader.mapInteractionHint')}
-            </p>
           </div>
           {mapPoints.length > 0 ? (
-            <div className="reader-bleed relative mt-8">
+            <div className="editorial-map-frame relative mt-8 h-[min(28rem,70vh)]">
               <DeferredJourneyMap
                 {...readerMapProps}
-                className="reader-map-frame reader-map-frame--bleed reader-map-frame--embedded h-[min(75vh,46rem)] w-full border-y border-border shadow-soft"
+                className="reader-map-frame h-full w-full"
                 sectionId={JOURNEY_READER_SECTION_IDS.map}
               />
               <button
-                aria-label={t('journey.mapExpand')}
-                className="absolute right-4 bottom-4 z-10 inline-flex min-h-11 items-center gap-2 rounded-full border border-border/80 bg-surface/95 px-4 text-sm font-semibold shadow-soft backdrop-blur-sm transition hover:bg-surface sm:right-6"
+                aria-label={t('reader.mapViewAction')}
+                className="absolute right-4 bottom-4 z-10 inline-flex min-h-11 items-center gap-2 rounded-xl border border-border/80 bg-surface/95 px-4 text-sm font-semibold shadow-soft backdrop-blur-sm transition hover:bg-white"
                 onClick={openMapFullscreen}
                 type="button"
               >
                 <Expand aria-hidden="true" size={16} />
-                {t('journey.mapExpand')}
+                {t('reader.mapViewAction')}
               </button>
             </div>
           ) : (
-            <p className="mx-auto mt-6 max-w-3xl rounded-2xl border border-dashed border-border bg-surface px-5 py-6 text-muted">
-              {t('journey.mapEmpty')}
-            </p>
+            <p className="mt-6 text-muted">{t('journey.mapEmpty')}</p>
           )}
           {content.moments.length > 0 ? (
             <JourneyReaderMomentStrip
@@ -494,23 +511,38 @@ export function JourneyReaderPage({
               ref={stripRef}
             />
           ) : null}
-          <div className="mx-auto mt-4 w-full max-w-3xl px-5 sm:px-8">
+          <div className="mt-4">
             <ReaderMapAttribution />
           </div>
         </section>
 
+        {showGallery ? (
+          <section
+            className="scroll-mt-24 py-10 sm:py-14"
+            id={JOURNEY_READER_SECTION_IDS.gallery}
+          >
+            <SectionHeader
+              eyebrow={t('journey.galleryEyebrow')}
+              title={t('reader.galleryTitle')}
+            />
+            <JourneyReaderGallery
+              layout="preview"
+              onOpenMoment={openMoment}
+              stageContents={content.stageContents}
+            />
+          </section>
+        ) : null}
+
         {hasCollections ? (
           <section
-            className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
+            className="scroll-mt-24 py-10 sm:py-14"
             id={JOURNEY_READER_SECTION_IDS.collections}
           >
-            <ReaderSectionIntro
+            <SectionHeader
+              description={t('reader.collectionsDescription')}
               eyebrow={t('reader.collectionsEyebrow')}
               title={t('reader.collections')}
             />
-            <p className="mt-4 max-w-2xl text-base leading-8 text-muted">
-              {t('reader.collectionsDescription')}
-            </p>
             {selectedCollectionTag === null ? (
               <JourneyTagCollections
                 journeyId={journeyId}
@@ -565,7 +597,7 @@ export function JourneyReaderPage({
 
         {hasGuides ? (
           <section
-            className="scroll-mt-24 border-t border-border/70 py-14 sm:py-20"
+            className="scroll-mt-24 py-10 sm:py-14"
             id={JOURNEY_READER_SECTION_IDS.guides}
           >
             <JourneyGuidesSection
@@ -585,13 +617,13 @@ export function JourneyReaderPage({
           title={journey.title}
         />
 
-        <footer className="border-t border-border/70 py-14 sm:py-16">
-          <ReaderSectionIntro
+        <footer className="py-10 sm:py-14">
+          <SectionHeader
             eyebrow={t('reader.footerEyebrow')}
             title={t('reader.footerTitle')}
           />
           <ContentEngagement
-            className="mt-8 rounded-[1.75rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
+            className="mt-6 min-h-32"
             target={{ id: journeyId, type: 'journey' }}
           />
         </footer>
@@ -628,30 +660,6 @@ export function JourneyReaderPage({
           />
         </div>
       </FullScreenSheet>
-    </div>
-  )
-}
-
-function ReaderSectionIntro({
-  eyebrow,
-  headingId,
-  title,
-}: {
-  eyebrow: string
-  headingId?: string
-  title: string
-}) {
-  return (
-    <div>
-      <p className="text-sm font-medium tracking-[0.16em] text-accent uppercase">
-        {eyebrow}
-      </p>
-      <h2
-        className="reader-display mt-3 text-3xl sm:text-4xl"
-        {...(headingId !== undefined ? { id: headingId } : {})}
-      >
-        {title}
-      </h2>
     </div>
   )
 }

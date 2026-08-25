@@ -13,7 +13,7 @@ export function PublicEntryCard({ entry, onOpen }: PublicEntryCardProps) {
 
   return (
     <button
-      className="group flex w-full gap-4 rounded-md bg-surface p-4 text-left shadow-soft transition-colors hover:bg-white sm:p-5"
+      className="group flex w-full gap-4 rounded-[1.25rem] border border-border/70 bg-surface p-4 text-left shadow-soft transition-colors hover:bg-white sm:p-5"
       onClick={() => {
         onOpen(entry.id)
       }}

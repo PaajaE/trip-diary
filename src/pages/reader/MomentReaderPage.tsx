@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
+import { CalendarDays, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
@@ -23,6 +23,9 @@ import { MomentPhotoMap } from '@/features/journeys/ui/MomentPhotoMap'
 import { MomentPhotoPreview } from '@/features/journeys/ui/MomentPhotoPreview'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { PhotoLightbox } from '@/features/photos/ui/PhotoLightbox'
+import { formatMomentDateLabel } from '@/features/journeys/lib/format-moment-datetime'
+import { MetadataRow } from '@/shared/ui/MetadataRow'
+import { StoryKicker } from '@/shared/ui/StoryKicker'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 
 interface MomentReaderPageProps {
@@ -36,7 +39,7 @@ export function MomentReaderPage({
   journeyId,
   publicPaths,
 }: MomentReaderPageProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const navigate = useNavigate()
   const mapSectionRef = useRef<HTMLDivElement>(null)
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null)
@@ -238,6 +241,15 @@ export function MomentReaderPage({
   const previousMoment = navigation?.previous ?? null
   const nextMoment = navigation?.next ?? null
   const hasPhotos = (photosQuery.data?.totalCount ?? 0) > 0
+  const coverPhotoId = photosQuery.data?.cover?.id
+  const supportingPhotos =
+    photosQuery.data === undefined
+      ? []
+      : photosQuery.data.photos.filter((photo) => photo.id !== coverPhotoId)
+  const supportingPreview =
+    photosQuery.data === undefined
+      ? []
+      : photosQuery.data.preview.filter((photo) => photo.id !== coverPhotoId)
   const previewThumbs = Object.fromEntries(
     (photosQuery.data?.preview ?? []).map((photo) => [
       photo.id,
@@ -252,74 +264,46 @@ export function MomentReaderPage({
   }
 
   return (
-    <div className="reader-page pb-16">
+    <div className="reader-page pb-16 pt-16">
       {publicPaths !== undefined ? (
         <ReaderChrome
+          {...(backPath === undefined
+            ? {}
+            : { backHref: backPath, backLabel: t('reader.backToTrip') })}
           shareText={shareText}
           shareUrl={shareUrl}
-          spaceHandle={publicPaths.spaceHandle}
           title={title}
+          variant="toolbar"
         />
       ) : null}
 
-      <article>
+      <article className="mx-auto w-full max-w-3xl px-5 sm:px-8">
         {coverUrl !== null ? (
-          <div className="reader-bleed relative mt-8">
-            <button
-              aria-label={t('reader.openCoverPhoto')}
-              className="reader-photo-feature block w-full overflow-hidden"
-              onClick={() => {
-                const coverId = photosQuery.data?.cover?.id
-                if (coverId !== undefined) {
-                  openGallery(coverId)
-                }
-              }}
-              type="button"
-            >
-              <img
-                alt=""
-                className="size-full object-cover"
-                decoding="async"
-                fetchPriority="high"
-                loading="eager"
-                src={coverUrl}
-              />
-            </button>
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-5 pb-6 pt-16 sm:px-8">
-              <p className="text-xs font-semibold tracking-[0.2em] text-white/80 uppercase">
-                {t(`entry.type.${entry.type}`)}
-              </p>
-              <h1 className="reader-display mt-2 max-w-3xl text-[clamp(1.85rem,6vw,3.25rem)] leading-[0.98] tracking-[-0.04em] text-white">
-                {title}
-              </h1>
-            </div>
-          </div>
-        ) : (
-          <div className="reader-bleed reader-hero-fallback mt-8 px-5 py-16 sm:px-8">
-            <div className="mx-auto w-full max-w-3xl">
-              <p className="text-xs font-semibold tracking-[0.2em] text-white/75 uppercase">
-                {t(`entry.type.${entry.type}`)}
-              </p>
-              <h1 className="reader-display mt-3 text-[clamp(2rem,7vw,3.75rem)] leading-[0.98] tracking-[-0.04em] text-white">
-                {title}
-              </h1>
-            </div>
-          </div>
-        )}
+          <button
+            aria-label={t('reader.openCoverPhoto')}
+            className="mt-6 block w-full overflow-hidden rounded-[1.25rem]"
+            onClick={() => {
+              const coverId = photosQuery.data?.cover?.id
+              if (coverId !== undefined) {
+                openGallery(coverId)
+              }
+            }}
+            type="button"
+          >
+            <img
+              alt=""
+              className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover object-[center_32%]"
+              decoding="async"
+              fetchPriority="high"
+              loading="eager"
+              src={coverUrl}
+            />
+          </button>
+        ) : null}
 
-        <div className="mx-auto w-full max-w-3xl px-5 pb-16 pt-10 sm:px-8">
-          {backPath !== undefined ? (
-            <Link
-              className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-              to={backPath}
-            >
-              <ArrowLeft aria-hidden="true" size={16} />
-              {t('reader.backToTrip')}
-            </Link>
-          ) : null}
-
+        <div className={coverUrl === null ? 'pt-6' : 'pt-8'}>
           {navigation !== null ? (
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-accent">
+            <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-muted uppercase">
               {t('reader.momentProgress', {
                 current: navigation.index,
                 total: navigation.total,
@@ -327,20 +311,40 @@ export function MomentReaderPage({
             </p>
           ) : null}
 
-          {coverUrl === null ? null : (
-            <p className="mt-4 text-sm font-medium tracking-[0.16em] text-muted uppercase">
-              {t(`entry.type.${entry.type}`)}
-            </p>
-          )}
+          <StoryKicker className="mt-3">
+            {t(`entry.type.${entry.type}`)}
+          </StoryKicker>
+          <h1 className="reader-display mt-3 max-w-3xl text-[clamp(1.85rem,5vw,3.15rem)] leading-[1.05] tracking-[-0.04em]">
+            {title}
+          </h1>
+          <MetadataRow
+            className="mt-4"
+            items={[
+              {
+                icon: CalendarDays,
+                label:
+                  formatMomentDateLabel(entry.eventAt, i18n.language) ?? '',
+              },
+              {
+                icon: MapPin,
+                label:
+                  currentMoment?.stop == null
+                    ? ''
+                    : currentMoment.stop.title.trim() === title.trim()
+                      ? ''
+                      : currentMoment.stop.title,
+              },
+            ]}
+          />
 
           {entry.body === '' ? (
             hasPhotos ? (
-              <p className="mt-8 text-base leading-relaxed text-muted">
+              <p className="mt-8 max-w-[40rem] text-base leading-relaxed text-muted">
                 {t('reader.shortMomentHint')}
               </p>
             ) : null
           ) : (
-            <div className="reader-story prose-reader mt-8 max-w-[40rem] whitespace-pre-wrap text-lg leading-[1.85] text-foreground/90">
+            <div className="prose-reader mt-8 max-w-[40rem] whitespace-pre-wrap text-lg leading-[1.8] text-foreground/90">
               {entry.body}
             </div>
           )}
@@ -348,13 +352,13 @@ export function MomentReaderPage({
           {photosQuery.data !== undefined && photosQuery.data.totalCount > 0 ? (
             <MomentPhotoPreview
               onOpenGallery={openGallery}
-              photos={photosQuery.data.photos}
-              preview={photosQuery.data.preview}
+              photos={supportingPhotos}
+              preview={supportingPreview}
               totalCount={photosQuery.data.totalCount}
             />
           ) : null}
 
-          <div ref={mapSectionRef}>
+          <div className="mt-10" ref={mapSectionRef}>
             <MomentPhotoMap
               activePhotoId={activeMapPhotoId}
               onSelectPhoto={openGallery}
@@ -367,53 +371,61 @@ export function MomentReaderPage({
           {navigation !== null ? (
             <nav
               aria-label={t('reader.momentNavigation')}
-              className="mt-12 grid gap-3 border-t border-border/70 pt-10 sm:grid-cols-2"
+              className="mt-12 flex gap-4 border-t border-border/60 pt-8"
             >
               {previousMoment !== null && previousMoment.entry.slug !== null ? (
                 <button
-                  className="reader-moment-nav flex min-h-14 items-center gap-3 rounded-2xl border border-border bg-surface px-4 text-left transition hover:bg-background"
+                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
                   onClick={() => {
                     openSiblingMoment(previousMoment.entry.slug)
                   }}
                   type="button"
                 >
-                  <ChevronLeft aria-hidden="true" size={18} />
-                  <span>
-                    <span className="block text-xs uppercase tracking-wide text-muted">
+                  <ChevronLeft
+                    aria-hidden="true"
+                    className="shrink-0"
+                    size={18}
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-xs tracking-wide text-muted">
                       {t('reader.previousMoment')}
                     </span>
-                    <span className="font-semibold">
+                    <span className="block truncate font-semibold">
                       {previousMoment.entry.title ?? t('dashboard.untitled')}
                     </span>
                   </span>
                 </button>
               ) : (
-                <span />
+                <span className="flex-1" />
               )}
               {nextMoment !== null && nextMoment.entry.slug !== null ? (
                 <button
-                  className="reader-moment-nav flex min-h-14 items-center justify-end gap-3 rounded-2xl border border-border bg-surface px-4 text-right transition hover:bg-background sm:col-start-2"
+                  className="flex min-h-11 min-w-0 flex-1 items-center justify-end gap-2 text-right"
                   onClick={() => {
                     openSiblingMoment(nextMoment.entry.slug)
                   }}
                   type="button"
                 >
-                  <span>
-                    <span className="block text-xs uppercase tracking-wide text-muted">
+                  <span className="min-w-0">
+                    <span className="block text-xs tracking-wide text-muted">
                       {t('reader.nextMoment')}
                     </span>
-                    <span className="font-semibold">
+                    <span className="block truncate font-semibold">
                       {nextMoment.entry.title ?? t('dashboard.untitled')}
                     </span>
                   </span>
-                  <ChevronRight aria-hidden="true" size={18} />
+                  <ChevronRight
+                    aria-hidden="true"
+                    className="shrink-0"
+                    size={18}
+                  />
                 </button>
               ) : null}
             </nav>
           ) : null}
 
           <ContentEngagement
-            className="mt-12 rounded-[1.75rem] border border-border bg-surface p-5 shadow-soft sm:p-6"
+            className="mt-10 min-h-32 border-t border-border/60 pt-8"
             target={{ id: entry.id, type: 'entry' }}
           />
         </div>

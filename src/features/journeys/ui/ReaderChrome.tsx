@@ -6,37 +6,72 @@ import { copyText, openWhatsAppShare, shareUrl } from '@/shared/lib/share'
 import { cn } from '@/shared/lib/cn'
 
 interface ReaderChromeProps {
+  backHref?: string
+  backLabel?: string
   shareText: string
   shareUrl: string
-  spaceHandle: string
+  spaceHandle?: string
   title: string
+  variant?: 'overlay' | 'toolbar'
 }
 
 export function ReaderChrome({
+  backHref,
+  backLabel,
   shareText,
   shareUrl: url,
   spaceHandle,
   title,
+  variant = 'overlay',
 }: ReaderChromeProps) {
   const { t } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const isToolbar = variant === 'toolbar'
 
   return (
-    <div className="reader-chrome pointer-events-none fixed inset-x-0 top-0 z-30 px-4 py-4 sm:px-6">
+    <div
+      className={cn(
+        'pointer-events-none fixed inset-x-0 top-0 z-30',
+        isToolbar
+          ? 'reader-chrome--toolbar px-4 py-3 sm:px-6'
+          : 'px-4 py-4 sm:px-6',
+      )}
+    >
       <div className="pointer-events-auto mx-auto flex max-w-5xl items-center justify-between gap-3">
-        <Link
-          className="reader-chrome-link inline-flex min-h-10 items-center rounded-full bg-black/25 px-4 text-sm font-semibold backdrop-blur-md transition hover:bg-black/35"
-          params={{ spaceHandle }}
-          to="/$spaceHandle"
-        >
-          @{spaceHandle}
-        </Link>
+        {backHref !== undefined ? (
+          <Link
+            className={cn(
+              'inline-flex min-h-11 items-center text-sm font-semibold',
+              isToolbar
+                ? 'text-foreground hover:text-primary'
+                : 'reader-chrome-link rounded-full bg-black/25 px-4 backdrop-blur-md transition hover:bg-black/35',
+            )}
+            to={backHref}
+          >
+            {backLabel ?? t('reader.backToTrip')}
+          </Link>
+        ) : spaceHandle === undefined ? (
+          <span />
+        ) : (
+          <Link
+            className="reader-chrome-link inline-flex min-h-10 items-center rounded-full bg-black/25 px-4 text-sm font-semibold backdrop-blur-md transition hover:bg-black/35"
+            params={{ spaceHandle }}
+            to="/$spaceHandle"
+          >
+            @{spaceHandle}
+          </Link>
+        )}
         <div className="relative">
           <button
             aria-expanded={menuOpen}
             aria-haspopup="menu"
-            className="reader-chrome-link inline-flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/25 backdrop-blur-md transition hover:bg-black/35"
+            className={cn(
+              'inline-flex min-h-11 min-w-11 items-center justify-center rounded-full transition',
+              isToolbar
+                ? 'text-foreground hover:bg-surface'
+                : 'reader-chrome-link bg-black/25 backdrop-blur-md hover:bg-black/35',
+            )}
             onClick={() => {
               setMenuOpen((open) => !open)
             }}

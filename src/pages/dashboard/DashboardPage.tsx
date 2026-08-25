@@ -45,12 +45,12 @@ export function DashboardPage() {
 
   return (
     <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-16">
-      <header className="flex flex-col justify-between gap-6 border-b border-border pb-10 sm:flex-row sm:items-end">
+      <header className="flex flex-col justify-between gap-6 pb-10 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-medium text-accent">
+          <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
             {t('dashboard.eyebrow')}
           </p>
-          <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+          <h1 className="reader-display mt-3 text-4xl tracking-[-0.04em] sm:text-5xl">
             {t('dashboard.greeting', {
               name:
                 profile?.displayName ??
@@ -100,14 +100,14 @@ export function DashboardPage() {
               {t('dashboard.yourTrips')}
             </h2>
             {dashboardQuery.data.journeys.length === 0 ? (
-              <p className="mt-6 rounded-md border border-dashed border-border p-6 leading-7 text-muted">
+              <p className="mt-6 max-w-xl leading-7 text-muted">
                 {t('dashboard.noJourneys')}
               </p>
             ) : (
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 {dashboardQuery.data.journeys.map((journey) => (
                   <Link
-                    className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                    className="block rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft transition-colors hover:bg-white"
                     key={journey.id}
                     params={{ journeyId: journey.id }}
                     search={{}}
@@ -145,7 +145,7 @@ export function DashboardPage() {
               <div className="mt-6 space-y-4">
                 {unsortedEntries.map((entry) => (
                   <Link
-                    className="block rounded-md bg-surface p-5 shadow-soft transition-colors hover:bg-white"
+                    className="block rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft transition-colors hover:bg-white"
                     key={entry.id}
                     params={{ entryId: entry.id }}
                     to="/e/$entryId"
@@ -181,8 +181,8 @@ function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
   }
 
   return (
-    <section className="mt-10 rounded-[1.5rem] border border-border bg-surface p-6 shadow-soft sm:p-8">
-      <p className="text-sm font-medium text-accent">
+    <section className="mt-10 rounded-[1.5rem] bg-primary/10 p-6 sm:p-8">
+      <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
         {t('dashboard.continueEyebrow')}
       </p>
       <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] sm:text-3xl">
@@ -195,7 +195,7 @@ function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
       </p>
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <Link
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90 sm:w-auto"
           params={{ journeyId: journey.id }}
           search={{}}
           to="/j/$journeyId"
@@ -204,7 +204,7 @@ function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
           <ArrowRight aria-hidden="true" size={16} />
         </Link>
         <Link
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-semibold hover:bg-white sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-semibold hover:bg-white sm:w-auto"
           params={{ journeyId: journey.id }}
           to="/j/$journeyId/memory/new"
         >
@@ -233,7 +233,7 @@ interface DashboardActionProps {
 function DashboardAction({ icon: Icon, label, to }: DashboardActionProps) {
   return (
     <Link
-      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
+      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
       to={to}
     >
       <Icon aria-hidden="true" size={17} />
