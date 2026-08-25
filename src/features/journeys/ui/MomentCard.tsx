@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ChevronDown, ExternalLink, Leaf, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
+import { commitJourneyEntryTextUpdate } from '@/entities/journey/api/commit-journey-entry-text-update'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
@@ -58,9 +58,11 @@ export function MomentCard({
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
+  const [editDirty, setEditDirty] = useState(false)
   const [natureOpen, setNatureOpen] = useState(false)
   const [natureDismissed, setNatureDismissed] = useState(false)
   const title = moment.entry.title ?? t('dashboard.untitled')
+  const initialTitle = moment.entry.title ?? ''
   const entrySlug = moment.entry.slug
   const syncStatus = moment.entry.syncStatus ?? 'synced'
   const isSynced = syncStatus === 'synced'
@@ -74,9 +76,24 @@ export function MomentCard({
         )
       : null
 
+  function confirmDiscardIfDirty(): boolean {
+    if (!editDirty) {
+      return true
+    }
+    return window.confirm(t('entry.unsavedChangesConfirm'))
+  }
+
+  function closeEditor() {
+    setEditing(false)
+    setEditDirty(false)
+  }
+
   function toggleExpanded() {
     if (expanded) {
-      setEditing(false)
+      if (editing && !confirmDiscardIfDirty()) {
+        return
+      }
+      closeEditor()
       onExpandChange?.(null)
       return
     }
@@ -100,21 +117,28 @@ export function MomentCard({
         'overflow-hidden rounded-2xl border border-border/80 bg-background/70 p-5 transition-shadow',
         highlighted &&
           'ring-2 ring-primary/40 motion-safe:animate-pulse motion-reduce:ring-primary/60',
+        editing && 'ring-1 ring-primary/25',
       )}
       data-entry-id={moment.entry.id}
       id={`moment-${moment.entry.id}`}
     >
       <div className="flex items-start justify-between gap-3">
-        <button
-          className="min-w-0 flex-1 text-left"
-          onClick={toggleExpanded}
-          type="button"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+        {editing ? (
+          <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-accent">
             {t(`entry.type.${moment.entry.type}`)}
           </p>
-          <h4 className="mt-2 text-lg font-semibold">{title}</h4>
-        </button>
+        ) : (
+          <button
+            className="min-w-0 flex-1 text-left"
+            onClick={toggleExpanded}
+            type="button"
+          >
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+              {t(`entry.type.${moment.entry.type}`)}
+            </p>
+            <h4 className="mt-2 text-lg font-semibold">{title}</h4>
+          </button>
+        )}
         <div className="flex shrink-0 items-center gap-1">
           <MomentSyncIndicator
             onRetry={() => {
@@ -157,10 +181,28 @@ export function MomentCard({
         </div>
       </div>
 
-      {moment.entry.body === '' ? null : (
+      {editing ? (
+        <InlineMomentEditor
+          creatorId={creatorId}
+          entryId={moment.entry.id}
+          initialBody={moment.entry.body}
+          initialTitle={initialTitle}
+          onCancel={closeEditor}
+          onDirtyChange={setEditDirty}
+          onUpdated={async (updated) => {
+            await commitJourneyEntryTextUpdate(queryClient, {
+              journeyId,
+              updated,
+            })
+            closeEditor()
+          }}
+        />
+      ) : null}
+
+      {editing || moment.entry.body === '' ? null : (
         <p
           className={cn(
-            'mt-3 leading-7 text-muted',
+            'mt-3 whitespace-pre-wrap leading-7 text-muted',
             !expanded && 'line-clamp-3',
           )}
         >
@@ -172,10 +214,10 @@ export function MomentCard({
         <>
           <EntryPhotoGrid
             alt={title}
-            canDelete={canEdit}
-            canEditCaptions={canEdit}
-            canEditTags={canEdit}
-            canSetCover={canEdit}
+            canDelete={canEdit && !editing}
+            canEditCaptions={canEdit && !editing}
+            canEditTags={canEdit && !editing}
+            canSetCover={canEdit && !editing}
             creatorId={creatorId}
             entryId={moment.entry.id}
             journeyId={journey.id}
@@ -187,7 +229,7 @@ export function MomentCard({
           {canEdit && !editing ? (
             <div className="mt-4 flex flex-wrap gap-3">
               <button
-                className="text-sm font-semibold text-primary hover:underline"
+                className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
                 onClick={() => {
                   setEditing(true)
                 }}
@@ -197,7 +239,7 @@ export function MomentCard({
               </button>
               {onOpenFullPage !== undefined ? (
                 <button
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-muted hover:text-foreground"
+                  className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-muted hover:text-foreground"
                   onClick={() => {
                     onOpenFullPage(moment.entry.id)
                   }}
@@ -208,23 +250,6 @@ export function MomentCard({
                 </button>
               ) : null}
             </div>
-          ) : null}
-          {canEdit && editing ? (
-            <InlineMomentEditor
-              creatorId={creatorId}
-              entryId={moment.entry.id}
-              onCancel={() => {
-                setEditing(false)
-              }}
-              onUpdated={() => {
-                setEditing(false)
-                onUpdated?.()
-                showToast({ message: t('moment.updated') })
-                void queryClient.invalidateQueries({
-                  queryKey: journeyQueryKeys.detail(journeyId),
-                })
-              }}
-            />
           ) : null}
         </>
       ) : photos.length > 0 ? (
@@ -247,7 +272,8 @@ export function MomentCard({
       !natureDismissed &&
       photos.length > 0 &&
       canEdit &&
-      !natureOpen ? (
+      !natureOpen &&
+      !editing ? (
         <button
           className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary"
           onClick={() => {

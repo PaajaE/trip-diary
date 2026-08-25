@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deleteEntry,
   updateEntry,
+  updateEntryContent,
 } from '@/entities/entry/api/entry-mutation.repository'
 import { createLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { localDb } from '@/shared/lib/local-db'
@@ -93,6 +94,114 @@ describe('entry mutations offline', () => {
         type: 'entry.update',
       }),
     )
+  })
+
+  it('updates title and body without changing type, time, or visibility', async () => {
+    const userId = crypto.randomUUID()
+    const eventAt = '2026-06-01T12:00:00.000+00:00'
+    const entry = await createLocalEntry(userId, crypto.randomUUID(), {
+      body: 'Original body',
+      eventAt,
+      language: 'en',
+      title: 'Original title',
+      type: 'tip',
+      visibility: 'private',
+    })
+
+    const updated = await updateEntryContent(entry.id, userId, {
+      body: 'Updated body with ěščř and ⛰',
+      title: 'Updated title',
+    })
+
+    expect(updated).toMatchObject({
+      body: 'Updated body with ěščř and ⛰',
+      eventAt,
+      language: 'en',
+      title: 'Updated title',
+      type: 'tip',
+      visibility: 'private',
+    })
+  })
+
+  it('queues entry.update when the create operation has already started', async () => {
+    const userId = crypto.randomUUID()
+    const entry = await createLocalEntry(userId, crypto.randomUUID(), {
+      body: 'Original body',
+      eventAt: new Date().toISOString(),
+      language: 'cs',
+      title: 'Original title',
+      type: 'note',
+      visibility: 'public',
+    })
+    const createOperation = (await localDb.syncOperations.toArray()).find(
+      (operation) =>
+        operation.type === 'entry.create' && operation.entryId === entry.id,
+    )
+    if (createOperation?.type !== 'entry.create') {
+      throw new Error('expected a pending entry.create operation')
+    }
+    await localDb.syncOperations.put({
+      ...createOperation,
+      status: 'syncing',
+    })
+
+    await updateEntryContent(entry.id, userId, {
+      body: 'Edited during create sync',
+      title: entry.title,
+    })
+
+    expect(await localDb.syncOperations.toArray()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entryId: entry.id,
+          type: 'entry.create',
+          status: 'syncing',
+        }),
+        expect.objectContaining({
+          entryId: entry.id,
+          type: 'entry.update',
+        }),
+      ]),
+    )
+  })
+
+  it('does not queue entry.update when create is still failed', async () => {
+    const userId = crypto.randomUUID()
+    const entry = await createLocalEntry(userId, crypto.randomUUID(), {
+      body: 'Original body',
+      eventAt: new Date().toISOString(),
+      language: 'cs',
+      title: 'Original title',
+      type: 'note',
+      visibility: 'public',
+    })
+    const createOperation = (await localDb.syncOperations.toArray()).find(
+      (operation) =>
+        operation.type === 'entry.create' && operation.entryId === entry.id,
+    )
+    if (createOperation?.type !== 'entry.create') {
+      throw new Error('expected a pending entry.create operation')
+    }
+    await localDb.syncOperations.put({
+      ...createOperation,
+      status: 'failed',
+    })
+
+    await updateEntryContent(entry.id, userId, {
+      body: 'Edited after failed create',
+      title: entry.title,
+    })
+
+    expect(await localDb.syncOperations.toArray()).toEqual([
+      expect.objectContaining({
+        entryId: entry.id,
+        status: 'failed',
+        type: 'entry.create',
+      }),
+    ])
+    expect(await localDb.entries.get(entry.id)).toMatchObject({
+      body: 'Edited after failed create',
+    })
   })
 
   it('queues entry.delete for a synced entry', async () => {

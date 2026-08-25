@@ -236,6 +236,12 @@ export const en = {
     editAction: 'Edit',
     editTitle: 'Edit memory',
     saveChanges: 'Save changes',
+    saving: 'Saving…',
+    saveFailed:
+      'This moment could not be saved. Your text is still here — try again.',
+    unsavedChangesConfirm: 'You have unsaved changes. Discard them?',
+    titlePlaceholder: 'Title',
+    bodyPlaceholder: 'Write this memory…',
     cancelEdit: 'Cancel',
     deleteAction: 'Delete',
     deleteConfirm: 'Are you sure you want to delete this memory?',

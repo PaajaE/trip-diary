@@ -36,6 +36,47 @@ export function pickJourneyQueryData(
   return left.entries.length >= right.entries.length ? left : right
 }
 
+export function patchJourneyEntryText(
+  journey: JourneyDetail,
+  patch: {
+    body: string
+    entryId: string
+    slug?: string | null
+    syncStatus?: JourneyDetail['entries'][number]['syncStatus']
+    title: string
+  },
+): JourneyDetail {
+  return journeyDetailSchema.parse({
+    ...journey,
+    entries: journey.entries.map((entry) => {
+      if (entry.id !== patch.entryId) {
+        return entry
+      }
+
+      return {
+        ...entry,
+        body: patch.body,
+        title: patch.title,
+        ...(patch.slug === undefined ? {} : { slug: patch.slug }),
+        ...(patch.syncStatus === undefined
+          ? {}
+          : { syncStatus: patch.syncStatus }),
+      }
+    }),
+  })
+}
+
+function shouldPreferLocalEntryContent(
+  syncStatus: string | undefined,
+): boolean {
+  return (
+    syncStatus === 'failed' ||
+    syncStatus === 'local' ||
+    syncStatus === 'pending' ||
+    syncStatus === 'syncing'
+  )
+}
+
 export function upsertJourneyEntryFromLocalSave(
   journey: JourneyDetail,
   saved: LocalSavedMoment,
@@ -141,24 +182,25 @@ export async function applyLocalJourneyDeltas(
         return entry
       }
 
+      const contentSource =
+        localEntry !== undefined &&
+        shouldPreferLocalEntryContent(localEntry.syncStatus)
+          ? localEntry
+          : entry
+
       return {
-        body: localEntry?.body ?? entry.body,
+        body: contentSource.body,
         createdAt: localEntry?.createdAt ?? entry.createdAt,
-        // Prefer remote eventAt once the local row is synced — otherwise
-        // stale Dexie timestamps shadow server edits (and e2e admin updates).
-        eventAt:
-          localEntry !== undefined &&
-          (localEntry.syncStatus === 'pending' ||
-            localEntry.syncStatus === 'failed')
-            ? localEntry.eventAt
-            : entry.eventAt,
+        // Prefer remote eventAt/title/body once the local row is synced —
+        // otherwise stale Dexie values shadow server edits (and e2e admin updates).
+        eventAt: contentSource.eventAt,
         id: entry.id,
-        slug: localEntry?.slug ?? entry.slug,
+        slug: contentSource.slug,
         stageId: link?.stageId ?? entry.stageId,
         stopId: link?.stopId ?? entry.stopId,
         syncStatus: localEntry?.syncStatus ?? entry.syncStatus ?? 'synced',
-        title: localEntry?.title ?? entry.title,
-        type: localEntry?.type ?? entry.type,
+        title: contentSource.title,
+        type: contentSource.type,
       }
     })
 

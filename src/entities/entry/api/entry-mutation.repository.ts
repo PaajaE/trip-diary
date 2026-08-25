@@ -91,6 +91,37 @@ async function resolveEditableEntry(
   return entry
 }
 
+export async function updateEntryContent(
+  entryId: string,
+  creatorId: string,
+  content: { body: string; title: string },
+): Promise<Entry> {
+  const entry = await resolveEditableEntry(entryId, creatorId)
+  const title = content.title.trim()
+
+  return updateEntry(entryId, creatorId, {
+    body: content.body,
+    eventAt: entry.eventAt,
+    language: entry.language,
+    title: title === '' ? entry.title : title,
+    type: entry.type,
+    visibility: entry.visibility,
+  })
+}
+
+async function hasBlockingEntryCreate(entryId: string): Promise<boolean> {
+  const operations = await localDb.syncOperations
+    .filter(
+      (operation) =>
+        operation.type === 'entry.create' &&
+        operation.entryId === entryId &&
+        (operation.status === 'failed' || operation.status === 'pending'),
+    )
+    .toArray()
+
+  return operations.length > 0
+}
+
 async function updateLocalEntryRecord(
   entryId: string,
   input: UpdateEntryInput,
@@ -109,8 +140,7 @@ async function updateLocalEntryRecord(
     syncStatus: entry.syncStatus === 'synced' ? 'pending' : entry.syncStatus,
     updatedAt: now,
   })
-  const needsUpdateOperation =
-    entry.syncStatus === 'synced' || entry.syncStatus === 'failed'
+  const needsUpdateOperation = !(await hasBlockingEntryCreate(entryId))
 
   await localDb.transaction(
     'rw',

@@ -7,10 +7,9 @@ import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
-import {
-  invalidateAfterEntryDelete,
-  invalidateAfterEntryUpdate,
-} from '@/entities/entry/api/invalidate-after-entry-mutation'
+import { invalidateAfterEntryDelete } from '@/entities/entry/api/invalidate-after-entry-mutation'
+import { commitJourneyEntryTextUpdate } from '@/entities/journey/api/commit-journey-entry-text-update'
+import { invalidateEntryTranslations } from '@/entities/translation/api/invalidate-entry-translations'
 import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repository'
 import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { useSession } from '@/features/auth/session'
@@ -102,15 +101,20 @@ export function EntryPage({
             }}
             onUpdated={(updated) => {
               setEditing(false)
-              void entryQuery.refetch()
-              void localDb.journeyLinks.get(updated.id).then((link) =>
-                invalidateAfterEntryUpdate(queryClient, {
-                  entryId: updated.id,
-                  ...(link?.journeyId !== undefined
-                    ? { journeyId: link.journeyId }
-                    : {}),
-                }),
+              void queryClient.setQueryData(
+                entryQueryKeys.detail(updated.id),
+                updated,
               )
+              void localDb.journeyLinks.get(updated.id).then((link) => {
+                if (link?.journeyId === undefined) {
+                  return invalidateEntryTranslations(queryClient, updated.id)
+                }
+
+                return commitJourneyEntryTextUpdate(queryClient, {
+                  journeyId: link.journeyId,
+                  updated,
+                })
+              })
             }}
           />
         </article>

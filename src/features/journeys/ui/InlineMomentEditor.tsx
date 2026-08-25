@@ -1,118 +1,221 @@
-import { zodResolver } from '@hookform/resolvers/zod'
-import { useQuery } from '@tanstack/react-query'
-import { useEffect } from 'react'
-import { useForm } from 'react-hook-form'
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { updateEntry } from '@/entities/entry/api/entry-mutation.repository'
-import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
-import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
-import {
-  updateEntrySchema,
-  type Entry,
-  type UpdateEntryInput,
-} from '@/entities/entry/model/entry'
+import { updateEntryContent } from '@/entities/entry/api/entry-mutation.repository'
+import type { Entry } from '@/entities/entry/model/entry'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
-import { Input } from '@/shared/ui/Input'
+import { cn } from '@/shared/lib/cn'
+
+const BODY_MIN_HEIGHT_PX = 160
+const BODY_MAX_LENGTH = 50_000
+const TITLE_MAX_LENGTH = 160
 
 interface InlineMomentEditorProps {
   creatorId: string
   entryId: string
+  initialBody: string
+  initialTitle: string
   onCancel: () => void
-  onUpdated: (entry: Entry) => void
+  onDirtyChange?: (dirty: boolean) => void
+  onUpdated: (entry: Entry) => void | Promise<void>
 }
 
 export function InlineMomentEditor({
   creatorId,
   entryId,
+  initialBody,
+  initialTitle,
   onCancel,
+  onDirtyChange,
   onUpdated,
 }: InlineMomentEditorProps) {
   const { t } = useTranslation()
-  const entryQuery = useQuery({
-    queryFn: () => getLocalEntry(entryId),
-    queryKey: entryQueryKeys.inlineEdit(entryId),
-  })
-  const entry = entryQuery.data
+  const titleId = useId()
+  const bodyId = useId()
+  const titleRef = useRef<HTMLInputElement | null>(null)
+  const bodyRef = useRef<HTMLTextAreaElement | null>(null)
+  const savingRef = useRef(false)
+  const [title, setTitle] = useState(initialTitle)
+  const [body, setBody] = useState(initialBody)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const form = useForm<UpdateEntryInput>({
-    defaultValues: {
-      body: '',
-      eventAt: new Date().toISOString(),
-      language: 'cs',
-      title: '',
-      type: 'story',
-      visibility: 'public',
-    },
-    resolver: zodResolver(updateEntrySchema),
-  })
+  const dirty = title !== initialTitle || body !== initialBody
+  const saveDisabled = saving || !dirty
 
   useEffect(() => {
-    if (entry === null || entry === undefined) {
+    onDirtyChange?.(dirty)
+  }, [dirty, onDirtyChange])
+
+  useEffect(() => {
+    const titleField = titleRef.current
+    const bodyField = bodyRef.current
+    if (titleField === null || bodyField === null) {
       return
     }
-    form.reset({
-      body: entry.body,
-      eventAt: entry.eventAt,
-      language: entry.language,
-      title: entry.title,
-      type: entry.type,
-      visibility: entry.visibility,
-    })
-  }, [entry, form])
 
-  async function handleSubmit(input: UpdateEntryInput) {
-    const updated = await updateEntry(entryId, creatorId, input)
-    try {
-      if (await canAutomaticallySync()) {
-        void syncPendingOperations().catch(() => {
-          // Background sync can retry later.
-        })
-      }
-    } catch {
-      // Local changes are safe and can be synchronized later.
+    autosizeTextarea(bodyField, BODY_MIN_HEIGHT_PX)
+
+    if (initialTitle.trim() === '') {
+      titleField.focus()
+      return
     }
-    onUpdated(updated)
+
+    bodyField.focus()
+    const cursor = bodyField.value.length
+    bodyField.setSelectionRange(cursor, cursor)
+  }, [initialTitle])
+
+  useEffect(() => {
+    if (!dirty) {
+      return
+    }
+
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+    }
+  }, [dirty])
+
+  function handleCancel() {
+    if (saving) {
+      return
+    }
+    if (dirty && !window.confirm(t('entry.unsavedChangesConfirm'))) {
+      return
+    }
+    onCancel()
   }
 
-  if (entryQuery.isLoading || entry === undefined) {
-    return <p className="mt-4 text-sm text-muted">{t('entry.loading')}</p>
+  async function save() {
+    if (savingRef.current || !dirty) {
+      return
+    }
+    if (body.length > BODY_MAX_LENGTH) {
+      setError(t('entry.saveFailed'))
+      return
+    }
+
+    savingRef.current = true
+    setSaving(true)
+    setError(null)
+
+    try {
+      const updated = await updateEntryContent(entryId, creatorId, {
+        body,
+        title: title.slice(0, TITLE_MAX_LENGTH),
+      })
+      try {
+        if (await canAutomaticallySync()) {
+          void syncPendingOperations().catch(() => {
+            // Background sync can retry later.
+          })
+        }
+      } catch {
+        // Local changes are safe and can be synchronized later.
+      }
+      await onUpdated(updated)
+    } catch {
+      setError(t('entry.saveFailed'))
+    } finally {
+      savingRef.current = false
+      setSaving(false)
+    }
   }
 
-  if (entry === null) {
-    return null
+  function handleEditorKeyDown(
+    event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      handleCancel()
+      return
+    }
+
+    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault()
+      void save()
+    }
   }
 
   return (
     <form
-      className="mt-4 space-y-4 border-t border-border/60 pt-4"
+      aria-busy={saving}
+      className="mt-2"
       onSubmit={(event) => {
-        void form.handleSubmit(handleSubmit)(event)
+        event.preventDefault()
+        void save()
       }}
     >
-      <Input
-        label={t('entry.title')}
-        {...form.register('title')}
-        error={form.formState.errors.title?.message}
-      />
-      <label className="block text-sm font-medium">
-        {t('entry.body')}
-        <textarea
-          className="mt-2 min-h-28 w-full rounded-md border border-border bg-background px-3 py-3 text-base"
-          {...form.register('body')}
-        />
+      <label className="sr-only" htmlFor={titleId}>
+        {t('entry.title')}
       </label>
-      <div className="flex flex-wrap gap-3">
-        <Button disabled={form.formState.isSubmitting} type="submit">
-          {form.formState.isSubmitting
-            ? t('entry.sync.syncing')
-            : t('entry.saveChanges')}
+      <input
+        autoComplete="off"
+        className="w-full min-w-0 bg-transparent text-lg font-semibold outline-none placeholder:text-muted/70 focus:border-b focus:border-primary/40"
+        disabled={saving}
+        id={titleId}
+        maxLength={TITLE_MAX_LENGTH}
+        onChange={(event) => {
+          setTitle(event.target.value)
+        }}
+        onKeyDown={handleEditorKeyDown}
+        placeholder={t('entry.titlePlaceholder')}
+        ref={titleRef}
+        value={title}
+      />
+      <label className="sr-only" htmlFor={bodyId}>
+        {t('entry.body')}
+      </label>
+      <textarea
+        className={cn(
+          'mt-3 min-h-40 w-full min-w-0 resize-none overflow-hidden bg-transparent text-base leading-7 text-foreground/90 outline-none placeholder:text-muted/70',
+          'focus:ring-0',
+        )}
+        disabled={saving}
+        id={bodyId}
+        onChange={(event) => {
+          setBody(event.target.value)
+          autosizeTextarea(event.currentTarget, BODY_MIN_HEIGHT_PX)
+        }}
+        onKeyDown={handleEditorKeyDown}
+        placeholder={t('entry.bodyPlaceholder')}
+        ref={bodyRef}
+        value={body}
+      />
+      {error === null ? null : (
+        <p className="mt-3 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={saveDisabled}
+          type="submit"
+        >
+          {saving ? t('entry.saving') : t('entry.saveChanges')}
         </Button>
-        <Button onClick={onCancel} type="button" variant="secondary">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={saving}
+          onClick={handleCancel}
+          type="button"
+          variant="secondary"
+        >
           {t('entry.cancelEdit')}
         </Button>
       </div>
     </form>
   )
+}
+
+function autosizeTextarea(element: HTMLTextAreaElement, minHeightPx: number) {
+  element.style.height = 'auto'
+  element.style.height = `${Math.max(element.scrollHeight, minHeightPx).toString()}px`
 }

@@ -238,6 +238,12 @@ export const cs: TranslationResources = {
     editAction: 'Upravit',
     editTitle: 'Upravit vzpomínku',
     saveChanges: 'Uložit změny',
+    saving: 'Ukládám…',
+    saveFailed:
+      'Moment se nepodařilo uložit. Tvůj text je pořád tady — zkus to znovu.',
+    unsavedChangesConfirm: 'Máš neuložené změny. Zahodit je?',
+    titlePlaceholder: 'Název',
+    bodyPlaceholder: 'Napiš tuhle vzpomínku…',
     cancelEdit: 'Zrušit',
     deleteAction: 'Smazat',
     deleteConfirm: 'Opravdu chcete smazat tuto vzpomínku?',
