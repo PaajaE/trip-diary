@@ -82,20 +82,26 @@ export function JourneyOverview({
     journey.stages.length === 0 &&
     journey.stops.length === 0
 
-  const summaryText =
-    journey.summary === '' ? t('journey.summaryFallback') : journey.summary
-  const summaryIsFallback = journey.summary === ''
+  const hasWrittenSummary = journey.summary !== ''
+  const summaryText = hasWrittenSummary
+    ? journey.summary
+    : moments.length === 0
+      ? t('journey.summaryFallback')
+      : null
+  const summaryIsFallback = !hasWrittenSummary && summaryText !== null
 
   return (
     <section className="scroll-mt-24 py-6 sm:scroll-mt-20 sm:py-8">
-      <p
-        className={cn(
-          'max-w-2xl leading-7 text-muted',
-          summaryIsFallback && 'italic',
-        )}
-      >
-        {summaryText}
-      </p>
+      {summaryText === null ? null : (
+        <p
+          className={cn(
+            'max-w-2xl leading-7 text-muted',
+            summaryIsFallback && 'italic',
+          )}
+        >
+          {summaryText}
+        </p>
+      )}
 
       <div className="mt-5">
         <TripSummaryLine

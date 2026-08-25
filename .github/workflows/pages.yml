@@ -108,10 +108,20 @@ jobs:
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
         run: test -n "$VITE_SUPABASE_URL" && test -n "$VITE_SUPABASE_ANON_KEY"
+      - name: Report optional map provider
+        env:
+          VITE_MAPY_API_KEY: ${{ secrets.VITE_MAPY_API_KEY }}
+        run: |
+          if [ -n "$VITE_MAPY_API_KEY" ]; then
+            echo "VITE_MAPY_API_KEY is set; production maps will use Mapy.com."
+          else
+            echo "VITE_MAPY_API_KEY is unset; production maps will fall back to OpenStreetMap."
+          fi
       - run: pnpm build
         env:
           VITE_BASE_PATH: /
           VITE_SITE_URL: https://cestovni-denik.cz
+          VITE_MAPY_API_KEY: ${{ secrets.VITE_MAPY_API_KEY }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
       - uses: actions/configure-pages@v5

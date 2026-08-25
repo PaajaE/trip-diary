@@ -91,6 +91,9 @@ push to `main`. Before the first deployment:
 2. Set the Supabase Auth site URL to the production URL, for example
    `https://cestovni-denik.cz/`.
 3. Add repository secrets `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY`.
+   Optionally add `VITE_MAPY_API_KEY` (Mapy.com public tile key) so production
+   maps match local `dev:prod`. Without it, the reader falls back to
+   OpenStreetMap.
 4. Add `SUPABASE_ACCESS_TOKEN`, `SUPABASE_PROJECT_ID`, and
    `SUPABASE_DB_PASSWORD` secrets.
 5. Run the `Deploy Supabase migrations` workflow once.

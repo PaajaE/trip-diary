@@ -129,6 +129,12 @@ export function NatureOnTripStrip({
 
   const showEmptyTemplates =
     items.length === 0 && canEdit && availableTemplates.length > 0
+  const hideEmptyReaderStrip =
+    !canEdit && items.length === 0 && !checklistQuery.isPending
+
+  if (hideEmptyReaderStrip) {
+    return null
+  }
 
   return (
     <section
