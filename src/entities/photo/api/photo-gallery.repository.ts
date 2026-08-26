@@ -276,6 +276,7 @@ async function getLocalPhotoDetailPreviews(
 async function getLocalPhotoPreviewsBatchForPicker(
   entryIds: string[],
   pickVariant: (variants: LocalPhotoVariant[]) => LocalPhotoVariant | undefined,
+  limitPerEntry?: number,
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
   if (entryIds.length === 0) {
     return new Map()
@@ -286,9 +287,23 @@ async function getLocalPhotoPreviewsBatchForPicker(
     return new Map()
   }
 
+  const photosByEntryId = new Map<string, typeof photos>()
+  for (const photo of photos) {
+    const list = photosByEntryId.get(photo.entryId) ?? []
+    list.push(photo)
+    photosByEntryId.set(photo.entryId, list)
+  }
+
+  const limitedPhotos = [...photosByEntryId.values()].flatMap((entryPhotos) => {
+    const sorted = [...entryPhotos].sort(
+      (left, right) => left.position - right.position,
+    )
+    return limitPerEntry === undefined ? sorted : sorted.slice(0, limitPerEntry)
+  })
+
   const variants = await localDb.photoVariants
     .where('photoId')
-    .anyOf(photos.map((photo) => photo.id))
+    .anyOf(limitedPhotos.map((photo) => photo.id))
     .toArray()
   const variantsByPhotoId = new Map<string, LocalPhotoVariant[]>()
   for (const variant of variants) {
@@ -298,7 +313,7 @@ async function getLocalPhotoPreviewsBatchForPicker(
   }
 
   const result = new Map<string, PositionedPhotoPreview[]>()
-  for (const photo of photos) {
+  for (const photo of limitedPhotos) {
     const variant = pickVariant(variantsByPhotoId.get(photo.id) ?? [])
     if (variant === undefined) {
       continue
@@ -332,8 +347,13 @@ async function getLocalPhotoPreviewsBatch(
 
 async function getLocalPhotoCardPreviewsBatch(
   entryIds: string[],
+  limitPerEntry?: number,
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
-  return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalCardVariant)
+  return getLocalPhotoPreviewsBatchForPicker(
+    entryIds,
+    pickLocalCardVariant,
+    limitPerEntry,
+  )
 }
 
 async function getLocalPhotoDetailPreviewsBatch(
@@ -516,6 +536,7 @@ async function getRemotePhotoPreviewsBatch(
   entryIds: string[],
   context: PhotoDisplayContext,
   variantKinds: readonly SharedPhotoVariantKind[],
+  limitPerEntry?: number,
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
   if (entryIds.length === 0) {
     return new Map()
@@ -534,7 +555,21 @@ async function getRemotePhotoPreviewsBatch(
     return new Map()
   }
 
-  const photoIds = [...new Set(links.map((link) => link.photo_id))]
+  const linksToDownload =
+    limitPerEntry === undefined
+      ? links
+      : (() => {
+          const seen = new Map<string, number>()
+          return links.filter((link) => {
+            const count = seen.get(link.entry_id) ?? 0
+            if (count >= limitPerEntry) {
+              return false
+            }
+            seen.set(link.entry_id, count + 1)
+            return true
+          })
+        })()
+  const photoIds = [...new Set(linksToDownload.map((link) => link.photo_id))]
   const [variantResult, mediaMetaByPhotoId] = await Promise.all([
     client
       .from('photo_variants')
@@ -556,7 +591,7 @@ async function getRemotePhotoPreviewsBatch(
   }
 
   const downloads = await Promise.allSettled(
-    links.map(async (link) => {
+    linksToDownload.map(async (link) => {
       const match = pickRemoteStoragePath(
         rowsByPhotoId.get(link.photo_id) ?? [],
         context,
@@ -727,14 +762,21 @@ async function getJourneyEntryPhotoPreviewsForVariant(
   entryIds: string[],
   loadLocalBatch: (
     entryIds: string[],
+    limitPerEntry?: number,
   ) => Promise<Map<string, PositionedPhotoPreview[]>>,
   context: PhotoDisplayContext,
   variantKinds: readonly SharedPhotoVariantKind[],
+  limitPerEntry?: number,
 ): Promise<JourneyEntryPhotoPreviews> {
   const uniqueEntryIds = [...new Set(entryIds)]
   const [localResult, remoteResult] = await Promise.allSettled([
-    loadLocalBatch(uniqueEntryIds),
-    getRemotePhotoPreviewsBatch(uniqueEntryIds, context, variantKinds),
+    loadLocalBatch(uniqueEntryIds, limitPerEntry),
+    getRemotePhotoPreviewsBatch(
+      uniqueEntryIds,
+      context,
+      variantKinds,
+      limitPerEntry,
+    ),
   ])
 
   const localFailed = localResult.status === 'rejected'
@@ -810,5 +852,64 @@ export async function getJourneyEntryPhotoDetailPreviews(
     getLocalPhotoDetailPreviewsBatch,
     DETAIL_CONTEXT,
     DETAIL_REMOTE_VARIANT_KINDS,
+  )
+}
+
+/** Authoring overview cards: card-quality previews, capped per moment. */
+export const AUTHOR_MOMENT_CARD_PREVIEW_LIMIT = 3
+
+export async function getEntryPhotoCounts(
+  entryIds: string[],
+): Promise<Map<string, number>> {
+  const uniqueEntryIds = [...new Set(entryIds)]
+  const counts = new Map<string, number>()
+  if (uniqueEntryIds.length === 0) {
+    return counts
+  }
+
+  const localPhotos = await localDb.photos
+    .where('entryId')
+    .anyOf(uniqueEntryIds)
+    .toArray()
+  for (const photo of localPhotos) {
+    counts.set(photo.entryId, (counts.get(photo.entryId) ?? 0) + 1)
+  }
+
+  try {
+    const client = getSupabaseClient()
+    const { data, error } = await client
+      .from('entry_photos')
+      .select('entry_id')
+      .in('entry_id', uniqueEntryIds)
+    if (error === null) {
+      const remoteCounts = new Map<string, number>()
+      for (const row of data) {
+        remoteCounts.set(
+          row.entry_id,
+          (remoteCounts.get(row.entry_id) ?? 0) + 1,
+        )
+      }
+      for (const entryId of uniqueEntryIds) {
+        const remote = remoteCounts.get(entryId) ?? 0
+        const local = counts.get(entryId) ?? 0
+        counts.set(entryId, Math.max(remote, local))
+      }
+    }
+  } catch {
+    // Offline — local counts only.
+  }
+
+  return counts
+}
+
+export async function getJourneyEntryPhotoAuthorCardPreviews(
+  entryIds: string[],
+): Promise<JourneyEntryPhotoPreviews> {
+  return getJourneyEntryPhotoPreviewsForVariant(
+    entryIds,
+    getLocalPhotoCardPreviewsBatch,
+    CARD_CONTEXT,
+    GRID_REMOTE_VARIANT_KINDS,
+    AUTHOR_MOMENT_CARD_PREVIEW_LIMIT,
   )
 }

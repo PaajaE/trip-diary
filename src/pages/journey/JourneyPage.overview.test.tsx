@@ -69,11 +69,9 @@ vi.mock('@/features/sharing/hooks/use-journey-public-share', () => ({
 vi.mock('@/features/journeys/ui/JourneyStorySection', () => ({
   JourneyStorySection: () => null,
 }))
-vi.mock('@/features/nature/ui/NatureOnTripStrip', () => ({
-  NatureOnTripStrip: () => null,
-}))
 vi.mock('@/entities/photo/api/photo-gallery.repository', () => ({
-  getJourneyEntryPhotoPreviews: vi.fn().mockResolvedValue({
+  getEntryPhotoCounts: vi.fn().mockResolvedValue(new Map()),
+  getJourneyEntryPhotoAuthorCardPreviews: vi.fn().mockResolvedValue({
     failedEntryIds: new Set<string>(),
     previewsByEntry: new Map(),
   }),
@@ -111,12 +109,15 @@ function mockJourneyQueries(journey: JourneyDetail) {
     if (queryKey[0] === 'journey-photo-locations') {
       return { data: [], isError: false, refetch: vi.fn() }
     }
-    if (queryKey[0] === 'journey-gallery') {
+    if (
+      queryKey[0] === 'journey-gallery' ||
+      queryKey[0] === 'journey-author-moment-previews'
+    ) {
       return {
         data: {
-          failedMomentCount: 0,
+          failedEntryIds: new Set<string>(),
+          photoCountsByEntry: new Map(),
           previewsByEntry: new Map(),
-          previewsByMoment: [[]],
         },
         isError: false,
         isPending: false,
@@ -169,7 +170,9 @@ describe('JourneyPage author scroll', () => {
     render(<JourneyPage journeyId={journey.id} />)
 
     expect(screen.getByText('A quick summary')).toBeVisible()
-    expect(screen.getByLabelText('Přidat moment')).toBeVisible()
+    expect(
+      screen.getAllByRole('button', { name: 'Přidat moment' }).length,
+    ).toBeGreaterThanOrEqual(1)
     expect(screen.getByRole('heading', { name: 'Momenty' })).toBeVisible()
     expect(
       screen.queryByRole('heading', { name: 'Mapa cesty' }),
@@ -194,7 +197,7 @@ describe('JourneyPage author scroll', () => {
     ).toBeVisible()
   })
 
-  it('opens the add sheet from the floating action button', async () => {
+  it('opens the add sheet from the desktop floating action button', async () => {
     const user = userEvent.setup()
     const journey = buildJourney()
     mockJourneyQueries(journey)

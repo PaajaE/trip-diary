@@ -17,7 +17,6 @@ import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-key
 import { listJourneyObservations } from '@/entities/nature/api/observation.repository'
 import { natureQueryKeys } from '@/entities/nature/api/nature-query-keys'
 import { backfillEntryPhotoGps } from '@/entities/photo/api/backfill-photo-gps.repository'
-import { listJourneyPhotoTagAssignments } from '@/entities/photo/api/photo-tag.repository'
 import { getJourneyPhotoLocations } from '@/entities/photo/api/photo-location.repository'
 import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import {
@@ -43,8 +42,7 @@ import {
 } from '@/features/journeys/lib/journey-author-section'
 import { useJourneyMapPhotoThumbs } from '@/features/journeys/lib/use-journey-map-photo-thumbs'
 import { buildJourneyReturnPath } from '@/features/journeys/lib/journey-return-path'
-import { groupTagsByPhotoId } from '@/features/journeys/lib/journey-tag-collections'
-import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
+import { useJourneyAuthorMomentPreviews } from '@/features/journeys/lib/use-journey-author-moment-previews'
 import { JourneyAddSheet } from '@/features/journeys/ui/JourneyAddSheet'
 import { JourneyManageSheet } from '@/features/journeys/ui/JourneyManageSheet'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
@@ -73,8 +71,6 @@ interface JourneyPageProps {
 export function JourneyPage({
   highlight,
   journeyId,
-  natureGoalId,
-  naturePrompt,
   notice,
   section,
 }: JourneyPageProps) {
@@ -92,12 +88,7 @@ export function JourneyPage({
   const [pendingMapPhotoId, setPendingMapPhotoId] = useState<string | null>(
     null,
   )
-  const [expandedEntryId, setExpandedEntryId] = useState<string | null>(null)
   const [highlightEntryId, setHighlightEntryId] = useState<string | null>(null)
-  const [naturePromptEntryId, setNaturePromptEntryId] = useState<string | null>(
-    null,
-  )
-  const [natureDetailOpen, setNatureDetailOpen] = useState(false)
   const [showNatureGoalsOnMap, setShowNatureGoalsOnMap] = useState(true)
   const [pendingHighlight, setPendingHighlight] = useState<string | null>(null)
   const savedToastShown = useRef(false)
@@ -123,11 +114,6 @@ export function JourneyPage({
       content?.moments.map((moment) => moment.entry.id) ?? [],
     ),
   })
-  const tagAssignmentsQuery = useQuery({
-    enabled: journey !== undefined,
-    queryFn: () => listJourneyPhotoTagAssignments(journeyId),
-    queryKey: photoQueryKeys.journeyTagAssignments(journeyId),
-  })
   const checklistQuery = useQuery({
     enabled: journey !== undefined,
     queryFn: () => listJourneyChecklistItems(journeyId),
@@ -138,26 +124,10 @@ export function JourneyPage({
     queryFn: () => listJourneyObservations(journeyId),
     queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
-  const { photosByEntryId } = useJourneyMomentPhotos(
+  const { photoCount } = useJourneyAuthorMomentPreviews(
     content?.moments ?? [],
     content !== null,
   )
-  const tagAssignments = useMemo(
-    () =>
-      Array.isArray(tagAssignmentsQuery.data) ? tagAssignmentsQuery.data : [],
-    [tagAssignmentsQuery.data],
-  )
-  const tagsByPhotoId = useMemo(
-    () => groupTagsByPhotoId(tagAssignments),
-    [tagAssignments],
-  )
-  const photoCount = useMemo(() => {
-    let count = 0
-    for (const photos of photosByEntryId.values()) {
-      count += photos.length
-    }
-    return count
-  }, [photosByEntryId])
   const { refetch: refetchPhotoLocations } = photoLocationsQuery
   const queryClient = useQueryClient()
   const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
@@ -220,9 +190,6 @@ export function JourneyPage({
       }
 
       setPendingHighlight(highlight)
-      if (naturePrompt !== undefined) {
-        setNaturePromptEntryId(naturePrompt)
-      }
 
       if (!savedToastShown.current) {
         savedToastShown.current = true
@@ -245,7 +212,7 @@ export function JourneyPage({
     return () => {
       cancelled = true
     }
-  }, [highlight, journeyId, naturePrompt, navigate, showToast, t])
+  }, [highlight, journeyId, navigate, showToast, t])
 
   useEffect(() => {
     if (pendingHighlight === null || content === null) {
@@ -268,7 +235,6 @@ export function JourneyPage({
       }
 
       setHighlightEntryId(highlightId)
-      setExpandedEntryId(highlightId)
       scrollToJourneyMoment(highlightId)
     })
 
@@ -282,11 +248,6 @@ export function JourneyPage({
       window.clearTimeout(clearHighlight)
     }
   }, [content, pendingHighlight])
-
-  function openMomentOnTimeline(entryId: string) {
-    setExpandedEntryId(entryId)
-    scrollToJourneyMoment(entryId)
-  }
 
   function navigateToMemory() {
     void navigate({
@@ -349,10 +310,6 @@ export function JourneyPage({
       setFocusedMapPointId(options.pointId)
     }
     setMapExpanded(true)
-  }
-
-  function handleShowNatureOnMap(checklistItemId: string) {
-    openMapSheet({ pointId: `nature-goal:${checklistItemId}` })
   }
 
   async function handleMarkNatureGoalFromMap(
@@ -487,15 +444,11 @@ export function JourneyPage({
             <JourneyOverview
               canEdit={canEdit}
               creatorId={user?.id ?? ''}
-              expandedEntryId={expandedEntryId}
               highlightEntryId={highlightEntryId}
               journey={journey}
               journeyId={journeyId}
               mapPointCount={mapPoints.length}
               moments={content.moments}
-              natureDetailOpen={natureDetailOpen}
-              naturePromptEntryId={naturePromptEntryId}
-              {...(natureGoalId !== undefined ? { natureGoalId } : {})}
               onAddMoment={() => {
                 setAddSheetOpen(true)
               }}
@@ -505,14 +458,10 @@ export function JourneyPage({
                 setPlaceCaptureOpen(true)
               }}
               onChanged={handleJourneyChanged}
-              onExpandChange={setExpandedEntryId}
-              onNatureDetailOpenChange={setNatureDetailOpen}
-              onOpenFullPage={openFullPage}
-              onShowNatureOnMap={handleShowNatureOnMap}
+              onOpenMoment={openFullPage}
               photoCount={photoCount}
               publicPaths={publicPaths ?? null}
               stageContents={content.stageContents}
-              tagsByPhotoId={tagsByPhotoId}
             />
           ) : null}
 
@@ -558,7 +507,7 @@ export function JourneyPage({
                 }}
                 onOpenEntry={(entryId) => {
                   setMapExpanded(false)
-                  openMomentOnTimeline(entryId)
+                  openFullPage(entryId)
                 }}
                 photoLocations={photoLocationsQuery.data ?? []}
                 photoThumbUrls={photoThumbUrls}
@@ -574,7 +523,7 @@ export function JourneyPage({
             <>
               <button
                 aria-label={t('journey.addMoment')}
-                className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-20 inline-flex size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:right-[max(1.25rem,calc((100vw-48rem)/2))]"
+                className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-5 z-20 hidden size-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:inline-flex sm:right-[max(1.25rem,calc((100vw-48rem)/2))]"
                 onClick={() => {
                   setAddSheetOpen(true)
                 }}

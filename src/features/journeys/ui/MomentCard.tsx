@@ -1,71 +1,82 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ExternalLink, Leaf, MapPin } from 'lucide-react'
+import { MapPin, MoreHorizontal } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { commitJourneyEntryTextUpdate } from '@/entities/journey/api/commit-journey-entry-text-update'
-import type { JourneyDetail } from '@/entities/journey/model/journey'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
-import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
+import { excerptText } from '@/features/journeys/lib/excerpt-text'
+import { formatMomentTimelineLabel } from '@/features/journeys/lib/format-moment-datetime'
 import { InlineMomentEditor } from '@/features/journeys/ui/InlineMomentEditor'
-import { NatureMatchBanner } from '@/features/nature/ui/NatureMatchBanner'
 import { momentShareFromPaths } from '@/features/sharing/hooks/use-journey-public-share'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import { ShareIconButton } from '@/features/sharing/ui/ShareIconButton'
-import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
+import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { MomentSyncIndicator } from '@/features/sync/ui/MomentSyncIndicator'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { useToast } from '@/shared/ui/use-toast'
 import { cn } from '@/shared/lib/cn'
 
+const CARD_PREVIEW_LIMIT = 3
+
 interface MomentCardProps {
   canEdit: boolean
   creatorId: string
-  expanded?: boolean
   highlighted?: boolean
-  journey: JourneyDetail
+  inDayGroup?: boolean
   journeyId: string
   moment: JourneyMoment
-  naturePrompt?: boolean
-  natureGoalId?: string
-  onExpandChange?: (entryId: string | null) => void
-  onOpenFullPage?: (entryId: string) => void
+  onOpen?: (entryId: string) => void
   onUpdated?: () => void
+  photoCount?: number
   photos: PhotoPreview[]
   publicPaths?: PublicJourneyPaths | null
-  tagsByPhotoId: Map<string, PhotoTagAssignment[]>
 }
 
 export function MomentCard({
   canEdit,
   creatorId,
-  expanded = false,
   highlighted = false,
-  journey,
+  inDayGroup = false,
   journeyId,
   moment,
-  naturePrompt = false,
-  natureGoalId,
-  onExpandChange,
-  onOpenFullPage,
+  onOpen,
   onUpdated,
+  photoCount,
   photos,
   publicPaths,
-  tagsByPhotoId,
 }: MomentCardProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
-  const [editDirty, setEditDirty] = useState(false)
-  const [natureOpen, setNatureOpen] = useState(false)
-  const [natureDismissed, setNatureDismissed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const title = moment.entry.title ?? t('dashboard.untitled')
   const initialTitle = moment.entry.title ?? ''
   const entrySlug = moment.entry.slug
   const syncStatus = moment.entry.syncStatus ?? 'synced'
   const isSynced = syncStatus === 'synced'
+  const excerpt = excerptText(moment.entry.body)
+  const previewPhotos = photos.slice(0, CARD_PREVIEW_LIMIT)
+  const resolvedPhotos = usePhotoObjectUrls(previewPhotos)
+  const totalPhotoCount = photoCount ?? photos.length
+  const overflowCount = Math.max(0, totalPhotoCount - CARD_PREVIEW_LIMIT)
+  const timeLabel = formatMomentTimelineLabel(
+    moment.entry.eventAt,
+    i18n.language,
+    inDayGroup,
+  )
+  const stopTitle = moment.stop?.title.trim() ?? ''
+  const locationLabel =
+    stopTitle === '' || stopTitle === title.trim() ? null : stopTitle
+
   const momentShare =
     publicPaths !== null &&
     publicPaths !== undefined &&
@@ -76,28 +87,23 @@ export function MomentCard({
         )
       : null
 
-  function confirmDiscardIfDirty(): boolean {
-    if (!editDirty) {
-      return true
-    }
-    return window.confirm(t('entry.unsavedChangesConfirm'))
-  }
-
   function closeEditor() {
     setEditing(false)
-    setEditDirty(false)
   }
 
-  function toggleExpanded() {
-    if (expanded) {
-      if (editing && !confirmDiscardIfDirty()) {
-        return
-      }
-      closeEditor()
-      onExpandChange?.(null)
+  function openEditor(event: React.MouseEvent) {
+    event.stopPropagation()
+    if (editing) {
       return
     }
-    onExpandChange?.(moment.entry.id)
+    setEditing(true)
+  }
+
+  function openMoment() {
+    if (editing) {
+      return
+    }
+    onOpen?.(moment.entry.id)
   }
 
   async function handleRetrySync() {
@@ -111,10 +117,25 @@ export function MomentCard({
     }
   }
 
+  async function handleDelete() {
+    setMenuOpen(false)
+    if (!window.confirm(t('entry.deleteConfirm'))) {
+      return
+    }
+    setDeleting(true)
+    try {
+      await deleteEntry(moment.entry.id, creatorId)
+      onUpdated?.()
+    } catch {
+      showToast({ message: t('entry.error'), variant: 'error' })
+      setDeleting(false)
+    }
+  }
+
   return (
     <article
       className={cn(
-        'overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft',
+        'author-moment-card group relative overflow-hidden rounded-xl border border-border/70 bg-surface shadow-soft',
         highlighted &&
           'ring-2 ring-primary/40 motion-safe:animate-pulse motion-reduce:ring-primary/60',
         editing && 'ring-1 ring-primary/25',
@@ -122,193 +143,205 @@ export function MomentCard({
       data-entry-id={moment.entry.id}
       id={`moment-${moment.entry.id}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        {editing ? (
-          <p className="min-w-0 flex-1 text-xs font-semibold uppercase tracking-wide text-accent">
-            {t(`entry.type.${moment.entry.type}`)}
-          </p>
-        ) : (
-          <button
-            className="min-w-0 flex-1 text-left"
-            onClick={toggleExpanded}
-            type="button"
-          >
-            <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
-              {t(`entry.type.${moment.entry.type}`)}
-            </p>
-            <h4 className="reader-display mt-2 text-xl leading-tight sm:text-2xl">
-              {title}
-            </h4>
-          </button>
-        )}
-        <div className="flex shrink-0 items-center gap-1">
-          <MomentSyncIndicator
-            onRetry={() => {
-              void handleRetrySync()
-            }}
-            syncStatus={syncStatus}
-          />
-          {momentShare !== null ? (
-            <ShareIconButton
-              disabled={!isSynced}
-              onDisabledClick={() => {
-                showToast({ message: t('moment.shareWaitForSync') })
-              }}
-              shareText={momentShare.shareText}
-              shareUrl={momentShare.shareUrl}
-              title={title}
-            />
-          ) : null}
-          {moment.location === null ? null : (
-            <span
-              aria-label={t('journey.hasLocation')}
-              className="rounded-full bg-primary/10 p-2 text-primary"
-            >
-              <MapPin aria-hidden="true" size={16} />
-            </span>
-          )}
-          <button
-            aria-expanded={expanded}
-            aria-label={expanded ? t('moment.collapse') : t('moment.expand')}
-            className="rounded-full p-2 text-muted hover:bg-background"
-            onClick={toggleExpanded}
-            type="button"
-          >
-            <ChevronDown
-              aria-hidden="true"
-              className={cn('transition-transform', expanded && 'rotate-180')}
-              size={18}
-            />
-          </button>
-        </div>
-      </div>
-
-      {editing ? (
-        <InlineMomentEditor
-          creatorId={creatorId}
-          entryId={moment.entry.id}
-          initialBody={moment.entry.body}
-          initialTitle={initialTitle}
-          onCancel={closeEditor}
-          onDirtyChange={setEditDirty}
-          onUpdated={async (updated) => {
-            await commitJourneyEntryTextUpdate(queryClient, {
-              journeyId,
-              updated,
-            })
-            closeEditor()
-          }}
+      {!editing && onOpen !== undefined ? (
+        <button
+          aria-label={t('reader.openMomentCard', { title })}
+          className="reader-moment-card__hit-target absolute inset-0 z-0 rounded-xl"
+          onClick={openMoment}
+          type="button"
         />
       ) : null}
 
-      {editing || moment.entry.body === '' ? null : (
-        <p
-          className={cn(
-            'mt-3 whitespace-pre-wrap leading-7 text-muted',
-            !expanded && 'line-clamp-3',
-          )}
-        >
-          {moment.entry.body}
-        </p>
-      )}
+      <div className="relative z-[1] p-4">
+        <div className="flex items-start gap-3">
+          <div className="pointer-events-none min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+              <span className="font-semibold tracking-wide text-accent uppercase">
+                {t(`entry.type.${moment.entry.type}`)}
+              </span>
+              {timeLabel === null ? null : (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <time
+                    {...(moment.entry.eventAt !== null
+                      ? { dateTime: moment.entry.eventAt }
+                      : {})}
+                  >
+                    {timeLabel}
+                  </time>
+                </>
+              )}
+              {locationLabel === null ? null : (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin aria-hidden="true" size={12} />
+                    {locationLabel}
+                  </span>
+                </>
+              )}
+              {moment.location === null ? null : (
+                <>
+                  <span aria-hidden="true">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <MapPin aria-hidden="true" size={12} />
+                    {t('journey.hasLocation')}
+                  </span>
+                </>
+              )}
+            </div>
 
-      {expanded ? (
-        <>
-          <EntryPhotoGrid
-            alt={title}
-            canDelete={canEdit && !editing}
-            canEditCaptions={canEdit && !editing}
-            canEditTags={canEdit && !editing}
-            canSetCover={canEdit && !editing}
-            creatorId={creatorId}
-            entryId={moment.entry.id}
-            journeyId={journey.id}
-            {...(onUpdated !== undefined ? { onCoverChanged: onUpdated } : {})}
-            photos={photos}
-            showPhotoEngagement
-            tagsByPhotoId={tagsByPhotoId}
-          />
-          {canEdit && !editing ? (
-            <div className="mt-4 flex flex-wrap gap-3">
-              <button
-                className="inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline"
-                onClick={() => {
-                  setEditing(true)
+            {editing ? (
+              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
+                {t(`entry.type.${moment.entry.type}`)}
+              </p>
+            ) : (
+              <h4 className="mt-1.5 text-lg leading-snug font-semibold tracking-[-0.01em]">
+                {title}
+              </h4>
+            )}
+
+            {editing || excerpt === '' ? null : (
+              <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
+                {excerpt}
+              </p>
+            )}
+
+            {resolvedPhotos.length > 0 && !editing ? (
+              <ul
+                aria-hidden="true"
+                className="mt-3 flex gap-1.5 overflow-hidden"
+              >
+                {resolvedPhotos.map((photo, index) => {
+                  const showOverflow =
+                    overflowCount > 0 && index === resolvedPhotos.length - 1
+                  return (
+                    <li
+                      className="relative size-14 shrink-0 overflow-hidden rounded-lg sm:size-16"
+                      key={photo.id}
+                    >
+                      <ResponsivePhotoImage
+                        alt=""
+                        className="size-full object-cover"
+                        {...(typeof photo.height === 'number'
+                          ? { height: photo.height }
+                          : {})}
+                        sizes={READER_STRIP_SIZES}
+                        src={photo.url}
+                        {...(typeof photo.width === 'number'
+                          ? { width: photo.width }
+                          : {})}
+                      />
+                      {photo.mediaType === 'video' ? (
+                        <VideoPlayOverlay />
+                      ) : null}
+                      {showOverflow ? (
+                        <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
+                          +{overflowCount}
+                        </span>
+                      ) : null}
+                    </li>
+                  )
+                })}
+              </ul>
+            ) : null}
+          </div>
+
+          <div className="relative z-[2] flex shrink-0 items-start gap-0.5">
+            <MomentSyncIndicator
+              onRetry={() => {
+                void handleRetrySync()
+              }}
+              syncStatus={syncStatus}
+            />
+            {momentShare !== null ? (
+              <ShareIconButton
+                disabled={!isSynced}
+                onDisabledClick={() => {
+                  showToast({ message: t('moment.shareWaitForSync') })
                 }}
+                shareText={momentShare.shareText}
+                shareUrl={momentShare.shareUrl}
+                title={title}
+              />
+            ) : null}
+            {canEdit ? (
+              <button
+                className="inline-flex min-h-10 items-center rounded-lg px-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
+                onClick={openEditor}
                 type="button"
               >
                 {t('entry.editAction')}
               </button>
-              {onOpenFullPage !== undefined ? (
+            ) : null}
+            {canEdit ? (
+              <div className="relative">
                 <button
-                  className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-muted hover:text-foreground"
-                  onClick={() => {
-                    onOpenFullPage(moment.entry.id)
+                  aria-expanded={menuOpen}
+                  aria-haspopup="menu"
+                  aria-label={t('journey.more')}
+                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted hover:bg-background"
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    setMenuOpen((open) => !open)
                   }}
                   type="button"
                 >
-                  <ExternalLink aria-hidden="true" size={14} />
-                  {t('moment.openFullPage')}
+                  <MoreHorizontal aria-hidden="true" size={18} />
                 </button>
-              ) : null}
-            </div>
-          ) : null}
-        </>
-      ) : photos.length > 0 ? (
-        <div className="mt-4">
-          <EntryPhotoGrid
-            alt={title}
-            canDelete={false}
-            canEditTags={false}
+                {menuOpen ? (
+                  <>
+                    <button
+                      aria-label={t('journey.manageClose')}
+                      className="fixed inset-0 z-10 cursor-default bg-transparent"
+                      onClick={() => {
+                        setMenuOpen(false)
+                      }}
+                      type="button"
+                    />
+                    <div
+                      className="absolute right-0 top-[calc(100%+0.25rem)] z-20 min-w-[10rem] overflow-hidden rounded-xl border border-border/80 bg-surface shadow-soft"
+                      role="menu"
+                    >
+                      <button
+                        className="flex min-h-11 w-full items-center px-4 text-left text-sm font-semibold text-destructive hover:bg-background disabled:opacity-50"
+                        disabled={deleting}
+                        onClick={() => {
+                          void handleDelete()
+                        }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        {deleting
+                          ? t('entry.deleting')
+                          : t('entry.deleteAction')}
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {editing ? (
+          <InlineMomentEditor
             creatorId={creatorId}
             entryId={moment.entry.id}
-            journeyId={journey.id}
-            photos={photos.slice(0, 3)}
-            showPhotoEngagement={false}
-            tagsByPhotoId={tagsByPhotoId}
+            initialBody={moment.entry.body}
+            initialTitle={initialTitle}
+            onCancel={closeEditor}
+            onUpdated={async (updated) => {
+              await commitJourneyEntryTextUpdate(queryClient, {
+                journeyId,
+                updated,
+              })
+              closeEditor()
+              onUpdated?.()
+            }}
           />
-        </div>
-      ) : null}
-
-      {naturePrompt &&
-      !natureDismissed &&
-      photos.length > 0 &&
-      canEdit &&
-      !natureOpen &&
-      !editing ? (
-        <button
-          className="mt-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary"
-          onClick={() => {
-            setNatureOpen(true)
-          }}
-          type="button"
-        >
-          <Leaf aria-hidden="true" size={14} />
-          {t('moment.spotWildlife')}
-        </button>
-      ) : null}
-
-      {natureOpen ? (
-        <NatureMatchBanner
-          className="mt-4"
-          creatorId={creatorId}
-          entryId={moment.entry.id}
-          entryTitle={title}
-          journeyId={journeyId}
-          {...(natureGoalId !== undefined ? { natureGoalId } : {})}
-          {...(onUpdated !== undefined ? { onChanged: onUpdated } : {})}
-          onDismiss={() => {
-            setNatureOpen(false)
-            setNatureDismissed(true)
-          }}
-          onSpotted={() => {
-            setNatureOpen(false)
-            setNatureDismissed(true)
-            onUpdated?.()
-          }}
-          photoId={photos[0]?.id ?? null}
-        />
-      ) : null}
+        ) : null}
+      </div>
     </article>
   )
 }

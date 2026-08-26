@@ -9,9 +9,6 @@ import '@/app/i18n'
 vi.mock('@/entities/checklist/api/checklist-mutation.repository', () => ({
   listJourneyChecklistItems: vi.fn().mockResolvedValue([]),
 }))
-vi.mock('@/features/nature/ui/NatureOnTripStrip', () => ({
-  NatureOnTripStrip: () => null,
-}))
 vi.mock('@/features/journeys/ui/JourneyStorySection', () => ({
   JourneyStorySection: () => <div data-testid="story-section" />,
 }))
@@ -79,7 +76,6 @@ function renderOverview({
         onChanged={vi.fn()}
         photoCount={0}
         stageContents={[]}
-        tagsByPhotoId={new Map()}
       />
     </QueryClientProvider>,
   )

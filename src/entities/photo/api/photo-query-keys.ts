@@ -1,6 +1,8 @@
 export type JourneyPhotoQuality = 'detail' | 'card' | 'thumb'
 
 export const photoQueryKeys = {
+  journeyAuthorMomentPreviews: (entryIds: readonly string[]) =>
+    ['journey-author-moment-previews', ...entryIds] as const,
   journeyGalleryRoot: ['journey-gallery'] as const,
   journeyGallery: (
     entryIds: readonly string[],
