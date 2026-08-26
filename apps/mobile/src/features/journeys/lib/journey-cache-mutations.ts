@@ -9,7 +9,9 @@ import {
   replaceCachedJourneyList,
 } from '@/platform/storage/journey-list-cache'
 import { clearCachedJourneyStopsForJourney } from '@/platform/storage/journey-stop-cache'
+import { clearCachedJourneyContent } from '@/platform/storage/journey-content-cache'
 import { clearJourneyCache } from '@/platform/storage/sqlite'
+import { cancelPendingMomentSyncForJourney } from '@/platform/sync/cancel-journey-moment-sync'
 import { cancelPendingPhotoUploadsForJourney } from '@/platform/sync/cancel-journey-photo-uploads'
 import { assertCachedJourneyListItem } from '@/features/journeys/model/journey-list-item'
 
@@ -90,7 +92,9 @@ export async function applyDeletedJourneyLocally(input: {
   }
 
   await clearJourneyCache(journeyId)
+  await clearCachedJourneyContent(journeyId)
   await cancelPendingPhotoUploadsForJourney(journeyId)
+  await cancelPendingMomentSyncForJourney(journeyId)
 
   queryClient.removeQueries({ queryKey: journeyQueryKeys.detail(journeyId) })
   queryClient.removeQueries({ queryKey: journeyQueryKeys.content(journeyId) })

@@ -13,6 +13,7 @@ import { subscribePhotoUploadSynced } from '@/foundation/sync/photo-upload-event
 import { updateSyncCoordinatorSnapshot } from '@/foundation/sync/sync-observable'
 import { invalidateJourneyPhotoQueries } from '@/features/journeys/lib/journey-cache-mutations'
 import { journeyQueryKeys } from '@/features/journeys/query-keys'
+import { reconcileOrphanPhotoFiles } from '@/platform/media/draft-photos'
 import {
   drainSyncQueue,
   getSyncQueueStatusSummary,
@@ -68,6 +69,9 @@ export function SyncLifecycleProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void coordinator.maybeRunDrain(contextRef.current, 'startup')
+    void reconcileOrphanPhotoFiles().catch((error: unknown) => {
+      console.warn('[photos] orphan reconcile failed', error)
+    })
   }, [auth.isLoading, auth.session?.user.id, networkState.status, coordinator])
 
   useEffect(() => {

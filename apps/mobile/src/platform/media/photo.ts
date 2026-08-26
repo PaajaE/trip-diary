@@ -86,15 +86,25 @@ const imageLibraryOptions: ImagePicker.ImagePickerOptions = {
   selectionLimit: 0,
 }
 
+export interface PickPhotosOptions {
+  /**
+   * Called immediately after each asset is prepared (ready or failed).
+   * Use to persist durable draft state before the next asset / before crash.
+   */
+  onItemPrepared?: (photo: PickedPhoto) => Promise<void>
+}
+
 async function pickImageFromSource(
   source: 'library' | 'camera',
+  options: PickPhotosOptions = {},
 ): Promise<PickedPhoto | null> {
-  const result = await pickPhotosFromSource(source)
+  const result = await pickPhotosFromSource(source, options)
   return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
 
 async function pickPhotosFromSource(
   source: 'library' | 'camera',
+  options: PickPhotosOptions = {},
 ): Promise<PickPhotosResult> {
   const permission =
     source === 'library'
@@ -135,6 +145,9 @@ async function pickPhotosFromSource(
     // Every selected asset becomes a durable row in the returned list —
     // never silently omit a failure.
     const prepared = await materializePickedAssetSafe(asset)
+    if (options.onItemPrepared !== undefined) {
+      await options.onItemPrepared(prepared)
+    }
     photos.push(prepared)
   }
 
@@ -150,9 +163,11 @@ export async function pickPhoto(): Promise<PickedPhoto | null> {
   return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
 
-export async function pickPhotos(): Promise<PickPhotosResult> {
+export async function pickPhotos(
+  options: PickPhotosOptions = {},
+): Promise<PickPhotosResult> {
   await ensureMediaLibraryPermission()
-  return pickPhotosFromSource('library')
+  return pickPhotosFromSource('library', options)
 }
 
 export async function capturePhoto(): Promise<PickedPhoto | null> {

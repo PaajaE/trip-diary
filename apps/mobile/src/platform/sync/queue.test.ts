@@ -63,6 +63,17 @@ vi.mock('@/platform/storage/database', () => ({
           )
       }
 
+      if (
+        sql.includes('FROM sync_queue') &&
+        sql.includes("WHERE status = 'pending'")
+      ) {
+        return [...syncQueue.values()]
+          .filter((row) => row.status === 'pending')
+          .sort((left, right) =>
+            left.created_at.localeCompare(right.created_at),
+          )
+      }
+
       return []
     }),
     runAsync: vi.fn(async (sql: string, ...params: unknown[]) => {
@@ -192,7 +203,25 @@ vi.mock('@/platform/storage/database', () => ({
 
       return { changes: 0 }
     }),
-    getFirstAsync: vi.fn(async (sql: string, id?: string) => {
+    getFirstAsync: vi.fn(async (sql: string, ...params: unknown[]) => {
+      if (
+        sql.includes('operation_type = ?') &&
+        sql.includes('id = ?') &&
+        params.length >= 2
+      ) {
+        const operationType = String(params[0])
+        const id = String(params[1])
+        const row = syncQueue.get(id)
+        if (
+          row !== undefined &&
+          row.operation_type === operationType &&
+          ['pending', 'processing', 'failed'].includes(row.status)
+        ) {
+          return { id: row.id }
+        }
+        return null
+      }
+
       if (sql.includes("status = 'pending'")) {
         const pending = [...syncQueue.values()]
           .filter((row) => row.status === 'pending')
@@ -203,14 +232,24 @@ vi.mock('@/platform/storage/database', () => ({
         return pending[0] ?? null
       }
 
-      if (sql.includes('WHERE id = ?') && typeof id === 'string') {
-        return syncQueue.get(id) ?? null
+      if (sql.includes('WHERE id = ?') && typeof params[0] === 'string') {
+        return syncQueue.get(params[0]) ?? null
       }
 
       return null
     }),
   })),
   resetMobileDatabaseForTests: vi.fn(),
+}))
+
+vi.mock('./entry-sync', () => ({
+  ENTRY_CREATE_OPERATION: 'entry.create',
+  ENTRY_UPDATE_OPERATION: 'entry.update',
+  EntrySyncError: class EntrySyncError extends Error {
+    retryable = true
+  },
+  processEntryCreateOperation: vi.fn(async () => ({ entryId: 'entry-1' })),
+  processEntryUpdateOperation: vi.fn(async () => ({ entryId: 'entry-1' })),
 }))
 
 vi.mock('./photo-upload', () => ({

@@ -5,6 +5,10 @@ import {
 import { createPublicSlug } from '@trip-diary/utils'
 import type { JourneyEntry } from '@/features/journeys/model/journey-detail'
 import { createUuid } from '@/platform/id'
+import {
+  getLocalMoment,
+  localMomentToJourneyEntry,
+} from '@/platform/storage/local-moments'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 
 export class EntryRepositoryError extends Error {
@@ -218,42 +222,80 @@ function parseEntryType(value: unknown): JourneyEntry['type'] {
 export async function fetchJourneyEntry(
   entryId: string,
 ): Promise<JourneyEntry | null> {
-  const client = requireClient()
-  const { data: entry, error: entryError } = await client
-    .from('entries')
-    .select('id, title, body, type, event_at, created_at, slug')
-    .eq('id', entryId)
-    .maybeSingle()
-
-  if (entryError !== null) {
-    throw new EntryRepositoryError(entryError.message)
+  const local = await getLocalMoment(entryId)
+  if (
+    local !== null &&
+    (local.syncStatus === 'pending' ||
+      local.syncStatus === 'syncing' ||
+      local.syncStatus === 'failed')
+  ) {
+    return localMomentToJourneyEntry(local)
   }
 
-  if (entry === null) {
-    return null
+  if (!isSupabaseConfigured()) {
+    return local !== null ? localMomentToJourneyEntry(local) : null
   }
 
-  const { data: link, error: linkError } = await client
-    .from('entry_journey_links')
-    .select('stage_id, stop_id')
-    .eq('entry_id', entryId)
-    .maybeSingle()
+  try {
+    const client = getSupabaseClient()
+    const { data: entry, error: entryError } = await client
+      .from('entries')
+      .select('id, title, body, type, event_at, created_at, slug')
+      .eq('id', entryId)
+      .maybeSingle()
 
-  if (linkError !== null) {
-    throw new EntryRepositoryError(linkError.message)
-  }
+    if (entryError !== null) {
+      if (local !== null) {
+        return localMomentToJourneyEntry(local)
+      }
+      throw new EntryRepositoryError(entryError.message)
+    }
 
-  return {
-    body: typeof entry.body === 'string' ? entry.body : '',
-    coverPreviewUrl: null,
-    createdAt: typeof entry.created_at === 'string' ? entry.created_at : null,
-    eventAt: typeof entry.event_at === 'string' ? entry.event_at : null,
-    id: String(entry.id),
-    slug: typeof entry.slug === 'string' ? entry.slug : null,
-    stageId: typeof link?.stage_id === 'string' ? link.stage_id : null,
-    stopId: typeof link?.stop_id === 'string' ? link.stop_id : null,
-    title: typeof entry.title === 'string' ? entry.title : null,
-    type: parseEntryType(entry.type),
+    if (entry === null) {
+      return local !== null ? localMomentToJourneyEntry(local) : null
+    }
+
+    const { data: link, error: linkError } = await client
+      .from('entry_journey_links')
+      .select('stage_id, stop_id')
+      .eq('entry_id', entryId)
+      .maybeSingle()
+
+    if (linkError !== null) {
+      if (local !== null) {
+        return localMomentToJourneyEntry(local)
+      }
+      throw new EntryRepositoryError(linkError.message)
+    }
+
+    const remote: JourneyEntry = {
+      body: typeof entry.body === 'string' ? entry.body : '',
+      coverPreviewUrl: null,
+      createdAt: typeof entry.created_at === 'string' ? entry.created_at : null,
+      eventAt: typeof entry.event_at === 'string' ? entry.event_at : null,
+      id: String(entry.id),
+      slug: typeof entry.slug === 'string' ? entry.slug : null,
+      stageId: typeof link?.stage_id === 'string' ? link.stage_id : null,
+      stopId: typeof link?.stop_id === 'string' ? link.stop_id : null,
+      title: typeof entry.title === 'string' ? entry.title : null,
+      type: parseEntryType(entry.type),
+    }
+
+    if (
+      local !== null &&
+      (local.syncStatus === 'pending' ||
+        local.syncStatus === 'syncing' ||
+        local.syncStatus === 'failed')
+    ) {
+      return localMomentToJourneyEntry(local, remote.coverPreviewUrl)
+    }
+
+    return remote
+  } catch (error) {
+    if (local !== null) {
+      return localMomentToJourneyEntry(local)
+    }
+    throw error
   }
 }
 

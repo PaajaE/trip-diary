@@ -13,12 +13,11 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import {
-  createJourneyMoment,
+  createEntryId,
   createStopId,
   deleteJourneyMoment,
-  moveJourneyMomentToStage,
-  updateJourneyMoment,
 } from '@/features/entries/api/entries.repository'
+import { saveJourneyMomentLocally } from '@/features/entries/api/save-journey-moment-local'
 import {
   deleteEntryPhoto,
   EntryPhotoError,
@@ -42,6 +41,14 @@ import {
   getCurrentLocation,
   type PickedPhoto,
 } from '@/platform/media/photo'
+import {
+  buildMomentDraftKey,
+  draftPhotoToPickedPhoto,
+  listActiveMomentDraftPhotos,
+  removeMomentDraftPhoto,
+  setMomentDraftCoverPhoto,
+  upsertMomentDraftPhoto,
+} from '@/platform/media/draft-photos'
 import { colors, spacing } from '@/foundation/theme'
 import type { JourneyStop } from '@trip-diary/core/journey'
 
@@ -122,6 +129,53 @@ export function MomentEditorForm({
   const [locationSource, setLocationSource] = useState<
     'current' | 'map' | 'photo' | null
   >(selectedPoint !== null ? 'map' : null)
+
+  // Stable local identity for create — allocated before remote insert so photos
+  // and Moment content can be saved offline against the same UUID.
+  const [localEntryId] = useState(
+    () => entry?.id ?? createEntryId(),
+  )
+
+  const draftKey = useMemo(
+    () =>
+      buildMomentDraftKey({
+        entryId: localEntryId,
+        journeyId,
+        mode,
+      }),
+    [journeyId, localEntryId, mode],
+  )
+
+  useEffect(() => {
+    let cancelled = false
+    void listActiveMomentDraftPhotos(draftKey)
+      .then((rows) => {
+        if (cancelled) {
+          return
+        }
+        const restored = rows.map(draftPhotoToPickedPhoto)
+        if (restored.length === 0) {
+          return
+        }
+        setPickedPhotos(restored)
+        const cover = rows.find((row) => row.isCover)
+        setCoverLocalId(
+          cover?.id ??
+            restored.find((photo) => photo.status === 'ready')?.localId ??
+            null,
+        )
+        setPhotoNotice(
+          t('entry.photosDraftRestored', { count: restored.length }),
+        )
+      })
+      .catch(() => {
+        // Keep empty picks if draft restore fails.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [draftKey, t])
 
   useEffect(() => {
     if (mode !== 'edit' || entry === undefined || entry === null) {
@@ -230,7 +284,37 @@ export function MomentEditorForm({
     setPickingPhotos(true)
 
     try {
-      const result = await pickPhotos()
+      const startingPosition = pickedPhotos.length
+      let preparedCount = 0
+      const result = await pickPhotos({
+        onItemPrepared: async (photo) => {
+          await upsertMomentDraftPhoto({
+            draftKey,
+            entryId: entry?.id ?? null,
+            journeyId,
+            photo,
+            position: startingPosition + preparedCount,
+          })
+          preparedCount += 1
+          setPickedPhotos((current) => {
+            if (current.some((item) => item.localId === photo.localId)) {
+              return current.map((item) =>
+                item.localId === photo.localId ? photo : item,
+              )
+            }
+            return [...current, photo]
+          })
+          if (photo.status === 'ready') {
+            setCoverLocalId((currentCover) => {
+              if (currentCover !== null) {
+                return currentCover
+              }
+              void setMomentDraftCoverPhoto(draftKey, photo.localId)
+              return photo.localId
+            })
+          }
+        },
+      })
       if (result.status === 'canceled') {
         setPhotoNotice(t('entry.photoPickerCanceled'))
         return
@@ -244,18 +328,6 @@ export function MomentEditorForm({
       const photos = result.photos
       const failedCount = photos.filter((photo) => photo.status === 'failed')
         .length
-      setPickedPhotos((current) => {
-        const next = [...current, ...photos]
-        setCoverLocalId((currentCover) => {
-          if (currentCover !== null) {
-            return currentCover
-          }
-          return (
-            next.find((photo) => photo.status === 'ready')?.localId ?? null
-          )
-        })
-        return next
-      })
       if (failedCount > 0) {
         setPhotoNotice(
           t('entry.photosPreparePartial', {
@@ -330,121 +402,88 @@ export function MomentEditorForm({
 
     try {
       const language = i18n.language === 'en' ? 'en' : 'cs'
-      const eventAt = new Date().toISOString()
+      const eventAt =
+        mode === 'edit' && entry?.eventAt !== null && entry?.eventAt !== undefined
+          ? entry.eventAt
+          : new Date().toISOString()
       let photoUploadError: string | null = null
 
-      if (mode === 'create') {
-        const { entryId } = await createJourneyMoment({
-          body: body.trim(),
-          creatorId,
-          eventAt,
-          journeyId,
-          language,
-          latitude: resolvedLocation?.latitude ?? null,
-          locationTitle: trimmedTitle,
-          longitude: resolvedLocation?.longitude ?? null,
-          spaceId,
-          stageId,
-          title: trimmedTitle,
-          type: 'story',
-          visibility: 'public',
-        })
+      const { entryId } = await saveJourneyMomentLocally({
+        body: body.trim(),
+        creatorId,
+        entryId: localEntryId,
+        eventAt,
+        journeyId,
+        language,
+        latitude: resolvedLocation?.latitude ?? null,
+        locationTitle: trimmedTitle,
+        longitude: resolvedLocation?.longitude ?? null,
+        mode,
+        spaceId,
+        stageId,
+        stopId:
+          resolvedLocation !== null
+            ? (entry?.stopId ?? createStopId())
+            : (entry?.stopId ?? null),
+        title: trimmedTitle,
+        type: entry?.type ?? 'story',
+        userId,
+        visibility: 'public',
+      })
 
-        if (pickedPhotos.length > 0) {
-          try {
-            const uploadResult = await uploadEntryPhotos({
-              coverLocalId,
+      if (pickedPhotos.length > 0) {
+        try {
+          const uploadResult = await uploadEntryPhotos({
+            coverLocalId,
+            draftKey: buildMomentDraftKey({
               entryId,
               journeyId,
-              photos: pickedPhotos,
-              userId,
-            })
-            if (uploadResult.failed.length > 0) {
-              photoUploadError = t('entry.photosPartialUpload', {
-                uploaded: uploadResult.queuedCount,
-                total: pickedPhotos.length,
-              })
-            } else if (uploadResult.queuedCount > 0) {
-              photoUploadError = t('entry.photosQueued', {
-                count: uploadResult.queuedCount,
-              })
-            }
-          } catch (uploadError) {
-            photoUploadError = formatPhotoUploadError(uploadError, t)
-            if (__DEV__) {
-              console.log('[moment-photos] upload failed after moment create', {
-                code:
-                  uploadError instanceof EntryPhotoError
-                    ? uploadError.code
-                    : 'UNKNOWN',
-                message: photoUploadError,
-              })
-            }
-          }
-        }
-      } else if (entry !== null && entry !== undefined) {
-        await updateJourneyMoment(entry.id, {
-          body: body.trim(),
-          eventAt: entry.eventAt ?? eventAt,
-          language,
-          title: trimmedTitle,
-          type: entry.type,
-          visibility: 'public',
-        })
-
-        const shouldUpdateAssignment =
-          stageId !== entry.stageId || resolvedLocation !== null
-
-        if (shouldUpdateAssignment) {
-          await moveJourneyMomentToStage({
-            entryId: entry.id,
+              mode: 'edit',
+            }),
+            entryId,
             journeyId,
-            latitude: resolvedLocation?.latitude ?? null,
-            locationTitle: trimmedTitle,
-            longitude: resolvedLocation?.longitude ?? null,
-            stageId,
-            stopId:
-              resolvedLocation !== null
-                ? (entry.stopId ?? createStopId())
-                : entry.stopId,
+            photos: pickedPhotos,
+            startingPosition: existingPhotos.length,
+            userId,
           })
-        }
-
-        if (pickedPhotos.length > 0) {
-          try {
-            const uploadResult = await uploadEntryPhotos({
-              coverLocalId,
-              entryId: entry.id,
-              journeyId,
-              photos: pickedPhotos,
-              startingPosition: existingPhotos.length,
-              userId,
+          if (uploadResult.failed.length > 0) {
+            photoUploadError = t('entry.photosPartialUpload', {
+              uploaded: uploadResult.queuedCount,
+              total: pickedPhotos.length,
             })
-            if (uploadResult.failed.length > 0) {
-              photoUploadError = t('entry.photosPartialUpload', {
-                uploaded: uploadResult.queuedCount,
-                total: pickedPhotos.length,
-              })
-            } else if (uploadResult.queuedCount > 0) {
-              photoUploadError = t('entry.photosQueued', {
-                count: uploadResult.queuedCount,
-              })
-            }
-          } catch (uploadError) {
-            photoUploadError = formatPhotoUploadError(uploadError, t)
+          } else if (uploadResult.queuedCount > 0) {
+            photoUploadError = t('entry.photosQueued', {
+              count: uploadResult.queuedCount,
+            })
+          }
+        } catch (uploadError) {
+          photoUploadError = formatPhotoUploadError(uploadError, t)
+          if (__DEV__) {
+            console.log('[moment-photos] enqueue failed after local save', {
+              code:
+                uploadError instanceof EntryPhotoError
+                  ? uploadError.code
+                  : 'UNKNOWN',
+              message: photoUploadError,
+            })
           }
         }
+      }
 
-        // Persist cover even when new photos were also uploaded. Upload only
-        // marks cover for newly picked IDs; an existing photo selection needs RPC.
-        if (
-          coverLocalId !== null &&
-          existingPhotos.some((photo) => photo.id === coverLocalId) &&
-          !existingPhotos.some(
-            (photo) => photo.id === coverLocalId && photo.isCover,
-          )
-        ) {
-          await setEntryCoverPhoto(entry.id, coverLocalId)
+      // Persist cover even when new photos were also uploaded. Upload only
+      // marks cover for newly picked IDs; an existing photo selection needs RPC.
+      if (
+        mode === 'edit' &&
+        coverLocalId !== null &&
+        existingPhotos.some((photo) => photo.id === coverLocalId) &&
+        !existingPhotos.some(
+          (photo) => photo.id === coverLocalId && photo.isCover,
+        )
+      ) {
+        try {
+          await setEntryCoverPhoto(entryId, coverLocalId)
+        } catch {
+          // Cover can sync later; Moment content is already durable locally.
         }
       }
 
@@ -619,17 +658,21 @@ export function MomentEditorForm({
                 accessibilityRole="button"
                 key={photo.localId}
                 onLongPress={() => {
+                  void removeMomentDraftPhoto(photo.localId)
                   setPickedPhotos((current) =>
                     current.filter((item) => item.localId !== photo.localId),
                   )
                   if (coverLocalId === photo.localId) {
-                    setCoverLocalId(
+                    const nextCover =
                       pickedPhotos.find(
                         (item) =>
                           item.localId !== photo.localId &&
                           item.status === 'ready',
-                      )?.localId ?? null,
-                    )
+                      )?.localId ?? null
+                    setCoverLocalId(nextCover)
+                    if (nextCover !== null) {
+                      void setMomentDraftCoverPhoto(draftKey, nextCover)
+                    }
                   }
                 }}
                 onPress={() => {
@@ -641,6 +684,7 @@ export function MomentEditorForm({
                     return
                   }
                   setCoverLocalId(photo.localId)
+                  void setMomentDraftCoverPhoto(draftKey, photo.localId)
                   const gps = selectFirstPhotoGps([
                     {
                       latitude: photo.metadata.latitude,

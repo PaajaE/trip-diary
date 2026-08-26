@@ -1,6 +1,13 @@
 import { notifyPhotoUploadSynced } from '@/foundation/sync/photo-upload-events'
 import { getMobileDatabase } from '@/platform/storage/database'
 import {
+  ENTRY_CREATE_OPERATION,
+  ENTRY_UPDATE_OPERATION,
+  EntrySyncError,
+  processEntryCreateOperation,
+  processEntryUpdateOperation,
+} from './entry-sync'
+import {
   PHOTO_UPLOAD_OPERATION,
   PhotoUploadError,
   processPhotoUploadOperation,
@@ -327,7 +334,7 @@ export async function enqueueFailedSyncOperation(input: {
 
 export async function peekNextSyncOperation(): Promise<SyncOperation | null> {
   const db = await getMobileDatabase()
-  const row = await db.getFirstAsync<{
+  const rows = await db.getAllAsync<{
     created_at: string
     id: string
     operation_type: string
@@ -338,11 +345,55 @@ export async function peekNextSyncOperation(): Promise<SyncOperation | null> {
     `SELECT id, operation_type, payload, status, created_at, status_updated_at
      FROM sync_queue
      WHERE status = 'pending'
-     ORDER BY created_at ASC
-     LIMIT 1`,
+     ORDER BY created_at ASC`,
   )
 
-  return row === null ? null : mapRow(row)
+  for (const row of rows) {
+    const operation = mapRow(row)
+    if (await isSyncOperationBlocked(operation)) {
+      continue
+    }
+    return operation
+  }
+
+  return null
+}
+
+/**
+ * Photo linking must wait until the Moment's remote create has finished.
+ * Returns true when this op should remain pending for a later drain.
+ */
+export async function isSyncOperationBlocked(
+  operation: SyncOperation,
+): Promise<boolean> {
+  if (operation.operationType !== PHOTO_UPLOAD_OPERATION) {
+    return false
+  }
+
+  const entryId =
+    typeof operation.payload.entryId === 'string'
+      ? operation.payload.entryId
+      : null
+  if (entryId === null || entryId.length === 0) {
+    return false
+  }
+
+  return hasIncompleteEntryCreate(entryId)
+}
+
+export async function hasIncompleteEntryCreate(
+  entryId: string,
+): Promise<boolean> {
+  const db = await getMobileDatabase()
+  const row = await db.getFirstAsync<{ id: string }>(
+    `SELECT id FROM sync_queue
+     WHERE operation_type = ?
+       AND status IN ('pending', 'processing', 'failed')
+       AND id = ?`,
+    ENTRY_CREATE_OPERATION,
+    `entry-create-${entryId}`,
+  )
+  return row !== null
 }
 
 export async function getSyncOperation(
@@ -449,6 +500,32 @@ async function processNextSyncOperationUnsafe(): Promise<SyncProcessResult | nul
   await markSyncOperationStatus(next.id, 'processing')
 
   try {
+    if (next.operationType === ENTRY_CREATE_OPERATION) {
+      const result = await processEntryCreateOperation(next.payload)
+      const synced = await markSyncOperationSynced(next, {
+        ...next.payload,
+        entryId: result.entryId,
+        lastError: null,
+      })
+      return {
+        operation: synced,
+        status: 'synced',
+      }
+    }
+
+    if (next.operationType === ENTRY_UPDATE_OPERATION) {
+      const result = await processEntryUpdateOperation(next.payload)
+      const synced = await markSyncOperationSynced(next, {
+        ...next.payload,
+        entryId: result.entryId,
+        lastError: null,
+      })
+      return {
+        operation: synced,
+        status: 'synced',
+      }
+    }
+
     if (next.operationType === PHOTO_UPLOAD_OPERATION) {
       const attemptCount =
         typeof next.payload.attemptCount === 'number'
@@ -605,6 +682,14 @@ function normalizeSyncProcessingError(error: unknown): {
   retryable: boolean
   stage: string
 } {
+  if (error instanceof EntrySyncError) {
+    return {
+      message: error.message,
+      retryable: error.retryable,
+      stage: 'entry',
+    }
+  }
+
   if (error instanceof PhotoUploadError) {
     return {
       message: error.message,

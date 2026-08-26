@@ -1,10 +1,14 @@
 import * as FileSystem from 'expo-file-system'
 import {
-  createPhotoId,
   getLocalFileByteSize,
   persistPhotoLocally,
   type PickedPhoto,
 } from '@/platform/media/photo'
+import {
+  markMomentDraftPhotoEnqueued,
+  clearEnqueuedMomentDraftPhotos,
+  buildMomentDraftKey,
+} from '@/platform/media/draft-photos'
 import { createSignedPhotoUrls } from '@/features/photos/api/signed-photo-url'
 import {
   groupVariantsByPhotoId,
@@ -16,6 +20,8 @@ import {
   enqueueFailedSyncOperationForApp,
   enqueueSyncOperationForApp,
 } from '@/platform/sync/enqueue-operation'
+import { getSyncOperation } from '@/platform/sync/queue'
+import { getMobileDatabase } from '@/platform/storage/database'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 
 export interface EntryPhotoSummary {
@@ -223,6 +229,7 @@ export async function deleteEntryPhoto(
 
 export async function uploadEntryPhotos(input: {
   coverLocalId?: string | null
+  draftKey?: string
   entryId: string
   journeyId: string
   photos: PickedPhoto[]
@@ -247,38 +254,55 @@ export async function uploadEntryPhotos(input: {
   const readyPhotos = input.photos.filter((photo) => photo.status === 'ready')
   const failedPicks = input.photos.filter((photo) => photo.status === 'failed')
   const coverLocalId =
-    input.coverLocalId ?? readyPhotos[0]?.localId ?? input.photos[0]?.localId
+    input.coverLocalId != null && input.coverLocalId.length > 0
+      ? input.coverLocalId
+      : (readyPhotos[0]?.localId ?? input.photos[0]?.localId)
   let coverAssigned = false
+  const draftKey =
+    input.draftKey ??
+    buildMomentDraftKey({
+      entryId: input.entryId,
+      journeyId: input.journeyId,
+      mode: 'edit',
+    })
 
   for (const failedPick of failedPicks) {
-    const photoId = createPhotoId()
+    // Stable id from draft/localId — never invent a second identity.
+    const photoId = failedPick.localId
     const operationId = `photo-upload-${photoId}`
     const reason =
       failedPick.diagnostics.lastError ?? 'Photo could not be prepared.'
     try {
-      await enqueueFailedSyncOperationForApp({
-        id: operationId,
-        operationType: PHOTO_UPLOAD_OPERATION,
-        payload: {
-          attemptCount: failedPick.diagnostics.attemptCount,
-          byteSize: failedPick.diagnostics.originalByteSize ?? 1,
-          declaredMime: failedPick.diagnostics.declaredMime,
-          entryId: input.entryId,
-          failedStage: failedPick.diagnostics.failedStage,
-          height: failedPick.height,
-          journeyId: input.journeyId,
-          lastError: reason,
-          localUri: '',
-          mimeType: 'image/jpeg',
-          originalFilename: `failed-${photoId}.jpg`,
-          photoId,
-          position,
+      const existing = await getSyncOperation(operationId)
+      if (existing === null) {
+        await enqueueFailedSyncOperationForApp({
+          id: operationId,
+          operationType: PHOTO_UPLOAD_OPERATION,
+          payload: {
+            attemptCount: failedPick.diagnostics.attemptCount,
+            byteSize: failedPick.diagnostics.originalByteSize ?? 1,
+            declaredMime: failedPick.diagnostics.declaredMime,
+            entryId: input.entryId,
+            failedStage: failedPick.diagnostics.failedStage,
+            height: failedPick.height,
+            journeyId: input.journeyId,
+            lastError: reason,
+            localUri: '',
+            mimeType: 'image/jpeg',
+            originalFilename: `failed-${photoId}.jpg`,
+            photoId,
+            position,
+            retryable: false,
+            sourceUriScheme: failedPick.diagnostics.sourceUriScheme,
+            width: failedPick.width,
+          },
           retryable: false,
-          sourceUriScheme: failedPick.diagnostics.sourceUriScheme,
-          width: failedPick.width,
-        },
-        retryable: false,
-        userId: input.userId,
+          userId: input.userId,
+        })
+      }
+      await markMomentDraftPhotoEnqueued({
+        entryId: input.entryId,
+        photoId,
       })
     } catch (error) {
       console.warn('[moment-photos] could not persist failed pick', error)
@@ -288,12 +312,31 @@ export async function uploadEntryPhotos(input: {
   }
 
   for (const picked of readyPhotos) {
-    const photoId = createPhotoId()
+    const photoId = picked.localId
     const operationId = `photo-upload-${photoId}`
     try {
       assertPickedPhotoValid(picked)
-      const filename = `entry-${input.entryId}-${String(position)}-${photoId}.jpg`
 
+      const existing = await getSyncOperation(operationId)
+      if (
+        existing !== null &&
+        (existing.status === 'pending' ||
+          existing.status === 'processing' ||
+          existing.status === 'synced')
+      ) {
+        enqueuedPhotoIds.push(photoId)
+        if (!coverAssigned && picked.localId === coverLocalId) {
+          coverAssigned = true
+        }
+        await markMomentDraftPhotoEnqueued({
+          entryId: input.entryId,
+          photoId,
+        })
+        position += 1
+        continue
+      }
+
+      const filename = `${photoId}.jpg`
       const localUri = await ensureUploadLocalCopy(picked.uri, filename)
       const byteSize = await getLocalFileByteSize(localUri)
       const preferCover = !coverAssigned && picked.localId === coverLocalId
@@ -323,6 +366,11 @@ export async function uploadEntryPhotos(input: {
         hasThumb: thumbLocalUri !== null,
         width: picked.width,
       })
+
+      if (existing !== null && existing.status === 'failed') {
+        const db = await getMobileDatabase()
+        await db.runAsync(`DELETE FROM sync_queue WHERE id = ?`, operationId)
+      }
 
       await enqueueSyncOperationForApp({
         id: operationId,
@@ -354,6 +402,11 @@ export async function uploadEntryPhotos(input: {
         userId: input.userId,
       })
 
+      await markMomentDraftPhotoEnqueued({
+        entryId: input.entryId,
+        photoId,
+      })
+
       enqueuedPhotoIds.push(photoId)
       if (preferCover) {
         coverAssigned = true
@@ -369,6 +422,8 @@ export async function uploadEntryPhotos(input: {
       position += 1
     }
   }
+
+  await clearEnqueuedMomentDraftPhotos(draftKey)
 
   if (enqueuedPhotoIds.length === 0 && failed.length > 0) {
     throw new EntryPhotoError(

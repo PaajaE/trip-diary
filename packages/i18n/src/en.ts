@@ -209,6 +209,8 @@ export const en = {
     photoUploadTimeoutError: 'Photo upload timed out. Please try again.',
     photosPartialUpload:
       'The memory was saved, but only {{uploaded}} of {{total}} photos were queued successfully.',
+    photosDraftRestored:
+      'Restored {{count}} photos selected before the app closed. Save the memory to upload them.',
     photosQueued:
       '{{count}} photos are uploading in the background. You can keep using the app.',
     photosPreparePartial:
@@ -375,6 +377,8 @@ export const en = {
     addStop: 'New place',
     captureDescription:
       'Start with what feels natural: photos, a place on the map, or a quick note. You can organize days afterwards.',
+    contentUnavailableOffline:
+      'This trip content is not available offline yet. Open the trip once while online, then you can add moments without signal.',
     captureEyebrow: 'Capture the trip',
     captureTitle: 'Add the next moment without technical fields',
     cancelGuide: 'Cancel',

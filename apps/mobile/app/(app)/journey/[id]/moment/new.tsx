@@ -1,6 +1,6 @@
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router'
 import { useTranslation } from 'react-i18next'
-import { ActivityIndicator, View } from 'react-native'
+import { ActivityIndicator, Text, View } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { journeyQueryKeys } from '@/features/journeys'
 import { invalidateJourneyPhotoQueries } from '@/features/journeys/lib/journey-cache-mutations'
@@ -18,16 +18,33 @@ export default function NewMomentScreen() {
   }>()
   const { session } = useAuth()
   const { t } = useTranslation()
-  const { data, isLoading } = useJourneyFullDetailQuery(id)
+  const { data, isError, isLoading } = useJourneyFullDetailQuery(id)
 
   if (session?.user.id === undefined) {
     return null
   }
 
-  if (isLoading || data === undefined) {
+  if (isLoading) {
     return (
       <View style={{ alignItems: 'center', flex: 1, justifyContent: 'center' }}>
         <ActivityIndicator color={colors.primary} size="large" />
+      </View>
+    )
+  }
+
+  if (isError || data === undefined) {
+    return (
+      <View
+        style={{
+          alignItems: 'center',
+          flex: 1,
+          justifyContent: 'center',
+          padding: 24,
+        }}
+      >
+        <Text style={{ color: colors.text, textAlign: 'center' }}>
+          {t('journey.contentUnavailableOffline')}
+        </Text>
       </View>
     )
   }
@@ -47,6 +64,9 @@ export default function NewMomentScreen() {
           invalidateJourneyPhotoQueries(queryClient, id, session.user.id)
           void queryClient.invalidateQueries({
             queryKey: journeyQueryKeys.stops(session.user.id, id),
+          })
+          void queryClient.invalidateQueries({
+            queryKey: journeyQueryKeys.content(id),
           })
           router.back()
         }}

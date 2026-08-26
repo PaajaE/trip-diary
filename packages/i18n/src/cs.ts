@@ -211,6 +211,8 @@ export const cs: TranslationResources = {
     photoUploadTimeoutError: 'Nahrávání fotek vypršelo. Zkus to prosím znovu.',
     photosPartialUpload:
       'Vzpomínka byla uložena, ale do fronty se zařadilo jen {{uploaded}} z {{total}} fotografií.',
+    photosDraftRestored:
+      'Obnoveno {{count}} fotek vybraných před ukončením aplikace. Ulož vzpomínku, aby se nahrály.',
     photosQueued:
       '{{count}} fotek se nahrává na pozadí. Můžeš dál používat aplikaci.',
     photosPreparePartial:
@@ -377,6 +379,8 @@ export const cs: TranslationResources = {
     addStop: 'Nové místo',
     captureDescription:
       'Začni tím, co je přirozené: fotkami, místem na mapě nebo krátkou poznámkou. Dny si můžeš doladit až potom.',
+    contentUnavailableOffline:
+      'Obsah této cesty zatím není dostupný offline. Otevři cestu jednou online a pak můžeš přidávat momenty i bez signálu.',
     captureEyebrow: 'Zaznamenat cestu',
     captureTitle: 'Přidej další moment bez technických polí',
     cancelGuide: 'Zrušit',

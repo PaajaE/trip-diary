@@ -108,4 +108,70 @@ export const MOBILE_SQL_MIGRATIONS: readonly SqlMigration[] = [
       `)
     },
   },
+  {
+    id: 7,
+    name: 'create_moment_draft_photos',
+    sql: `
+      CREATE TABLE IF NOT EXISTS moment_draft_photos (
+        id TEXT PRIMARY KEY NOT NULL,
+        draft_key TEXT NOT NULL,
+        journey_id TEXT NOT NULL,
+        entry_id TEXT,
+        status TEXT NOT NULL,
+        local_uri TEXT NOT NULL DEFAULT '',
+        thumb_uri TEXT,
+        mime_type TEXT NOT NULL DEFAULT 'image/jpeg',
+        width INTEGER NOT NULL DEFAULT 1,
+        height INTEGER NOT NULL DEFAULT 1,
+        byte_size INTEGER,
+        captured_at TEXT,
+        latitude REAL,
+        longitude REAL,
+        is_cover INTEGER NOT NULL DEFAULT 0,
+        position INTEGER NOT NULL DEFAULT 0,
+        diagnostics TEXT NOT NULL DEFAULT '{}',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_moment_draft_photos_draft_key
+        ON moment_draft_photos (draft_key, position, created_at);
+    `,
+  },
+  {
+    id: 8,
+    name: 'create_local_moments_and_journey_content_cache',
+    sql: `
+      CREATE TABLE IF NOT EXISTS local_moments (
+        id TEXT PRIMARY KEY NOT NULL,
+        journey_id TEXT NOT NULL,
+        space_id TEXT NOT NULL,
+        creator_id TEXT NOT NULL,
+        title TEXT NOT NULL,
+        body TEXT NOT NULL DEFAULT '',
+        type TEXT NOT NULL DEFAULT 'story',
+        language TEXT NOT NULL DEFAULT 'cs',
+        visibility TEXT NOT NULL DEFAULT 'public',
+        event_at TEXT,
+        slug TEXT,
+        stage_id TEXT,
+        stop_id TEXT,
+        latitude REAL,
+        longitude REAL,
+        location_title TEXT,
+        sync_status TEXT NOT NULL DEFAULT 'pending',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_local_moments_journey
+        ON local_moments (journey_id, event_at, created_at);
+
+      CREATE TABLE IF NOT EXISTS journey_content_cache (
+        journey_id TEXT PRIMARY KEY NOT NULL,
+        payload TEXT NOT NULL,
+        cached_at TEXT NOT NULL
+      );
+    `,
+  },
 ]
