@@ -152,9 +152,9 @@ export function MomentCard({
         />
       ) : null}
 
-      <div className="relative z-[1] p-4">
+      <div className="pointer-events-none relative z-[1] p-4">
         <div className="flex items-start gap-3">
-          <div className="pointer-events-none min-w-0 flex-1">
+          <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
               <span className="font-semibold tracking-wide text-accent uppercase">
                 {t(`entry.type.${moment.entry.type}`)}
@@ -247,7 +247,7 @@ export function MomentCard({
             ) : null}
           </div>
 
-          <div className="relative z-[2] flex shrink-0 items-start gap-0.5">
+          <div className="pointer-events-auto relative z-[2] flex shrink-0 items-start gap-0.5">
             <MomentSyncIndicator
               onRetry={() => {
                 void handleRetrySync()
@@ -325,21 +325,23 @@ export function MomentCard({
         </div>
 
         {editing ? (
-          <InlineMomentEditor
-            creatorId={creatorId}
-            entryId={moment.entry.id}
-            initialBody={moment.entry.body}
-            initialTitle={initialTitle}
-            onCancel={closeEditor}
-            onUpdated={async (updated) => {
-              await commitJourneyEntryTextUpdate(queryClient, {
-                journeyId,
-                updated,
-              })
-              closeEditor()
-              onUpdated?.()
-            }}
-          />
+          <div className="pointer-events-auto">
+            <InlineMomentEditor
+              creatorId={creatorId}
+              entryId={moment.entry.id}
+              initialBody={moment.entry.body}
+              initialTitle={initialTitle}
+              onCancel={closeEditor}
+              onUpdated={async (updated) => {
+                await commitJourneyEntryTextUpdate(queryClient, {
+                  journeyId,
+                  updated,
+                })
+                closeEditor()
+                onUpdated?.()
+              }}
+            />
+          </div>
         ) : null}
       </div>
     </article>

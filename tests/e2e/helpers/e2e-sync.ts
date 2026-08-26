@@ -47,18 +47,31 @@ export function createAdminClient() {
   })
 }
 
-/** Wait until the shell reports a fully synced queue — not merely "not failed". */
+/** Wait until moment cards report a fully synced queue — not merely "not failed". */
 export async function waitForFullySynced(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        const synced = await page.getByText('Synchronizováno').count()
-        const syncing = await page.getByText('Synchronizuje se…').count()
-        const pending = await page.getByText('Čeká na synchronizaci').count()
-        const failed = await page
-          .getByRole('button', { name: 'Sync selhala' })
+        const momentCards = await page.locator('#story article').count()
+        const synced = await page
+          .getByLabel('Synchronizováno', { exact: true })
           .count()
-        return synced > 0 && syncing === 0 && pending === 0 && failed === 0
+        const syncing = await page
+          .getByLabel('Synchronizuje se…', { exact: true })
+          .count()
+        const pending = await page
+          .getByLabel('Uloženo lokálně · čeká na synchronizaci', {
+            exact: true,
+          })
+          .count()
+        const failed = await page
+          .getByRole('button', { name: /Synchronizace selhala/i })
+          .count()
+        const queueClear = syncing === 0 && pending === 0 && failed === 0
+        if (momentCards === 0) {
+          return queueClear
+        }
+        return synced >= momentCards && queueClear
       },
       { timeout: 90_000 },
     )
