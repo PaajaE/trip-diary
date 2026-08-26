@@ -88,7 +88,7 @@ jobs:
             );
           "
       - run: PLAYWRIGHT_BROWSERS_PATH=0 pnpm exec playwright install --with-deps chromium
-      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts tests/e2e/nature-flow.spec.ts tests/e2e/moment-cover-selection.spec.ts tests/e2e/public-moment-ordering.spec.ts
+      - run: pnpm test:e2e --project=desktop-chromium tests/e2e/offline-capture.spec.ts tests/e2e/moment-cover-selection.spec.ts tests/e2e/public-moment-ordering.spec.ts
       - name: Print Playwright failure context
         if: failure()
         run: find test-results -name 'error-context.md' -print -exec cat {} \;

@@ -7,6 +7,7 @@ import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
+import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { invalidateAfterEntryDelete } from '@/entities/entry/api/invalidate-after-entry-mutation'
 import { commitJourneyEntryTextUpdate } from '@/entities/journey/api/commit-journey-entry-text-update'
 import { invalidateEntryTranslations } from '@/entities/translation/api/invalidate-entry-translations'
@@ -16,6 +17,7 @@ import { useSession } from '@/features/auth/session'
 import { EditEntryForm } from '@/features/entries/ui/EditEntryForm'
 import { EntryTranslationPanel } from '@/features/entries/ui/EntryTranslationPanel'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
+import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messages'
 import { ShareActions } from '@/features/sharing/ui/ShareActions'
@@ -58,6 +60,20 @@ export function EntryPage({
     enabled: entryQuery.data !== undefined && entryQuery.data !== null,
     queryFn: () => getEntryPublicShare(entryId),
     queryKey: sharingQueryKeys.entryPublicShare(entryId),
+  })
+  const photosQuery = useQuery({
+    enabled: entryQuery.data !== undefined && entryQuery.data !== null,
+    queryFn: () => getEntryPhotoPreviews(entryId),
+    queryKey: entryQueryKeys.photoPreviews(entryId),
+  })
+  const journeyLinkQuery = useQuery({
+    enabled:
+      entryQuery.data !== undefined &&
+      entryQuery.data !== null &&
+      user !== null &&
+      entryQuery.data.creatorId === user.id,
+    queryFn: () => localDb.journeyLinks.get(entryId),
+    queryKey: ['entry-journey-link', entryId],
   })
   const entry = entryQuery.data
   const publicShare =
@@ -151,13 +167,38 @@ export function EntryPage({
             className="mt-8 min-h-32 border-t border-border/60 pt-8"
             target={{ id: entry.id, type: 'entry' }}
           />
-          <PhotoGallery
-            alt={entry.title}
-            canDelete={canManage}
-            {...(canManage ? { creatorId: user.id } : {})}
-            entryId={entry.id}
-            showPhotoEngagement={publicShare !== null}
-          />
+          {canManage ? (
+            photosQuery.isPending ? (
+              <p className="mt-8 text-sm text-muted" role="status">
+                {t('photos.loading')}
+              </p>
+            ) : photosQuery.isError ? (
+              <p className="mt-8 text-sm text-destructive" role="alert">
+                {t('photos.error')}
+              </p>
+            ) : (
+              <EntryPhotoGrid
+                alt={entry.title}
+                canDelete
+                canSetCover
+                creatorId={user.id}
+                entryId={entry.id}
+                {...(journeyLinkQuery.data?.journeyId !== undefined
+                  ? { journeyId: journeyLinkQuery.data.journeyId }
+                  : {})}
+                onCoverChanged={() => {
+                  void photosQuery.refetch()
+                }}
+                photos={photosQuery.data}
+              />
+            )
+          ) : (
+            <PhotoGallery
+              alt={entry.title}
+              entryId={entry.id}
+              showPhotoEngagement={publicShare !== null}
+            />
+          )}
           <p className="mt-10 text-sm text-muted">
             {t(`entry.sync.${entry.syncStatus}`)}
           </p>

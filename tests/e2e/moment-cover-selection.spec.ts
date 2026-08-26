@@ -32,15 +32,15 @@ function momentArticle(page: import('@playwright/test').Page, title: string) {
   })
 }
 
-/** Expand only if collapsed — post-save highlight already expands the moment. */
-async function ensureMomentExpanded(article: Locator): Promise<void> {
-  const collapse = article.getByRole('button', { name: 'Sbalit moment' })
-  if ((await collapse.count()) > 0) {
-    await expect(collapse).toBeVisible()
-    return
-  }
-  await article.getByRole('button', { name: 'Rozbalit moment' }).click()
-  await expect(collapse).toBeVisible()
+async function openMomentEntry(
+  page: import('@playwright/test').Page,
+  momentTitle: string,
+): Promise<void> {
+  const card = momentArticle(page, momentTitle)
+  await card
+    .getByRole('button', { name: `Otevřít moment: ${momentTitle}` })
+    .click()
+  await expect(page).toHaveURL(/\/e\//, { timeout: 20_000 })
 }
 
 test('moment cover selection persists across edit, refresh, and public page', async ({
@@ -123,35 +123,34 @@ test('moment cover selection persists across edit, refresh, and public page', as
 
   await waitForFullySynced(page)
 
-  const expanded = momentArticle(page, momentTitle)
-  await ensureMomentExpanded(expanded)
-  await expect(expanded.locator('img')).toHaveCount(3, { timeout: 20_000 })
-  await expect(expanded.getByText('Titulní', { exact: true })).toHaveCount(1)
+  const overviewCard = momentArticle(page, momentTitle)
+  await expect(overviewCard.locator('img')).toHaveCount(3, { timeout: 20_000 })
+
+  await openMomentEntry(page, momentTitle)
+  await expect(page.locator('main img')).toHaveCount(3, { timeout: 20_000 })
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
   await expect(
-    expanded.getByRole('button', { name: 'Nastavit jako titulní' }),
+    page.getByRole('button', { name: 'Nastavit jako titulní' }),
   ).toHaveCount(2)
 
   await page.reload({ waitUntil: 'networkidle' })
   await waitForFullySynced(page)
-  const afterReload = momentArticle(page, momentTitle)
-  await ensureMomentExpanded(afterReload)
-  await expect(afterReload.locator('img')).toHaveCount(3, { timeout: 20_000 })
-  await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(page.locator('main img')).toHaveCount(3, { timeout: 20_000 })
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
 
-  await afterReload
+  await page
     .getByRole('button', { name: 'Nastavit jako titulní' })
     .first()
     .click()
   await expect(page.getByText('Titulní fotka byla aktualizována.')).toBeVisible(
     { timeout: 15_000 },
   )
-  await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
   await waitForFullySynced(page)
 
   const publicPath = await waitForPublicJourneyPath(journeyId)
   expect(publicPath).toContain(`/${familyHandle}/`)
 
-  // Fresh anonymous context — avoid SPA residue from other routes.
   const anonymous = await browser.newContext()
   const anonymousPage = await anonymous.newPage()
   await anonymousPage.goto(publicPath, { waitUntil: 'networkidle' })
