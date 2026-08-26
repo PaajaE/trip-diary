@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { getThumbnailAsync } = vi.hoisted(() => ({
-  getThumbnailAsync: vi.fn(async () => ({
-    height: 1080,
-    uri: 'file:///mock/documents/photos/temp-poster.jpg',
-    width: 1920,
-  })),
+const { generateThumbnailsAsync, pause } = vi.hoisted(() => ({
+  generateThumbnailsAsync: vi.fn(async () => [
+    {
+      height: 1080,
+      width: 1920,
+    },
+  ]),
+  pause: vi.fn(),
 }))
 
 vi.mock('expo-file-system', () => ({
@@ -23,8 +25,23 @@ vi.mock('expo-file-system', () => ({
     for (const byte of bytes) {
       binary += String.fromCharCode(byte)
     }
-    return globalThis.btoa(binary)
+    return globalThis.atob(binary)
   }),
+}))
+
+vi.mock('expo-image-manipulator', () => ({
+  ImageManipulator: {
+    manipulate: vi.fn(() => ({
+      renderAsync: vi.fn(async () => ({
+        saveAsync: vi.fn(async () => ({
+          height: 1080,
+          uri: 'file:///mock/documents/photos/temp-poster.jpg',
+          width: 1920,
+        })),
+      })),
+    })),
+  },
+  SaveFormat: { JPEG: 'jpeg' },
 }))
 
 vi.mock('expo-image-picker', () => ({
@@ -46,8 +63,11 @@ vi.mock('expo-image-picker', () => ({
   requestMediaLibraryPermissionsAsync: vi.fn(),
 }))
 
-vi.mock('expo-video-thumbnails', () => ({
-  getThumbnailAsync,
+vi.mock('expo-video', () => ({
+  createVideoPlayer: vi.fn(() => ({
+    generateThumbnailsAsync,
+    pause,
+  })),
 }))
 
 vi.mock('@/platform/media/photo', () => ({
@@ -76,6 +96,16 @@ import { isVideoPickerAsset, materializePickedVideoAssetSafe } from './video'
 describe('video picker materialization', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(FileSystem.readAsStringAsync).mockImplementation(async () => {
+      const bytes = new Uint8Array([
+        0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+      ])
+      let binary = ''
+      for (const byte of bytes) {
+        binary += String.fromCharCode(byte)
+      }
+      return globalThis.btoa(binary)
+    })
   })
 
   it('detects video picker assets by type and mime', () => {
@@ -117,7 +147,8 @@ describe('video picker materialization', () => {
     expect(result.uri).toMatch(/\.mp4$/)
     expect(result.thumbUri).toContain('-thumb.jpg')
     expect(result.smallUri).toContain('-small.jpg')
-    expect(getThumbnailAsync).toHaveBeenCalled()
+    expect(generateThumbnailsAsync).toHaveBeenCalledWith(0.5)
+    expect(pause).toHaveBeenCalled()
   })
 
   it('fails when the copied file is not MP4', async () => {

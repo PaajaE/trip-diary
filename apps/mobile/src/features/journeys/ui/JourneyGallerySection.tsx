@@ -1,6 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Video, ResizeMode, type VideoProps } from 'expo-av'
-import { useState, type ComponentType } from 'react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   ActivityIndicator,
@@ -12,6 +11,7 @@ import {
   View,
 } from 'react-native'
 import { listJourneyGalleryPhotos } from '@/features/photos/api/journey-gallery.repository'
+import { JourneyGalleryVideoPlayer } from '@/features/journeys/ui/JourneyGalleryVideoPlayer'
 import { createSignedPhotoUrl } from '@/features/photos/api/signed-photo-url'
 import {
   PHOTO_SIGNED_URL_STALE_TIME_MS,
@@ -25,8 +25,6 @@ interface JourneyGallerySectionProps {
   entryTitles: Map<string, string | null>
   journeyId: string
 }
-
-const GalleryVideo = Video as unknown as ComponentType<VideoProps>
 
 export function JourneyGallerySection({
   entryIds,
@@ -165,13 +163,7 @@ export function JourneyGallerySection({
             {videoLoading ? (
               <ActivityIndicator color={colors.primary} size="large" />
             ) : videoUrl !== null ? (
-              <GalleryVideo
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                source={{ uri: videoUrl }}
-                style={styles.videoPlayer}
-                useNativeControls
-              />
+              <JourneyGalleryVideoPlayer url={videoUrl} />
             ) : (
               <Text style={styles.stateText}>{t('journey.galleryError')}</Text>
             )}
@@ -280,11 +272,5 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     marginBottom: 2,
-  },
-  videoPlayer: {
-    aspectRatio: 16 / 9,
-    backgroundColor: '#000000',
-    borderRadius: 8,
-    width: '100%',
   },
 })

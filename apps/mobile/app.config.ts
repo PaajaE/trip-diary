@@ -19,6 +19,7 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-localization',
     'expo-sqlite',
+    'expo-video',
     '@maplibre/maplibre-react-native',
     [
       'expo-image-picker',

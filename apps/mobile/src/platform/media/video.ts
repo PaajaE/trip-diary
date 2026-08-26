@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system'
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator'
 import * as ImagePicker from 'expo-image-picker'
-import * as VideoThumbnails from 'expo-video-thumbnails'
+import { createVideoPlayer } from 'expo-video'
 import {
   looksLikeMp4Bytes,
   VIDEO_MAX_CANONICAL_BYTES,
@@ -363,29 +364,43 @@ async function extractVideoPosterFrame(
   videoUri: string,
   localId: string,
 ): Promise<{ height: number; uri: string; width: number }> {
-  const { height, uri, width } = await VideoThumbnails.getThumbnailAsync(
-    videoUri,
-    { time: VIDEO_POSTER_TIME_MS },
-  )
+  const player = createVideoPlayer(videoUri)
+  const posterTimeSec = VIDEO_POSTER_TIME_MS / 1000
 
-  const documentDirectory = FileSystem.documentDirectory
-  if (documentDirectory === null) {
-    throw new Error('Document directory is unavailable')
-  }
+  try {
+    const thumbnails = await player.generateThumbnailsAsync(posterTimeSec)
+    const thumbnail = thumbnails.at(0)
+    if (!thumbnail) {
+      throw new Error('Poster frame extraction failed.')
+    }
 
-  const destination = `${documentDirectory}photos/${localId}-poster.jpg`
-  await FileSystem.copyAsync({ from: uri, to: destination })
-  await safeDeleteAsync(uri)
+    const imageRef = await ImageManipulator.manipulate(thumbnail).renderAsync()
+    const saved = await imageRef.saveAsync({
+      compress: 1,
+      format: SaveFormat.JPEG,
+    })
 
-  const byteSize = await getLocalFileByteSize(destination)
-  if (byteSize <= 0) {
-    throw new Error('Poster frame file is empty.')
-  }
+    const documentDirectory = FileSystem.documentDirectory
+    if (documentDirectory === null) {
+      throw new Error('Document directory is unavailable')
+    }
 
-  return {
-    height: readPositiveDimension(height),
-    uri: destination,
-    width: readPositiveDimension(width),
+    const destination = `${documentDirectory}photos/${localId}-poster.jpg`
+    await FileSystem.copyAsync({ from: saved.uri, to: destination })
+    await safeDeleteAsync(saved.uri)
+
+    const byteSize = await getLocalFileByteSize(destination)
+    if (byteSize <= 0) {
+      throw new Error('Poster frame file is empty.')
+    }
+
+    return {
+      height: readPositiveDimension(thumbnail.height),
+      uri: destination,
+      width: readPositiveDimension(thumbnail.width),
+    }
+  } finally {
+    player.pause()
   }
 }
 
