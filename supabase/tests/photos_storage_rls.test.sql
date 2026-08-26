@@ -346,7 +346,7 @@ select results_eq(
      from pg_policies
      where schemaname = 'storage'
        and tablename = 'objects'
-       and policyname = 'Authors can delete their photo variant objects'
+       and policyname = 'Authors can delete photo objects in their folder'
        and cmd = 'DELETE' $$,
   $$ values (1::bigint) $$,
   'owner-scoped Storage API delete policy exists'
