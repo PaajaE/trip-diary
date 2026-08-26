@@ -1,9 +1,12 @@
-import { VideoView, useVideoPlayer } from 'expo-video'
+import { VideoView, useVideoPlayer, type VideoViewProps } from 'expo-video'
+import { type ComponentType } from 'react'
 import { StyleSheet } from 'react-native'
 
 interface JourneyGalleryVideoPlayerProps {
   url: string
 }
+
+const GalleryVideoView = VideoView as unknown as ComponentType<VideoViewProps>
 
 export function JourneyGalleryVideoPlayer({
   url,
@@ -13,7 +16,7 @@ export function JourneyGalleryVideoPlayer({
   })
 
   return (
-    <VideoView
+    <GalleryVideoView
       allowsFullscreen
       contentFit="contain"
       nativeControls
