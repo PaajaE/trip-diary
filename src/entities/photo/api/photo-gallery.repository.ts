@@ -317,16 +317,23 @@ async function getRemotePhotoPreviewsBatch(
   const photoIds = [...new Set(links.map((link) => link.photo_id))]
   const { data: variantRows, error: variantError } = await client
     .from('photo_variants')
-    .select('photo_id, storage_path')
+    .select('photo_id, storage_path, variant')
     .in('photo_id', photoIds)
-    .eq('variant', 'preview')
+    .in('variant', ['thumb', 'preview'])
   if (variantError !== null) {
     throw variantError
   }
 
   const storagePathByPhotoId = new Map<string, string>()
   for (const row of variantRows) {
-    storagePathByPhotoId.set(row.photo_id, row.storage_path)
+    if (row.variant === 'thumb') {
+      storagePathByPhotoId.set(row.photo_id, row.storage_path)
+    }
+  }
+  for (const row of variantRows) {
+    if (row.variant === 'preview' && !storagePathByPhotoId.has(row.photo_id)) {
+      storagePathByPhotoId.set(row.photo_id, row.storage_path)
+    }
   }
 
   const downloads = await Promise.allSettled(

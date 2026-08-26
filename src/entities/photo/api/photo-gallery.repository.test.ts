@@ -312,8 +312,16 @@ describe('getJourneyEntryPhotoPreviews', () => {
     })
     const variants = createQuery({
       data: [
-        { photo_id: firstPhotoId, storage_path: 'first' },
-        { photo_id: secondPhotoId, storage_path: 'second' },
+        {
+          photo_id: firstPhotoId,
+          storage_path: 'first',
+          variant: 'preview',
+        },
+        {
+          photo_id: secondPhotoId,
+          storage_path: 'second',
+          variant: 'thumb',
+        },
       ],
       error: null,
     })
