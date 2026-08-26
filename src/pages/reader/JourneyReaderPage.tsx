@@ -14,7 +14,6 @@ import {
   observationsForCollectionTag,
   uniqueSpeciesNames,
 } from '@/features/journeys/lib/collection-observations'
-import { useJourneyMapPhotoThumbs } from '@/features/journeys/lib/use-journey-map-photo-thumbs'
 import {
   filterPhotoLocationsByTag,
   groupTagsByPhotoId,
@@ -129,7 +128,6 @@ export function JourneyReaderPage({
     queryFn: () => listJourneyObservations(journeyId),
     queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
-  const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
 
   const sharePath = buildPublicJourneyPath(publicPaths)
   const shareUrl = buildAbsoluteUrl(sharePath)
@@ -178,6 +176,16 @@ export function JourneyReaderPage({
     content?.moments ?? [],
     content !== null,
     'card',
+  )
+  const mapPhotoPreviews = useMemo(
+    () => [...photosByEntryId.values()].flat(),
+    [photosByEntryId],
+  )
+  const mapPhotoUrls = usePhotoObjectUrls(mapPhotoPreviews)
+  const photoThumbUrls = useMemo(
+    () =>
+      Object.fromEntries(mapPhotoUrls.map((photo) => [photo.id, photo.url])),
+    [mapPhotoUrls],
   )
   const coverPhoto = useMemo(
     () =>
