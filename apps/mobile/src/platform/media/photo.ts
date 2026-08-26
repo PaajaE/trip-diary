@@ -4,12 +4,16 @@ import * as ImagePicker from 'expo-image-picker'
 import * as Location from 'expo-location'
 import {
   getMeaningfulGpsCoordinates,
-  isHeicLikeImageInput,
-  looksLikeHeicBytes,
   looksLikeJpegBytes,
   parseNativeExifGps,
 } from '@trip-diary/utils'
 import { createUuid } from '@/platform/id'
+import {
+  MASTER_JPEG_QUALITY,
+  resolveNormalizedDimensions,
+  resolveThumbDimensions,
+  THUMB_JPEG_QUALITY,
+} from '@/platform/media/normalize-dimensions'
 import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from '@/platform/sync/photo-storage-limits'
 
 export interface PhotoMetadata {
@@ -19,26 +23,55 @@ export interface PhotoMetadata {
   longitude: number | null
 }
 
+export type PhotoMimeType = 'image/jpeg' | 'image/webp'
+
+export type MediaPrepareStage =
+  | 'copy'
+  | 'normalize'
+  | 'thumb'
+  | 'validate'
+  | 'permission'
+
+export interface PickedPhotoDiagnostics {
+  attemptCount: number
+  declaredMime: string | null
+  failedStage: MediaPrepareStage | null
+  lastError: string | null
+  normalizedByteSize: number | null
+  normalizedHeight: number | null
+  normalizedWidth: number | null
+  originalByteSize: number | null
+  sourceHeight: number | null
+  sourceUriScheme: string
+  sourceWidth: number | null
+}
+
+export type PickedPhotoStatus = 'ready' | 'failed'
+
 export interface PickedPhoto {
+  diagnostics: PickedPhotoDiagnostics
   height: number
   localId: string
   metadata: PhotoMetadata
   mimeType: PhotoMimeType
+  /**
+   * Master JPEG in app-owned storage when ready; empty when failed without a
+   * recoverable local file.
+   */
   uri: string
+  /** Optional thumb JPEG; missing thumb must not invalidate the master. */
+  thumbUri: string | null
   width: number
+  status: PickedPhotoStatus
 }
-
-export type PhotoMimeType = 'image/jpeg' | 'image/webp'
 
 export type PickPhotosStatus = 'selected' | 'canceled' | 'empty'
 
 export interface PickPhotosResult {
+  /** Accepted + failed items — length matches picker selection when possible. */
   photos: PickedPhoto[]
   status: PickPhotosStatus
 }
-
-const MAX_JPEG_EDGE = 2560
-const JPEG_COMPRESS_QUALITY = 0.82
 
 const imageLibraryOptions: ImagePicker.ImagePickerOptions = {
   allowsEditing: false,
@@ -57,7 +90,7 @@ async function pickImageFromSource(
   source: 'library' | 'camera',
 ): Promise<PickedPhoto | null> {
   const result = await pickPhotosFromSource(source)
-  return result.photos[0] ?? null
+  return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
 
 async function pickPhotosFromSource(
@@ -96,36 +129,25 @@ async function pickPhotosFromSource(
     return { photos: [], status: 'empty' }
   }
 
-  const picked: PickedPhoto[] = []
-  const failures: string[] = []
+  const photos: PickedPhoto[] = []
 
   for (const asset of result.assets) {
-    try {
-      // Copy/convert while the picker result is still valid — never queue a
-      // temporary ph:// or short-lived file:// URI for later background work.
-      const materialized = await materializePickedAsset(asset)
-      picked.push(materialized)
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Photo could not be prepared.'
-      failures.push(message)
-      console.warn('[photo-picker] materialize failed', message)
-    }
+    // Every selected asset becomes a durable row in the returned list —
+    // never silently omit a failure.
+    const prepared = await materializePickedAssetSafe(asset)
+    photos.push(prepared)
   }
 
-  if (picked.length === 0 && failures.length > 0) {
-    throw new Error(failures[0] ?? 'Selected photos could not be prepared.')
-  }
-
+  const anyReady = photos.some((photo) => photo.status === 'ready')
   return {
-    photos: picked,
-    status: picked.length > 0 ? 'selected' : 'empty',
+    photos,
+    status: anyReady || photos.length > 0 ? 'selected' : 'empty',
   }
 }
 
 export async function pickPhoto(): Promise<PickedPhoto | null> {
   const result = await pickPhotos()
-  return result.photos[0] ?? null
+  return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
 
 export async function pickPhotos(): Promise<PickPhotosResult> {
@@ -137,73 +159,205 @@ export async function capturePhoto(): Promise<PickedPhoto | null> {
   return pickImageFromSource('camera')
 }
 
+export async function materializePickedAssetSafe(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<PickedPhoto> {
+  const localId = createUuid()
+  const sourceUri = typeof asset.uri === 'string' ? asset.uri.trim() : ''
+  const baseDiagnostics: PickedPhotoDiagnostics = {
+    attemptCount: 1,
+    declaredMime:
+      typeof asset.mimeType === 'string' && asset.mimeType.length > 0
+        ? asset.mimeType
+        : null,
+    failedStage: null,
+    lastError: null,
+    normalizedByteSize: null,
+    normalizedHeight: null,
+    normalizedWidth: null,
+    originalByteSize: null,
+    sourceHeight: readPositiveDimension(asset.height),
+    sourceUriScheme: readUriScheme(sourceUri),
+    sourceWidth: readPositiveDimension(asset.width),
+  }
+
+  if (sourceUri.length === 0) {
+    return createFailedPickedPhoto(
+      localId,
+      baseDiagnostics,
+      'Selected photo has an empty URI.',
+      'copy',
+    )
+  }
+
+  try {
+    return await materializePickedAsset(asset, localId, baseDiagnostics)
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Photo could not be prepared.'
+    const stage = inferFailedStage(message)
+    console.warn('[photo-picker] materialize failed', {
+      localId,
+      message,
+      scheme: baseDiagnostics.sourceUriScheme,
+      stage,
+    })
+    return createFailedPickedPhoto(localId, baseDiagnostics, message, stage)
+  }
+}
+
 /**
- * Persist a picker asset into app-owned storage as a real JPEG, preserving
- * EXIF-derived GPS/date in metadata even when the JPEG no longer embeds them.
+ * Persist a picker asset into app-owned storage as a normalized JPEG master
+ * (and best-effort thumb). Always runs dimension policy — never bypasses
+ * normalization for "already JPEG" sources.
  */
 export async function materializePickedAsset(
   asset: ImagePicker.ImagePickerAsset,
+  localId: string = createUuid(),
+  diagnostics: PickedPhotoDiagnostics = {
+    attemptCount: 1,
+    declaredMime: asset.mimeType ?? null,
+    failedStage: null,
+    lastError: null,
+    normalizedByteSize: null,
+    normalizedHeight: null,
+    normalizedWidth: null,
+    originalByteSize: null,
+    sourceHeight: readPositiveDimension(asset.height),
+    sourceUriScheme: readUriScheme(asset.uri),
+    sourceWidth: readPositiveDimension(asset.width),
+  },
 ): Promise<PickedPhoto> {
   if (typeof asset.uri !== 'string' || asset.uri.trim().length === 0) {
     throw new Error('Selected photo has an empty URI.')
   }
 
-  const localId = createUuid()
   const metadataFromExif = await extractPhotoMetadata(
     asset.uri,
     asset.exif ?? null,
   )
 
   const stagingFilename = `staging-${localId}`
-  const stagingUri = await copyPickerUriToDocuments(asset.uri, stagingFilename)
+  let stagingUri: string
+  try {
+    stagingUri = await copyPickerUriToDocuments(asset.uri, stagingFilename)
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : 'Could not copy selected photo.'
+    throw Object.assign(new Error(message), { stage: 'copy' as const })
+  }
 
   try {
-    const needsJpegConversion = await detectNeedsJpegConversion(
-      asset,
-      stagingUri,
-    )
+    const originalByteSize = await getLocalFileByteSize(stagingUri)
+    diagnostics.originalByteSize = originalByteSize
 
-    const prepared = needsJpegConversion
-      ? await convertToPersistentJpeg(stagingUri, localId)
-      : await ensurePersistentJpegCopy(stagingUri, localId, asset)
+    const sourceWidth = readPositiveDimension(asset.width)
+    const sourceHeight = readPositiveDimension(asset.height)
+    // If picker omitted dims, probe after we have a local file via manipulate.
+    const plan = resolveNormalizedDimensions({
+      height: sourceHeight,
+      width: sourceWidth,
+    })
 
-    const byteSize = await getLocalFileByteSize(prepared.uri)
-    if (byteSize <= 0) {
-      throw new Error('Prepared photo file is empty.')
+    const master = await normalizeToPersistentJpeg({
+      localId,
+      sourceHeight,
+      sourceUri: stagingUri,
+      sourceWidth,
+      targetHeight: plan.height,
+      targetWidth: plan.width,
+    })
+
+    const masterByteSize = await getLocalFileByteSize(master.uri)
+    if (masterByteSize <= 0) {
+      throw Object.assign(new Error('Normalized photo file is empty.'), {
+        stage: 'validate' as const,
+      })
     }
 
-    if (byteSize > PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES) {
-      const resized = await convertToPersistentJpeg(prepared.uri, localId)
-      await safeDeleteAsync(prepared.uri === stagingUri ? null : prepared.uri)
+    if (masterByteSize > PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES) {
+      throw Object.assign(
+        new Error(
+          `Normalized photo exceeds Storage limit (${String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES)} bytes): ${String(masterByteSize)} bytes.`,
+        ),
+        { stage: 'validate' as const },
+      )
+    }
 
-      return {
-        height: resized.height,
+    let thumbUri: string | null = null
+    try {
+      const thumb = await generateThumbJpeg(
+        master.uri,
         localId,
-        metadata: {
-          ...metadataFromExif,
-          localUri: resized.uri,
-        },
-        mimeType: 'image/jpeg',
-        uri: resized.uri,
-        width: resized.width,
-      }
+        master.width,
+        master.height,
+      )
+      thumbUri = thumb.uri
+    } catch (thumbError) {
+      // Thumb is best-effort at import time; upload can retry from master.
+      const message =
+        thumbError instanceof Error
+          ? thumbError.message
+          : 'Thumbnail generation failed.'
+      console.warn('[photo-picker] thumb failed', { localId, message })
     }
 
     return {
-      height: prepared.height,
+      diagnostics: {
+        ...diagnostics,
+        failedStage: null,
+        lastError: null,
+        normalizedByteSize: masterByteSize,
+        normalizedHeight: master.height,
+        normalizedWidth: master.width,
+        originalByteSize,
+        sourceHeight,
+        sourceWidth,
+      },
+      height: master.height,
       localId,
       metadata: {
         ...metadataFromExif,
-        localUri: prepared.uri,
+        localUri: master.uri,
       },
       mimeType: 'image/jpeg',
-      uri: prepared.uri,
-      width: prepared.width,
+      status: 'ready',
+      thumbUri,
+      uri: master.uri,
+      width: master.width,
     }
   } finally {
     if (!stagingUri.endsWith(`/${localId}.jpg`)) {
       await safeDeleteAsync(stagingUri)
     }
+  }
+}
+
+function createFailedPickedPhoto(
+  localId: string,
+  diagnostics: PickedPhotoDiagnostics,
+  message: string,
+  stage: MediaPrepareStage,
+): PickedPhoto {
+  return {
+    diagnostics: {
+      ...diagnostics,
+      failedStage: stage,
+      lastError: message,
+    },
+    height: diagnostics.sourceHeight ?? 1,
+    localId,
+    metadata: {
+      capturedAt: null,
+      latitude: null,
+      localUri: '',
+      longitude: null,
+    },
+    mimeType: 'image/jpeg',
+    status: 'failed',
+    thumbUri: null,
+    uri: '',
+    width: diagnostics.sourceWidth ?? 1,
   }
 }
 
@@ -269,6 +423,17 @@ export async function getCurrentLocation(): Promise<{
   }
 }
 
+export async function deleteLocalPhotoFiles(
+  uris: Array<string | null | undefined>,
+): Promise<void> {
+  for (const uri of uris) {
+    if (uri === null || uri === undefined || uri.trim().length === 0) {
+      continue
+    }
+    await safeDeleteAsync(uri)
+  }
+}
+
 async function copyPickerUriToDocuments(
   sourceUri: string,
   filename: string,
@@ -293,71 +458,37 @@ async function copyPickerUriToDocuments(
   return destination
 }
 
-async function detectNeedsJpegConversion(
-  asset: ImagePicker.ImagePickerAsset,
-  localUri: string,
-): Promise<boolean> {
-  if (
-    isHeicLikeImageInput({
-      mimeType: asset.mimeType,
-      nameOrUri: asset.uri,
-    }) ||
-    isHeicLikeImageInput({
-      mimeType: asset.mimeType,
-      nameOrUri: localUri,
-    })
-  ) {
-    return true
-  }
-
-  const header = await readFileHeaderBytes(localUri, 16)
-  if (looksLikeHeicBytes(header)) {
-    return true
-  }
-
-  if (looksLikeJpegBytes(header)) {
-    return false
-  }
-
-  // Unknown container — force a JPEG re-encode so Storage always gets JPEG.
-  return true
-}
-
-async function ensurePersistentJpegCopy(
-  stagingUri: string,
-  localId: string,
-  asset: ImagePicker.ImagePickerAsset,
-): Promise<{ height: number; uri: string; width: number }> {
-  const header = await readFileHeaderBytes(stagingUri, 16)
-  if (!looksLikeJpegBytes(header)) {
-    return convertToPersistentJpeg(stagingUri, localId)
-  }
-
-  const documentDirectory = FileSystem.documentDirectory
-  if (documentDirectory === null) {
-    throw new Error('Document directory is unavailable')
-  }
-
-  const destination = `${documentDirectory}photos/${localId}.jpg`
-  await FileSystem.copyAsync({ from: stagingUri, to: destination })
-
-  return {
-    height: readPositiveDimension(asset.height),
-    uri: destination,
-    width: readPositiveDimension(asset.width),
-  }
-}
-
-async function convertToPersistentJpeg(
-  sourceUri: string,
-  localId: string,
-): Promise<{ height: number; uri: string; width: number }> {
+async function normalizeToPersistentJpeg(input: {
+  localId: string
+  sourceHeight: number
+  sourceUri: string
+  sourceWidth: number
+  targetHeight: number
+  targetWidth: number
+}): Promise<{ height: number; uri: string; width: number }> {
   try {
-    const imageRef = await ImageManipulator.manipulate(sourceUri)
-      .resize({ width: MAX_JPEG_EDGE })
-      .renderAsync()
+    const resizeWidth =
+      input.targetWidth >= input.targetHeight
+        ? input.targetWidth
+        : undefined
+    const resizeHeight =
+      input.targetHeight > input.targetWidth ? input.targetHeight : undefined
+
+    let manipulator = ImageManipulator.manipulate(input.sourceUri)
+    if (resizeWidth !== undefined) {
+      manipulator = manipulator.resize({ width: resizeWidth })
+    } else if (resizeHeight !== undefined) {
+      manipulator = manipulator.resize({ height: resizeHeight })
+    } else {
+      // Already within budget — still re-encode to strip EXIF and normalize JPEG.
+      manipulator = manipulator.resize({
+        width: Math.max(input.sourceWidth, 1),
+      })
+    }
+
+    const imageRef = await manipulator.renderAsync()
     const result = await imageRef.saveAsync({
-      compress: JPEG_COMPRESS_QUALITY,
+      compress: MASTER_JPEG_QUALITY,
       format: SaveFormat.JPEG,
     })
 
@@ -366,18 +497,13 @@ async function convertToPersistentJpeg(
       throw new Error('Document directory is unavailable')
     }
 
-    const destination = `${documentDirectory}photos/${localId}.jpg`
+    const destination = `${documentDirectory}photos/${input.localId}.jpg`
     await FileSystem.copyAsync({ from: result.uri, to: destination })
     await safeDeleteAsync(result.uri)
 
     const header = await readFileHeaderBytes(destination, 16)
     if (!looksLikeJpegBytes(header)) {
-      throw new Error('HEIC conversion did not produce a JPEG file.')
-    }
-
-    const byteSize = await getLocalFileByteSize(destination)
-    if (byteSize <= 0) {
-      throw new Error('HEIC conversion produced an empty JPEG file.')
+      throw new Error('Normalization did not produce a JPEG file.')
     }
 
     return {
@@ -387,8 +513,60 @@ async function convertToPersistentJpeg(
     }
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : 'Unknown conversion error.'
-    throw new Error(`HEIC/HEIF conversion to JPEG failed: ${message}`)
+      error instanceof Error ? error.message : 'Unknown normalization error.'
+    throw Object.assign(new Error(`Photo normalization failed: ${message}`), {
+      stage: 'normalize' as const,
+    })
+  }
+}
+
+export async function generateThumbJpeg(
+  masterUri: string,
+  localId: string,
+  masterWidth: number,
+  masterHeight: number,
+): Promise<{ height: number; uri: string; width: number }> {
+  const thumbPlan = resolveThumbDimensions({
+    height: masterHeight,
+    width: masterWidth,
+  })
+
+  const resizeWidth =
+    thumbPlan.width >= thumbPlan.height ? thumbPlan.width : undefined
+  const resizeHeight =
+    thumbPlan.height > thumbPlan.width ? thumbPlan.height : undefined
+
+  let manipulator = ImageManipulator.manipulate(masterUri)
+  if (resizeWidth !== undefined) {
+    manipulator = manipulator.resize({ width: resizeWidth })
+  } else if (resizeHeight !== undefined) {
+    manipulator = manipulator.resize({ height: resizeHeight })
+  }
+
+  const imageRef = await manipulator.renderAsync()
+  const result = await imageRef.saveAsync({
+    compress: THUMB_JPEG_QUALITY,
+    format: SaveFormat.JPEG,
+  })
+
+  const documentDirectory = FileSystem.documentDirectory
+  if (documentDirectory === null) {
+    throw new Error('Document directory is unavailable')
+  }
+
+  const destination = `${documentDirectory}photos/${localId}-thumb.jpg`
+  await FileSystem.copyAsync({ from: result.uri, to: destination })
+  await safeDeleteAsync(result.uri)
+
+  const byteSize = await getLocalFileByteSize(destination)
+  if (byteSize <= 0) {
+    throw new Error('Thumbnail file is empty.')
+  }
+
+  return {
+    height: readPositiveDimension(result.height),
+    uri: destination,
+    width: readPositiveDimension(result.width),
   }
 }
 
@@ -447,7 +625,7 @@ function logPhotoPickDev(
     | ImagePicker.CameraPermissionResponse,
   result: ImagePicker.ImagePickerResult,
 ): void {
-  if (!__DEV__) {
+  if (typeof __DEV__ === 'undefined' || !__DEV__) {
     return
   }
 
@@ -477,8 +655,35 @@ function readExifTimestamp(
   return typeof dateTime === 'string' ? dateTime : null
 }
 
-function readPositiveDimension(value: number | undefined): number {
+function readPositiveDimension(value: number | undefined | null): number {
   return typeof value === 'number' && Number.isFinite(value) && value > 0
     ? Math.trunc(value)
     : 1
+}
+
+function readUriScheme(uri: string): string {
+  const trimmed = uri.trim()
+  const match = /^([a-zA-Z][a-zA-Z0-9+.-]*):/.exec(trimmed)
+  return match?.[1]?.toLowerCase() ?? 'unknown'
+}
+
+function inferFailedStage(message: string): MediaPrepareStage {
+  const normalized = message.toLowerCase()
+  if (normalized.includes('permission')) {
+    return 'permission'
+  }
+  if (normalized.includes('copy') || normalized.includes('uri')) {
+    return 'copy'
+  }
+  if (normalized.includes('thumb')) {
+    return 'thumb'
+  }
+  if (
+    normalized.includes('normaliz') ||
+    normalized.includes('heic') ||
+    normalized.includes('convert')
+  ) {
+    return 'normalize'
+  }
+  return 'validate'
 }
