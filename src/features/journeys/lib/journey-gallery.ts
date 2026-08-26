@@ -35,9 +35,7 @@ export function journeyGalleryQueryKey(
   quality: JourneyPhotoQuality = 'thumb',
 ) {
   // Sort so page / gallery / strip share one React Query cache per quality.
-  const entryIds = [
-    ...new Set(moments.map((moment) => moment.entry.id)),
-  ].sort()
+  const entryIds = [...new Set(moments.map((moment) => moment.entry.id))].sort()
   return photoQueryKeys.journeyGallery(entryIds, quality)
 }
 
