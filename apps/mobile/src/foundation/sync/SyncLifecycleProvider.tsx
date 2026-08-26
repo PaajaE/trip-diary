@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { AppState, type AppStateStatus } from 'react-native'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/platform/auth/AuthProvider'
 import { useNetworkState } from '@/foundation/network/NetworkProvider'
 import {
@@ -8,7 +9,10 @@ import {
   type SyncCoordinatorContext,
 } from '@/foundation/sync/sync-coordinator'
 import { subscribeSyncDrainRequests } from '@/foundation/sync/sync-drain-request'
+import { subscribePhotoUploadSynced } from '@/foundation/sync/photo-upload-events'
 import { updateSyncCoordinatorSnapshot } from '@/foundation/sync/sync-observable'
+import { invalidateJourneyPhotoQueries } from '@/features/journeys/lib/journey-cache-mutations'
+import { journeyQueryKeys } from '@/features/journeys/query-keys'
 import {
   drainSyncQueue,
   getSyncQueueStatusSummary,
@@ -29,6 +33,7 @@ function resolveWaitingPhase(context: SyncCoordinatorContext) {
 export function SyncLifecycleProvider({ children }: { children: ReactNode }) {
   const auth = useAuth()
   const networkState = useNetworkState()
+  const queryClient = useQueryClient()
   const appStateRef = useRef<AppStateStatus>(AppState.currentState)
   const contextRef = useRef<SyncCoordinatorContext>({
     appIsActive: isActiveAppState(appStateRef.current),
@@ -74,6 +79,21 @@ export function SyncLifecycleProvider({ children }: { children: ReactNode }) {
       void coordinator.maybeRunDrain(contextRef.current, reason)
     })
   }, [coordinator])
+
+  useEffect(() => {
+    return subscribePhotoUploadSynced((event) => {
+      invalidateJourneyPhotoQueries(
+        queryClient,
+        event.journeyId,
+        auth.session?.user.id,
+      )
+      if (event.entryId !== null) {
+        void queryClient.invalidateQueries({
+          queryKey: journeyQueryKeys.entry(event.entryId),
+        })
+      }
+    })
+  }, [auth.session?.user.id, queryClient])
 
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextState) => {

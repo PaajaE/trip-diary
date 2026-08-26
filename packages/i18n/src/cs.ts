@@ -210,7 +210,14 @@ export const cs: TranslationResources = {
       'Fotky se nepodařilo nahrát do úložiště. Zkus menší fotky nebo to zkus znovu.',
     photoUploadTimeoutError: 'Nahrávání fotek vypršelo. Zkus to prosím znovu.',
     photosPartialUpload:
-      'Vzpomínka byla uložena, ale podařilo se nahrát pouze {{uploaded}} z {{total}} fotografií.',
+      'Vzpomínka byla uložena, ale do fronty se zařadilo jen {{uploaded}} z {{total}} fotografií.',
+    photosQueued:
+      '{{count}} fotek se nahrává na pozadí. Můžeš dál používat aplikaci.',
+    photosPreparePartial:
+      '{{failed}} z {{total}} vybraných fotek se nepodařilo připravit. Nezdařené položky zůstávají viditelné — dlouhým stiskem je odebereš.',
+    photoPrepareFailed: 'Tuto fotku se nepodařilo připravit k nahrání.',
+    photoStatusFailed: 'Selhalo',
+    photoFailedRetry: 'Nezdařená fotka — klepni pro detail, dlouhý stisk pro odebrání',
     filePickerAction: 'Vybrat fotky ze souborů',
     filePickerFallbackHint:
       'Když prohlížeč neumí systémový výběr souborů, zůstává k dispozici běžný výběr fotek.',

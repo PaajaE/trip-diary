@@ -177,6 +177,9 @@ export function MomentEditorForm({
     }> = []
 
     for (const photo of pickedPhotos) {
+      if (photo.status !== 'ready') {
+        continue
+      }
       const latitude = photo.metadata.latitude
       const longitude = photo.metadata.longitude
       if (
@@ -239,21 +242,35 @@ export function MomentEditorForm({
       }
 
       const photos = result.photos
+      const failedCount = photos.filter((photo) => photo.status === 'failed')
+        .length
       setPickedPhotos((current) => {
         const next = [...current, ...photos]
         setCoverLocalId((currentCover) => {
           if (currentCover !== null) {
             return currentCover
           }
-          return next[0]?.localId ?? null
+          return (
+            next.find((photo) => photo.status === 'ready')?.localId ?? null
+          )
         })
         return next
       })
+      if (failedCount > 0) {
+        setPhotoNotice(
+          t('entry.photosPreparePartial', {
+            failed: failedCount,
+            total: photos.length,
+          }),
+        )
+      }
       const gps = selectFirstPhotoGps(
-        photos.map((photo) => ({
-          latitude: photo.metadata.latitude,
-          longitude: photo.metadata.longitude,
-        })),
+        photos
+          .filter((photo) => photo.status === 'ready')
+          .map((photo) => ({
+            latitude: photo.metadata.latitude,
+            longitude: photo.metadata.longitude,
+          })),
       )
 
       if (gps === null) {
@@ -344,8 +361,12 @@ export function MomentEditorForm({
             })
             if (uploadResult.failed.length > 0) {
               photoUploadError = t('entry.photosPartialUpload', {
-                uploaded: uploadResult.succeededPhotoIds.length,
+                uploaded: uploadResult.queuedCount,
                 total: pickedPhotos.length,
+              })
+            } else if (uploadResult.queuedCount > 0) {
+              photoUploadError = t('entry.photosQueued', {
+                count: uploadResult.queuedCount,
               })
             }
           } catch (uploadError) {
@@ -401,8 +422,12 @@ export function MomentEditorForm({
             })
             if (uploadResult.failed.length > 0) {
               photoUploadError = t('entry.photosPartialUpload', {
-                uploaded: uploadResult.succeededPhotoIds.length,
+                uploaded: uploadResult.queuedCount,
                 total: pickedPhotos.length,
+              })
+            } else if (uploadResult.queuedCount > 0) {
+              photoUploadError = t('entry.photosQueued', {
+                count: uploadResult.queuedCount,
               })
             }
           } catch (uploadError) {
@@ -581,14 +606,40 @@ export function MomentEditorForm({
         <View style={styles.previewGrid}>
           {pickedPhotos.map((photo) => {
             const isCover = photo.localId === coverLocalId
+            const isFailed = photo.status === 'failed'
             return (
               <Pressable
                 accessibilityLabel={
-                  isCover ? t('entry.coverPhoto') : t('entry.setCoverPhoto')
+                  isFailed
+                    ? t('entry.photoFailedRetry')
+                    : isCover
+                      ? t('entry.coverPhoto')
+                      : t('entry.setCoverPhoto')
                 }
                 accessibilityRole="button"
                 key={photo.localId}
+                onLongPress={() => {
+                  setPickedPhotos((current) =>
+                    current.filter((item) => item.localId !== photo.localId),
+                  )
+                  if (coverLocalId === photo.localId) {
+                    setCoverLocalId(
+                      pickedPhotos.find(
+                        (item) =>
+                          item.localId !== photo.localId &&
+                          item.status === 'ready',
+                      )?.localId ?? null,
+                    )
+                  }
+                }}
                 onPress={() => {
+                  if (isFailed) {
+                    setPhotoNotice(
+                      photo.diagnostics.lastError ??
+                        t('entry.photoPrepareFailed'),
+                    )
+                    return
+                  }
                   setCoverLocalId(photo.localId)
                   const gps = selectFirstPhotoGps([
                     {
@@ -607,20 +658,55 @@ export function MomentEditorForm({
                 style={styles.previewItem}
                 testID={`picked-photo-${photo.localId}`}
               >
-                <Image
-                  accessibilityIgnoresInvertColors
-                  source={{ uri: photo.uri }}
-                  style={[
-                    styles.previewImage,
-                    isCover ? styles.previewImageCover : null,
-                  ]}
-                />
+                {isFailed || photo.uri.length === 0 ? (
+                  <View
+                    style={[
+                      styles.previewImage,
+                      styles.previewImageFailed,
+                      isCover ? styles.previewImageCover : null,
+                    ]}
+                  >
+                    <Text style={styles.previewFailedText}>
+                      {t('entry.photoStatusFailed')}
+                    </Text>
+                  </View>
+                ) : (
+                  <Image
+                    accessibilityIgnoresInvertColors
+                    onError={() => {
+                      setPickedPhotos((current) =>
+                        current.map((item) =>
+                          item.localId === photo.localId
+                            ? {
+                                ...item,
+                                diagnostics: {
+                                  ...item.diagnostics,
+                                  failedStage: 'validate',
+                                  lastError:
+                                    item.diagnostics.lastError ??
+                                    'Photo preview failed to render.',
+                                },
+                                status: 'failed',
+                              }
+                            : item,
+                        ),
+                      )
+                    }}
+                    source={{ uri: photo.uri }}
+                    style={[
+                      styles.previewImage,
+                      isCover ? styles.previewImageCover : null,
+                    ]}
+                  />
+                )}
                 <Text style={styles.previewBadge}>
-                  {isCover
-                    ? t('entry.coverPhoto')
-                    : photo.metadata.latitude !== null
-                      ? t('entry.photoHasGps')
-                      : t('entry.photoNoGps')}
+                  {isFailed
+                    ? t('entry.photoStatusFailed')
+                    : isCover
+                      ? t('entry.coverPhoto')
+                      : photo.metadata.latitude !== null
+                        ? t('entry.photoHasGps')
+                        : t('entry.photoNoGps')}
                 </Text>
               </Pressable>
             )
@@ -1072,6 +1158,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     height: 72,
     width: 72,
+  },
+  previewImageFailed: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderColor: colors.error,
+  },
+  previewFailedText: {
+    color: colors.error,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
   },
   previewImageCover: {
     borderColor: colors.primary,

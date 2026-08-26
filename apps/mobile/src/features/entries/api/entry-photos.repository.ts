@@ -12,8 +12,10 @@ import {
 } from '@/features/photos/lib/pick-photo-variant-path'
 import { readMeaningfulPhotoGps } from '@/features/photos/lib/read-photo-coordinate'
 import { PHOTO_UPLOAD_OPERATION } from '@/platform/sync/photo-upload'
-import { enqueueSyncOperationForApp } from '@/platform/sync/enqueue-operation'
-import { waitForSyncOperation } from '@/platform/sync/queue'
+import {
+  enqueueFailedSyncOperationForApp,
+  enqueueSyncOperationForApp,
+} from '@/platform/sync/enqueue-operation'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 
 export interface EntryPhotoSummary {
@@ -227,35 +229,88 @@ export async function uploadEntryPhotos(input: {
   startingPosition?: number
   userId: string
 }): Promise<{
+  enqueuedPhotoIds: string[]
   failed: Array<{ localId: string; reason: string }>
-  succeededPhotoIds: string[]
+  queuedCount: number
 }> {
   if (input.photos.length === 0) {
-    return { failed: [], succeededPhotoIds: [] }
+    return { enqueuedPhotoIds: [], failed: [], queuedCount: 0 }
   }
 
   if (!isSupabaseConfigured()) {
     throw new EntryPhotoError('Supabase is not configured.', 'DATABASE')
   }
 
-  const succeededPhotoIds: string[] = []
+  const enqueuedPhotoIds: string[] = []
   const failed: Array<{ localId: string; reason: string }> = []
   let position = input.startingPosition ?? 0
-  const coverLocalId = input.coverLocalId ?? input.photos[0].localId
+  const readyPhotos = input.photos.filter((photo) => photo.status === 'ready')
+  const failedPicks = input.photos.filter((photo) => photo.status === 'failed')
+  const coverLocalId =
+    input.coverLocalId ?? readyPhotos[0]?.localId ?? input.photos[0]?.localId
   let coverAssigned = false
 
-  for (const picked of input.photos) {
+  for (const failedPick of failedPicks) {
+    const photoId = createPhotoId()
+    const operationId = `photo-upload-${photoId}`
+    const reason =
+      failedPick.diagnostics.lastError ?? 'Photo could not be prepared.'
+    try {
+      await enqueueFailedSyncOperationForApp({
+        id: operationId,
+        operationType: PHOTO_UPLOAD_OPERATION,
+        payload: {
+          attemptCount: failedPick.diagnostics.attemptCount,
+          byteSize: failedPick.diagnostics.originalByteSize ?? 1,
+          declaredMime: failedPick.diagnostics.declaredMime,
+          entryId: input.entryId,
+          failedStage: failedPick.diagnostics.failedStage,
+          height: failedPick.height,
+          journeyId: input.journeyId,
+          lastError: reason,
+          localUri: '',
+          mimeType: 'image/jpeg',
+          originalFilename: `failed-${photoId}.jpg`,
+          photoId,
+          position,
+          retryable: false,
+          sourceUriScheme: failedPick.diagnostics.sourceUriScheme,
+          width: failedPick.width,
+        },
+        retryable: false,
+        userId: input.userId,
+      })
+    } catch (error) {
+      console.warn('[moment-photos] could not persist failed pick', error)
+    }
+    failed.push({ localId: failedPick.localId, reason })
+    position += 1
+  }
+
+  for (const picked of readyPhotos) {
     const photoId = createPhotoId()
     const operationId = `photo-upload-${photoId}`
     try {
       assertPickedPhotoValid(picked)
       const filename = `entry-${input.entryId}-${String(position)}-${photoId}.jpg`
 
-      // Photos are already materialized into app-owned storage at pick time.
-      // Re-copy only when the URI is somehow outside the documents photos dir.
       const localUri = await ensureUploadLocalCopy(picked.uri, filename)
       const byteSize = await getLocalFileByteSize(localUri)
       const preferCover = !coverAssigned && picked.localId === coverLocalId
+
+      let thumbLocalUri = picked.thumbUri
+      let thumbByteSize: number | null = null
+      let thumbWidth: number | null = null
+      let thumbHeight: number | null = null
+      if (thumbLocalUri !== null && thumbLocalUri.length > 0) {
+        try {
+          thumbByteSize = await getLocalFileByteSize(thumbLocalUri)
+          thumbWidth = Math.max(1, Math.round(picked.width / 3))
+          thumbHeight = Math.max(1, Math.round(picked.height / 3))
+        } catch {
+          thumbLocalUri = null
+        }
+      }
 
       console.log('[moment-photos] enqueue', {
         byteSize,
@@ -265,6 +320,7 @@ export async function uploadEntryPhotos(input: {
         localUriSuffix: localUri.slice(-48),
         mimeType: picked.mimeType,
         operationId,
+        hasThumb: thumbLocalUri !== null,
         width: picked.width,
       })
 
@@ -272,8 +328,10 @@ export async function uploadEntryPhotos(input: {
         id: operationId,
         operationType: PHOTO_UPLOAD_OPERATION,
         payload: {
+          attemptCount: 0,
           byteSize,
           capturedAt: picked.metadata.capturedAt,
+          declaredMime: picked.diagnostics.declaredMime,
           entryId: input.entryId,
           height: picked.height,
           isCover: preferCover,
@@ -285,43 +343,25 @@ export async function uploadEntryPhotos(input: {
           originalFilename: filename,
           photoId,
           position,
+          sourceUriScheme: picked.diagnostics.sourceUriScheme,
+          thumbByteSize,
+          thumbHeight,
+          thumbLocalUri,
+          thumbWidth,
           variant: 'preview',
           width: picked.width,
         },
         userId: input.userId,
       })
 
-      const settled = await waitForSyncOperation(operationId, {
-        timeoutMs: 180_000,
-      })
-
-      console.log('[moment-photos] settled', {
-        lastError:
-          typeof settled.payload.lastError === 'string'
-            ? settled.payload.lastError
-            : null,
-        operationId,
-        status: settled.status,
-      })
-
-      if (settled.status === 'failed') {
-        const message =
-          typeof settled.payload.lastError === 'string'
-            ? settled.payload.lastError
-            : 'Photo upload failed.'
-        failed.push({ localId: picked.localId, reason: message })
-        position += 1
-        continue
-      }
-
-      succeededPhotoIds.push(photoId)
+      enqueuedPhotoIds.push(photoId)
       if (preferCover) {
         coverAssigned = true
       }
       position += 1
     } catch (error) {
       const classified = classifyEntryPhotoFailure(error, 'UPLOAD')
-      console.warn('[moment-photos] photo failed', {
+      console.warn('[moment-photos] enqueue failed', {
         localId: picked.localId,
         message: classified.message,
       })
@@ -330,14 +370,18 @@ export async function uploadEntryPhotos(input: {
     }
   }
 
-  if (succeededPhotoIds.length === 0 && failed.length > 0) {
+  if (enqueuedPhotoIds.length === 0 && failed.length > 0) {
     throw new EntryPhotoError(
       failed[0]?.reason ?? 'Photo upload failed.',
       'UPLOAD',
     )
   }
 
-  return { failed, succeededPhotoIds }
+  return {
+    enqueuedPhotoIds,
+    failed,
+    queuedCount: enqueuedPhotoIds.length,
+  }
 }
 
 async function ensureUploadLocalCopy(
@@ -359,6 +403,13 @@ async function ensureUploadLocalCopy(
 }
 
 function assertPickedPhotoValid(photo: PickedPhoto): void {
+  if (photo.status !== 'ready') {
+    throw new EntryPhotoError(
+      photo.diagnostics.lastError ?? 'Selected photo is not ready.',
+      'ASSET_INVALID',
+    )
+  }
+
   if (photo.uri.trim().length === 0) {
     throw new EntryPhotoError(
       'Selected photo has an empty URI.',

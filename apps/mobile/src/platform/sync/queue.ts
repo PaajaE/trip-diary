@@ -1,3 +1,4 @@
+import { notifyPhotoUploadSynced } from '@/foundation/sync/photo-upload-events'
 import { getMobileDatabase } from '@/platform/storage/database'
 import {
   PHOTO_UPLOAD_OPERATION,
@@ -285,6 +286,45 @@ export async function enqueueSyncOperation(input: {
   }
 }
 
+/** Persist a terminal/retryable failure without attempting processing. */
+export async function enqueueFailedSyncOperation(input: {
+  id: string
+  operationType: string
+  payload: Record<string, unknown>
+  retryable?: boolean
+}): Promise<SyncOperation> {
+  const db = await getMobileDatabase()
+  const createdAt = new Date().toISOString()
+  const payload = {
+    ...input.payload,
+    lastError:
+      typeof input.payload.lastError === 'string'
+        ? input.payload.lastError
+        : 'Photo import failed.',
+    retryable: input.retryable === true,
+  }
+
+  await db.runAsync(
+    `INSERT INTO sync_queue (
+       id, operation_type, payload, status, created_at, status_updated_at
+     ) VALUES (?, ?, ?, 'failed', ?, ?)`,
+    input.id,
+    input.operationType,
+    JSON.stringify(payload),
+    createdAt,
+    createdAt,
+  )
+
+  return {
+    createdAt,
+    id: input.id,
+    operationType: input.operationType,
+    payload,
+    status: 'failed',
+    statusUpdatedAt: createdAt,
+  }
+}
+
 export async function peekNextSyncOperation(): Promise<SyncOperation | null> {
   const db = await getMobileDatabase()
   const row = await db.getFirstAsync<{
@@ -410,13 +450,40 @@ async function processNextSyncOperationUnsafe(): Promise<SyncProcessResult | nul
 
   try {
     if (next.operationType === PHOTO_UPLOAD_OPERATION) {
-      const uploadResult = await processPhotoUploadOperation(next.payload)
+      const attemptCount =
+        typeof next.payload.attemptCount === 'number'
+          ? next.payload.attemptCount + 1
+          : 1
+      const uploadResult = await processPhotoUploadOperation({
+        ...next.payload,
+        attemptCount,
+      })
       const synced = await markSyncOperationSynced(next, {
         ...next.payload,
+        attemptCount,
+        failedStage: null,
         lastError: null,
         remoteStoragePath: uploadResult.storagePath,
         retryable: null,
+        thumbError: uploadResult.thumbUploadError,
+        thumbStoragePath: uploadResult.thumbStoragePath,
       })
+
+      const journeyId =
+        typeof next.payload.journeyId === 'string'
+          ? next.payload.journeyId
+          : null
+      const entryId =
+        typeof next.payload.entryId === 'string' ? next.payload.entryId : null
+      if (journeyId !== null) {
+        notifyPhotoUploadSynced({
+          entryId,
+          journeyId,
+          photoId: uploadResult.photoId,
+          storagePath: uploadResult.storagePath,
+          thumbStoragePath: uploadResult.thumbStoragePath,
+        })
+      }
 
       return {
         operation: synced,
@@ -444,8 +511,23 @@ async function processNextSyncOperationUnsafe(): Promise<SyncProcessResult | nul
       status: 'failed',
     }
   } catch (error) {
-    const { message, retryable } = normalizeSyncProcessingError(error)
-    const failed = await markSyncOperationFailed(next, message, retryable)
+    const { message, retryable, stage } = normalizeSyncProcessingError(error)
+    const attemptCount =
+      typeof next.payload.attemptCount === 'number'
+        ? next.payload.attemptCount + 1
+        : 1
+    const failed = await markSyncOperationFailed(
+      {
+        ...next,
+        payload: {
+          ...next.payload,
+          attemptCount,
+          failedStage: stage,
+        },
+      },
+      message,
+      retryable,
+    )
 
     return {
       operation: failed,
@@ -521,11 +603,13 @@ export async function processNextSyncOperationStub(): Promise<SyncOperation | nu
 function normalizeSyncProcessingError(error: unknown): {
   message: string
   retryable: boolean
+  stage: string
 } {
   if (error instanceof PhotoUploadError) {
     return {
       message: error.message,
       retryable: error.retryable,
+      stage: error.stage,
     }
   }
 
@@ -533,11 +617,13 @@ function normalizeSyncProcessingError(error: unknown): {
     return {
       message: error.message,
       retryable: true,
+      stage: 'upload',
     }
   }
 
   return {
     message: 'Sync operation failed.',
     retryable: true,
+    stage: 'upload',
   }
 }

@@ -208,7 +208,14 @@ export const en = {
       'The photos could not be uploaded to storage. Try smaller photos or try again.',
     photoUploadTimeoutError: 'Photo upload timed out. Please try again.',
     photosPartialUpload:
-      'The memory was saved, but only {{uploaded}} of {{total}} photos uploaded successfully.',
+      'The memory was saved, but only {{uploaded}} of {{total}} photos were queued successfully.',
+    photosQueued:
+      '{{count}} photos are uploading in the background. You can keep using the app.',
+    photosPreparePartial:
+      '{{failed}} of {{total}} selected photos could not be prepared. Failed items stay visible — long-press to remove.',
+    photoPrepareFailed: 'This photo could not be prepared for upload.',
+    photoStatusFailed: 'Failed',
+    photoFailedRetry: 'Failed photo — tap for details, long-press to remove',
     filePickerAction: 'Choose photos from files',
     filePickerFallbackHint:
       'If the browser does not support the system file picker, the regular photo chooser still stays available.',
