@@ -73,10 +73,9 @@ export async function loadPublicSpaceCardImages(
     publicEntries.map(({ event_at, id }) => [id, event_at ?? '']),
   )
 
-  const photoSourcesByEntryId = await resolveEntryPhotoSources(
-    client,
-    [...publicEntryIds],
-  )
+  const photoSourcesByEntryId = await resolveEntryPhotoSources(client, [
+    ...publicEntryIds,
+  ])
 
   for (const entryId of diaryEntryIds) {
     const source = photoSourcesByEntryId.get(entryId)
@@ -196,7 +195,9 @@ async function resolveEntryPhotoSources(
     }
   }
 
-  const signedUrlByStoragePath = await signStoragePaths(client, [...storagePaths])
+  const signedUrlByStoragePath = await signStoragePaths(client, [
+    ...storagePaths,
+  ])
 
   for (const [entryId, photoId] of photoIdByEntryId) {
     const photoVariants = variantsByPhotoId.get(photoId) ?? []
@@ -212,7 +213,10 @@ async function resolveEntryPhotoSources(
       continue
     }
 
-    const srcSet = buildJourneyCoverSrcSet(photoVariants, signedUrlByStoragePath)
+    const srcSet = buildJourneyCoverSrcSet(
+      photoVariants,
+      signedUrlByStoragePath,
+    )
     result.set(entryId, {
       cover: {
         src: coverSrc,
@@ -242,7 +246,7 @@ function buildJourneyCoverSrcSet(
     if (url === undefined) {
       continue
     }
-    parts.push(`${url} ${width}w`)
+    parts.push(`${url} ${String(width)}w`)
   }
   return parts.length > 0 ? parts.join(', ') : undefined
 }

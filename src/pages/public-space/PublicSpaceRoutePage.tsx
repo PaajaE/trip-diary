@@ -95,20 +95,20 @@ export function PublicSpaceRoutePage() {
         journeys: space.journeys.map((journey) => {
           const cover = space.cardImages.journeyCoverById[journey.id]
           return {
-          ...(cover !== undefined
-            ? {
-                coverUrl: cover.src,
-                ...(cover.srcSet !== undefined
-                  ? { coverSrcSet: cover.srcSet }
-                  : {}),
-              }
-            : {}),
-          dateLabel: journey.starts_at,
-          id: journey.id,
-          statusLabel: t(`journey.status.${journey.status}`),
-          summary: journey.summary,
-          title: journey.title,
-        }
+            ...(cover !== undefined
+              ? {
+                  coverUrl: cover.src,
+                  ...(cover.srcSet !== undefined
+                    ? { coverSrcSet: cover.srcSet }
+                    : {}),
+                }
+              : {}),
+            dateLabel: journey.starts_at,
+            id: journey.id,
+            statusLabel: t(`journey.status.${journey.status}`),
+            summary: journey.summary,
+            title: journey.title,
+          }
         }),
         name: space.name,
       }}

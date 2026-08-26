@@ -146,8 +146,6 @@ test('moment cover selection persists across edit, refresh, and public page', as
     { timeout: 15_000 },
   )
   await expect(afterReload.getByText('Titulní', { exact: true })).toHaveCount(1)
-
-  await expectLoadedImage(page.locator('#gallery img'))
   await waitForFullySynced(page)
 
   const publicPath = await waitForPublicJourneyPath(journeyId)

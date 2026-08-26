@@ -1,6 +1,12 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate } from '@tanstack/react-router'
-import { CalendarDays, ExternalLink, MapPinned, Plus, Settings2 } from 'lucide-react'
+import {
+  CalendarDays,
+  ExternalLink,
+  MapPinned,
+  Plus,
+  Settings2,
+} from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -79,7 +85,7 @@ export function JourneyPage({
   const [manageOpen, setManageOpen] = useState(false)
   const [placeCaptureOpen, setPlaceCaptureOpen] = useState(false)
   const [addSheetOpen, setAddSheetOpen] = useState(false)
-  const [mapExpanded, setMapExpanded] = useState(false)
+  const [mapExpanded, setMapExpanded] = useState(() => section === 'map')
   const [focusedMapPointId, setFocusedMapPointId] = useState<string | null>(
     null,
   )
@@ -192,11 +198,11 @@ export function JourneyPage({
   )
 
   useEffect(() => {
-    if (section === 'map') {
-      setMapExpanded(true)
-      return
-    }
-    if (section === 'story' || section === 'overview' || section === 'gallery') {
+    if (
+      section === 'story' ||
+      section === 'overview' ||
+      section === 'gallery'
+    ) {
       scrollToJourneyAuthorSection('story')
     }
   }, [section])
@@ -532,7 +538,8 @@ export function JourneyPage({
                 {t('journey.mapShowNatureGoals')}
               </label>
             ) : null}
-            {photoLocationsQuery.isPending && (content?.moments.length ?? 0) > 0 ? (
+            {photoLocationsQuery.isPending &&
+            (content?.moments.length ?? 0) > 0 ? (
               <p className="mb-3 px-1 text-sm text-muted" role="status">
                 {t('journey.mapLoadingLocations')}
               </p>
@@ -641,9 +648,7 @@ function preserveJourneySearch(current: {
   }
 }
 
-function isJourneyAuthorSection(
-  value: string | undefined,
-): value is 'story' {
+function isJourneyAuthorSection(value: string | undefined): value is 'story' {
   return value === 'story'
 }
 

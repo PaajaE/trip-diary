@@ -29,11 +29,7 @@ export function JourneyRoutePage() {
 function normalizeJourneySection(
   section?: 'gallery' | 'guides' | 'map' | 'more' | 'overview' | 'story',
 ): JourneyRouteSection | undefined {
-  if (
-    section === undefined ||
-    section === 'more' ||
-    section === 'guides'
-  ) {
+  if (section === undefined || section === 'more' || section === 'guides') {
     return undefined
   }
   return section
