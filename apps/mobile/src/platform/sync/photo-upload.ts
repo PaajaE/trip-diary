@@ -1,12 +1,14 @@
 import { decode } from 'base64-arraybuffer'
 import * as FileSystem from 'expo-file-system'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { generateThumbJpeg } from '@/platform/media/photo'
 import { normalizePhotoCapturedAt } from '@/platform/media/normalize-captured-at'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from './photo-storage-limits'
 
 export const PHOTO_UPLOAD_OPERATION = 'photo.upload'
 export const PHOTOS_STORAGE_BUCKET = 'photos'
+/** Canonical master variant (normalized JPEG). */
 export const DEFAULT_PHOTO_VARIANT = 'preview' as const
 
 export type PhotoVariantType = 'thumb' | 'preview' | 'large'
@@ -29,19 +31,32 @@ export interface PhotoUploadPayload {
   originalFilename: string
   photoId: string
   position?: number
+  /** Optional thumb file; failure must not fail master upload. */
+  thumbByteSize?: number | null
+  thumbHeight?: number | null
+  thumbLocalUri?: string | null
+  thumbWidth?: number | null
   variant?: PhotoVariantType
   width: number
+  /** Diagnostics (persisted for failed/retry visibility). */
+  attemptCount?: number
+  declaredMime?: string | null
+  failedStage?: string | null
+  sourceUriScheme?: string | null
 }
 
 export interface PhotoUploadResult {
   photoId: string
   storagePath: string
+  thumbStoragePath: string | null
+  thumbUploadError: string | null
 }
 
 export class PhotoUploadError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
+    readonly stage: string = 'upload',
   ) {
     super(message)
     this.name = 'PhotoUploadError'
@@ -80,11 +95,19 @@ export function parsePhotoUploadPayload(
   const position = readOptionalNonNegativeInteger(payload.position)
   const isCover =
     typeof payload.isCover === 'boolean' ? payload.isCover : position === 0
+  const thumbLocalUri = readOptionalNullableString(payload.thumbLocalUri)
+  const thumbByteSize = readOptionalPositiveInteger(payload.thumbByteSize)
+  const thumbWidth = readOptionalPositiveInteger(payload.thumbWidth)
+  const thumbHeight = readOptionalPositiveInteger(payload.thumbHeight)
 
   return {
+    attemptCount:
+      typeof payload.attemptCount === 'number' ? payload.attemptCount : 1,
     byteSize,
     capturedAt,
+    declaredMime: readOptionalNullableString(payload.declaredMime),
     entryId,
+    failedStage: readOptionalNullableString(payload.failedStage),
     height,
     isCover,
     journeyId,
@@ -95,6 +118,11 @@ export function parsePhotoUploadPayload(
     originalFilename,
     photoId,
     position,
+    sourceUriScheme: readOptionalNullableString(payload.sourceUriScheme),
+    thumbByteSize,
+    thumbHeight,
+    thumbLocalUri,
+    thumbWidth,
     variant,
     width,
   }
@@ -105,18 +133,40 @@ export function assertPhotoFileWithinStorageLimit(byteSize: number): void {
     throw new PhotoUploadError(
       `Photo exceeds Storage limit (${String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES)} bytes): ${String(byteSize)} bytes.`,
       false,
+      'validate',
     )
   }
 }
 
 export interface PhotoUploadDeps {
+  cleanupLocalFiles?: (uris: string[]) => Promise<void>
+  generateThumb?: (
+    masterUri: string,
+    photoId: string,
+    width: number,
+    height: number,
+  ) => Promise<{ height: number; uri: string; width: number }>
   getClient: () => SupabaseClient
   getLocalFileByteSize: (localUri: string) => Promise<number>
   localFileExists: (localUri: string) => Promise<boolean>
   readLocalFileBytes: (localUri: string) => Promise<ArrayBuffer>
+  verifyRemoteObjectByteSize?: (
+    client: SupabaseClient,
+    storagePath: string,
+  ) => Promise<number>
 }
 
 const defaultDeps: PhotoUploadDeps = {
+  cleanupLocalFiles: async (uris: string[]) => {
+    for (const uri of uris) {
+      try {
+        await FileSystem.deleteAsync(uri, { idempotent: true })
+      } catch {
+        // Best-effort after confirmed remote persistence.
+      }
+    }
+  },
+  generateThumb: generateThumbJpeg,
   getClient: getSupabaseClient,
   getLocalFileByteSize: async (localUri: string) => {
     const info = await FileSystem.getInfoAsync(localUri, { size: true })
@@ -124,6 +174,7 @@ const defaultDeps: PhotoUploadDeps = {
       throw new PhotoUploadError(
         `Local photo file is missing or empty: ${localUri}`,
         false,
+        'validate',
       )
     }
 
@@ -131,6 +182,7 @@ const defaultDeps: PhotoUploadDeps = {
       throw new PhotoUploadError(
         `Local photo file is missing or empty: ${localUri}`,
         false,
+        'validate',
       )
     }
 
@@ -151,6 +203,7 @@ const defaultDeps: PhotoUploadDeps = {
       throw new PhotoUploadError(
         `Local photo file is missing or empty: ${localUri}`,
         false,
+        'validate',
       )
     }
 
@@ -159,11 +212,13 @@ const defaultDeps: PhotoUploadDeps = {
       throw new PhotoUploadError(
         `Local photo file decoded to zero bytes: ${localUri}`,
         false,
+        'validate',
       )
     }
 
     return buffer
   },
+  verifyRemoteObjectByteSize: verifyRemoteObjectByteSize,
 }
 
 export async function processPhotoUploadOperation(
@@ -171,7 +226,7 @@ export async function processPhotoUploadOperation(
   deps: PhotoUploadDeps = defaultDeps,
 ): Promise<PhotoUploadResult> {
   if (!isSupabaseConfigured()) {
-    throw new PhotoUploadError('Supabase is not configured.', true)
+    throw new PhotoUploadError('Supabase is not configured.', true, 'auth')
   }
 
   let parsed: PhotoUploadPayload
@@ -180,7 +235,7 @@ export async function processPhotoUploadOperation(
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Malformed photo upload payload.'
-    throw new PhotoUploadError(message, false)
+    throw new PhotoUploadError(message, false, 'validate')
   }
 
   const client = deps.getClient()
@@ -190,19 +245,20 @@ export async function processPhotoUploadOperation(
   } = await client.auth.getSession()
 
   if (sessionError !== null) {
-    throw new PhotoUploadError(sessionError.message, true)
+    throw new PhotoUploadError(sessionError.message, true, 'auth')
   }
 
   if (session === null) {
     throw new PhotoUploadError(
       'Authentication required before photo upload.',
       true,
+      'auth',
     )
   }
 
   const creatorId = session.user.id
 
-  const enqueuedByUserId = readOptionalString(payload.enqueuedByUserId)
+  const enqueuedByUserId = readOptionalNullableString(payload.enqueuedByUserId)
   if (
     enqueuedByUserId !== null &&
     enqueuedByUserId.length > 0 &&
@@ -211,14 +267,19 @@ export async function processPhotoUploadOperation(
     throw new PhotoUploadError(
       'Queued photo belongs to a different signed-in account.',
       false,
+      'auth',
     )
   }
 
   const variant = parsed.variant ?? DEFAULT_PHOTO_VARIANT
-  const storagePath = buildPhotoStoragePath(
+  if (variant !== 'preview') {
+    // Mobile masters always use preview; thumbs are uploaded separately below.
+  }
+
+  const masterStoragePath = buildPhotoStoragePath(
     creatorId,
     parsed.photoId,
-    variant,
+    'preview',
     parsed.mimeType,
   )
 
@@ -227,6 +288,7 @@ export async function processPhotoUploadOperation(
     throw new PhotoUploadError(
       `Local photo file is missing: ${parsed.localUri}`,
       false,
+      'validate',
     )
   }
 
@@ -238,23 +300,42 @@ export async function processPhotoUploadOperation(
     throw new PhotoUploadError(
       `Local photo file decoded to zero bytes: ${parsed.localUri}`,
       false,
+      'validate',
     )
   }
 
-  // Prefer the on-disk size for the variant metadata so Storage and DB agree.
   const uploadByteSize = fileBytes.byteLength
   assertPhotoFileWithinStorageLimit(uploadByteSize)
 
+  // Photo row may exist without variants — safe for retries.
   await ensurePhotoRow(client, parsed, creatorId)
+
+  // Storage first — never declare a variant before bytes exist remotely.
+  await uploadPhotoBytes(client, masterStoragePath, fileBytes, parsed.mimeType)
+
+  const verify =
+    deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
+  const remoteSize = await verify(client, masterStoragePath)
+  if (remoteSize <= 0) {
+    throw new PhotoUploadError(
+      `Remote Storage object is empty after upload: ${masterStoragePath}`,
+      true,
+      'storage',
+    )
+  }
+
   await declarePhotoVariant(
     client,
-    { ...parsed, byteSize: uploadByteSize },
+    {
+      ...parsed,
+      byteSize: remoteSize,
+      height: parsed.height,
+      width: parsed.width,
+    },
     creatorId,
-    storagePath,
-    variant,
+    masterStoragePath,
+    'preview',
   )
-
-  await uploadPhotoBytes(client, storagePath, fileBytes, parsed.mimeType)
 
   if (parsed.entryId !== null && parsed.entryId !== undefined) {
     await linkPhotoToEntry(client, {
@@ -266,10 +347,187 @@ export async function processPhotoUploadOperation(
     })
   }
 
+  let thumbStoragePath: string | null = null
+  let thumbUploadError: string | null = null
+
+  try {
+    thumbStoragePath = await uploadThumbVariant({
+      client,
+      creatorId,
+      deps,
+      parsed,
+    })
+  } catch (error) {
+    thumbUploadError =
+      error instanceof Error ? error.message : 'Thumbnail upload failed.'
+    console.warn('[photo-upload] thumb failed; master remains valid', {
+      photoId: parsed.photoId,
+      thumbUploadError,
+    })
+  }
+
+  const cleanup = deps.cleanupLocalFiles
+  if (cleanup !== undefined) {
+    const toDelete = [parsed.localUri]
+    if (
+      parsed.thumbLocalUri !== null &&
+      parsed.thumbLocalUri !== undefined &&
+      parsed.thumbLocalUri.length > 0
+    ) {
+      toDelete.push(parsed.thumbLocalUri)
+    }
+    await cleanup(toDelete)
+  }
+
   return {
     photoId: parsed.photoId,
-    storagePath,
+    storagePath: masterStoragePath,
+    thumbStoragePath,
+    thumbUploadError,
   }
+}
+
+async function uploadThumbVariant(input: {
+  client: SupabaseClient
+  creatorId: string
+  deps: PhotoUploadDeps
+  parsed: PhotoUploadPayload
+}): Promise<string | null> {
+  const { client, creatorId, deps, parsed } = input
+
+  let thumbUri = parsed.thumbLocalUri ?? null
+  let thumbWidth = parsed.thumbWidth ?? null
+  let thumbHeight = parsed.thumbHeight ?? null
+
+  if (thumbUri === null || thumbUri.length === 0) {
+    const generate = deps.generateThumb
+    if (generate === undefined) {
+      return null
+    }
+    const generated = await generate(
+      parsed.localUri,
+      parsed.photoId,
+      parsed.width,
+      parsed.height,
+    )
+    thumbUri = generated.uri
+    thumbWidth = generated.width
+    thumbHeight = generated.height
+  }
+
+  if (!(await deps.localFileExists(thumbUri))) {
+    return null
+  }
+
+  const thumbBytes = await deps.readLocalFileBytes(thumbUri)
+  if (thumbBytes.byteLength === 0) {
+    throw new PhotoUploadError(
+      'Thumbnail decoded to zero bytes.',
+      false,
+      'thumb',
+    )
+  }
+
+  assertPhotoFileWithinStorageLimit(thumbBytes.byteLength)
+
+  const thumbPath = buildPhotoStoragePath(
+    creatorId,
+    parsed.photoId,
+    'thumb',
+    'image/jpeg',
+  )
+
+  await uploadPhotoBytes(client, thumbPath, thumbBytes, 'image/jpeg')
+
+  const verify =
+    deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
+  const remoteSize = await verify(client, thumbPath)
+  if (remoteSize <= 0) {
+    throw new PhotoUploadError(
+      `Remote thumb Storage object is empty: ${thumbPath}`,
+      true,
+      'thumb',
+    )
+  }
+
+  await declarePhotoVariant(
+    client,
+    {
+      ...parsed,
+      byteSize: remoteSize,
+      height: thumbHeight ?? Math.max(1, Math.round(parsed.height / 4)),
+      mimeType: 'image/jpeg',
+      width: thumbWidth ?? Math.max(1, Math.round(parsed.width / 4)),
+    },
+    creatorId,
+    thumbPath,
+    'thumb',
+  )
+
+  return thumbPath
+}
+
+export async function verifyRemoteObjectByteSize(
+  client: SupabaseClient,
+  storagePath: string,
+): Promise<number> {
+  const slash = storagePath.lastIndexOf('/')
+  if (slash <= 0) {
+    throw new PhotoUploadError(
+      `Invalid storage path for verification: ${storagePath}`,
+      false,
+      'storage',
+    )
+  }
+
+  const folder = storagePath.slice(0, slash)
+  const fileName = storagePath.slice(slash + 1)
+
+  const { data, error } = await client.storage
+    .from(PHOTOS_STORAGE_BUCKET)
+    .list(folder, {
+      limit: 100,
+      search: fileName,
+    })
+
+  if (error !== null) {
+    throw classifySupabaseError(error)
+  }
+
+  const match = (data ?? []).find((row) => row.name === fileName)
+  if (match === undefined) {
+    throw new PhotoUploadError(
+      `Uploaded Storage object not found: ${storagePath}`,
+      true,
+      'storage',
+    )
+  }
+
+  const metadata = match.metadata as { size?: number } | null | undefined
+  const size =
+    typeof metadata?.size === 'number'
+      ? metadata.size
+      : typeof match.metadata === 'object' &&
+          match.metadata !== null &&
+          'size' in match.metadata &&
+          typeof (match.metadata as { size?: unknown }).size === 'number'
+        ? ((match.metadata as { size: number }).size)
+        : -1
+
+  // Some Storage list responses omit size; fall back to a ranged download check.
+  if (size < 0) {
+    const { data: blob, error: downloadError } = await client.storage
+      .from(PHOTOS_STORAGE_BUCKET)
+      .download(storagePath)
+
+    if (downloadError !== null) {
+      throw classifySupabaseError(downloadError)
+    }
+
+    return blob.size
+  }
+
+  return size
 }
 
 async function ensurePhotoRow(
@@ -277,10 +535,6 @@ async function ensurePhotoRow(
   payload: PhotoUploadPayload,
   creatorId: string,
 ): Promise<void> {
-  // Insert-only for new rows. On conflict, update only metadata columns —
-  // authenticated clients must not UPDATE photos.id / photos.creator_id
-  // (those privileges are revoked; a full upsert fails with
-  // "permission denied for table photos").
   const metadata = {
     captured_at: normalizePhotoCapturedAt(payload.capturedAt),
     creator_id: creatorId,
@@ -329,11 +583,6 @@ async function linkPhotoToEntry(
     position: number
   },
 ): Promise<void> {
-  // Insert-only for new links. On conflict, update only `position`.
-  // Authenticated clients have INSERT on (entry_id, photo_id, creator_id,
-  // position, is_cover) but UPDATE only on (position, is_cover). A full
-  // upsert fails with "permission denied for table entry_photos" because
-  // PostgREST's ON CONFLICT DO UPDATE also targets identity columns.
   const row = {
     creator_id: input.creatorId,
     entry_id: input.entryId,
@@ -408,6 +657,8 @@ async function declarePhotoVariant(
     .update({
       byte_size: payload.byteSize,
       height: payload.height,
+      mime_type: payload.mimeType,
+      storage_path: storagePath,
       width: payload.width,
     })
     .eq('photo_id', payload.photoId)
@@ -426,7 +677,11 @@ async function uploadPhotoBytes(
   mimeType: PhotoMimeType,
 ): Promise<void> {
   if (bytes.byteLength === 0) {
-    throw new PhotoUploadError('Refusing to upload an empty photo file.', false)
+    throw new PhotoUploadError(
+      'Refusing to upload an empty photo file.',
+      false,
+      'storage',
+    )
   }
 
   const { error } = await client.storage
@@ -458,11 +713,11 @@ export function classifySupabaseError(error: {
   const code = error.code?.toUpperCase()
 
   if (isPermanentPostgresCode(code) || isPermanentMessage(normalized)) {
-    return new PhotoUploadError(message, false)
+    return new PhotoUploadError(message, false, 'database')
   }
 
   if (status === 401 || normalized.includes('jwt')) {
-    return new PhotoUploadError(message, true)
+    return new PhotoUploadError(message, true, 'auth')
   }
 
   if (
@@ -470,7 +725,7 @@ export function classifySupabaseError(error: {
     normalized.includes('permission') ||
     normalized.includes('row-level security')
   ) {
-    return new PhotoUploadError(message, false)
+    return new PhotoUploadError(message, false, 'auth')
   }
 
   if (
@@ -479,7 +734,7 @@ export function classifySupabaseError(error: {
     normalized.includes('entity too large') ||
     normalized.includes('file size')
   ) {
-    return new PhotoUploadError(message, false)
+    return new PhotoUploadError(message, false, 'storage')
   }
 
   if (
@@ -489,14 +744,14 @@ export function classifySupabaseError(error: {
     normalized.includes('timeout') ||
     normalized.includes('temporarily unavailable')
   ) {
-    return new PhotoUploadError(message, true)
+    return new PhotoUploadError(message, true, 'storage')
   }
 
   if (status >= 400 && status < 500) {
-    return new PhotoUploadError(message, false)
+    return new PhotoUploadError(message, false, 'storage')
   }
 
-  return new PhotoUploadError(message, true)
+  return new PhotoUploadError(message, true, 'storage')
 }
 
 function isPermanentPostgresCode(code: string | undefined): boolean {
@@ -574,6 +829,18 @@ function readOptionalNonNegativeInteger(value: unknown): number | undefined {
   return Math.trunc(value)
 }
 
+function readOptionalPositiveInteger(value: unknown): number | null {
+  if (value === undefined || value === null) {
+    return null
+  }
+
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null
+  }
+
+  return Math.trunc(value)
+}
+
 function readOptionalUuid(value: unknown): string | null {
   if (value === null || value === undefined) {
     return null
@@ -592,6 +859,19 @@ function readOptionalString(value: unknown): string | null {
   }
 
   return value
+}
+
+function readOptionalNullableString(value: unknown): string | null {
+  if (value === null || value === undefined) {
+    return null
+  }
+
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const trimmed = value.trim()
+  return trimmed.length === 0 ? null : trimmed
 }
 
 function readPositiveInteger(value: unknown, field: string): number {

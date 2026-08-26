@@ -1,3 +1,4 @@
+import * as FileSystem from 'expo-file-system'
 import { PHOTO_UPLOAD_OPERATION } from '@/platform/sync/photo-upload'
 import { getMobileDatabase } from '@/platform/storage/database'
 
@@ -24,13 +25,27 @@ export async function cancelPendingPhotoUploadsForJourney(
   let cancelled = 0
   for (const row of rows) {
     try {
-      const payload = JSON.parse(row.payload) as { journeyId?: unknown }
+      const payload = JSON.parse(row.payload) as {
+        journeyId?: unknown
+        localUri?: unknown
+        thumbLocalUri?: unknown
+      }
       if (payload.journeyId !== journeyId) {
         continue
       }
 
       await db.runAsync('DELETE FROM sync_queue WHERE id = ?', row.id)
       cancelled += 1
+
+      for (const uri of [payload.localUri, payload.thumbLocalUri]) {
+        if (typeof uri === 'string' && uri.trim().length > 0) {
+          try {
+            await FileSystem.deleteAsync(uri, { idempotent: true })
+          } catch {
+            // Best-effort local cleanup after journey delete.
+          }
+        }
+      }
     } catch {
       continue
     }

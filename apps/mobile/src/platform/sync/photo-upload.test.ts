@@ -3,6 +3,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 vi.mock('expo-file-system', () => ({
   getInfoAsync: vi.fn(async () => ({ exists: true, size: 100 })),
+  deleteAsync: vi.fn(async () => {}),
+  EncodingType: { Base64: 'base64' },
+  readAsStringAsync: vi.fn(async () => 'cGhvdG8='),
+}))
+
+vi.mock('@/platform/media/photo', () => ({
+  generateThumbJpeg: vi.fn(async () => {
+    throw new Error('thumb mock')
+  }),
 }))
 
 vi.mock('@/platform/supabase', () => ({
@@ -39,6 +48,7 @@ function createValidPayload(): Record<string, unknown> {
 function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
   deps: PhotoUploadDeps
   insertPhoto: ReturnType<typeof vi.fn>
+  insertVariant: ReturnType<typeof vi.fn>
   upload: ReturnType<typeof vi.fn>
 } {
   const upload = vi.fn(
@@ -87,6 +97,10 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
     }),
     storage: {
       from: vi.fn(() => ({
+        list: vi.fn(async () => ({
+          data: [{ metadata: { size: 120_000 }, name: 'preview.jpg' }],
+          error: null,
+        })),
         upload,
       })),
     },
@@ -96,13 +110,19 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
 
   return {
     deps: {
+      cleanupLocalFiles: vi.fn(async () => {}),
+      generateThumb: vi.fn(async () => {
+        throw new Error('thumb skipped in unit test')
+      }),
       getClient: () => client,
       getLocalFileByteSize: vi.fn(async () => 120_000),
       localFileExists: vi.fn(async () => true),
       readLocalFileBytes: vi.fn(async () => photoBytes),
+      verifyRemoteObjectByteSize: vi.fn(async () => 120_000),
       ...overrides,
     },
     insertPhoto,
+    insertVariant,
     upload,
   }
 }
@@ -118,7 +138,7 @@ describe('photo upload contract', () => {
   })
 
   it('parses valid upload payloads', () => {
-    expect(parsePhotoUploadPayload(createValidPayload())).toEqual({
+    expect(parsePhotoUploadPayload(createValidPayload())).toMatchObject({
       byteSize: 120_000,
       capturedAt: '2026:07:10 14:30:00',
       entryId: null,
@@ -131,7 +151,6 @@ describe('photo upload contract', () => {
       mimeType: 'image/jpeg',
       originalFilename: 'test.jpg',
       photoId: '40000000-0000-4000-8000-000000000099',
-      position: undefined,
       variant: 'preview',
       width: 1920,
     })
@@ -262,6 +281,8 @@ describe('processPhotoUploadOperation', () => {
     expect(result).toEqual({
       photoId: '40000000-0000-4000-8000-000000000099',
       storagePath: 'user-1/40000000-0000-4000-8000-000000000099/preview.jpg',
+      thumbStoragePath: null,
+      thumbUploadError: 'thumb skipped in unit test',
     })
     expect(upload).toHaveBeenCalledWith(
       'user-1/40000000-0000-4000-8000-000000000099/preview.jpg',
@@ -355,6 +376,11 @@ describe('processPhotoUploadOperation', () => {
       readLocalFileBytes: vi.fn(
         async () => new TextEncoder().encode('photo-bytes').buffer,
       ),
+      verifyRemoteObjectByteSize: vi.fn(async () => 120_000),
+      generateThumb: vi.fn(async () => {
+        throw new Error('skip thumb')
+      }),
+      cleanupLocalFiles: vi.fn(async () => {}),
     })
 
     expect(updatePhoto).toHaveBeenCalledWith({
@@ -580,6 +606,11 @@ describe('processPhotoUploadOperation', () => {
         readLocalFileBytes: vi.fn(
           async () => new TextEncoder().encode('photo-bytes').buffer,
         ),
+        verifyRemoteObjectByteSize: vi.fn(async () => 120_000),
+        generateThumb: vi.fn(async () => {
+          throw new Error('skip thumb')
+        }),
+        cleanupLocalFiles: vi.fn(async () => {}),
       },
     )
 
@@ -646,6 +677,11 @@ describe('processPhotoUploadOperation', () => {
         readLocalFileBytes: vi.fn(
           async () => new TextEncoder().encode('photo-bytes').buffer,
         ),
+        verifyRemoteObjectByteSize: vi.fn(async () => 120_000),
+        generateThumb: vi.fn(async () => {
+          throw new Error('skip thumb')
+        }),
+        cleanupLocalFiles: vi.fn(async () => {}),
       },
     )
 
@@ -669,5 +705,102 @@ describe('processPhotoUploadOperation', () => {
     ).rejects.toMatchObject({
       retryable: false,
     })
+  })
+
+  it('does not declare a photo_variants row when Storage upload fails', async () => {
+    const insertVariant = vi.fn(async () => ({ error: null }))
+    const upload = vi.fn(async () => ({
+      error: { message: 'network failed', status: 503 },
+    }))
+    const { deps } = createDeps({
+      getClient: () =>
+        ({
+          auth: {
+            getSession: vi.fn(async () => ({
+              data: { session: { user: { id: 'user-1' } } },
+              error: null,
+            })),
+          },
+          from: vi.fn((table: string) => {
+            if (table === 'photos') {
+              return { insert: vi.fn(async () => ({ error: null })) }
+            }
+            if (table === 'photo_variants') {
+              return { insert: insertVariant }
+            }
+            if (table === 'entry_photos') {
+              return { insert: vi.fn(async () => ({ error: null })) }
+            }
+            throw new Error(`Unexpected table: ${table}`)
+          }),
+          storage: {
+            from: vi.fn(() => ({ upload })),
+          },
+        }) as unknown as SupabaseClient,
+    })
+
+    await expect(
+      processPhotoUploadOperation(createValidPayload(), deps),
+    ).rejects.toMatchObject({
+      message: 'network failed',
+      retryable: true,
+    })
+    expect(insertVariant).not.toHaveBeenCalled()
+  })
+
+  it('rejects a successful upload that verifies as zero bytes', async () => {
+    const insertVariant = vi.fn(async () => ({ error: null }))
+    const { deps } = createDeps({
+      verifyRemoteObjectByteSize: vi.fn(async () => 0),
+      getClient: () =>
+        ({
+          auth: {
+            getSession: vi.fn(async () => ({
+              data: { session: { user: { id: 'user-1' } } },
+              error: null,
+            })),
+          },
+          from: vi.fn((table: string) => {
+            if (table === 'photos') {
+              return { insert: vi.fn(async () => ({ error: null })) }
+            }
+            if (table === 'photo_variants') {
+              return { insert: insertVariant }
+            }
+            if (table === 'entry_photos') {
+              return { insert: vi.fn(async () => ({ error: null })) }
+            }
+            throw new Error(`Unexpected table: ${table}`)
+          }),
+          storage: {
+            from: vi.fn(() => ({
+              upload: vi.fn(async () => ({ error: null })),
+            })),
+          },
+        }) as unknown as SupabaseClient,
+    })
+
+    await expect(
+      processPhotoUploadOperation(createValidPayload(), deps),
+    ).rejects.toMatchObject({
+      message: expect.stringContaining('empty after upload'),
+    })
+    expect(insertVariant).not.toHaveBeenCalled()
+  })
+
+  it('keeps master success when thumbnail generation/upload fails', async () => {
+    const { deps, insertVariant, upload } = createDeps({
+      generateThumb: vi.fn(async () => {
+        throw new Error('cannot make thumb')
+      }),
+    })
+
+    const result = await processPhotoUploadOperation(createValidPayload(), deps)
+
+    expect(result.storagePath).toContain('/preview.jpg')
+    expect(result.thumbStoragePath).toBeNull()
+    expect(result.thumbUploadError).toContain('cannot make thumb')
+    expect(upload).toHaveBeenCalledTimes(1)
+    expect(insertVariant).toHaveBeenCalledTimes(1)
   })
 })
