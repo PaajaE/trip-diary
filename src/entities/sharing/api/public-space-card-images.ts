@@ -1,13 +1,25 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  PHOTO_SRCSET_WIDTHS,
+  pickPhotoVariantForContext,
+} from '@trip-diary/utils'
 import type { Database } from '@/shared/api/database.types'
 
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24
 
+/** Profile journey cards are large; allow medium on high-DPR without fetching full. */
+const JOURNEY_COVER_SRCSET_VARIANTS = new Set(['small', 'medium'])
+
 type TypedSupabaseClient = SupabaseClient<Database>
+
+export interface PublicSpaceCardImageSource {
+  src: string
+  srcSet?: string
+}
 
 export interface PublicSpaceCardImages {
   entryImageById: Record<string, string>
-  journeyCoverById: Record<string, string>
+  journeyCoverById: Record<string, PublicSpaceCardImageSource>
 }
 
 export async function loadPublicSpaceCardImages(
@@ -15,7 +27,7 @@ export async function loadPublicSpaceCardImages(
   journeyIds: string[],
   diaryEntryIds: string[],
 ): Promise<PublicSpaceCardImages> {
-  const journeyCoverById: Record<string, string> = {}
+  const journeyCoverById: Record<string, PublicSpaceCardImageSource> = {}
   const entryImageById: Record<string, string> = {}
 
   if (journeyIds.length === 0 && diaryEntryIds.length === 0) {
@@ -61,14 +73,15 @@ export async function loadPublicSpaceCardImages(
     publicEntries.map(({ event_at, id }) => [id, event_at ?? '']),
   )
 
-  const photoUrlByEntryId = await getFirstPhotoUrlByEntryIds(client, [
-    ...publicEntryIds,
-  ])
+  const photoSourcesByEntryId = await resolveEntryPhotoSources(
+    client,
+    [...publicEntryIds],
+  )
 
   for (const entryId of diaryEntryIds) {
-    const url = photoUrlByEntryId.get(entryId)
-    if (url !== undefined) {
-      entryImageById[entryId] = url
+    const source = photoSourcesByEntryId.get(entryId)
+    if (source !== undefined) {
+      entryImageById[entryId] = source.thumbSrc
     }
   }
 
@@ -91,9 +104,9 @@ export async function loadPublicSpaceCardImages(
     )
 
     for (const entryId of sortedEntryIds) {
-      const url = photoUrlByEntryId.get(entryId)
-      if (url !== undefined) {
-        journeyCoverById[journeyId] = url
+      const source = photoSourcesByEntryId.get(entryId)
+      if (source !== undefined) {
+        journeyCoverById[journeyId] = source.cover
         break
       }
     }
@@ -102,11 +115,22 @@ export async function loadPublicSpaceCardImages(
   return { entryImageById, journeyCoverById }
 }
 
-async function getFirstPhotoUrlByEntryIds(
+interface PhotoVariantRow {
+  photo_id: string
+  storage_path: string
+  variant: string
+}
+
+interface EntryPhotoSources {
+  cover: PublicSpaceCardImageSource
+  thumbSrc: string
+}
+
+async function resolveEntryPhotoSources(
   client: TypedSupabaseClient,
   entryIds: string[],
-): Promise<Map<string, string>> {
-  const result = new Map<string, string>()
+): Promise<Map<string, EntryPhotoSources>> {
+  const result = new Map<string, EntryPhotoSources>()
   if (entryIds.length === 0) {
     return result
   }
@@ -143,44 +167,122 @@ async function getFirstPhotoUrlByEntryIds(
     throw variantsError
   }
 
-  const storagePathByPhotoId = new Map<string, string>()
-  const preference = [
-    'thumb',
-    'small',
-    'medium',
-    'full',
-    'preview',
-    'large',
-  ] as const
-  for (const kind of preference) {
-    for (const variant of variants) {
-      if (
-        variant.variant === kind &&
-        !storagePathByPhotoId.has(variant.photo_id)
-      ) {
-        storagePathByPhotoId.set(variant.photo_id, variant.storage_path)
+  const variantsByPhotoId = new Map<string, PhotoVariantRow[]>()
+  for (const variant of variants) {
+    const rows = variantsByPhotoId.get(variant.photo_id) ?? []
+    rows.push(variant)
+    variantsByPhotoId.set(variant.photo_id, rows)
+  }
+
+  const storagePaths = new Set<string>()
+  for (const photoId of photoIds) {
+    const photoVariants = variantsByPhotoId.get(photoId) ?? []
+    const thumbPreferred = pickPhotoVariantForContext(photoVariants, 'tiny')
+    const coverPreferred = pickPhotoVariantForContext(photoVariants, 'card')
+    if (thumbPreferred !== null) {
+      storagePaths.add(thumbPreferred.storage_path)
+    }
+    if (coverPreferred !== null) {
+      storagePaths.add(coverPreferred.storage_path)
+    }
+    for (const { variant } of PHOTO_SRCSET_WIDTHS) {
+      if (!JOURNEY_COVER_SRCSET_VARIANTS.has(variant)) {
+        continue
+      }
+      const match = photoVariants.find((row) => row.variant === variant)
+      if (match !== undefined) {
+        storagePaths.add(match.storage_path)
       }
     }
   }
 
-  const signedUrlByPhotoId = new Map<string, string>()
+  const signedUrlByStoragePath = await signStoragePaths(client, [...storagePaths])
+
+  for (const [entryId, photoId] of photoIdByEntryId) {
+    const photoVariants = variantsByPhotoId.get(photoId) ?? []
+    const thumbPreferred = pickPhotoVariantForContext(photoVariants, 'tiny')
+    const coverPreferred = pickPhotoVariantForContext(photoVariants, 'card')
+    if (thumbPreferred === null || coverPreferred === null) {
+      continue
+    }
+
+    const thumbSrc = signedUrlByStoragePath.get(thumbPreferred.storage_path)
+    const coverSrc = signedUrlByStoragePath.get(coverPreferred.storage_path)
+    if (thumbSrc === undefined || coverSrc === undefined) {
+      continue
+    }
+
+    const srcSet = buildJourneyCoverSrcSet(photoVariants, signedUrlByStoragePath)
+    result.set(entryId, {
+      cover: {
+        src: coverSrc,
+        ...(srcSet !== undefined ? { srcSet } : {}),
+      },
+      thumbSrc,
+    })
+  }
+
+  return result
+}
+
+function buildJourneyCoverSrcSet(
+  variants: readonly { storage_path: string; variant: string }[],
+  signedUrlByStoragePath: Map<string, string>,
+): string | undefined {
+  const parts: string[] = []
+  for (const { variant, width } of PHOTO_SRCSET_WIDTHS) {
+    if (!JOURNEY_COVER_SRCSET_VARIANTS.has(variant)) {
+      continue
+    }
+    const match = variants.find((row) => row.variant === variant)
+    if (match === undefined) {
+      continue
+    }
+    const url = signedUrlByStoragePath.get(match.storage_path)
+    if (url === undefined) {
+      continue
+    }
+    parts.push(`${url} ${width}w`)
+  }
+  return parts.length > 0 ? parts.join(', ') : undefined
+}
+
+async function signStoragePaths(
+  client: TypedSupabaseClient,
+  storagePaths: string[],
+): Promise<Map<string, string>> {
+  const signedUrlByStoragePath = new Map<string, string>()
   await Promise.all(
-    [...storagePathByPhotoId.entries()].map(async ([photoId, storagePath]) => {
+    storagePaths.map(async (storagePath) => {
       const { data, error } = await client.storage
         .from('photos')
         .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS)
       if (error === null) {
-        signedUrlByPhotoId.set(photoId, data.signedUrl)
+        signedUrlByStoragePath.set(storagePath, data.signedUrl)
       }
     }),
   )
+  return signedUrlByStoragePath
+}
 
-  for (const [entryId, photoId] of photoIdByEntryId) {
-    const url = signedUrlByPhotoId.get(photoId)
-    if (url !== undefined) {
-      result.set(entryId, url)
-    }
-  }
+/** @internal Exported for unit tests. */
+export function pickVariantPreferenceForCardContext(
+  variants: readonly { storage_path: string; variant: string }[],
+): string | null {
+  return pickPhotoVariantForContext(variants, 'card')?.storage_path ?? null
+}
 
-  return result
+/** @internal Exported for unit tests. */
+export function pickVariantPreferenceForTinyContext(
+  variants: readonly { storage_path: string; variant: string }[],
+): string | null {
+  return pickPhotoVariantForContext(variants, 'tiny')?.storage_path ?? null
+}
+
+/** @internal Exported for unit tests. */
+export function buildCoverSrcSetFromVariants(
+  variants: readonly { storage_path: string; variant: string }[],
+  urlByPath: ReadonlyMap<string, string>,
+): string | undefined {
+  return buildJourneyCoverSrcSet(variants, new Map(urlByPath))
 }

@@ -380,6 +380,7 @@ export const cs: TranslationResources = {
     addError: 'Obsah se nepodařilo přidat. Zkuste to prosím znovu.',
     addGuide: 'Přidat radu',
     addMoment: 'Přidat moment',
+    moments: 'Momenty',
     addStage: 'Nový denní štítek',
     addStageAction: 'Přidat denní štítek',
     addStop: 'Nové místo',

@@ -27,7 +27,13 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
           alt=""
           className="aspect-[16/9] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           loading="lazy"
+          sizes="(min-width: 640px) 480px, 100vw"
           src={journey.coverUrl}
+          {...(journey.coverSrcSet !== undefined &&
+          journey.coverSrcSet !== null &&
+          journey.coverSrcSet !== ''
+            ? { srcSet: journey.coverSrcSet }
+            : {})}
         />
       )}
       <div className="p-5">

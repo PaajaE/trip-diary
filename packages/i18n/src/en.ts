@@ -377,6 +377,7 @@ export const en = {
     addError: 'The content could not be added. Please try again.',
     addGuide: 'Add advice',
     addMoment: 'Add moment',
+    moments: 'Moments',
     addStage: 'New day label',
     addStageAction: 'Add day label',
     addStop: 'New place',

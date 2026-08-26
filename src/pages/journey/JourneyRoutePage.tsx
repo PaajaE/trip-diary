@@ -1,20 +1,7 @@
 import { useParams, useSearch } from '@tanstack/react-router'
-import type { JourneyAuthorSection } from '@/features/journeys/lib/journey-author-section'
 import { JourneyPage } from '@/pages/journey/JourneyPage'
 
-function normalizeJourneySection(
-  section?: JourneyAuthorSection | 'guides' | 'more' | 'overview',
-): JourneyAuthorSection | undefined {
-  if (
-    section === undefined ||
-    section === 'overview' ||
-    section === 'more' ||
-    section === 'guides'
-  ) {
-    return undefined
-  }
-  return section
-}
+type JourneyRouteSection = 'gallery' | 'map' | 'overview' | 'story'
 
 export function JourneyRoutePage() {
   const { journeyId } = useParams({ from: '/j/$journeyId' })
@@ -37,4 +24,17 @@ export function JourneyRoutePage() {
       {...(section !== undefined ? { section } : {})}
     />
   )
+}
+
+function normalizeJourneySection(
+  section?: 'gallery' | 'guides' | 'map' | 'more' | 'overview' | 'story',
+): JourneyRouteSection | undefined {
+  if (
+    section === undefined ||
+    section === 'more' ||
+    section === 'guides'
+  ) {
+    return undefined
+  }
+  return section
 }

@@ -1,9 +1,7 @@
-export type JourneyAuthorSection = 'story' | 'map' | 'gallery'
+export type JourneyAuthorSection = 'story'
 
 export const JOURNEY_AUTHOR_SECTION_IDS: Record<JourneyAuthorSection, string> =
   {
-    gallery: 'gallery',
-    map: 'map',
     story: 'story',
   }
 
@@ -42,4 +40,11 @@ export function scrollToJourneyMoment(entryId: string) {
       block: 'center',
     })
   })
+}
+
+/** Legacy `?section=` values from older authoring layouts. */
+export function isLegacyAuthorSectionParam(
+  value: string | undefined,
+): value is 'gallery' | 'map' | 'overview' {
+  return value === 'map' || value === 'gallery' || value === 'overview'
 }

@@ -8,6 +8,7 @@ export interface PublicSpaceViewModel {
 }
 
 export interface PublicJourneyViewModel {
+  coverSrcSet?: string | null
   coverUrl?: string | null
   dateLabel?: string | null
   id: string

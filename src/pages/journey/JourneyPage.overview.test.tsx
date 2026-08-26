@@ -20,18 +20,12 @@ vi.mock('@tanstack/react-query', () => ({
 }))
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
-    'aria-label': ariaLabel,
     children,
     to,
   }: {
-    'aria-label'?: string
     children: React.ReactNode
     to: string
-  }) => (
-    <a aria-label={ariaLabel} href={to}>
-      {children}
-    </a>
-  ),
+  }) => <a href={to}>{children}</a>,
   useNavigate: () => navigateMock,
 }))
 vi.mock('@/entities/journey/api/use-journey-query', () => ({
@@ -159,7 +153,7 @@ describe('JourneyPage author scroll', () => {
     useJourneyQueryMock.mockReset()
   })
 
-  it('shows summary, story, map, and gallery on one page', () => {
+  it('shows summary and moment workspace without reader map/gallery sections', () => {
     const journey = buildJourney({
       entries: [
         {
@@ -180,9 +174,13 @@ describe('JourneyPage author scroll', () => {
 
     expect(screen.getByText('A quick summary')).toBeVisible()
     expect(screen.getByLabelText('Přidat moment')).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Příběh' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Mapa cesty' })).toBeVisible()
-    expect(screen.getByRole('heading', { name: 'Galerie' })).toBeVisible()
+    expect(screen.getByRole('heading', { name: 'Momenty' })).toBeVisible()
+    expect(
+      screen.queryByRole('heading', { name: 'Mapa cesty' }),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('heading', { name: 'Galerie' }),
+    ).not.toBeInTheDocument()
   })
 
   it('shows empty-trip capture actions', () => {

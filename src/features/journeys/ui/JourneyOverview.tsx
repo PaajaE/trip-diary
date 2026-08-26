@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Camera, MapPin, StickyNote } from 'lucide-react'
+import { Camera, MapPin, Plus, StickyNote } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { listJourneyChecklistItems } from '@/entities/checklist/api/checklist-mutation.repository'
 import { checklistQueryKeys } from '@/entities/checklist/api/checklist-query-keys'
@@ -27,6 +27,7 @@ interface JourneyOverviewProps {
   natureDetailOpen?: boolean
   naturePromptEntryId?: string | null
   natureGoalId?: string
+  onAddMoment?: () => void
   onAddNote?: () => void
   onAddPhotos?: () => void
   onAddPlace?: () => void
@@ -53,6 +54,7 @@ export function JourneyOverview({
   natureDetailOpen,
   naturePromptEntryId = null,
   natureGoalId,
+  onAddMoment,
   onAddNote,
   onAddPhotos,
   onAddPlace,
@@ -95,7 +97,7 @@ export function JourneyOverview({
       {summaryText === null ? null : (
         <p
           className={cn(
-            'max-w-2xl leading-7 text-muted',
+            'max-w-2xl text-sm leading-7 text-muted',
             summaryIsFallback && 'italic',
           )}
         >
@@ -103,7 +105,7 @@ export function JourneyOverview({
         </p>
       )}
 
-      <div className="mt-5">
+      <div className={cn(summaryText === null ? '' : 'mt-4')}>
         <TripSummaryLine
           mapPointCount={mapPointCount}
           momentCount={moments.length}
@@ -163,8 +165,20 @@ export function JourneyOverview({
           </p>
         </div>
       ) : !isEmpty ? (
-        <div className="mt-12 scroll-mt-24 sm:scroll-mt-20" id="story">
-          <h3 className="font-medium">{t('journey.story')}</h3>
+        <div className="mt-10 scroll-mt-24 sm:scroll-mt-20" id="story">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">{t('journey.moments')}</h2>
+            {canEdit && onAddMoment !== undefined ? (
+              <button
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:bg-primary/90 sm:hidden"
+                onClick={onAddMoment}
+                type="button"
+              >
+                <Plus aria-hidden="true" size={16} />
+                {t('journey.addMoment')}
+              </button>
+            ) : null}
+          </div>
           <JourneyStorySection
             canEdit={canEdit}
             checklistItems={checklistItems}

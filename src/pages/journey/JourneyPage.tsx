@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate } from '@tanstack/react-router'
-import { CalendarDays, Expand, Plus, Settings2 } from 'lucide-react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { CalendarDays, ExternalLink, MapPinned, Plus, Settings2 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -31,31 +31,27 @@ import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member
 import { useSession } from '@/features/auth/session'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
 import {
-  loadJourneyGalleryPreviews,
-  mergeJourneyGalleryPhotos,
-} from '@/features/journeys/lib/journey-gallery'
-import {
+  isLegacyAuthorSectionParam,
   scrollToJourneyAuthorSection,
   scrollToJourneyMoment,
-  type JourneyAuthorSection,
 } from '@/features/journeys/lib/journey-author-section'
 import { useJourneyMapPhotoThumbs } from '@/features/journeys/lib/use-journey-map-photo-thumbs'
 import { buildJourneyReturnPath } from '@/features/journeys/lib/journey-return-path'
 import { groupTagsByPhotoId } from '@/features/journeys/lib/journey-tag-collections'
+import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
 import { JourneyAddSheet } from '@/features/journeys/ui/JourneyAddSheet'
-import { JourneyGallery } from '@/features/journeys/ui/JourneyGallery'
 import { JourneyManageSheet } from '@/features/journeys/ui/JourneyManageSheet'
 import { JourneyMap } from '@/features/journeys/ui/JourneyMap'
 import { JourneyOverview } from '@/features/journeys/ui/JourneyOverview'
 import { JourneyPlaceCaptureSheet } from '@/features/journeys/ui/JourneyPlaceCaptureSheet'
 import { getJourneyMapPoints } from '@/features/journeys/ui/journey-map-points'
+import { buildPublicJourneyPath } from '@/features/sharing/lib/public-paths'
 import { useJourneyPublicShare } from '@/features/sharing/hooks/use-journey-public-share'
 import { ShareIconButton } from '@/features/sharing/ui/ShareIconButton'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { FullScreenSheet } from '@/shared/ui/FullScreenSheet'
 import { RevalidatingIndicator } from '@/shared/ui/RevalidatingIndicator'
-import { SectionHeader } from '@/shared/ui/SectionHeader'
 import { useToast } from '@/shared/ui/use-toast'
 
 interface JourneyPageProps {
@@ -64,7 +60,7 @@ interface JourneyPageProps {
   natureGoalId?: string
   naturePrompt?: string
   notice?: 'photos_failed' | 'template_failed'
-  section?: JourneyAuthorSection
+  section?: 'gallery' | 'map' | 'overview' | 'story'
   shareUrl?: string
 }
 
@@ -136,18 +132,10 @@ export function JourneyPage({
     queryFn: () => listJourneyObservations(journeyId),
     queryKey: natureQueryKeys.journeyObservations(journeyId),
   })
-  const galleryPreviewsQuery = useQuery({
-    enabled: (content?.moments.length ?? 0) > 0,
-    queryFn: () =>
-      loadJourneyGalleryPreviews(content?.moments ?? [], async (entryId) => {
-        const { getJourneyEntryPhotoPreviews } =
-          await import('@/entities/photo/api/photo-gallery.repository')
-        return getJourneyEntryPhotoPreviews(entryId)
-      }),
-    queryKey: photoQueryKeys.journeyGalleryByEntries(
-      content?.moments.map((moment) => moment.entry.id) ?? [],
-    ),
-  })
+  const { photosByEntryId } = useJourneyMomentPhotos(
+    content?.moments ?? [],
+    content !== null,
+  )
   const tagAssignments = useMemo(
     () =>
       Array.isArray(tagAssignmentsQuery.data) ? tagAssignmentsQuery.data : [],
@@ -158,14 +146,12 @@ export function JourneyPage({
     [tagAssignments],
   )
   const photoCount = useMemo(() => {
-    if (content === null) {
-      return 0
+    let count = 0
+    for (const photos of photosByEntryId.values()) {
+      count += photos.length
     }
-    return mergeJourneyGalleryPhotos(
-      content.moments,
-      galleryPreviewsQuery.data?.previewsByMoment ?? [],
-    ).length
-  }, [content, galleryPreviewsQuery.data?.previewsByMoment])
+    return count
+  }, [photosByEntryId])
   const { refetch: refetchPhotoLocations } = photoLocationsQuery
   const queryClient = useQueryClient()
   const photoThumbUrls = useJourneyMapPhotoThumbs(content?.moments ?? [])
@@ -195,10 +181,6 @@ export function JourneyPage({
     journeyId,
     journey?.title ?? '',
   )
-  const locatedPhotoIds = useMemo(
-    () => new Set((photoLocationsQuery.data ?? []).map((photo) => photo.id)),
-    [photoLocationsQuery.data],
-  )
   const momentEntryIdsKey = useMemo(
     () => (content?.moments ?? []).map((moment) => moment.entry.id).join(','),
     [content?.moments],
@@ -210,8 +192,12 @@ export function JourneyPage({
   )
 
   useEffect(() => {
-    if (section !== undefined) {
-      scrollToJourneyAuthorSection(section)
+    if (section === 'map') {
+      setMapExpanded(true)
+      return
+    }
+    if (section === 'story' || section === 'overview' || section === 'gallery') {
+      scrollToJourneyAuthorSection('story')
     }
   }, [section])
 
@@ -315,7 +301,7 @@ export function JourneyPage({
     void navigate({
       params: { entryId },
       search: {
-        returnTo: buildJourneyReturnPath(journeyId, 'story'),
+        returnTo: buildJourneyReturnPath(journeyId),
       },
       to: '/e/$entryId',
     })
@@ -348,16 +334,19 @@ export function JourneyPage({
     })
   }, [momentEntryIdsKey, refetchPhotoLocations])
 
-  function handleShowPhotoOnMap(photoId: string) {
-    setPendingMapPhotoId(photoId)
-    setFocusedMapPointId(`photo:${photoId}`)
-    scrollToJourneyAuthorSection('map')
+  function openMapSheet(options?: { photoId?: string; pointId?: string }) {
+    if (options?.photoId !== undefined) {
+      setPendingMapPhotoId(options.photoId)
+      setFocusedMapPointId(`photo:${options.photoId}`)
+    } else if (options?.pointId !== undefined) {
+      setPendingMapPhotoId(null)
+      setFocusedMapPointId(options.pointId)
+    }
+    setMapExpanded(true)
   }
 
   function handleShowNatureOnMap(checklistItemId: string) {
-    setPendingMapPhotoId(null)
-    setFocusedMapPointId(`nature-goal:${checklistItemId}`)
-    scrollToJourneyAuthorSection('map')
+    openMapSheet({ pointId: `nature-goal:${checklistItemId}` })
   }
 
   async function handleMarkNatureGoalFromMap(
@@ -391,7 +380,7 @@ export function JourneyPage({
       : focusedMapPointId
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-4xl px-5 py-8 sm:px-8 sm:py-12">
+    <main className="mx-auto min-h-svh w-full max-w-4xl px-5 py-6 sm:px-8 sm:py-10">
       {query.isError ? (
         <p className="mt-16 text-destructive">{t('journey.error')}</p>
       ) : query.isLoading ? (
@@ -401,38 +390,39 @@ export function JourneyPage({
       ) : (
         <>
           {notice === 'photos_failed' ? (
-            <p className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+            <p className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('journey.photosFailedNotice')}
             </p>
           ) : null}
           {notice === 'template_failed' ? (
-            <p className="mt-10 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+            <p className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('journey.templateFailedNotice')}
             </p>
           ) : null}
-          <header className="mt-4 pb-6">
+          <header className="rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft sm:p-6">
             <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 flex-1 px-0.5">
-                <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
-                  {t(`journey.status.${journey.status}`)}
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="rounded-full bg-primary/10 px-2.5 py-1 text-[0.6875rem] font-semibold tracking-[0.12em] text-primary uppercase">
+                    {t(`journey.status.${journey.status}`)}
+                  </span>
                   {myRoleQuery.data === null ||
                   myRoleQuery.data === undefined ? null : (
-                    <>
-                      {' · '}
+                    <span className="text-xs text-muted">
                       {t('journey.yourRole', {
                         role: journeyMemberRoleLabels[myRoleQuery.data],
                       })}
-                    </>
+                    </span>
                   )}
-                </p>
-                <h1 className="reader-display mt-3 max-w-3xl text-3xl tracking-[-0.03em] sm:text-4xl">
+                </div>
+                <h1 className="mt-3 text-2xl font-semibold tracking-[-0.02em] sm:text-3xl">
                   {journey.title}
                 </h1>
                 <RevalidatingIndicator
                   label={t('journey.revalidating')}
                   visible={query.isRevalidating}
                 />
-                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted">
                   <span className="inline-flex items-center gap-2">
                     <CalendarDays aria-hidden="true" size={15} />
                     {dateLabel}
@@ -461,133 +451,63 @@ export function JourneyPage({
                 ) : null}
               </div>
             </div>
+
+            <div className="mt-4 flex flex-wrap gap-2 border-t border-border/60 pt-4">
+              {publicPaths !== null && publicPaths !== undefined ? (
+                <Link
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/80 bg-background px-3 text-sm font-semibold transition hover:bg-white"
+                  to={buildPublicJourneyPath(publicPaths)}
+                >
+                  <ExternalLink aria-hidden="true" size={15} />
+                  {t('reader.viewPublicTrip')}
+                </Link>
+              ) : null}
+              {mapPoints.length > 0 ? (
+                <button
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-border/80 bg-background px-3 text-sm font-semibold transition hover:bg-white"
+                  onClick={() => {
+                    openMapSheet()
+                  }}
+                  type="button"
+                >
+                  <MapPinned aria-hidden="true" size={15} />
+                  {t('journey.viewMap')}
+                </button>
+              ) : null}
+            </div>
           </header>
 
           {content !== null ? (
-            <>
-              <JourneyOverview
-                canEdit={canEdit}
-                creatorId={user?.id ?? ''}
-                expandedEntryId={expandedEntryId}
-                highlightEntryId={highlightEntryId}
-                journey={journey}
-                journeyId={journeyId}
-                mapPointCount={mapPoints.length}
-                moments={content.moments}
-                natureDetailOpen={natureDetailOpen}
-                naturePromptEntryId={naturePromptEntryId}
-                {...(natureGoalId !== undefined ? { natureGoalId } : {})}
-                onAddNote={navigateToNote}
-                onAddPhotos={navigateToMemory}
-                onAddPlace={() => {
-                  setPlaceCaptureOpen(true)
-                }}
-                onChanged={handleJourneyChanged}
-                onExpandChange={setExpandedEntryId}
-                onNatureDetailOpenChange={setNatureDetailOpen}
-                onOpenFullPage={openFullPage}
-                onShowNatureOnMap={handleShowNatureOnMap}
-                photoCount={photoCount}
-                publicPaths={publicPaths ?? null}
-                stageContents={content.stageContents}
-                tagsByPhotoId={tagsByPhotoId}
-              />
-
-              <section
-                className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
-                id="map"
-              >
-                <SectionHeader
-                  {...(mapPoints.length > 0
-                    ? {
-                        action: (
-                          <button
-                            aria-label={t('reader.mapViewAction')}
-                            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-border/80 bg-surface px-3 text-sm font-semibold transition hover:bg-white"
-                            onClick={() => {
-                              setMapExpanded(true)
-                            }}
-                            type="button"
-                          >
-                            <Expand aria-hidden="true" size={16} />
-                            {t('reader.mapViewAction')}
-                          </button>
-                        ),
-                      }
-                    : {})}
-                  eyebrow={t('journey.mapEyebrow')}
-                  title={t('journey.map')}
-                />
-                {mapPoints.some((point) => point.type === 'nature-goal') ? (
-                  <label className="mt-4 inline-flex min-h-11 items-center gap-2 text-sm text-muted">
-                    <input
-                      checked={showNatureGoalsOnMap}
-                      className="size-4 rounded border-border text-primary"
-                      onChange={(event) => {
-                        setShowNatureGoalsOnMap(event.target.checked)
-                      }}
-                      type="checkbox"
-                    />
-                    {t('journey.mapShowNatureGoals')}
-                  </label>
-                ) : null}
-                {photoLocationsQuery.isPending && content.moments.length > 0 ? (
-                  <p className="mt-4 text-sm text-muted" role="status">
-                    {t('journey.mapLoadingLocations')}
-                  </p>
-                ) : null}
-                {mapPoints.length > 0 && !mapExpanded ? (
-                  <JourneyMap
-                    canEdit={canEdit}
-                    checklistItems={checklistQuery.data ?? []}
-                    className="editorial-map-frame mt-4 h-[min(26rem,70vh)]"
-                    focusPointId={mapFocusPointId}
-                    moments={content.moments}
-                    observations={observationsQuery.data ?? []}
-                    onFocusPointChange={setFocusedMapPointId}
-                    onMarkNatureGoalSpotted={(item) => {
-                      void handleMarkNatureGoalFromMap(item)
-                    }}
-                    onOpenEntry={(entryId) => {
-                      openMomentOnTimeline(entryId)
-                    }}
-                    photoLocations={photoLocationsQuery.data ?? []}
-                    photoThumbUrls={photoThumbUrls}
-                    plannedStops={content.plannedStops}
-                    showNatureGoals={showNatureGoalsOnMap}
-                  />
-                ) : null}
-                {mapPoints.length === 0 ? (
-                  <p className="mt-6 text-muted">{t('journey.mapEmpty')}</p>
-                ) : null}
-              </section>
-
-              <section
-                className="scroll-mt-24 py-8 sm:scroll-mt-20 sm:py-10"
-                id="gallery"
-              >
-                <SectionHeader
-                  eyebrow={t('journey.galleryEyebrow')}
-                  title={t('journey.gallery')}
-                />
-                <JourneyGallery
-                  canDelete={canEdit}
-                  {...(user?.id !== undefined ? { creatorId: user.id } : {})}
-                  journeyId={journeyId}
-                  locatedPhotoIds={locatedPhotoIds}
-                  moments={content.moments}
-                  onOpenMoment={(entryId) => {
-                    openMomentOnTimeline(entryId)
-                  }}
-                  onShowOnMap={handleShowPhotoOnMap}
-                  showPhotoEngagement={
-                    publicPaths !== null && publicPaths !== undefined
-                  }
-                  tagAssignments={tagAssignments}
-                  tagsByPhotoId={tagsByPhotoId}
-                />
-              </section>
-            </>
+            <JourneyOverview
+              canEdit={canEdit}
+              creatorId={user?.id ?? ''}
+              expandedEntryId={expandedEntryId}
+              highlightEntryId={highlightEntryId}
+              journey={journey}
+              journeyId={journeyId}
+              mapPointCount={mapPoints.length}
+              moments={content.moments}
+              natureDetailOpen={natureDetailOpen}
+              naturePromptEntryId={naturePromptEntryId}
+              {...(natureGoalId !== undefined ? { natureGoalId } : {})}
+              onAddMoment={() => {
+                setAddSheetOpen(true)
+              }}
+              onAddNote={navigateToNote}
+              onAddPhotos={navigateToMemory}
+              onAddPlace={() => {
+                setPlaceCaptureOpen(true)
+              }}
+              onChanged={handleJourneyChanged}
+              onExpandChange={setExpandedEntryId}
+              onNatureDetailOpenChange={setNatureDetailOpen}
+              onOpenFullPage={openFullPage}
+              onShowNatureOnMap={handleShowNatureOnMap}
+              photoCount={photoCount}
+              publicPaths={publicPaths ?? null}
+              stageContents={content.stageContents}
+              tagsByPhotoId={tagsByPhotoId}
+            />
           ) : null}
 
           <FullScreenSheet
@@ -599,26 +519,48 @@ export function JourneyPage({
             scrollable={false}
             title={t('journey.map')}
           >
-            <JourneyMap
-              canEdit={canEdit}
-              checklistItems={checklistQuery.data ?? []}
-              className="h-full min-h-0 w-full flex-1"
-              focusPointId={mapFocusPointId}
-              moments={content?.moments ?? []}
-              observations={observationsQuery.data ?? []}
-              onFocusPointChange={setFocusedMapPointId}
-              onMarkNatureGoalSpotted={(item) => {
-                void handleMarkNatureGoalFromMap(item)
-              }}
-              onOpenEntry={(entryId) => {
-                setMapExpanded(false)
-                openMomentOnTimeline(entryId)
-              }}
-              photoLocations={photoLocationsQuery.data ?? []}
-              photoThumbUrls={photoThumbUrls}
-              plannedStops={content?.plannedStops ?? []}
-              showNatureGoals={showNatureGoalsOnMap}
-            />
+            {mapPoints.some((point) => point.type === 'nature-goal') ? (
+              <label className="mb-3 inline-flex min-h-11 items-center gap-2 px-1 text-sm text-muted">
+                <input
+                  checked={showNatureGoalsOnMap}
+                  className="size-4 rounded border-border text-primary"
+                  onChange={(event) => {
+                    setShowNatureGoalsOnMap(event.target.checked)
+                  }}
+                  type="checkbox"
+                />
+                {t('journey.mapShowNatureGoals')}
+              </label>
+            ) : null}
+            {photoLocationsQuery.isPending && (content?.moments.length ?? 0) > 0 ? (
+              <p className="mb-3 px-1 text-sm text-muted" role="status">
+                {t('journey.mapLoadingLocations')}
+              </p>
+            ) : null}
+            {mapPoints.length > 0 ? (
+              <JourneyMap
+                canEdit={canEdit}
+                checklistItems={checklistQuery.data ?? []}
+                className="h-full min-h-0 w-full flex-1"
+                focusPointId={mapFocusPointId}
+                moments={content?.moments ?? []}
+                observations={observationsQuery.data ?? []}
+                onFocusPointChange={setFocusedMapPointId}
+                onMarkNatureGoalSpotted={(item) => {
+                  void handleMarkNatureGoalFromMap(item)
+                }}
+                onOpenEntry={(entryId) => {
+                  setMapExpanded(false)
+                  openMomentOnTimeline(entryId)
+                }}
+                photoLocations={photoLocationsQuery.data ?? []}
+                photoThumbUrls={photoThumbUrls}
+                plannedStops={content?.plannedStops ?? []}
+                showNatureGoals={showNatureGoalsOnMap}
+              />
+            ) : (
+              <p className="px-1 text-muted">{t('journey.mapEmpty')}</p>
+            )}
           </FullScreenSheet>
 
           {canEdit ? (
@@ -686,7 +628,9 @@ function preserveJourneySearch(current: {
 }) {
   const section = isJourneyAuthorSection(current.section)
     ? current.section
-    : undefined
+    : isLegacyAuthorSectionParam(current.section)
+      ? current.section
+      : undefined
 
   return {
     ...(current.notice !== undefined ? { notice: current.notice } : {}),
@@ -699,8 +643,8 @@ function preserveJourneySearch(current: {
 
 function isJourneyAuthorSection(
   value: string | undefined,
-): value is JourneyAuthorSection {
-  return value === 'story' || value === 'map' || value === 'gallery'
+): value is 'story' {
+  return value === 'story'
 }
 
 function formatDateRange(
