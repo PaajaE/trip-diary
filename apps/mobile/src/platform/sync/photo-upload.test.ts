@@ -9,6 +9,12 @@ vi.mock('expo-file-system', () => ({
 }))
 
 vi.mock('@/platform/media/photo', () => ({
+  generateMediumJpeg: vi.fn(async () => {
+    throw new Error('medium mock')
+  }),
+  generateSmallJpeg: vi.fn(async () => {
+    throw new Error('small mock')
+  }),
   generateThumbJpeg: vi.fn(async () => {
     throw new Error('thumb mock')
   }),
@@ -40,7 +46,7 @@ function createValidPayload(): Record<string, unknown> {
     mimeType: 'image/jpeg',
     originalFilename: 'test.jpg',
     photoId: '40000000-0000-4000-8000-000000000099',
-    variant: 'preview',
+    variant: 'full',
     width: 1920,
   }
 }
@@ -98,7 +104,7 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
     storage: {
       from: vi.fn(() => ({
         list: vi.fn(async () => ({
-          data: [{ metadata: { size: 120_000 }, name: 'preview.jpg' }],
+          data: [{ metadata: { size: 120_000 }, name: 'full.jpg' }],
           error: null,
         })),
         upload,
@@ -111,6 +117,12 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
   return {
     deps: {
       cleanupLocalFiles: vi.fn(async () => {}),
+      generateMedium: vi.fn(async () => {
+        throw new Error('medium skipped in unit test')
+      }),
+      generateSmall: vi.fn(async () => {
+        throw new Error('small skipped in unit test')
+      }),
       generateThumb: vi.fn(async () => {
         throw new Error('thumb skipped in unit test')
       }),
@@ -130,8 +142,11 @@ function createDeps(overrides: Partial<PhotoUploadDeps> = {}): {
 describe('photo upload contract', () => {
   it('builds canonical storage paths', () => {
     expect(
-      buildPhotoStoragePath('user-1', 'photo-1', 'preview', 'image/jpeg'),
-    ).toBe('user-1/photo-1/preview.jpg')
+      buildPhotoStoragePath('user-1', 'photo-1', 'full', 'image/jpeg'),
+    ).toBe('user-1/photo-1/full.jpg')
+    expect(
+      buildPhotoStoragePath('user-1', 'photo-1', 'small', 'image/jpeg'),
+    ).toBe('user-1/photo-1/small.jpg')
     expect(
       buildPhotoStoragePath('user-1', 'photo-1', 'thumb', 'image/webp'),
     ).toBe('user-1/photo-1/thumb.webp')
@@ -151,9 +166,18 @@ describe('photo upload contract', () => {
       mimeType: 'image/jpeg',
       originalFilename: 'test.jpg',
       photoId: '40000000-0000-4000-8000-000000000099',
-      variant: 'preview',
+      variant: 'full',
       width: 1920,
     })
+  })
+
+  it('accepts legacy preview variant as a valid payload field', () => {
+    expect(
+      parsePhotoUploadPayload({
+        ...createValidPayload(),
+        variant: 'preview',
+      }).variant,
+    ).toBe('preview')
   })
 
   it('rejects malformed upload payloads', () => {
@@ -280,12 +304,12 @@ describe('processPhotoUploadOperation', () => {
 
     expect(result).toEqual({
       photoId: '40000000-0000-4000-8000-000000000099',
-      storagePath: 'user-1/40000000-0000-4000-8000-000000000099/preview.jpg',
+      storagePath: 'user-1/40000000-0000-4000-8000-000000000099/full.jpg',
       thumbStoragePath: null,
       thumbUploadError: 'thumb skipped in unit test',
     })
     expect(upload).toHaveBeenCalledWith(
-      'user-1/40000000-0000-4000-8000-000000000099/preview.jpg',
+      'user-1/40000000-0000-4000-8000-000000000099/full.jpg',
       expect.any(ArrayBuffer),
       {
         contentType: 'image/jpeg',
@@ -324,7 +348,7 @@ describe('processPhotoUploadOperation', () => {
       deps,
     )
 
-    expect(result.storagePath).toContain('preview.jpg')
+    expect(result.storagePath).toContain('full.jpg')
     expect(insertPhoto).toHaveBeenCalledWith(
       expect.objectContaining({ captured_at: null }),
     )
@@ -377,6 +401,12 @@ describe('processPhotoUploadOperation', () => {
         async () => new TextEncoder().encode('photo-bytes').buffer,
       ),
       verifyRemoteObjectByteSize: vi.fn(async () => 120_000),
+      generateMedium: vi.fn(async () => {
+        throw new Error('skip medium')
+      }),
+      generateSmall: vi.fn(async () => {
+        throw new Error('skip small')
+      }),
       generateThumb: vi.fn(async () => {
         throw new Error('skip thumb')
       }),
@@ -788,8 +818,14 @@ describe('processPhotoUploadOperation', () => {
     expect(insertVariant).not.toHaveBeenCalled()
   })
 
-  it('keeps master success when thumbnail generation/upload fails', async () => {
+  it('keeps master success when derivative generation/upload fails', async () => {
     const { deps, insertVariant, upload } = createDeps({
+      generateMedium: vi.fn(async () => {
+        throw new Error('cannot make medium')
+      }),
+      generateSmall: vi.fn(async () => {
+        throw new Error('cannot make small')
+      }),
       generateThumb: vi.fn(async () => {
         throw new Error('cannot make thumb')
       }),
@@ -797,10 +833,31 @@ describe('processPhotoUploadOperation', () => {
 
     const result = await processPhotoUploadOperation(createValidPayload(), deps)
 
-    expect(result.storagePath).toContain('/preview.jpg')
+    expect(result.storagePath).toContain('/full.jpg')
     expect(result.thumbStoragePath).toBeNull()
     expect(result.thumbUploadError).toContain('cannot make thumb')
     expect(upload).toHaveBeenCalledTimes(1)
     expect(insertVariant).toHaveBeenCalledTimes(1)
+  })
+
+  it('uploads master as full even when payload still says preview', async () => {
+    const { deps, insertVariant, upload } = createDeps()
+
+    const result = await processPhotoUploadOperation(
+      {
+        ...createValidPayload(),
+        variant: 'preview',
+      },
+      deps,
+    )
+
+    expect(result.storagePath).toContain('/full.jpg')
+    expect(upload.mock.calls[0]?.[0]).toContain('/full.jpg')
+    expect(insertVariant).toHaveBeenCalledWith(
+      expect.objectContaining({
+        storage_path: expect.stringContaining('/full.jpg'),
+        variant: 'full',
+      }),
+    )
   })
 })

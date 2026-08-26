@@ -42,25 +42,6 @@ function createQuery(result: QueryResult) {
   return query
 }
 
-function createVariantLookup(
-  variants: Map<string, ReturnType<typeof createQuery>>,
-) {
-  return {
-    select: vi.fn(() => ({
-      eq: vi.fn((_field: string, photoId: string) => ({
-        eq: vi.fn(() => ({
-          maybeSingle: vi.fn(async () => variants.get(photoId)),
-        })),
-      })),
-      in: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          maybeSingle: vi.fn(() => ({ data: [], error: null })),
-        })),
-      })),
-    })),
-  }
-}
-
 function createLocalPhoto(
   id: string,
   entryId: string,
@@ -94,6 +75,15 @@ function createThumb(photoId: string, blob: Blob): LocalPhotoVariant {
   }
 }
 
+function createFull(photoId: string, blob: Blob): LocalPhotoVariant {
+  return {
+    ...createThumb(photoId, blob),
+    id: `${photoId}:full`,
+    kind: 'full',
+  }
+}
+
+/** Legacy preview row — still accepted as full fallback. */
 function createPreview(photoId: string, blob: Blob): LocalPhotoVariant {
   return {
     ...createThumb(photoId, blob),
@@ -138,19 +128,28 @@ describe('getEntryPhotoPreviews', () => {
       ],
       error: null,
     })
-    const variants = new Map<string, ReturnType<typeof createQuery>>([
-      [
-        sharedId,
-        createQuery({ data: { storage_path: 'shared' }, error: null }),
+    const variants = createQuery({
+      data: [
+        {
+          height: 100,
+          photo_id: sharedId,
+          storage_path: 'shared',
+          variant: 'thumb',
+          width: 100,
+        },
+        {
+          height: 100,
+          photo_id: remoteOnlyId,
+          storage_path: 'remote-only',
+          variant: 'thumb',
+          width: 100,
+        },
       ],
-      [
-        remoteOnlyId,
-        createQuery({ data: { storage_path: 'remote-only' }, error: null }),
-      ],
-    ])
+      error: null,
+    })
     getSupabaseClientMock.mockReturnValue({
       from: vi.fn((table: string) =>
-        table === 'entry_photos' ? links : createVariantLookup(variants),
+        table === 'entry_photos' ? links : variants,
       ),
       storage: {
         from: vi.fn(() => ({
@@ -199,13 +198,28 @@ describe('getEntryPhotoPreviews', () => {
       ],
       error: null,
     })
-    const variants = new Map<string, ReturnType<typeof createQuery>>([
-      [firstId, createQuery({ data: { storage_path: 'first' }, error: null })],
-      [coverId, createQuery({ data: { storage_path: 'cover' }, error: null })],
-    ])
+    const variants = createQuery({
+      data: [
+        {
+          height: 100,
+          photo_id: firstId,
+          storage_path: 'first',
+          variant: 'thumb',
+          width: 100,
+        },
+        {
+          height: 100,
+          photo_id: coverId,
+          storage_path: 'cover',
+          variant: 'thumb',
+          width: 100,
+        },
+      ],
+      error: null,
+    })
     getSupabaseClientMock.mockReturnValue({
       from: vi.fn((table: string) =>
-        table === 'entry_photos' ? links : createVariantLookup(variants),
+        table === 'entry_photos' ? links : variants,
       ),
       storage: {
         from: vi.fn(() => ({
@@ -240,21 +254,21 @@ describe('getEntryPhotoPreviews', () => {
       ],
       error: null,
     })
-    const usableVariant = createQuery({
-      data: { storage_path: 'usable' },
+    const variants = createQuery({
+      data: [
+        {
+          height: 100,
+          photo_id: usableId,
+          storage_path: 'usable',
+          variant: 'thumb',
+          width: 100,
+        },
+      ],
       error: null,
     })
-    const brokenVariant = createQuery({
-      data: null,
-      error: new Error('missing preview'),
-    })
-    const variants = new Map<string, ReturnType<typeof createQuery>>([
-      [usableId, usableVariant],
-      [brokenId, brokenVariant],
-    ])
     getSupabaseClientMock.mockReturnValue({
       from: vi.fn((table: string) =>
-        table === 'entry_photos' ? links : createVariantLookup(variants),
+        table === 'entry_photos' ? links : variants,
       ),
       storage: {
         from: vi.fn(() => ({
@@ -266,7 +280,7 @@ describe('getEntryPhotoPreviews', () => {
     })
 
     await expect(getEntryPhotoPreviews(entryId)).resolves.toEqual([
-      { blob: usableBlob, id: usableId },
+      { blob: usableBlob, height: 100, id: usableId, width: 100 },
     ])
   })
 
@@ -276,6 +290,20 @@ describe('getEntryPhotoPreviews', () => {
     const blob = new Blob(['preview'])
     await localDb.photos.add(createLocalPhoto(photoId, entryId, 0))
     await localDb.photoVariants.add(createPreview(photoId, blob))
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn(() => createQuery({ data: [], error: null })),
+    })
+
+    const previews = await getEntryPhotoPreviews(entryId)
+    expect(previews.map(({ id }) => id)).toEqual([photoId])
+  })
+
+  it('falls back from legacy preview when full is preferred for detail', async () => {
+    const entryId = crypto.randomUUID()
+    const photoId = crypto.randomUUID()
+    const blob = new Blob(['full-legacy'])
+    await localDb.photos.add(createLocalPhoto(photoId, entryId, 0))
+    await localDb.photoVariants.add(createFull(photoId, blob))
     getSupabaseClientMock.mockReturnValue({
       from: vi.fn(() => createQuery({ data: [], error: null })),
     })
@@ -313,14 +341,18 @@ describe('getJourneyEntryPhotoPreviews', () => {
     const variants = createQuery({
       data: [
         {
+          height: 800,
           photo_id: firstPhotoId,
           storage_path: 'first',
           variant: 'preview',
+          width: 800,
         },
         {
+          height: 220,
           photo_id: secondPhotoId,
           storage_path: 'second',
           variant: 'thumb',
+          width: 220,
         },
       ],
       error: null,
@@ -349,10 +381,10 @@ describe('getJourneyEntryPhotoPreviews', () => {
 
     expect(failedEntryIds.size).toBe(0)
     expect(previewsByEntry.get(firstEntryId)).toEqual([
-      { blob: firstBlob, id: firstPhotoId },
+      { blob: firstBlob, height: 800, id: firstPhotoId, width: 800 },
     ])
     expect(previewsByEntry.get(secondEntryId)).toEqual([
-      { blob: secondBlob, id: secondPhotoId },
+      { blob: secondBlob, height: 220, id: secondPhotoId, width: 220 },
     ])
   })
 })

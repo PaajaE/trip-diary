@@ -1,5 +1,11 @@
-import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
-import { LOCAL_PHOTO_VARIANT_SIZES } from '@/entities/photo/lib/photo-variant-config'
+import {
+  calculateDimensions,
+  calculateNormalizedFullDimensions,
+} from '@/entities/photo/lib/photo-dimensions'
+import {
+  LOCAL_PHOTO_VARIANT_SIZES,
+  type PhotoVariantSizeConfig,
+} from '@/entities/photo/lib/photo-variant-config'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessPhotoMessage {
@@ -8,6 +14,16 @@ interface ProcessPhotoMessage {
 }
 
 const variants = LOCAL_PHOTO_VARIANT_SIZES
+
+function resolveVariantOutputSize(
+  source: { height: number; width: number },
+  variant: PhotoVariantSizeConfig,
+): { height: number; width: number } {
+  if (variant.useNormalizedFull) {
+    return calculateNormalizedFullDimensions(source)
+  }
+  return calculateDimensions(source, variant.maxLongestEdge)
+}
 
 async function encodeVariant(
   canvas: OffscreenCanvas,
@@ -43,7 +59,7 @@ self.onmessage = async (event: MessageEvent<ProcessPhotoMessage>) => {
     }[] = []
 
     for (const variant of variants) {
-      const dimensions = calculateDimensions(source, variant.maxWidth)
+      const dimensions = resolveVariantOutputSize(source, variant)
       const canvas = new OffscreenCanvas(dimensions.width, dimensions.height)
       const context = canvas.getContext('2d')
       if (context === null) {

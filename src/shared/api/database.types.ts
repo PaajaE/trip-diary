@@ -1356,7 +1356,13 @@ export type Database = {
       journey_stop_status: 'planned' | 'visited'
       journey_visibility: 'public' | 'private'
       observation_confidence: 'seen' | 'heard' | 'unsure'
-      photo_variant_type: 'thumb' | 'preview' | 'large'
+      photo_variant_type:
+        | 'thumb'
+        | 'small'
+        | 'medium'
+        | 'full'
+        | 'preview'
+        | 'large'
       space_kind: 'personal' | 'family'
       space_role: 'owner' | 'editor' | 'member'
       translation_status:
@@ -1512,7 +1518,14 @@ export const Constants = {
       journey_stop_status: ['planned', 'visited'],
       journey_visibility: ['public', 'private'],
       observation_confidence: ['seen', 'heard', 'unsure'],
-      photo_variant_type: ['thumb', 'preview', 'large'],
+      photo_variant_type: [
+        'thumb',
+        'small',
+        'medium',
+        'full',
+        'preview',
+        'large',
+      ],
       space_kind: ['personal', 'family'],
       space_role: ['owner', 'editor', 'member'],
       translation_status: [

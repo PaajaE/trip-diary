@@ -275,6 +275,12 @@ export function ReaderMomentArticle({
                   alt: title,
                   id: photo.id,
                   url: photo.url,
+                  ...(typeof photo.height === 'number'
+                    ? { height: photo.height }
+                    : {}),
+                  ...(typeof photo.width === 'number'
+                    ? { width: photo.width }
+                    : {}),
                 }))}
               />
             </div>

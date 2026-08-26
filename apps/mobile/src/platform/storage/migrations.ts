@@ -174,4 +174,11 @@ export const MOBILE_SQL_MIGRATIONS: readonly SqlMigration[] = [
       );
     `,
   },
+  {
+    id: 9,
+    name: 'add_moment_draft_photos_small_uri',
+    sql: `
+      ALTER TABLE moment_draft_photos ADD COLUMN small_uri TEXT;
+    `,
+  },
 ]

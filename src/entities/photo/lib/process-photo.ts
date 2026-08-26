@@ -5,8 +5,14 @@ import {
   getMeaningfulGpsCoordinates,
   isMeaningfulGpsCoordinate,
 } from '@/entities/photo/lib/photo-exif-gps'
-import { calculateDimensions } from '@/entities/photo/lib/photo-dimensions'
-import { LOCAL_PHOTO_VARIANT_SIZES } from '@/entities/photo/lib/photo-variant-config'
+import {
+  calculateDimensions,
+  calculateNormalizedFullDimensions,
+} from '@/entities/photo/lib/photo-dimensions'
+import {
+  LOCAL_PHOTO_VARIANT_SIZES,
+  type PhotoVariantSizeConfig,
+} from '@/entities/photo/lib/photo-variant-config'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessedVariant {
@@ -178,6 +184,16 @@ function processVariantsInWorker(file: File): Promise<ProcessedVariant[]> {
   })
 }
 
+function resolveVariantOutputSize(
+  source: { height: number; width: number },
+  variant: PhotoVariantSizeConfig,
+): { height: number; width: number } {
+  if (variant.useNormalizedFull) {
+    return calculateNormalizedFullDimensions(source)
+  }
+  return calculateDimensions(source, variant.maxLongestEdge)
+}
+
 async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
   const source = await createImageBitmap(file, {
     imageOrientation: 'from-image',
@@ -187,7 +203,7 @@ async function processVariantsOnPage(file: File): Promise<ProcessedVariant[]> {
   try {
     return await Promise.all(
       variants.map(async (variant) => {
-        const dimensions = calculateDimensions(source, variant.maxWidth)
+        const dimensions = resolveVariantOutputSize(source, variant)
         const canvas = document.createElement('canvas')
         canvas.width = dimensions.width
         canvas.height = dimensions.height

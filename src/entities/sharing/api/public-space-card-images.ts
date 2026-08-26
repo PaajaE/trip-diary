@@ -137,17 +137,29 @@ async function getFirstPhotoUrlByEntryIds(
     .from('photo_variants')
     .select('photo_id, storage_path, variant')
     .in('photo_id', photoIds)
-    .in('variant', ['thumb', 'preview'])
+    .in('variant', ['thumb', 'small', 'medium', 'full', 'preview', 'large'])
 
   if (variantsError !== null) {
     throw variantsError
   }
 
   const storagePathByPhotoId = new Map<string, string>()
-  for (const variant of variants) {
-    const existing = storagePathByPhotoId.get(variant.photo_id)
-    if (existing === undefined || variant.variant === 'thumb') {
-      storagePathByPhotoId.set(variant.photo_id, variant.storage_path)
+  const preference = [
+    'thumb',
+    'small',
+    'medium',
+    'full',
+    'preview',
+    'large',
+  ] as const
+  for (const kind of preference) {
+    for (const variant of variants) {
+      if (
+        variant.variant === kind &&
+        !storagePathByPhotoId.has(variant.photo_id)
+      ) {
+        storagePathByPhotoId.set(variant.photo_id, variant.storage_path)
+      }
     }
   }
 

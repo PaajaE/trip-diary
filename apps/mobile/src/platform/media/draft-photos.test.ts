@@ -72,6 +72,7 @@ function readyPhoto(id: string, overrides: Partial<PickedPhoto> = {}): PickedPho
     },
     mimeType: 'image/jpeg',
     status: 'ready',
+    smallUri: `file:///mock/documents/photos/${id}-small.jpg`,
     thumbUri: `file:///mock/documents/photos/${id}-thumb.jpg`,
     uri: `file:///mock/documents/photos/${id}.jpg`,
     width: 1200,
@@ -104,6 +105,7 @@ function failedPhoto(id: string): PickedPhoto {
     },
     mimeType: 'image/jpeg',
     status: 'failed',
+    smallUri: null,
     thumbUri: null,
     uri: '',
     width: 100,
@@ -271,6 +273,7 @@ describe('moment draft photos', () => {
       draftKey: 'journey:j1:new',
       journeyId: 'j1',
       photo: readyPhoto('11111111-1111-4111-8111-111111111111', {
+        smallUri: null,
         thumbUri: null,
         uri: trackedUri,
         metadata: {

@@ -27,20 +27,37 @@ describe('readPhotoCoordinate', () => {
 })
 
 describe('photo variant fallback', () => {
-  it('skips empty paths while falling through preference order', () => {
+  it('returns null when the preferred variant path is empty', () => {
     expect(
       pickCardPhotoVariantPath([
-        { photoId: 'p1', storagePath: '  ', variant: 'thumb' },
-        { photoId: 'p1', storagePath: 'a/preview.jpg', variant: 'preview' },
+        { photoId: 'p1', storagePath: '  ', variant: 'small' },
+        { photoId: 'p1', storagePath: 'a/thumb.jpg', variant: 'thumb' },
+        { photoId: 'p1', storagePath: 'a/full.jpg', variant: 'full' },
       ]),
-    ).toBe('a/preview.jpg')
+    ).toBeNull()
 
     expect(
       pickDetailPhotoVariantPath([
-        { photoId: 'p1', storagePath: '', variant: 'preview' },
-        { photoId: 'p1', storagePath: 'a/large.jpg', variant: 'large' },
+        { photoId: 'p1', storagePath: '', variant: 'medium' },
+        { photoId: 'p1', storagePath: 'a/full.jpg', variant: 'full' },
       ]),
-    ).toBe('a/large.jpg')
+    ).toBeNull()
+  })
+
+  it('uses the next preference when the preferred kind is absent', () => {
+    expect(
+      pickCardPhotoVariantPath([
+        { photoId: 'p1', storagePath: 'a/thumb.jpg', variant: 'thumb' },
+        { photoId: 'p1', storagePath: 'a/full.jpg', variant: 'full' },
+      ]),
+    ).toBe('a/thumb.jpg')
+
+    expect(
+      pickDetailPhotoVariantPath([
+        { photoId: 'p1', storagePath: 'a/full.jpg', variant: 'full' },
+        { photoId: 'p1', storagePath: 'a/preview.jpg', variant: 'preview' },
+      ]),
+    ).toBe('a/full.jpg')
   })
 })
 

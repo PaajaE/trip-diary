@@ -1,4 +1,10 @@
-export type PhotoVariantKind = 'thumb' | 'preview' | 'large'
+import {
+  pickPhotoVariantPath,
+  type PhotoDisplayContext,
+  type PhotoVariantKind,
+} from '@trip-diary/utils'
+
+export type { PhotoVariantKind }
 
 export interface PhotoVariantPath {
   photoId: string
@@ -6,45 +12,15 @@ export interface PhotoVariantPath {
   variant: PhotoVariantKind
 }
 
-const CARD_VARIANT_PREFERENCE: readonly PhotoVariantKind[] = [
-  'thumb',
-  'preview',
-  'large',
-]
-
-const DETAIL_VARIANT_PREFERENCE: readonly PhotoVariantKind[] = [
-  'preview',
-  'large',
-  'thumb',
-]
-
 export function pickPreferredPhotoVariantPath(
   variants: ReadonlyArray<{
     photoId: string
     storagePath: string
     variant: string
   }>,
-  preference: readonly PhotoVariantKind[] = CARD_VARIANT_PREFERENCE,
+  context: PhotoDisplayContext = 'card',
 ): string | null {
-  const byKind = new Map<string, string>()
-  for (const variant of variants) {
-    if (
-      variant.variant === 'thumb' ||
-      variant.variant === 'preview' ||
-      variant.variant === 'large'
-    ) {
-      byKind.set(variant.variant, variant.storagePath)
-    }
-  }
-
-  for (const kind of preference) {
-    const path = byKind.get(kind)
-    if (path !== undefined && path.trim().length > 0) {
-      return path
-    }
-  }
-
-  return null
+  return pickPhotoVariantPath(variants, context)
 }
 
 export function pickCardPhotoVariantPath(
@@ -54,7 +30,17 @@ export function pickCardPhotoVariantPath(
     variant: string
   }>,
 ): string | null {
-  return pickPreferredPhotoVariantPath(variants, CARD_VARIANT_PREFERENCE)
+  return pickPhotoVariantPath(variants, 'card')
+}
+
+export function pickTinyPhotoVariantPath(
+  variants: ReadonlyArray<{
+    photoId: string
+    storagePath: string
+    variant: string
+  }>,
+): string | null {
+  return pickPhotoVariantPath(variants, 'tiny')
 }
 
 export function pickDetailPhotoVariantPath(
@@ -64,7 +50,17 @@ export function pickDetailPhotoVariantPath(
     variant: string
   }>,
 ): string | null {
-  return pickPreferredPhotoVariantPath(variants, DETAIL_VARIANT_PREFERENCE)
+  return pickPhotoVariantPath(variants, 'fullscreen')
+}
+
+export function pickZoomPhotoVariantPath(
+  variants: ReadonlyArray<{
+    photoId: string
+    storagePath: string
+    variant: string
+  }>,
+): string | null {
+  return pickPhotoVariantPath(variants, 'zoom')
 }
 
 export function groupVariantsByPhotoId(

@@ -1,3 +1,9 @@
+import {
+  PHOTO_VARIANT_PREFERENCE,
+  pickPreferredPhotoVariant,
+  type PhotoDisplayContext,
+  type PhotoVariantKind as SharedPhotoVariantKind,
+} from '@trip-diary/utils'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { getMeaningfulGpsCoordinates } from '@/entities/photo/lib/photo-exif-gps'
@@ -5,13 +11,38 @@ import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
 
 export interface PhotoPreview {
   blob: Blob
+  height?: number
   id: string
   isCover?: boolean
+  width?: number
 }
 
 interface PositionedPhotoPreview extends PhotoPreview {
   isCover?: boolean
   position: number
+}
+
+const GRID_CONTEXT: PhotoDisplayContext = 'tiny'
+const CARD_CONTEXT: PhotoDisplayContext = 'card'
+const DETAIL_CONTEXT: PhotoDisplayContext = 'fullscreen'
+const ZOOM_CONTEXT: PhotoDisplayContext = 'zoom'
+
+/** Variants to fetch for grid/thumb contexts (tiny ∪ card preference chains). */
+const GRID_REMOTE_VARIANT_KINDS = uniqueKinds([
+  ...PHOTO_VARIANT_PREFERENCE.tiny,
+  ...PHOTO_VARIANT_PREFERENCE.card,
+])
+
+/** Variants to fetch for detail/lightbox (fullscreen ∪ zoom; preview ≡ full). */
+const DETAIL_REMOTE_VARIANT_KINDS = uniqueKinds([
+  ...PHOTO_VARIANT_PREFERENCE.fullscreen,
+  ...PHOTO_VARIANT_PREFERENCE.zoom,
+])
+
+function uniqueKinds(
+  kinds: readonly SharedPhotoVariantKind[],
+): SharedPhotoVariantKind[] {
+  return [...new Set(kinds)]
 }
 
 function comparePositionedPhotoPreviews(
@@ -26,13 +57,30 @@ function comparePositionedPhotoPreviews(
   return left.position - right.position
 }
 
+function toVariantRows(
+  variants: LocalPhotoVariant[],
+): (LocalPhotoVariant & { variant: string })[] {
+  return variants.map((variant) => ({ ...variant, variant: variant.kind }))
+}
+
+function pickLocalVariantForContext(
+  variants: LocalPhotoVariant[],
+  context: PhotoDisplayContext,
+): LocalPhotoVariant | undefined {
+  return (
+    pickPreferredPhotoVariant(
+      toVariantRows(variants),
+      PHOTO_VARIANT_PREFERENCE[context],
+    ) ?? undefined
+  )
+}
+
 function pickLocalThumbVariant(
   variants: LocalPhotoVariant[],
 ): LocalPhotoVariant | undefined {
   return (
-    variants.find(({ kind }) => kind === 'thumb') ??
-    variants.find(({ kind }) => kind === 'preview') ??
-    variants.find(({ kind }) => kind === 'large')
+    pickLocalVariantForContext(variants, GRID_CONTEXT) ??
+    pickLocalVariantForContext(variants, CARD_CONTEXT)
   )
 }
 
@@ -40,10 +88,30 @@ function pickLocalDetailVariant(
   variants: LocalPhotoVariant[],
 ): LocalPhotoVariant | undefined {
   return (
-    variants.find(({ kind }) => kind === 'preview') ??
-    variants.find(({ kind }) => kind === 'large') ??
-    variants.find(({ kind }) => kind === 'thumb')
+    pickLocalVariantForContext(variants, DETAIL_CONTEXT) ??
+    pickLocalVariantForContext(variants, ZOOM_CONTEXT)
   )
+}
+
+function pickLocalZoomVariant(
+  variants: LocalPhotoVariant[],
+): LocalPhotoVariant | undefined {
+  return pickLocalVariantForContext(variants, ZOOM_CONTEXT)
+}
+
+function previewFromVariant(
+  photoId: string,
+  variant: LocalPhotoVariant,
+  extras?: { isCover?: boolean; position?: number },
+): PositionedPhotoPreview {
+  return {
+    blob: variant.blob,
+    height: variant.height,
+    id: photoId,
+    width: variant.width,
+    ...(extras?.isCover === undefined ? {} : { isCover: extras.isCover }),
+    position: extras?.position ?? 0,
+  }
 }
 
 function mergePositionedPreviews(
@@ -85,10 +153,14 @@ function mergePositionedPreviews(
         continue
       }
       // Prefer local blob (fresher offline), but keep remote cover/position.
+      const height = preview.height ?? remote.height
+      const width = preview.width ?? remote.width
       previewsById.set(preview.id, {
         blob: preview.blob,
         id: preview.id,
         position: remote.position,
+        ...(height === undefined ? {} : { height }),
+        ...(width === undefined ? {} : { width }),
         ...(remote.isCover === undefined ? {} : { isCover: remote.isCover }),
       })
     }
@@ -96,10 +168,12 @@ function mergePositionedPreviews(
 
   return [...previewsById.values()]
     .sort(comparePositionedPhotoPreviews)
-    .map(({ blob, id, isCover }) => ({
+    .map(({ blob, height, id, isCover, width }) => ({
       blob,
       id,
+      ...(height === undefined ? {} : { height }),
       ...(isCover === undefined ? {} : { isCover }),
+      ...(width === undefined ? {} : { width }),
     }))
 }
 
@@ -143,12 +217,10 @@ async function getLocalPhotoPreviewsForPicker(
       const variant = pickVariant(variants)
       return variant === undefined
         ? null
-        : {
-            blob: variant.blob,
-            id: photo.id,
+        : previewFromVariant(photo.id, variant, {
             isCover: photo.position === 0,
             position: photo.position,
-          }
+          })
     }),
   )
 
@@ -202,12 +274,12 @@ async function getLocalPhotoPreviewsBatchForPicker(
       continue
     }
     const previews = result.get(photo.entryId) ?? []
-    previews.push({
-      blob: variant.blob,
-      id: photo.id,
-      isCover: photo.position === 0,
-      position: photo.position,
-    })
+    previews.push(
+      previewFromVariant(photo.id, variant, {
+        isCover: photo.position === 0,
+        position: photo.position,
+      }),
+    )
     result.set(photo.entryId, previews)
   }
 
@@ -230,9 +302,52 @@ async function getLocalPhotoDetailPreviewsBatch(
   return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalDetailVariant)
 }
 
-async function getRemotePhotoPreviewsForVariant(
+interface RemoteVariantRow {
+  height: number | null
+  photo_id: string
+  storage_path: string
+  variant: string
+  width: number | null
+}
+
+function pickRemoteStoragePath(
+  rows: RemoteVariantRow[],
+  context: PhotoDisplayContext,
+): RemoteVariantRow | null {
+  return pickPreferredPhotoVariant(rows, PHOTO_VARIANT_PREFERENCE[context])
+}
+
+async function downloadRemotePreview(
+  storagePath: string,
+  photoId: string,
+  extras: {
+    height?: number | null
+    isCover?: boolean
+    position: number
+    width?: number | null
+  },
+): Promise<PositionedPhotoPreview> {
+  const client = getSupabaseClient()
+  const { data: blob, error: downloadError } = await client.storage
+    .from('photos')
+    .download(storagePath)
+  if (downloadError !== null) {
+    throw downloadError
+  }
+  return {
+    blob,
+    id: photoId,
+    position: extras.position,
+    ...(extras.isCover === undefined ? {} : { isCover: extras.isCover }),
+    ...(typeof extras.height === 'number' ? { height: extras.height } : {}),
+    ...(typeof extras.width === 'number' ? { width: extras.width } : {}),
+  }
+}
+
+async function getRemotePhotoPreviewsForContext(
   entryId: string,
-  variantKind: 'thumb' | 'preview',
+  context: PhotoDisplayContext,
+  variantKinds: readonly SharedPhotoVariantKind[],
 ): Promise<PositionedPhotoPreview[]> {
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
@@ -243,33 +358,42 @@ async function getRemotePhotoPreviewsForVariant(
   if (linksError !== null) {
     throw linksError
   }
+  if (links.length === 0) {
+    return []
+  }
+
+  const photoIds = links.map((link) => link.photo_id)
+  const { data: variantRows, error: variantError } = await client
+    .from('photo_variants')
+    .select('photo_id, storage_path, variant, width, height')
+    .in('photo_id', photoIds)
+    .in('variant', [...variantKinds])
+  if (variantError !== null) {
+    throw variantError
+  }
+
+  const rowsByPhotoId = new Map<string, RemoteVariantRow[]>()
+  for (const row of variantRows) {
+    const list = rowsByPhotoId.get(row.photo_id) ?? []
+    list.push(row)
+    rowsByPhotoId.set(row.photo_id, list)
+  }
 
   const previews = await Promise.allSettled(
     links.map(async (link) => {
-      const { data: variant, error: variantError } = await client
-        .from('photo_variants')
-        .select('storage_path')
-        .eq('photo_id', link.photo_id)
-        .eq('variant', variantKind)
-        .maybeSingle()
-      if (variantError !== null) {
-        throw variantError
-      }
-      if (variant === null) {
+      const match = pickRemoteStoragePath(
+        rowsByPhotoId.get(link.photo_id) ?? [],
+        context,
+      )
+      if (match === null) {
         throw new Error('missing variant')
       }
-      const { data: blob, error: downloadError } = await client.storage
-        .from('photos')
-        .download(variant.storage_path)
-      if (downloadError !== null) {
-        throw downloadError
-      }
-      return {
-        blob,
-        id: link.photo_id,
+      return downloadRemotePreview(match.storage_path, link.photo_id, {
+        height: match.height,
         isCover: link.is_cover,
         position: link.position,
-      }
+        width: match.width,
+      })
     }),
   )
 
@@ -281,21 +405,27 @@ async function getRemotePhotoPreviewsForVariant(
 async function getRemotePhotoPreviews(
   entryId: string,
 ): Promise<PositionedPhotoPreview[]> {
-  return getRemotePhotoPreviewsForVariant(entryId, 'preview')
+  return getRemotePhotoPreviewsForContext(
+    entryId,
+    DETAIL_CONTEXT,
+    DETAIL_REMOTE_VARIANT_KINDS,
+  )
 }
 
 async function getRemotePhotoThumbPreviews(
   entryId: string,
 ): Promise<PositionedPhotoPreview[]> {
-  const thumbPreviews = await getRemotePhotoPreviewsForVariant(entryId, 'thumb')
-  if (thumbPreviews.length > 0) {
-    return thumbPreviews
-  }
-  return getRemotePhotoPreviewsForVariant(entryId, 'preview')
+  return getRemotePhotoPreviewsForContext(
+    entryId,
+    GRID_CONTEXT,
+    GRID_REMOTE_VARIANT_KINDS,
+  )
 }
 
 async function getRemotePhotoPreviewsBatch(
   entryIds: string[],
+  context: PhotoDisplayContext,
+  variantKinds: readonly SharedPhotoVariantKind[],
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
   if (entryIds.length === 0) {
     return new Map()
@@ -317,64 +447,52 @@ async function getRemotePhotoPreviewsBatch(
   const photoIds = [...new Set(links.map((link) => link.photo_id))]
   const { data: variantRows, error: variantError } = await client
     .from('photo_variants')
-    .select('photo_id, storage_path, variant')
+    .select('photo_id, storage_path, variant, width, height')
     .in('photo_id', photoIds)
-    .in('variant', ['thumb', 'preview'])
+    .in('variant', [...variantKinds])
   if (variantError !== null) {
     throw variantError
   }
 
-  const storagePathByPhotoId = new Map<string, string>()
+  const rowsByPhotoId = new Map<string, RemoteVariantRow[]>()
   for (const row of variantRows) {
-    if (row.variant === 'thumb') {
-      storagePathByPhotoId.set(row.photo_id, row.storage_path)
-    }
-  }
-  for (const row of variantRows) {
-    if (row.variant === 'preview' && !storagePathByPhotoId.has(row.photo_id)) {
-      storagePathByPhotoId.set(row.photo_id, row.storage_path)
-    }
+    const list = rowsByPhotoId.get(row.photo_id) ?? []
+    list.push(row)
+    rowsByPhotoId.set(row.photo_id, list)
   }
 
   const downloads = await Promise.allSettled(
     links.map(async (link) => {
-      const storagePath = storagePathByPhotoId.get(link.photo_id)
-      if (storagePath === undefined) {
+      const match = pickRemoteStoragePath(
+        rowsByPhotoId.get(link.photo_id) ?? [],
+        context,
+      )
+      if (match === null) {
         throw new Error('missing preview variant')
       }
-      const { data: blob, error: downloadError } = await client.storage
-        .from('photos')
-        .download(storagePath)
-      if (downloadError !== null) {
-        throw downloadError
-      }
-      return {
-        blob,
-        entryId: link.entry_id,
-        id: link.photo_id,
-        isCover: link.is_cover,
-        position: link.position,
-      }
+      const preview = await downloadRemotePreview(
+        match.storage_path,
+        link.photo_id,
+        {
+          height: match.height,
+          isCover: link.is_cover,
+          position: link.position,
+          width: match.width,
+        },
+      )
+      return { ...preview, entryId: link.entry_id }
     }),
   )
 
   const result = new Map<string, PositionedPhotoPreview[]>()
-  for (const [index, download] of downloads.entries()) {
+  for (const download of downloads) {
     if (download.status !== 'fulfilled') {
       continue
     }
-    const link = links[index]
-    if (link === undefined) {
-      continue
-    }
-    const previews = result.get(link.entry_id) ?? []
-    previews.push({
-      blob: download.value.blob,
-      id: link.photo_id,
-      isCover: link.is_cover,
-      position: link.position,
-    })
-    result.set(link.entry_id, previews)
+    const { entryId, ...preview } = download.value
+    const previews = result.get(entryId) ?? []
+    previews.push(preview)
+    result.set(entryId, previews)
   }
 
   for (const previews of result.values()) {
@@ -422,7 +540,7 @@ export async function getPhotoDetailPreview(
 ): Promise<PhotoPreview | null> {
   const photo = await localDb.photos.get(photoId)
   if (photo === undefined) {
-    return getRemotePhotoDetailPreview(photoId)
+    return getRemotePhotoDetailPreview(photoId, DETAIL_CONTEXT)
   }
 
   const variants = await localDb.photoVariants
@@ -431,35 +549,72 @@ export async function getPhotoDetailPreview(
     .toArray()
   const variant = pickLocalDetailVariant(variants)
   if (variant !== undefined) {
-    return { blob: variant.blob, id: photoId }
+    return {
+      blob: variant.blob,
+      height: variant.height,
+      id: photoId,
+      width: variant.width,
+    }
   }
 
-  return getRemotePhotoDetailPreview(photoId)
+  return getRemotePhotoDetailPreview(photoId, DETAIL_CONTEXT)
+}
+
+/** Zoom/master upgrade after lightbox medium load (full, with preview fallback). */
+export async function getPhotoZoomPreview(
+  photoId: string,
+): Promise<PhotoPreview | null> {
+  const photo = await localDb.photos.get(photoId)
+  if (photo !== undefined) {
+    const variants = await localDb.photoVariants
+      .where('photoId')
+      .equals(photoId)
+      .toArray()
+    const variant = pickLocalZoomVariant(variants)
+    if (variant !== undefined) {
+      return {
+        blob: variant.blob,
+        height: variant.height,
+        id: photoId,
+        width: variant.width,
+      }
+    }
+  }
+
+  return getRemotePhotoDetailPreview(photoId, ZOOM_CONTEXT)
 }
 
 async function getRemotePhotoDetailPreview(
   photoId: string,
+  context: PhotoDisplayContext,
 ): Promise<PhotoPreview | null> {
   const client = getSupabaseClient()
-  for (const variantKind of ['preview', 'thumb'] as const) {
-    const { data: variant, error: variantError } = await client
-      .from('photo_variants')
-      .select('storage_path')
-      .eq('photo_id', photoId)
-      .eq('variant', variantKind)
-      .maybeSingle()
-    if (variantError !== null || variant === null) {
-      continue
-    }
-    const { data: blob, error: downloadError } = await client.storage
-      .from('photos')
-      .download(variant.storage_path)
-    if (downloadError !== null) {
-      continue
-    }
-    return { blob, id: photoId }
+  const { data: variantRows, error: variantError } = await client
+    .from('photo_variants')
+    .select('photo_id, storage_path, variant, width, height')
+    .eq('photo_id', photoId)
+    .in('variant', [...DETAIL_REMOTE_VARIANT_KINDS])
+  if (variantError !== null || variantRows.length === 0) {
+    return null
   }
-  return null
+
+  const match = pickRemoteStoragePath(variantRows, context)
+  if (match === null) {
+    return null
+  }
+
+  const { data: blob, error: downloadError } = await client.storage
+    .from('photos')
+    .download(match.storage_path)
+  if (downloadError !== null) {
+    return null
+  }
+  return {
+    blob,
+    id: photoId,
+    ...(typeof match.height === 'number' ? { height: match.height } : {}),
+    ...(typeof match.width === 'number' ? { width: match.width } : {}),
+  }
 }
 
 export interface JourneyEntryPhotoPreviews {
@@ -472,11 +627,13 @@ async function getJourneyEntryPhotoPreviewsForVariant(
   loadLocalBatch: (
     entryIds: string[],
   ) => Promise<Map<string, PositionedPhotoPreview[]>>,
+  context: PhotoDisplayContext,
+  variantKinds: readonly SharedPhotoVariantKind[],
 ): Promise<JourneyEntryPhotoPreviews> {
   const uniqueEntryIds = [...new Set(entryIds)]
   const [localResult, remoteResult] = await Promise.allSettled([
     loadLocalBatch(uniqueEntryIds),
-    getRemotePhotoPreviewsBatch(uniqueEntryIds),
+    getRemotePhotoPreviewsBatch(uniqueEntryIds, context, variantKinds),
   ])
 
   const localFailed = localResult.status === 'rejected'
@@ -527,6 +684,8 @@ export async function getJourneyEntryPhotoPreviews(
   return getJourneyEntryPhotoPreviewsForVariant(
     entryIds,
     getLocalPhotoPreviewsBatch,
+    GRID_CONTEXT,
+    GRID_REMOTE_VARIANT_KINDS,
   )
 }
 
@@ -536,5 +695,7 @@ export async function getJourneyEntryPhotoDetailPreviews(
   return getJourneyEntryPhotoPreviewsForVariant(
     entryIds,
     getLocalPhotoDetailPreviewsBatch,
+    DETAIL_CONTEXT,
+    DETAIL_REMOTE_VARIANT_KINDS,
   )
 }

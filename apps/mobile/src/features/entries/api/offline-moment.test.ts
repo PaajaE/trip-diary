@@ -20,6 +20,8 @@ vi.mock('@/platform/supabase', () => ({
 }))
 
 vi.mock('@/platform/media/photo', () => ({
+  generateMediumJpeg: vi.fn(),
+  generateSmallJpeg: vi.fn(),
   generateThumbJpeg: vi.fn(),
   getLocalFileByteSize: vi.fn(async () => 1000),
   persistPhotoLocally: vi.fn(async (uri: string) => uri),
@@ -86,6 +88,7 @@ function readyPhoto(id: string): PickedPhoto {
     },
     mimeType: 'image/jpeg',
     status: 'ready',
+    smallUri: null,
     thumbUri: null,
     uri: `file:///mock/documents/photos/${id}.jpg`,
     width: 1200,

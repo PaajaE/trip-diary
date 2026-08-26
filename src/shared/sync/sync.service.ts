@@ -1232,8 +1232,9 @@ async function syncPhotoUpload(
     return
   }
 
-  const variantsToUpload = variants.filter((variant) =>
-    SYNC_PHOTO_VARIANT_KINDS.has(variant.kind),
+  const variantsToUpload = variants.filter(
+    (variant) =>
+      SYNC_PHOTO_VARIANT_KINDS.has(variant.kind) && variant.sizeBytes > 0,
   )
 
   if (variantsToUpload.length === 0) {
@@ -1250,7 +1251,7 @@ async function syncPhotoUpload(
       ...snapshot,
       detail: variant.kind,
     })
-    await declareAndUploadVariant(variant, creatorId)
+    await uploadThenDeclareVariant(variant, creatorId)
   }
 
   const isCover = photo.position === 0
@@ -1617,19 +1618,25 @@ async function linkPhotoToEntry(
   }
 }
 
-async function declareAndUploadVariant(
+async function uploadThenDeclareVariant(
   variant: LocalPhotoVariant,
   creatorId: string,
 ): Promise<void> {
+  // Skip empty variants so we never declare rows for failed/empty uploads.
+  // Prefer sizeBytes (authoritative) — some IDB environments report blob.size 0.
+  if (variant.sizeBytes <= 0) {
+    throw new Error(`Empty photo variant: ${variant.kind}`)
+  }
   const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.${variant.ext}`
   const client = getSupabaseClient()
-  await declarePhotoVariant(client, variant, creatorId, storagePath)
+  // Prefer storage-before-DB so we never declare variants for failed uploads.
   await uploadPhotoVariantBlob(
     client,
     storagePath,
     variant.blob,
     variant.mimeType,
   )
+  await declarePhotoVariant(client, variant, creatorId, storagePath)
 }
 
 async function uploadPhotoVariantBlob(

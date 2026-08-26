@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { getJourneyEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
+import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import {
   journeyGalleryQueryKey,
   loadJourneyGalleryPreviews,
@@ -32,6 +34,7 @@ interface JourneyGalleryProps {
 
 function JourneyGalleryImage({
   alt,
+  height,
   onOpen,
   onShowOnMap,
   photoId,
@@ -39,8 +42,10 @@ function JourneyGalleryImage({
   showOnMapLabel,
   src,
   tags,
+  width,
 }: {
   alt: string
+  height?: number
   onOpen: () => void
   onShowOnMap: (photoId: string) => void
   photoId: string
@@ -48,6 +53,7 @@ function JourneyGalleryImage({
   showOnMapLabel: string
   src: string
   tags?: PhotoTagAssignment[]
+  width?: number
 }) {
   const [isBroken, setIsBroken] = useState(false)
 
@@ -63,15 +69,16 @@ function JourneyGalleryImage({
         onClick={onOpen}
         type="button"
       >
-        <img
-          alt=""
-          aria-hidden="true"
+        <ResponsivePhotoImage
+          alt={alt}
           className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-          loading="lazy"
+          {...(typeof height === 'number' ? { height } : {})}
           onError={() => {
             setIsBroken(true)
           }}
+          sizes={GALLERY_GRID_SIZES}
           src={src}
+          {...(typeof width === 'number' ? { width } : {})}
         />
         <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-3 pb-3 pt-8 text-sm font-semibold text-white">
           {alt}
@@ -180,21 +187,28 @@ export function JourneyGallery({
         </p>
       ) : null}
       <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {urls.map((photo, photoIndex) => (
-          <JourneyGalleryImage
-            alt={photo.entryTitle ?? t('journey.galleryUntitled')}
-            key={`${photo.entryId}:${photo.id}`}
-            onOpen={() => {
-              openLightbox(lightboxPhotos, photoIndex)
-            }}
-            onShowOnMap={onShowOnMap}
-            photoId={photo.id}
-            showOnMap={locatedPhotoIds.has(photo.id)}
-            showOnMapLabel={t('journey.showOnMap')}
-            src={photo.url}
-            tags={tagsByPhotoId?.get(photo.id) ?? []}
-          />
-        ))}
+        {urls.map((photo, photoIndex) => {
+          const meta = photos.find((candidate) => candidate.id === photo.id)
+          return (
+            <JourneyGalleryImage
+              alt={photo.entryTitle ?? t('journey.galleryUntitled')}
+              {...(typeof meta?.height === 'number'
+                ? { height: meta.height }
+                : {})}
+              key={`${photo.entryId}:${photo.id}`}
+              onOpen={() => {
+                openLightbox(lightboxPhotos, photoIndex)
+              }}
+              onShowOnMap={onShowOnMap}
+              photoId={photo.id}
+              showOnMap={locatedPhotoIds.has(photo.id)}
+              showOnMapLabel={t('journey.showOnMap')}
+              src={photo.url}
+              tags={tagsByPhotoId?.get(photo.id) ?? []}
+              {...(typeof meta?.width === 'number' ? { width: meta.width } : {})}
+            />
+          )
+        })}
       </div>
       {lightboxElement}
     </>

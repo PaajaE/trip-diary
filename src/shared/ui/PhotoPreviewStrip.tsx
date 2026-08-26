@@ -1,9 +1,13 @@
 import { cn } from '@/shared/lib/cn'
+import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 
 export interface PhotoPreviewStripItem {
   alt: string
+  height?: number
   id: string
   url: string
+  width?: number
 }
 
 interface PhotoPreviewStripProps {
@@ -53,12 +57,17 @@ export function PhotoPreviewStrip({
               }}
               type="button"
             >
-              <img
-                alt=""
+              <ResponsivePhotoImage
+                alt={photo.alt}
                 className="size-full object-cover"
-                decoding="async"
-                loading="lazy"
+                {...(typeof photo.height === 'number'
+                  ? { height: photo.height }
+                  : {})}
+                sizes={READER_STRIP_SIZES}
                 src={photo.url}
+                {...(typeof photo.width === 'number'
+                  ? { width: photo.width }
+                  : {})}
               />
               {showOverflow ? (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold text-white">

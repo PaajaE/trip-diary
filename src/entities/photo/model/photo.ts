@@ -1,6 +1,13 @@
 import { z } from 'zod'
 
-export const photoVariantKindSchema = z.enum(['thumb', 'preview', 'large'])
+export const photoVariantKindSchema = z.enum([
+  'thumb',
+  'small',
+  'medium',
+  'full',
+  'preview',
+  'large',
+])
 export type PhotoVariantKind = z.infer<typeof photoVariantKindSchema>
 
 export const localPhotoSchema = z.object({

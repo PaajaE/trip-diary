@@ -736,7 +736,12 @@ export function MomentEditorForm({
                         ),
                       )
                     }}
-                    source={{ uri: photo.uri }}
+                    source={{
+                      uri:
+                        photo.smallUri ??
+                        photo.thumbUri ??
+                        photo.uri,
+                    }}
                     style={[
                       styles.previewImage,
                       isCover ? styles.previewImageCover : null,

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 
@@ -17,16 +19,20 @@ function ReaderPhoto({
   alt,
   className,
   fetchPriority,
+  height,
   loading = 'lazy',
   onOpen,
   src,
+  width,
 }: {
   alt: string
   className?: string
   fetchPriority?: 'high' | 'low' | 'auto'
+  height?: number
   loading?: 'eager' | 'lazy'
   onOpen: () => void
   src: string
+  width?: number
 }) {
   const [isBroken, setIsBroken] = useState(false)
 
@@ -41,17 +47,18 @@ function ReaderPhoto({
       onClick={onOpen}
       type="button"
     >
-      <img
-        alt=""
-        aria-hidden="true"
+      <ResponsivePhotoImage
+        alt={alt}
         className="size-full object-cover transition-transform duration-500 hover:scale-[1.02]"
-        decoding="async"
         {...(fetchPriority !== undefined ? { fetchPriority } : {})}
+        {...(typeof height === 'number' ? { height } : {})}
         loading={loading}
         onError={() => {
           setIsBroken(true)
         }}
+        sizes={GALLERY_GRID_SIZES}
         src={src}
+        {...(typeof width === 'number' ? { width } : {})}
       />
     </button>
   )
@@ -111,11 +118,17 @@ export function ReaderMomentPhotos({
             alt={alt}
             className="reader-photo-feature block w-full overflow-hidden"
             fetchPriority="high"
+            {...(typeof firstPhoto.height === 'number'
+              ? { height: firstPhoto.height }
+              : {})}
             loading="eager"
             onOpen={() => {
               openAt(0)
             }}
             src={firstPhoto.url}
+            {...(typeof firstPhoto.width === 'number'
+              ? { width: firstPhoto.width }
+              : {})}
           />
         </div>
         {lightboxElement}
@@ -136,11 +149,17 @@ export function ReaderMomentPhotos({
             alt={alt}
             className="reader-photo-feature block w-full overflow-hidden"
             fetchPriority="high"
+            {...(typeof firstPhoto.height === 'number'
+              ? { height: firstPhoto.height }
+              : {})}
             loading="eager"
             onOpen={() => {
               openAt(0)
             }}
             src={firstPhoto.url}
+            {...(typeof firstPhoto.width === 'number'
+              ? { width: firstPhoto.width }
+              : {})}
           />
         </div>
         {rest.length > 0 ? (
@@ -149,11 +168,17 @@ export function ReaderMomentPhotos({
               <ReaderPhoto
                 alt={alt}
                 className="reader-photo-tile block aspect-[4/3] overflow-hidden rounded-2xl"
+                {...(typeof preview.height === 'number'
+                  ? { height: preview.height }
+                  : {})}
                 key={preview.id}
                 onOpen={() => {
                   openAt(index + 1)
                 }}
                 src={preview.url}
+                {...(typeof preview.width === 'number'
+                  ? { width: preview.width }
+                  : {})}
               />
             ))}
           </div>
@@ -170,11 +195,17 @@ export function ReaderMomentPhotos({
           <ReaderPhoto
             alt={alt}
             className="reader-photo-tile block aspect-square overflow-hidden rounded-2xl"
+            {...(typeof preview.height === 'number'
+              ? { height: preview.height }
+              : {})}
             key={preview.id}
             onOpen={() => {
               openAt(index)
             }}
             src={preview.url}
+            {...(typeof preview.width === 'number'
+              ? { width: preview.width }
+              : {})}
           />
         ))}
       </div>

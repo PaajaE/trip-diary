@@ -11,6 +11,8 @@ import { getSupabaseClient } from '@/shared/api/supabase'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { useToast } from '@/shared/ui/use-toast'
@@ -35,6 +37,7 @@ interface EntryPhotoGridProps {
 function GridImage({
   alt,
   coverLabel,
+  height,
   isCover,
   isSelected,
   onOpen,
@@ -42,9 +45,11 @@ function GridImage({
   onSetCover,
   setCoverLabel,
   src,
+  width,
 }: {
   alt: string
   coverLabel: string
+  height?: number
   isCover: boolean
   isSelected: boolean
   onOpen: () => void
@@ -52,6 +57,7 @@ function GridImage({
   onSetCover?: () => void
   setCoverLabel: string
   src: string
+  width?: number
 }) {
   const [isBroken, setIsBroken] = useState(false)
 
@@ -78,16 +84,16 @@ function GridImage({
         }}
         type="button"
       >
-        <img
-          alt=""
-          aria-hidden="true"
+        <ResponsivePhotoImage
+          alt={alt}
           className="aspect-square w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
-          decoding="async"
-          loading="lazy"
+          {...(typeof height === 'number' ? { height } : {})}
           onError={() => {
             setIsBroken(true)
           }}
+          sizes={GALLERY_GRID_SIZES}
           src={src}
+          {...(typeof width === 'number' ? { width } : {})}
         />
       </button>
       {isCover ? (
@@ -239,10 +245,14 @@ export function EntryPhotoGrid({
       <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {urls.map((preview, previewIndex) => {
           const isCover = preview.id === coverId
+          const meta = photos.find((photo) => photo.id === preview.id)
           return (
             <GridImage
               alt={`${alt} ${String(previewIndex + 1)}`}
               coverLabel={t('entry.coverPhoto')}
+              {...(typeof meta?.height === 'number'
+                ? { height: meta.height }
+                : {})}
               isCover={isCover}
               isSelected={selectedPhotoId === preview.id}
               key={preview.id}
@@ -266,6 +276,7 @@ export function EntryPhotoGrid({
                 : {})}
               setCoverLabel={t('entry.setCoverPhoto')}
               src={preview.url}
+              {...(typeof meta?.width === 'number' ? { width: meta.width } : {})}
             />
           )
         })}

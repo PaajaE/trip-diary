@@ -12,9 +12,13 @@ export interface PhotoGpsBackfillResult {
 function pickGpsExtractionVariant(
   variants: LocalPhotoVariant[],
 ): LocalPhotoVariant | undefined {
+  // Prefer the largest available master for EXIF GPS (full ≡ legacy preview).
   return (
-    variants.find(({ kind }) => kind === 'large') ??
+    variants.find(({ kind }) => kind === 'full') ??
     variants.find(({ kind }) => kind === 'preview') ??
+    variants.find(({ kind }) => kind === 'large') ??
+    variants.find(({ kind }) => kind === 'medium') ??
+    variants.find(({ kind }) => kind === 'small') ??
     variants.find(({ kind }) => kind === 'thumb')
   )
 }

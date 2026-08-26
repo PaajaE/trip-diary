@@ -27,6 +27,12 @@ vi.mock('@/foundation/sync/sync-drain-request', () => ({
 }))
 
 vi.mock('@/platform/media/photo', () => ({
+  generateMediumJpeg: vi.fn(async () => {
+    throw new Error('medium not needed in enqueue tests')
+  }),
+  generateSmallJpeg: vi.fn(async () => {
+    throw new Error('small not needed in enqueue tests')
+  }),
   generateThumbJpeg: vi.fn(async () => {
     throw new Error('thumb not needed in enqueue tests')
   }),
@@ -90,6 +96,7 @@ function readyPhoto(id: string): PickedPhoto {
     },
     mimeType: 'image/jpeg',
     status: 'ready',
+    smallUri: null,
     thumbUri: null,
     uri,
     width: 1200,
@@ -129,6 +136,7 @@ describe('uploadEntryPhotos draft association', () => {
     const operation = await getSyncOperation(`photo-upload-${photoId}`)
     expect(operation).not.toBeNull()
     expect(operation?.payload.photoId).toBe(photoId)
+    expect(operation?.payload.variant).toBe('full')
   })
 
   it('repeated Save reuses the same queue operation (idempotent)', async () => {

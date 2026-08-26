@@ -225,7 +225,7 @@ export default function DevChecklistScreen() {
           mimeType: pendingPhoto.mimeType,
           originalFilename: pendingPhoto.originalFilename,
           photoId: pendingPhoto.photoId,
-          variant: 'preview',
+          variant: 'full',
           width: pendingPhoto.width,
         },
         userId: user?.id ?? null,

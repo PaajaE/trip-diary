@@ -1,5 +1,9 @@
 import * as FileSystem from 'expo-file-system'
 import {
+  resolveSmallDimensions,
+  resolveThumbDimensions,
+} from '@/platform/media/normalize-dimensions'
+import {
   getLocalFileByteSize,
   persistPhotoLocally,
   type PickedPhoto,
@@ -341,6 +345,29 @@ export async function uploadEntryPhotos(input: {
       const byteSize = await getLocalFileByteSize(localUri)
       const preferCover = !coverAssigned && picked.localId === coverLocalId
 
+      const smallDims = resolveSmallDimensions({
+        height: picked.height,
+        width: picked.width,
+      })
+      const thumbDims = resolveThumbDimensions({
+        height: picked.height,
+        width: picked.width,
+      })
+
+      let smallLocalUri = picked.smallUri
+      let smallByteSize: number | null = null
+      let smallWidth: number | null = null
+      let smallHeight: number | null = null
+      if (smallLocalUri !== null && smallLocalUri.length > 0) {
+        try {
+          smallByteSize = await getLocalFileByteSize(smallLocalUri)
+          smallWidth = smallDims.width
+          smallHeight = smallDims.height
+        } catch {
+          smallLocalUri = null
+        }
+      }
+
       let thumbLocalUri = picked.thumbUri
       let thumbByteSize: number | null = null
       let thumbWidth: number | null = null
@@ -348,8 +375,8 @@ export async function uploadEntryPhotos(input: {
       if (thumbLocalUri !== null && thumbLocalUri.length > 0) {
         try {
           thumbByteSize = await getLocalFileByteSize(thumbLocalUri)
-          thumbWidth = Math.max(1, Math.round(picked.width / 3))
-          thumbHeight = Math.max(1, Math.round(picked.height / 3))
+          thumbWidth = thumbDims.width
+          thumbHeight = thumbDims.height
         } catch {
           thumbLocalUri = null
         }
@@ -363,6 +390,7 @@ export async function uploadEntryPhotos(input: {
         localUriSuffix: localUri.slice(-48),
         mimeType: picked.mimeType,
         operationId,
+        hasSmall: smallLocalUri !== null,
         hasThumb: thumbLocalUri !== null,
         width: picked.width,
       })
@@ -391,12 +419,16 @@ export async function uploadEntryPhotos(input: {
           originalFilename: filename,
           photoId,
           position,
+          smallByteSize,
+          smallHeight,
+          smallLocalUri,
+          smallWidth,
           sourceUriScheme: picked.diagnostics.sourceUriScheme,
           thumbByteSize,
           thumbHeight,
           thumbLocalUri,
           thumbWidth,
-          variant: 'preview',
+          variant: 'full',
           width: picked.width,
         },
         userId: input.userId,

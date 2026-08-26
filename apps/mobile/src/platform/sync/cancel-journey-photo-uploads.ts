@@ -28,6 +28,7 @@ export async function cancelPendingPhotoUploadsForJourney(
       const payload = JSON.parse(row.payload) as {
         journeyId?: unknown
         localUri?: unknown
+        smallLocalUri?: unknown
         thumbLocalUri?: unknown
       }
       if (payload.journeyId !== journeyId) {
@@ -37,7 +38,11 @@ export async function cancelPendingPhotoUploadsForJourney(
       await db.runAsync('DELETE FROM sync_queue WHERE id = ?', row.id)
       cancelled += 1
 
-      for (const uri of [payload.localUri, payload.thumbLocalUri]) {
+      for (const uri of [
+        payload.localUri,
+        payload.smallLocalUri,
+        payload.thumbLocalUri,
+      ]) {
         if (typeof uri === 'string' && uri.trim().length > 0) {
           try {
             await FileSystem.deleteAsync(uri, { idempotent: true })

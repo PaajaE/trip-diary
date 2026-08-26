@@ -35,7 +35,8 @@
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "preview": "vite preview",
     "backfill:photo-gps": "node --env-file=.env.local scripts/backfill-photo-gps.mjs",
-    "backfill:photo-thumbs": "node --env-file=.env.local --env-file=.env.production.local scripts/backfill-photo-thumbs.mjs"
+    "backfill:photo-thumbs": "node --env-file=.env.local --env-file=.env.production.local scripts/backfill-photo-thumbs.mjs",
+    "backfill:photo-variants": "node --env-file=.env.local --env-file=.env.production.local scripts/backfill-photo-variants.mjs"
   },
   "dependencies": {
     "@capacitor/app": "^8.1.0",

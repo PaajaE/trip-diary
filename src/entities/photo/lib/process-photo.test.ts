@@ -52,7 +52,13 @@ describe('processPhoto', () => {
     })
     const result = await processPhoto(file)
 
-    expect(result.variants.length).toBeGreaterThan(0)
+    expect(result.variants.length).toBe(4)
+    expect(result.variants.map((variant) => variant.kind).sort()).toEqual([
+      'full',
+      'medium',
+      'small',
+      'thumb',
+    ])
     expect(result.variants.every((variant) => variant.ext === 'jpg')).toBe(true)
     expect(
       result.variants.every((variant) => variant.mimeType === 'image/jpeg'),

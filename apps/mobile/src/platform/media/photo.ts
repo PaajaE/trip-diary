@@ -10,9 +10,11 @@ import {
 import { createUuid } from '@/platform/id'
 import {
   MASTER_JPEG_QUALITY,
+  PHOTO_VARIANT_POLICY,
+  resolveMediumDimensions,
   resolveNormalizedDimensions,
+  resolveSmallDimensions,
   resolveThumbDimensions,
-  THUMB_JPEG_QUALITY,
 } from '@/platform/media/normalize-dimensions'
 import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from '@/platform/sync/photo-storage-limits'
 
@@ -28,6 +30,7 @@ export type PhotoMimeType = 'image/jpeg' | 'image/webp'
 export type MediaPrepareStage =
   | 'copy'
   | 'normalize'
+  | 'small'
   | 'thumb'
   | 'validate'
   | 'permission'
@@ -56,11 +59,19 @@ export interface PickedPhoto {
   mimeType: PhotoMimeType
   /**
    * Master JPEG in app-owned storage when ready; empty when failed without a
-   * recoverable local file.
+   * recoverable local file. This is the canonical `full` variant.
    */
   uri: string
-  /** Optional thumb JPEG; missing thumb must not invalidate the master. */
+  /**
+   * Optional ~220px thumb JPEG (`PHOTO_VARIANT_POLICY.thumb`).
+   * Missing thumb must not invalidate the master.
+   */
   thumbUri: string | null
+  /**
+   * Optional ~800px small JPEG (`PHOTO_VARIANT_POLICY.small`) for cards / editor grids.
+   * Missing small must not invalidate the master.
+   */
+  smallUri: string | null
   width: number
   status: PickedPhotoStatus
 }
@@ -223,7 +234,7 @@ export async function materializePickedAssetSafe(
 
 /**
  * Persist a picker asset into app-owned storage as a normalized JPEG master
- * (and best-effort thumb). Always runs dimension policy — never bypasses
+ * (and best-effort small + thumb). Always runs dimension policy — never bypasses
  * normalization for "already JPEG" sources.
  */
 export async function materializePickedAsset(
@@ -299,6 +310,23 @@ export async function materializePickedAsset(
       )
     }
 
+    let smallUri: string | null = null
+    try {
+      const small = await generateSmallJpeg(
+        master.uri,
+        localId,
+        master.width,
+        master.height,
+      )
+      smallUri = small.uri
+    } catch (smallError) {
+      const message =
+        smallError instanceof Error
+          ? smallError.message
+          : 'Small variant generation failed.'
+      console.warn('[photo-picker] small failed', { localId, message })
+    }
+
     let thumbUri: string | null = null
     try {
       const thumb = await generateThumbJpeg(
@@ -336,6 +364,7 @@ export async function materializePickedAsset(
         localUri: master.uri,
       },
       mimeType: 'image/jpeg',
+      smallUri,
       status: 'ready',
       thumbUri,
       uri: master.uri,
@@ -370,6 +399,7 @@ function createFailedPickedPhoto(
     },
     mimeType: 'image/jpeg',
     status: 'failed',
+    smallUri: null,
     thumbUri: null,
     uri: '',
     width: diagnostics.sourceWidth ?? 1,
@@ -541,17 +571,78 @@ export async function generateThumbJpeg(
   masterWidth: number,
   masterHeight: number,
 ): Promise<{ height: number; uri: string; width: number }> {
-  const thumbPlan = resolveThumbDimensions({
+  const plan = resolveThumbDimensions({
     height: masterHeight,
     width: masterWidth,
   })
+  return generateDerivativeJpeg({
+    compress: PHOTO_VARIANT_POLICY.thumb.jpegQuality,
+    emptyError: 'Thumbnail file is empty.',
+    localId,
+    masterUri,
+    suffix: 'thumb',
+    targetHeight: plan.height,
+    targetWidth: plan.width,
+  })
+}
 
+export async function generateSmallJpeg(
+  masterUri: string,
+  localId: string,
+  masterWidth: number,
+  masterHeight: number,
+): Promise<{ height: number; uri: string; width: number }> {
+  const plan = resolveSmallDimensions({
+    height: masterHeight,
+    width: masterWidth,
+  })
+  return generateDerivativeJpeg({
+    compress: PHOTO_VARIANT_POLICY.small.jpegQuality,
+    emptyError: 'Small variant file is empty.',
+    localId,
+    masterUri,
+    suffix: 'small',
+    targetHeight: plan.height,
+    targetWidth: plan.width,
+  })
+}
+
+export async function generateMediumJpeg(
+  masterUri: string,
+  localId: string,
+  masterWidth: number,
+  masterHeight: number,
+): Promise<{ height: number; uri: string; width: number }> {
+  const plan = resolveMediumDimensions({
+    height: masterHeight,
+    width: masterWidth,
+  })
+  return generateDerivativeJpeg({
+    compress: PHOTO_VARIANT_POLICY.medium.jpegQuality,
+    emptyError: 'Medium variant file is empty.',
+    localId,
+    masterUri,
+    suffix: 'medium',
+    targetHeight: plan.height,
+    targetWidth: plan.width,
+  })
+}
+
+async function generateDerivativeJpeg(input: {
+  compress: number
+  emptyError: string
+  localId: string
+  masterUri: string
+  suffix: 'thumb' | 'small' | 'medium'
+  targetHeight: number
+  targetWidth: number
+}): Promise<{ height: number; uri: string; width: number }> {
   const resizeWidth =
-    thumbPlan.width >= thumbPlan.height ? thumbPlan.width : undefined
+    input.targetWidth >= input.targetHeight ? input.targetWidth : undefined
   const resizeHeight =
-    thumbPlan.height > thumbPlan.width ? thumbPlan.height : undefined
+    input.targetHeight > input.targetWidth ? input.targetHeight : undefined
 
-  let manipulator = ImageManipulator.manipulate(masterUri)
+  let manipulator = ImageManipulator.manipulate(input.masterUri)
   if (resizeWidth !== undefined) {
     manipulator = manipulator.resize({ width: resizeWidth })
   } else if (resizeHeight !== undefined) {
@@ -560,7 +651,7 @@ export async function generateThumbJpeg(
 
   const imageRef = await manipulator.renderAsync()
   const result = await imageRef.saveAsync({
-    compress: THUMB_JPEG_QUALITY,
+    compress: input.compress,
     format: SaveFormat.JPEG,
   })
 
@@ -569,13 +660,13 @@ export async function generateThumbJpeg(
     throw new Error('Document directory is unavailable')
   }
 
-  const destination = `${documentDirectory}photos/${localId}-thumb.jpg`
+  const destination = `${documentDirectory}photos/${input.localId}-${input.suffix}.jpg`
   await FileSystem.copyAsync({ from: result.uri, to: destination })
   await safeDeleteAsync(result.uri)
 
   const byteSize = await getLocalFileByteSize(destination)
   if (byteSize <= 0) {
-    throw new Error('Thumbnail file is empty.')
+    throw new Error(input.emptyError)
   }
 
   return {
@@ -690,7 +781,7 @@ function inferFailedStage(message: string): MediaPrepareStage {
   if (normalized.includes('copy') || normalized.includes('uri')) {
     return 'copy'
   }
-  if (normalized.includes('thumb')) {
+  if (normalized.includes('thumb') || normalized.includes('small')) {
     return 'thumb'
   }
   if (

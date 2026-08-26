@@ -291,6 +291,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'status',
           'local_uri',
           'thumb_uri',
+          'small_uri',
           'mime_type',
           'width',
           'height',
@@ -304,6 +305,15 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'created_at',
           'updated_at',
         ])
+        return
+      }
+
+      if (
+        normalized.includes(
+          'ALTER TABLE moment_draft_photos ADD COLUMN small_uri',
+        )
+      ) {
+        addColumn('moment_draft_photos', 'small_uri', null)
         return
       }
 
@@ -667,6 +677,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'status',
           'local_uri',
           'thumb_uri',
+          'small_uri',
           'mime_type',
           'width',
           'height',
@@ -688,6 +699,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           status,
           localUri,
           thumbUri,
+          smallUri,
           mimeType,
           width,
           height,
@@ -707,6 +719,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           string | null,
           string,
           string,
+          string | null,
           string | null,
           string,
           number,
@@ -742,6 +755,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           longitude,
           mime_type: mimeType,
           position,
+          small_uri: smallUri,
           status,
           thumb_uri: thumbUri,
           updated_at: updatedAt,

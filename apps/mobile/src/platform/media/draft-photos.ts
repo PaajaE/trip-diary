@@ -47,6 +47,7 @@ export interface MomentDraftPhotoRow {
   mimeType: PhotoMimeType
   position: number
   status: MomentDraftPhotoStatus
+  smallUri: string | null
   thumbUri: string | null
   width: number
 }
@@ -66,10 +67,10 @@ export async function upsertMomentDraftPhoto(input: {
 
   await db.runAsync(
     `INSERT INTO moment_draft_photos (
-       id, draft_key, journey_id, entry_id, status, local_uri, thumb_uri,
+       id, draft_key, journey_id, entry_id, status, local_uri, thumb_uri, small_uri,
        mime_type, width, height, byte_size, captured_at, latitude, longitude,
        is_cover, position, diagnostics, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        draft_key = excluded.draft_key,
        journey_id = excluded.journey_id,
@@ -77,6 +78,7 @@ export async function upsertMomentDraftPhoto(input: {
        status = excluded.status,
        local_uri = excluded.local_uri,
        thumb_uri = excluded.thumb_uri,
+       small_uri = excluded.small_uri,
        mime_type = excluded.mime_type,
        width = excluded.width,
        height = excluded.height,
@@ -95,6 +97,7 @@ export async function upsertMomentDraftPhoto(input: {
     status,
     input.photo.uri,
     input.photo.thumbUri,
+    input.photo.smallUri,
     input.photo.mimeType,
     input.photo.width,
     input.photo.height,
@@ -131,6 +134,7 @@ export async function listMomentDraftPhotos(
     mime_type: string
     position: number
     status: string
+    small_uri: string | null
     thumb_uri: string | null
     width: number
   }>(
@@ -167,6 +171,7 @@ export function draftPhotoToPickedPhoto(row: MomentDraftPhotoRow): PickedPhoto {
     },
     mimeType: row.mimeType,
     status: ready ? 'ready' : 'failed',
+    smallUri: row.smallUri,
     thumbUri: row.thumbUri,
     uri: ready ? row.localUri : '',
     width: row.width,
@@ -181,9 +186,10 @@ export async function removeMomentDraftPhoto(photoId: string): Promise<void> {
   const db = await getMobileDatabase()
   const row = await db.getFirstAsync<{
     local_uri: string
+    small_uri: string | null
     thumb_uri: string | null
   }>(
-    `SELECT local_uri, thumb_uri FROM moment_draft_photos WHERE id = ?`,
+    `SELECT local_uri, thumb_uri, small_uri FROM moment_draft_photos WHERE id = ?`,
     photoId,
   )
 
@@ -193,7 +199,7 @@ export async function removeMomentDraftPhoto(photoId: string): Promise<void> {
     return
   }
 
-  await deleteLocalFiles([row.local_uri, row.thumb_uri])
+  await deleteLocalFiles([row.local_uri, row.thumb_uri, row.small_uri])
 }
 
 export async function setMomentDraftCoverPhoto(
@@ -246,9 +252,10 @@ export async function clearMomentDraft(draftKey: string): Promise<void> {
   const db = await getMobileDatabase()
   const rows = await db.getAllAsync<{
     local_uri: string
+    small_uri: string | null
     thumb_uri: string | null
   }>(
-    `SELECT local_uri, thumb_uri FROM moment_draft_photos WHERE draft_key = ?`,
+    `SELECT local_uri, thumb_uri, small_uri FROM moment_draft_photos WHERE draft_key = ?`,
     draftKey,
   )
   await db.runAsync(
@@ -256,7 +263,7 @@ export async function clearMomentDraft(draftKey: string): Promise<void> {
     draftKey,
   )
   for (const row of rows) {
-    await deleteLocalFiles([row.local_uri, row.thumb_uri])
+    await deleteLocalFiles([row.local_uri, row.thumb_uri, row.small_uri])
   }
 }
 
@@ -301,8 +308,9 @@ export async function listTrackedLocalPhotoUris(): Promise<Set<string>> {
 
   const draftRows = await db.getAllAsync<{
     local_uri: string
+    small_uri: string | null
     thumb_uri: string | null
-  }>(`SELECT local_uri, thumb_uri FROM moment_draft_photos`)
+  }>(`SELECT local_uri, thumb_uri, small_uri FROM moment_draft_photos`)
 
   for (const row of draftRows) {
     if (row.local_uri.trim().length > 0) {
@@ -310,6 +318,9 @@ export async function listTrackedLocalPhotoUris(): Promise<Set<string>> {
     }
     if (row.thumb_uri !== null && row.thumb_uri.trim().length > 0) {
       tracked.add(row.thumb_uri)
+    }
+    if (row.small_uri !== null && row.small_uri.trim().length > 0) {
+      tracked.add(row.small_uri)
     }
   }
 
@@ -323,10 +334,17 @@ export async function listTrackedLocalPhotoUris(): Promise<Set<string>> {
     try {
       const payload = JSON.parse(row.payload) as {
         localUri?: unknown
+        smallLocalUri?: unknown
         thumbLocalUri?: unknown
       }
       if (typeof payload.localUri === 'string' && payload.localUri.length > 0) {
         tracked.add(payload.localUri)
+      }
+      if (
+        typeof payload.smallLocalUri === 'string' &&
+        payload.smallLocalUri.length > 0
+      ) {
+        tracked.add(payload.smallLocalUri)
       }
       if (
         typeof payload.thumbLocalUri === 'string' &&
@@ -439,6 +457,7 @@ function mapRow(row: {
   mime_type: string
   position: number
   status: string
+  small_uri: string | null
   thumb_uri: string | null
   width: number
 }): MomentDraftPhotoRow {
@@ -494,6 +513,7 @@ function mapRow(row: {
     mimeType,
     position: row.position,
     status: row.status as MomentDraftPhotoStatus,
+    smallUri: row.small_uri ?? null,
     thumbUri: row.thumb_uri,
     width: row.width,
   }

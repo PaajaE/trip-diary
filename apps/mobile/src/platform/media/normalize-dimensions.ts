@@ -1,96 +1,33 @@
-export interface PhotoDimensions {
-  height: number
-  width: number
-}
-
-export interface NormalizedDimensionPlan extends PhotoDimensions {
-  isPanorama: boolean
-  maxLongestEdge: number
-  maxPixels: number
-}
-
-/** Normal phone photos: longest edge cap. */
-export const NORMAL_MAX_LONGEST_EDGE = 2560
-
-/** Ultra-wide / panorama longest-edge allowance. */
-export const PANORAMA_MAX_LONGEST_EDGE = 4096
-
-/** Aspect ratio (long/short) at or above this is treated as panorama. */
-export const PANORAMA_ASPECT_RATIO_THRESHOLD = 1.8
-
-/** Soft pixel budget for normal photos (~8 MP). */
-export const NORMAL_MAX_PIXELS = 8_000_000
-
-/** Soft pixel budget for panoramas (~12 MP). */
-export const PANORAMA_MAX_PIXELS = 12_000_000
-
-export const MASTER_JPEG_QUALITY = 0.82
-
-export const THUMB_MAX_LONGEST_EDGE = 800
-
-export const THUMB_JPEG_QUALITY = 0.75
-
-export function isPanoramaDimensions(width: number, height: number): boolean {
-  const w = Math.max(1, Math.trunc(width))
-  const h = Math.max(1, Math.trunc(height))
-  const longEdge = Math.max(w, h)
-  const shortEdge = Math.min(w, h)
-  return longEdge / shortEdge >= PANORAMA_ASPECT_RATIO_THRESHOLD
-}
-
 /**
- * Scale so longest edge and total pixels stay within policy.
- * Never upscales. Preserves aspect ratio.
+ * Mobile-facing re-exports of the shared photo variant dimension policy.
+ * Prefer importing from `@trip-diary/utils` for new code.
  */
-export function resolveNormalizedDimensions(
-  source: PhotoDimensions,
-): NormalizedDimensionPlan {
-  const width = Math.max(1, Math.trunc(source.width))
-  const height = Math.max(1, Math.trunc(source.height))
-  const panorama = isPanoramaDimensions(width, height)
-  const maxLongestEdge = panorama
-    ? PANORAMA_MAX_LONGEST_EDGE
-    : NORMAL_MAX_LONGEST_EDGE
-  const maxPixels = panorama ? PANORAMA_MAX_PIXELS : NORMAL_MAX_PIXELS
+export {
+  FULL_JPEG_QUALITY as MASTER_JPEG_QUALITY,
+  FULL_MAX_LONGEST_EDGE as NORMAL_MAX_LONGEST_EDGE,
+  FULL_MAX_PIXELS as NORMAL_MAX_PIXELS,
+  FULL_PANORAMA_MAX_LONGEST_EDGE as PANORAMA_MAX_LONGEST_EDGE,
+  FULL_PANORAMA_MAX_PIXELS as PANORAMA_MAX_PIXELS,
+  isPanoramaDimensions,
+  PANORAMA_ASPECT_RATIO_THRESHOLD,
+  PHOTO_VARIANT_POLICY,
+  resolveMediumDimensions,
+  resolveNormalizedDimensions,
+  resolveSmallDimensions,
+  resolveThumbDimensions,
+  resolveVariantDimensions,
+  type NormalizedDimensionPlan,
+  type PhotoDimensions,
+} from '@trip-diary/utils'
 
-  let nextWidth = width
-  let nextHeight = height
-  const longest = Math.max(nextWidth, nextHeight)
+/** @deprecated Use PHOTO_VARIANT_POLICY.thumb.maxLongestEdge */
+export const THUMB_MAX_LONGEST_EDGE = 220
 
-  if (longest > maxLongestEdge) {
-    const scale = maxLongestEdge / longest
-    nextWidth = Math.max(1, Math.round(nextWidth * scale))
-    nextHeight = Math.max(1, Math.round(nextHeight * scale))
-  }
+/** @deprecated Use PHOTO_VARIANT_POLICY.thumb.jpegQuality */
+export const THUMB_JPEG_QUALITY = 0.72
 
-  const pixels = nextWidth * nextHeight
-  if (pixels > maxPixels) {
-    const scale = Math.sqrt(maxPixels / pixels)
-    nextWidth = Math.max(1, Math.round(nextWidth * scale))
-    nextHeight = Math.max(1, Math.round(nextHeight * scale))
-  }
+/** @deprecated Use PHOTO_VARIANT_POLICY.small.maxLongestEdge */
+export const SMALL_MAX_LONGEST_EDGE = 800
 
-  return {
-    height: nextHeight,
-    isPanorama: panorama,
-    maxLongestEdge,
-    maxPixels,
-    width: nextWidth,
-  }
-}
-
-export function resolveThumbDimensions(source: PhotoDimensions): PhotoDimensions {
-  const width = Math.max(1, Math.trunc(source.width))
-  const height = Math.max(1, Math.trunc(source.height))
-  const longest = Math.max(width, height)
-
-  if (longest <= THUMB_MAX_LONGEST_EDGE) {
-    return { height, width }
-  }
-
-  const scale = THUMB_MAX_LONGEST_EDGE / longest
-  return {
-    height: Math.max(1, Math.round(height * scale)),
-    width: Math.max(1, Math.round(width * scale)),
-  }
-}
+/** @deprecated Use PHOTO_VARIANT_POLICY.small.jpegQuality */
+export const SMALL_JPEG_QUALITY = 0.75

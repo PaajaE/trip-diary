@@ -402,7 +402,7 @@ describe('syncPendingOperations', () => {
       ext: 'jpg',
       height: 1200,
       id: crypto.randomUUID(),
-      kind: 'preview',
+      kind: 'full',
       mimeType: 'image/jpeg',
       photoId,
       sizeBytes: 11,

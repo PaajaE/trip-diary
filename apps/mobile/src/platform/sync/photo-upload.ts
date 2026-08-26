@@ -1,7 +1,16 @@
 import { decode } from 'base64-arraybuffer'
 import * as FileSystem from 'expo-file-system'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { generateThumbJpeg } from '@/platform/media/photo'
+import {
+  buildPhotoStoragePath as buildSharedPhotoStoragePath,
+  isOversizedThumbVariant,
+  type PhotoVariantKind,
+} from '@trip-diary/utils'
+import {
+  generateMediumJpeg,
+  generateSmallJpeg,
+  generateThumbJpeg,
+} from '@/platform/media/photo'
 import { normalizePhotoCapturedAt } from '@/platform/media/normalize-captured-at'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
 import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from './photo-storage-limits'
@@ -9,9 +18,9 @@ import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from './photo-storage-limits'
 export const PHOTO_UPLOAD_OPERATION = 'photo.upload'
 export const PHOTOS_STORAGE_BUCKET = 'photos'
 /** Canonical master variant (normalized JPEG). */
-export const DEFAULT_PHOTO_VARIANT = 'preview' as const
+export const DEFAULT_PHOTO_VARIANT = 'full' as const
 
-export type PhotoVariantType = 'thumb' | 'preview' | 'large'
+export type PhotoVariantType = PhotoVariantKind
 export type PhotoMimeType = 'image/jpeg' | 'image/webp'
 
 const UUID_PATTERN =
@@ -31,11 +40,20 @@ export interface PhotoUploadPayload {
   originalFilename: string
   photoId: string
   position?: number
-  /** Optional thumb file; failure must not fail master upload. */
+  /** Optional ~800px small file; failure must not fail master upload. */
+  smallByteSize?: number | null
+  smallHeight?: number | null
+  smallLocalUri?: string | null
+  smallWidth?: number | null
+  /** Optional ~220px thumb file; failure must not fail master upload. */
   thumbByteSize?: number | null
   thumbHeight?: number | null
   thumbLocalUri?: string | null
   thumbWidth?: number | null
+  /**
+   * Master declare variant. New uploads use `full`. Legacy queued ops may still
+   * send `preview`, which is treated as the master file.
+   */
   variant?: PhotoVariantType
   width: number
   /** Diagnostics (persisted for failed/retry visibility). */
@@ -70,7 +88,7 @@ export function buildPhotoStoragePath(
   mimeType: PhotoMimeType,
 ): string {
   const extension = mimeType === 'image/jpeg' ? 'jpg' : 'webp'
-  return `${creatorId}/${photoId}/${variant}.${extension}`
+  return buildSharedPhotoStoragePath(creatorId, photoId, variant, extension)
 }
 
 export function parsePhotoUploadPayload(
@@ -99,6 +117,10 @@ export function parsePhotoUploadPayload(
   const thumbByteSize = readOptionalPositiveInteger(payload.thumbByteSize)
   const thumbWidth = readOptionalPositiveInteger(payload.thumbWidth)
   const thumbHeight = readOptionalPositiveInteger(payload.thumbHeight)
+  const smallLocalUri = readOptionalNullableString(payload.smallLocalUri)
+  const smallByteSize = readOptionalPositiveInteger(payload.smallByteSize)
+  const smallWidth = readOptionalPositiveInteger(payload.smallWidth)
+  const smallHeight = readOptionalPositiveInteger(payload.smallHeight)
 
   return {
     attemptCount:
@@ -118,6 +140,10 @@ export function parsePhotoUploadPayload(
     originalFilename,
     photoId,
     position,
+    smallByteSize,
+    smallHeight,
+    smallLocalUri,
+    smallWidth,
     sourceUriScheme: readOptionalNullableString(payload.sourceUriScheme),
     thumbByteSize,
     thumbHeight,
@@ -138,8 +164,22 @@ export function assertPhotoFileWithinStorageLimit(byteSize: number): void {
   }
 }
 
+type DerivativeKind = 'thumb' | 'small' | 'medium'
+
 export interface PhotoUploadDeps {
   cleanupLocalFiles?: (uris: string[]) => Promise<void>
+  generateMedium?: (
+    masterUri: string,
+    photoId: string,
+    width: number,
+    height: number,
+  ) => Promise<{ height: number; uri: string; width: number }>
+  generateSmall?: (
+    masterUri: string,
+    photoId: string,
+    width: number,
+    height: number,
+  ) => Promise<{ height: number; uri: string; width: number }>
   generateThumb?: (
     masterUri: string,
     photoId: string,
@@ -166,6 +206,8 @@ const defaultDeps: PhotoUploadDeps = {
       }
     }
   },
+  generateMedium: generateMediumJpeg,
+  generateSmall: generateSmallJpeg,
   generateThumb: generateThumbJpeg,
   getClient: getSupabaseClient,
   getLocalFileByteSize: async (localUri: string) => {
@@ -271,15 +313,13 @@ export async function processPhotoUploadOperation(
     )
   }
 
-  const variant = parsed.variant ?? DEFAULT_PHOTO_VARIANT
-  if (variant !== 'preview') {
-    // Mobile masters always use preview; thumbs are uploaded separately below.
-  }
-
+  // Master is always declared as `full`. Legacy payload variant `preview` still
+  // identifies the master local file, never a derivative.
+  const masterVariant: PhotoVariantType = 'full'
   const masterStoragePath = buildPhotoStoragePath(
     creatorId,
     parsed.photoId,
-    'preview',
+    masterVariant,
     parsed.mimeType,
   )
 
@@ -334,7 +374,7 @@ export async function processPhotoUploadOperation(
     },
     creatorId,
     masterStoragePath,
-    'preview',
+    masterVariant,
   )
 
   if (parsed.entryId !== null && parsed.entryId !== undefined) {
@@ -347,36 +387,58 @@ export async function processPhotoUploadOperation(
     })
   }
 
+  const localFiles = resolveDerivativeLocalFiles(parsed)
+  const generatedUris: string[] = []
   let thumbStoragePath: string | null = null
   let thumbUploadError: string | null = null
 
-  try {
-    thumbStoragePath = await uploadThumbVariant({
-      client,
-      creatorId,
-      deps,
-      parsed,
-    })
-  } catch (error) {
-    thumbUploadError =
-      error instanceof Error ? error.message : 'Thumbnail upload failed.'
-    console.warn('[photo-upload] thumb failed; master remains valid', {
-      photoId: parsed.photoId,
-      thumbUploadError,
-    })
+  // Upload order: full (done) → small → medium → thumb.
+  for (const kind of ['small', 'medium', 'thumb'] as const) {
+    try {
+      const uploaded = await uploadDerivativeVariant({
+        client,
+        creatorId,
+        deps,
+        generatedUris,
+        kind,
+        localFiles,
+        parsed,
+      })
+      if (kind === 'thumb') {
+        thumbStoragePath = uploaded
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : `${kind} variant upload failed.`
+      console.warn(
+        `[photo-upload] ${kind} failed; master remains valid`,
+        {
+          photoId: parsed.photoId,
+          uploadError: message,
+        },
+      )
+      if (kind === 'thumb') {
+        thumbUploadError = message
+      }
+    }
   }
 
   const cleanup = deps.cleanupLocalFiles
   if (cleanup !== undefined) {
-    const toDelete = [parsed.localUri]
-    if (
-      parsed.thumbLocalUri !== null &&
-      parsed.thumbLocalUri !== undefined &&
-      parsed.thumbLocalUri.length > 0
-    ) {
-      toDelete.push(parsed.thumbLocalUri)
+    const toDelete = [parsed.localUri, ...generatedUris]
+    for (const uri of [
+      localFiles.smallUri,
+      localFiles.thumbUri,
+      parsed.smallLocalUri,
+      parsed.thumbLocalUri,
+    ]) {
+      if (uri !== null && uri !== undefined && uri.length > 0) {
+        toDelete.push(uri)
+      }
     }
-    await cleanup(toDelete)
+    await cleanup([...new Set(toDelete)])
   }
 
   return {
@@ -387,20 +449,88 @@ export async function processPhotoUploadOperation(
   }
 }
 
-async function uploadThumbVariant(input: {
-  client: SupabaseClient
-  creatorId: string
-  deps: PhotoUploadDeps
-  parsed: PhotoUploadPayload
-}): Promise<string | null> {
-  const { client, creatorId, deps, parsed } = input
-
-  let thumbUri = parsed.thumbLocalUri ?? null
+function resolveDerivativeLocalFiles(parsed: PhotoUploadPayload): {
+  smallHeight: number | null
+  smallUri: string | null
+  smallWidth: number | null
+  thumbHeight: number | null
+  thumbUri: string | null
+  thumbWidth: number | null
+} {
+  let smallUri = readNonEmptyOptional(parsed.smallLocalUri)
+  let smallWidth = parsed.smallWidth ?? null
+  let smallHeight = parsed.smallHeight ?? null
+  let thumbUri = readNonEmptyOptional(parsed.thumbLocalUri)
   let thumbWidth = parsed.thumbWidth ?? null
   let thumbHeight = parsed.thumbHeight ?? null
 
-  if (thumbUri === null || thumbUri.length === 0) {
-    const generate = deps.generateThumb
+  // Legacy queues stored the ~800px derivative as thumbLocalUri. Prefer that as
+  // small and force a true ~220 thumb to be generated.
+  if (smallUri === null && thumbUri !== null) {
+    const legacyAsSmall =
+      thumbWidth === null ||
+      thumbHeight === null ||
+      isOversizedThumbVariant(thumbWidth, thumbHeight)
+    if (legacyAsSmall) {
+      smallUri = thumbUri
+      smallWidth = thumbWidth
+      smallHeight = thumbHeight
+      thumbUri = null
+      thumbWidth = null
+      thumbHeight = null
+    }
+  }
+
+  return {
+    smallHeight,
+    smallUri,
+    smallWidth,
+    thumbHeight,
+    thumbUri,
+    thumbWidth,
+  }
+}
+
+function readNonEmptyOptional(value: string | null | undefined): string | null {
+  if (value === null || value === undefined || value.trim().length === 0) {
+    return null
+  }
+  return value
+}
+
+async function uploadDerivativeVariant(input: {
+  client: SupabaseClient
+  creatorId: string
+  deps: PhotoUploadDeps
+  generatedUris: string[]
+  kind: DerivativeKind
+  localFiles: ReturnType<typeof resolveDerivativeLocalFiles>
+  parsed: PhotoUploadPayload
+}): Promise<string | null> {
+  const { client, creatorId, deps, generatedUris, kind, localFiles, parsed } =
+    input
+
+  let localUri: string | null = null
+  let width: number | null = null
+  let height: number | null = null
+
+  if (kind === 'small') {
+    localUri = localFiles.smallUri
+    width = localFiles.smallWidth
+    height = localFiles.smallHeight
+  } else if (kind === 'thumb') {
+    localUri = localFiles.thumbUri
+    width = localFiles.thumbWidth
+    height = localFiles.thumbHeight
+  }
+
+  if (localUri === null) {
+    const generate =
+      kind === 'small'
+        ? deps.generateSmall
+        : kind === 'medium'
+          ? deps.generateMedium
+          : deps.generateThumb
     if (generate === undefined) {
       return null
     }
@@ -410,43 +540,44 @@ async function uploadThumbVariant(input: {
       parsed.width,
       parsed.height,
     )
-    thumbUri = generated.uri
-    thumbWidth = generated.width
-    thumbHeight = generated.height
+    localUri = generated.uri
+    width = generated.width
+    height = generated.height
+    generatedUris.push(generated.uri)
   }
 
-  if (!(await deps.localFileExists(thumbUri))) {
+  if (!(await deps.localFileExists(localUri))) {
     return null
   }
 
-  const thumbBytes = await deps.readLocalFileBytes(thumbUri)
-  if (thumbBytes.byteLength === 0) {
+  const bytes = await deps.readLocalFileBytes(localUri)
+  if (bytes.byteLength === 0) {
     throw new PhotoUploadError(
-      'Thumbnail decoded to zero bytes.',
+      `${kind} variant decoded to zero bytes.`,
       false,
-      'thumb',
+      kind,
     )
   }
 
-  assertPhotoFileWithinStorageLimit(thumbBytes.byteLength)
+  assertPhotoFileWithinStorageLimit(bytes.byteLength)
 
-  const thumbPath = buildPhotoStoragePath(
+  const storagePath = buildPhotoStoragePath(
     creatorId,
     parsed.photoId,
-    'thumb',
+    kind,
     'image/jpeg',
   )
 
-  await uploadPhotoBytes(client, thumbPath, thumbBytes, 'image/jpeg')
+  await uploadPhotoBytes(client, storagePath, bytes, 'image/jpeg')
 
   const verify =
     deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
-  const remoteSize = await verify(client, thumbPath)
+  const remoteSize = await verify(client, storagePath)
   if (remoteSize <= 0) {
     throw new PhotoUploadError(
-      `Remote thumb Storage object is empty: ${thumbPath}`,
+      `Remote ${kind} Storage object is empty: ${storagePath}`,
       true,
-      'thumb',
+      kind,
     )
   }
 
@@ -455,16 +586,24 @@ async function uploadThumbVariant(input: {
     {
       ...parsed,
       byteSize: remoteSize,
-      height: thumbHeight ?? Math.max(1, Math.round(parsed.height / 4)),
+      height: height ?? fallbackDerivativeDim(parsed.height, kind),
       mimeType: 'image/jpeg',
-      width: thumbWidth ?? Math.max(1, Math.round(parsed.width / 4)),
+      width: width ?? fallbackDerivativeDim(parsed.width, kind),
     },
     creatorId,
-    thumbPath,
-    'thumb',
+    storagePath,
+    kind,
   )
 
-  return thumbPath
+  return storagePath
+}
+
+function fallbackDerivativeDim(
+  masterDim: number,
+  kind: DerivativeKind,
+): number {
+  const divisor = kind === 'thumb' ? 12 : kind === 'small' ? 3 : 2
+  return Math.max(1, Math.round(masterDim / divisor))
 }
 
 export async function verifyRemoteObjectByteSize(
@@ -895,7 +1034,14 @@ function readVariant(value: unknown): PhotoVariantType | undefined {
     return undefined
   }
 
-  if (value === 'thumb' || value === 'preview' || value === 'large') {
+  if (
+    value === 'thumb' ||
+    value === 'small' ||
+    value === 'medium' ||
+    value === 'full' ||
+    value === 'preview' ||
+    value === 'large'
+  ) {
     return value
   }
 

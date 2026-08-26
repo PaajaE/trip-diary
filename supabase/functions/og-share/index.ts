@@ -120,21 +120,34 @@ async function resolveFirstPhotoSignedUrl(
     .from('photo_variants')
     .select('storage_path, variant')
     .eq('photo_id', photoId)
-    .in('variant', ['preview', 'thumb'])
-    .order('variant', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .in('variant', ['full', 'preview', 'medium', 'large', 'small', 'thumb'])
+    .order('variant', { ascending: true })
+    .limit(20)
 
   if (variantError !== null) {
     throw variantError
   }
-  if (variant === null) {
+  if (variant === null || variant.length === 0) {
+    return null
+  }
+
+  const preference = ['full', 'preview', 'medium', 'large', 'small', 'thumb'] as const
+  const byKind = new Map(variant.map((row) => [row.variant, row.storage_path]))
+  let storagePath: string | null = null
+  for (const kind of preference) {
+    const path = byKind.get(kind)
+    if (typeof path === 'string' && path.length > 0) {
+      storagePath = path
+      break
+    }
+  }
+  if (storagePath === null) {
     return null
   }
 
   const { data: signed, error: signedError } = await supabase.storage
     .from('photos')
-    .createSignedUrl(variant.storage_path, 60 * 60 * 24)
+    .createSignedUrl(storagePath, 60 * 60 * 24)
 
   if (signedError !== null) {
     return null

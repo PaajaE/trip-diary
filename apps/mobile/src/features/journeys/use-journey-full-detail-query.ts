@@ -32,12 +32,17 @@ async function loadLocalCoverPreviewUrls(
     const ready = drafts.find(
       (row) =>
         row.status === 'ready' &&
-        (row.thumbUri !== null || row.localUri.trim().length > 0),
+        (row.smallUri !== null ||
+          row.thumbUri !== null ||
+          row.localUri.trim().length > 0),
     )
     if (ready === undefined) {
       continue
     }
-    map.set(entryId, ready.thumbUri ?? ready.localUri)
+    map.set(
+      entryId,
+      ready.smallUri ?? ready.thumbUri ?? ready.localUri,
+    )
   }
   // Also check create-key leftovers for this journey (pre-save drafts).
   const createDrafts = await listActiveMomentDraftPhotos(

@@ -83,7 +83,14 @@ export async function getPublicMomentPhotos(
       .from('photo_variants')
       .select('photo_id, storage_path, variant')
       .in('photo_id', photoIds)
-      .in('variant', ['thumb', 'preview']),
+      .in('variant', [
+        'thumb',
+        'small',
+        'medium',
+        'full',
+        'preview',
+        'large',
+      ]),
   ])
 
   if (photosError !== null) {
@@ -95,14 +102,22 @@ export async function getPublicMomentPhotos(
 
   const photoById = new Map(photos.map((photo) => [photo.id, photo]))
   const thumbPathByPhotoId = new Map<string, string>()
-  for (const variant of variants) {
-    const photoId = variant.photo_id
-    if (variant.variant === 'thumb') {
-      thumbPathByPhotoId.set(photoId, variant.storage_path)
-      continue
-    }
-    if (!thumbPathByPhotoId.has(photoId) && variant.variant === 'preview') {
-      thumbPathByPhotoId.set(photoId, variant.storage_path)
+  const preference = [
+    'thumb',
+    'small',
+    'medium',
+    'full',
+    'preview',
+    'large',
+  ] as const
+  for (const kind of preference) {
+    for (const variant of variants) {
+      if (
+        variant.variant === kind &&
+        !thumbPathByPhotoId.has(variant.photo_id)
+      ) {
+        thumbPathByPhotoId.set(variant.photo_id, variant.storage_path)
+      }
     }
   }
 

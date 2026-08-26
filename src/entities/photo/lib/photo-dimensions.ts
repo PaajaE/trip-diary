@@ -1,22 +1,28 @@
+import {
+  resolveNormalizedDimensions,
+  resolveVariantDimensions,
+} from '@trip-diary/utils'
+
 export interface Dimensions {
   height: number
   width: number
 }
 
+/**
+ * Scale by longest edge. Preserves aspect ratio; never upscales.
+ * Prefer this over width-only resize for portrait and landscape alike.
+ */
 export function calculateDimensions(
   source: Dimensions,
-  maxWidth: number,
+  maxLongestEdge: number,
 ): Dimensions {
-  if (source.width <= maxWidth) {
-    return {
-      height: source.height,
-      width: source.width,
-    }
-  }
+  return resolveVariantDimensions(source, maxLongestEdge)
+}
 
-  const scale = maxWidth / source.width
-  return {
-    height: Math.max(1, Math.round(source.height * scale)),
-    width: maxWidth,
-  }
+/** Master/full variant dimensions (longest-edge + panorama pixel caps). */
+export function calculateNormalizedFullDimensions(
+  source: Dimensions,
+): Dimensions {
+  const plan = resolveNormalizedDimensions(source)
+  return { height: plan.height, width: plan.width }
 }

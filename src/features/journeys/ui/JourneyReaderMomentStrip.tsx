@@ -12,6 +12,8 @@ import {
   handleStripKeyDown,
   scrollMomentIntoView,
 } from '@/features/journeys/ui/journey-reader-moment-strip.logic'
+import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
+import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { cn } from '@/shared/lib/cn'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 
@@ -173,12 +175,17 @@ function MomentStripCard({
             {t('reader.momentStripNoPhoto')}
           </div>
         ) : (
-          <img
-            alt=""
+          <ResponsivePhotoImage
+            alt={title}
             className="h-full w-full object-cover"
-            decoding="async"
-            loading="lazy"
+            {...(typeof coverPhoto?.height === 'number'
+              ? { height: coverPhoto.height }
+              : {})}
+            sizes={READER_STRIP_SIZES}
             src={coverUrl}
+            {...(typeof coverPhoto?.width === 'number'
+              ? { width: coverPhoto.width }
+              : {})}
           />
         )}
         {active ? (

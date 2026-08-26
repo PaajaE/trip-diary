@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PHOTO_VARIANT_PREFERENCE, pickPreferredPhotoVariant } from '@trip-diary/utils'
 import type {
   ProcessedPhoto,
   SelectedPhotoFile,
@@ -19,15 +20,21 @@ function pickPreviewSource(
   photo: SelectedPhotoFile,
   processed: ProcessedPhoto | undefined,
 ): { blob: Blob; id: string } | null {
-  const variant =
-    processed?.variants.find(({ kind }) => kind === 'thumb') ??
-    processed?.variants.find(({ kind }) => kind === 'preview') ??
-    processed?.variants.find(({ kind }) => kind === 'large')
+  const match =
+    processed === undefined
+      ? null
+      : pickPreferredPhotoVariant(
+          processed.variants.map((variant) => ({
+            ...variant,
+            variant: variant.kind,
+          })),
+          PHOTO_VARIANT_PREFERENCE.tiny,
+        )
 
-  if (variant !== undefined) {
+  if (match !== null) {
     return {
-      blob: variant.blob,
-      id: variant.kind,
+      blob: match.blob,
+      id: match.kind,
     }
   }
 
