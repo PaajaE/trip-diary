@@ -7,6 +7,11 @@ import {
   type ProcessedPhoto,
   type SelectedPhotoFile,
 } from '@/entities/photo/lib/process-photo'
+import {
+  isVideoInput,
+  processVideo,
+  type ProcessedVideo,
+} from '@/entities/photo/lib/process-video'
 import { localDb } from '@/shared/lib/local-db'
 import { syncOperationSchema } from '@/shared/sync/sync-operation'
 
@@ -14,7 +19,7 @@ export async function addLocalPhotos(
   creatorId: string,
   entryId: string,
   files: (File | SelectedPhotoFile)[],
-  processedPhotos?: ProcessedPhoto[],
+  processedPhotos?: (ProcessedPhoto | ProcessedVideo)[],
 ): Promise<string[]> {
   const startingPosition = await localDb.photos
     .where('entryId')
@@ -26,10 +31,12 @@ export async function addLocalPhotos(
     const selectedFile = file instanceof File ? file : file.file
 
     const preprocessed = processedPhotos?.[index]
-    let processed: ProcessedPhoto
+    let processed: ProcessedPhoto | ProcessedVideo
 
     if (preprocessed !== undefined && preprocessed.variants.length > 0) {
       processed = preprocessed
+    } else if (isVideoInput(file)) {
+      processed = await processVideo(file)
     } else {
       processed = await processPhoto(file)
     }
@@ -45,10 +52,12 @@ export async function addLocalPhotos(
       capturedAt: processed.capturedAt,
       createdAt: now,
       creatorId,
+      durationMs: 'durationMs' in processed ? processed.durationMs : undefined,
       entryId,
       id: photoId,
       latitude: processed.latitude,
       longitude: processed.longitude,
+      mediaType: 'mediaType' in processed ? processed.mediaType : 'photo',
       position: startingPosition + index,
       syncStatus: 'pending',
     })

@@ -219,6 +219,7 @@ export const cs: TranslationResources = {
       '{{failed}} z {{total}} vybraných fotek se nepodařilo připravit. Nezdařené položky zůstávají viditelné — dlouhým stiskem je odebereš.',
     photoPrepareFailed: 'Tuto fotku se nepodařilo připravit k nahrání.',
     photoStatusFailed: 'Selhalo',
+    videoClip: 'Video',
     photoFailedRetry:
       'Nezdařená fotka — klepni pro detail, dlouhý stisk pro odebrání',
     filePickerAction: 'Vybrat fotky ze souborů',
@@ -239,6 +240,10 @@ export const cs: TranslationResources = {
     editPhotoCaption: 'Upravit popisek',
     heicUnsupported:
       'Fotky HEIC/HEIF v tomto prohlížeči nepodporujeme. Nejdřív je převeďte do JPEG nebo WebP.',
+    videoTooLong: 'Video je příliš dlouhé. Maximální délka je 3 minuty.',
+    videoTooLarge:
+      'Soubor videa je příliš velký. Zkus kratší klip nebo nižší rozlišení.',
+    unsupportedVideoFormat: 'V tomto prohlížeči podporujeme jen video MP4.',
     photoHasGps: 'Poloha fotky',
     photoNoGps: 'Bez polohy fotky',
     deletePhoto: 'Odebrat fotku',

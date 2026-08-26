@@ -10,8 +10,10 @@ import {
   getLocalFileByteSize,
   persistPhotoLocally,
   pickPhoto,
+  type PickedMedia,
   type PickedPhoto,
 } from '@/platform/media/photo'
+import { isPickedVideo } from '@/platform/media/picked-media'
 import { resolveMapStyle } from '@trip-diary/maps'
 import { mobilePublicEnv } from '@/platform/env'
 import { PHOTO_UPLOAD_OPERATION } from '@/platform/sync/photo-upload'
@@ -119,8 +121,12 @@ export default function DevChecklistScreen() {
 
   async function persistAndStagePhoto(
     source: 'Gallery' | 'Camera',
-    picked: PickedPhoto,
+    picked: PickedMedia,
   ): Promise<void> {
+    if (isPickedVideo(picked)) {
+      append(`${source}: video clips are not staged in dev-checklist yet.`)
+      return
+    }
     if (journeyId === null) {
       append('No journey available for upload staging.')
       return

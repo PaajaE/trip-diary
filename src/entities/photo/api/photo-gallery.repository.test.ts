@@ -56,6 +56,7 @@ function createLocalPhoto(
     id,
     latitude: null,
     longitude: null,
+    mediaType: 'photo',
     position,
     syncStatus: 'pending',
   }
@@ -311,6 +312,84 @@ describe('getEntryPhotoPreviews', () => {
 
     const previews = await getEntryPhotoPreviews(entryId)
     expect(previews.map(({ id }) => id)).toEqual([photoId])
+  })
+
+  it('does not download video variant for grid previews', async () => {
+    const entryId = crypto.randomUUID()
+    const videoPhotoId = crypto.randomUUID()
+    const thumbBlob = new Blob(['thumb'])
+    const links = createQuery({
+      data: [{ photo_id: videoPhotoId, position: 0 }],
+      error: null,
+    })
+    const variants = createQuery({
+      data: [
+        {
+          height: 1080,
+          photo_id: videoPhotoId,
+          storage_path: 'video-path',
+          variant: 'video',
+          width: 1920,
+        },
+        {
+          height: 220,
+          photo_id: videoPhotoId,
+          storage_path: 'thumb-path',
+          variant: 'thumb',
+          width: 220,
+        },
+      ],
+      error: null,
+    })
+    const photosMeta = createQuery({
+      data: [
+        {
+          duration_ms: 5000,
+          id: videoPhotoId,
+          media_type: 'video',
+        },
+      ],
+      error: null,
+    })
+    const download = vi.fn((path: string) =>
+      Promise.resolve({
+        data: path === 'thumb-path' ? thumbBlob : new Blob(['video']),
+        error: null,
+      }),
+    )
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'entry_photos') {
+          return links
+        }
+        if (table === 'photos') {
+          return photosMeta
+        }
+        return variants
+      }),
+      storage: {
+        from: vi.fn(() => ({ download })),
+      },
+    })
+
+    const previews = await getEntryPhotoPreviews(entryId)
+
+    expect(variants.in).toHaveBeenCalledWith(
+      'variant',
+      expect.not.arrayContaining(['video']),
+    )
+    expect(download).toHaveBeenCalledWith('thumb-path')
+    expect(download).not.toHaveBeenCalledWith('video-path')
+    expect(previews).toEqual([
+      {
+        blob: thumbBlob,
+        durationMs: 5000,
+        height: 220,
+        id: videoPhotoId,
+        mediaType: 'video',
+        width: 220,
+      },
+    ])
   })
 })
 

@@ -18,6 +18,7 @@ import {
 } from '@/entities/photo/api/local-photo-tag.repository'
 import { SYNC_PHOTO_VARIANT_KINDS } from '@/entities/photo/lib/photo-variant-config'
 import { isMeaningfulGpsCoordinate } from '@/entities/photo/lib/photo-exif-gps'
+import { buildPhotoStoragePath } from '@trip-diary/utils'
 import { listMySpaces } from '@/entities/space/api/space.repository'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
@@ -1243,7 +1244,18 @@ async function syncPhotoUpload(
 
   await localDb.photos.update(photo.id, { syncStatus: 'syncing' })
   const client = getSupabaseClient()
-  await syncPhotoMetadata(client, photo, creatorId)
+  await syncPhotoMetadata(
+    client,
+    {
+      capturedAt: photo.capturedAt,
+      durationMs: photo.durationMs ?? null,
+      id: photo.id,
+      latitude: photo.latitude,
+      longitude: photo.longitude,
+      mediaType: photo.mediaType,
+    },
+    creatorId,
+  )
 
   for (const variant of variantsToUpload) {
     const snapshot = getSyncProgress()
@@ -1290,10 +1302,13 @@ async function syncPhotoUpload(
     localDb.syncOperations,
     async () => {
       await localDb.photos.update(photo.id, { syncStatus: 'synced' })
+      const isVideo = photo.mediaType === 'video'
       await localDb.photoVariants
         .where('photoId')
         .equals(photo.id)
-        .and((variant) => variant.kind !== 'thumb')
+        .and((variant) =>
+          isVideo ? variant.kind === 'video' : variant.kind !== 'thumb',
+        )
         .delete()
       await localDb.syncOperations.delete(operation.id)
     },
@@ -1538,18 +1553,22 @@ async function syncPhotoMetadata(
   client: ReturnType<typeof getSupabaseClient>,
   photo: {
     capturedAt: string | null
+    durationMs?: number | null
     id: string
     latitude: number | null
     longitude: number | null
+    mediaType?: 'photo' | 'video'
   },
   creatorId: string,
 ): Promise<void> {
   const metadata = {
     captured_at: photo.capturedAt,
     creator_id: creatorId,
+    duration_ms: photo.durationMs ?? null,
     id: photo.id,
     latitude: photo.latitude,
     longitude: photo.longitude,
+    media_type: photo.mediaType ?? 'photo',
   }
   const { error: insertError } = await client.from('photos').insert(metadata)
   if (insertError === null) {
@@ -1564,8 +1583,10 @@ async function syncPhotoMetadata(
     .from('photos')
     .update({
       captured_at: photo.capturedAt,
+      duration_ms: photo.durationMs ?? null,
       latitude: photo.latitude,
       longitude: photo.longitude,
+      media_type: photo.mediaType ?? 'photo',
     })
     .eq('id', photo.id)
     .eq('creator_id', creatorId)
@@ -1627,7 +1648,12 @@ async function uploadThenDeclareVariant(
   if (variant.sizeBytes <= 0) {
     throw new Error(`Empty photo variant: ${variant.kind}`)
   }
-  const storagePath = `${creatorId}/${variant.photoId}/${variant.kind}.${variant.ext}`
+  const storagePath = buildPhotoStoragePath(
+    creatorId,
+    variant.photoId,
+    variant.kind,
+    variant.ext,
+  )
   const client = getSupabaseClient()
   // Prefer storage-before-DB so we never declare variants for failed uploads.
   await uploadPhotoVariantBlob(

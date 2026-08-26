@@ -49,6 +49,10 @@ export function createSelectedPhotos(files: File[]): SelectedPhotoFile[] {
   return files.map((file) => ({ file }))
 }
 
+/** Web `<input type="file">` accept list for photos and MP4 video. */
+export const WEB_PHOTO_VIDEO_ACCEPT =
+  'image/*,video/mp4,.mp4,video/quicktime,.mov'
+
 export function supportsFileSystemPhotoSelection() {
   const pickerWindow = window as FilePickerCapableWindow
   return (
@@ -76,8 +80,10 @@ export async function choosePhotosFromFiles(): Promise<SelectedPhotoFile[]> {
       {
         accept: {
           'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.heic'],
+          'video/mp4': ['.mp4'],
+          'video/quicktime': ['.mov'],
         },
-        description: 'Images',
+        description: 'Photos and videos',
       },
     ],
   })

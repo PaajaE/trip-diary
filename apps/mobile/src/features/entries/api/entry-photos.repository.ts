@@ -6,8 +6,9 @@ import {
 import {
   getLocalFileByteSize,
   persistPhotoLocally,
-  type PickedPhoto,
+  type PickedMedia,
 } from '@/platform/media/photo'
+import { isPickedVideo } from '@/platform/media/picked-media'
 import {
   markMomentDraftPhotoEnqueued,
   clearEnqueuedMomentDraftPhotos,
@@ -236,7 +237,7 @@ export async function uploadEntryPhotos(input: {
   draftKey?: string
   entryId: string
   journeyId: string
-  photos: PickedPhoto[]
+  photos: PickedMedia[]
   startingPosition?: number
   userId: string
 }): Promise<{
@@ -318,8 +319,9 @@ export async function uploadEntryPhotos(input: {
   for (const picked of readyPhotos) {
     const photoId = picked.localId
     const operationId = `photo-upload-${photoId}`
+    const isVideo = isPickedVideo(picked)
     try {
-      assertPickedPhotoValid(picked)
+      assertPickedMediaValid(picked)
 
       const existing = await getSyncOperation(operationId)
       if (
@@ -340,7 +342,7 @@ export async function uploadEntryPhotos(input: {
         continue
       }
 
-      const filename = `${photoId}.jpg`
+      const filename = isVideo ? `${photoId}.mp4` : `${photoId}.jpg`
       const localUri = await ensureUploadLocalCopy(picked.uri, filename)
       const byteSize = await getLocalFileByteSize(localUri)
       const preferCover = !coverAssigned && picked.localId === coverLocalId
@@ -387,7 +389,9 @@ export async function uploadEntryPhotos(input: {
         entryId: input.entryId,
         height: picked.height,
         isCover: preferCover,
+        isVideo,
         localUriSuffix: localUri.slice(-48),
+        mediaType: isVideo ? 'video' : 'photo',
         mimeType: picked.mimeType,
         operationId,
         hasSmall: smallLocalUri !== null,
@@ -408,6 +412,7 @@ export async function uploadEntryPhotos(input: {
           byteSize,
           capturedAt: picked.metadata.capturedAt,
           declaredMime: picked.diagnostics.declaredMime,
+          durationMs: isVideo ? picked.durationMs : null,
           entryId: input.entryId,
           height: picked.height,
           isCover: preferCover,
@@ -415,6 +420,7 @@ export async function uploadEntryPhotos(input: {
           latitude: picked.metadata.latitude,
           localUri,
           longitude: picked.metadata.longitude,
+          mediaType: isVideo ? 'video' : 'photo',
           mimeType: picked.mimeType,
           originalFilename: filename,
           photoId,
@@ -428,7 +434,7 @@ export async function uploadEntryPhotos(input: {
           thumbHeight,
           thumbLocalUri,
           thumbWidth,
-          variant: 'full',
+          variant: isVideo ? 'video' : 'full',
           width: picked.width,
         },
         userId: input.userId,
@@ -489,32 +495,36 @@ async function ensureUploadLocalCopy(
   return persistPhotoLocally(sourceUri, filename)
 }
 
-function assertPickedPhotoValid(photo: PickedPhoto): void {
-  if (photo.status !== 'ready') {
+function assertPickedMediaValid(media: PickedMedia): void {
+  if (media.status !== 'ready') {
     throw new EntryPhotoError(
-      photo.diagnostics.lastError ?? 'Selected photo is not ready.',
+      media.diagnostics.lastError ?? 'Selected media is not ready.',
       'ASSET_INVALID',
     )
   }
 
-  if (photo.uri.trim().length === 0) {
+  if (media.uri.trim().length === 0) {
     throw new EntryPhotoError(
-      'Selected photo has an empty URI.',
+      'Selected media has an empty URI.',
       'ASSET_INVALID',
     )
   }
 
-  if (photo.width <= 0 || photo.height <= 0) {
+  if (media.width <= 0 || media.height <= 0) {
     throw new EntryPhotoError(
-      'Selected photo has invalid dimensions.',
+      'Selected media has invalid dimensions.',
       'ASSET_INVALID',
     )
   }
 
-  const mimeType: string = photo.mimeType
-  if (mimeType !== 'image/jpeg' && mimeType !== 'image/webp') {
+  const mimeType: string = media.mimeType
+  if (
+    mimeType !== 'image/jpeg' &&
+    mimeType !== 'image/webp' &&
+    mimeType !== 'video/mp4'
+  ) {
     throw new EntryPhotoError(
-      `Unsupported photo type: ${mimeType}`,
+      `Unsupported media type: ${mimeType}`,
       'ASSET_INVALID',
     )
   }

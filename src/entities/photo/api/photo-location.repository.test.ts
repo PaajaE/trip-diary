@@ -31,6 +31,7 @@ describe('getJourneyPhotoLocations', () => {
       id: localPhotoId,
       latitude: 50.08,
       longitude: 14.43,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'pending',
     })
@@ -99,6 +100,7 @@ describe('getJourneyPhotoLocations', () => {
       id: localPhotoId,
       latitude: 50.08,
       longitude: 14.43,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'pending',
     })
@@ -141,6 +143,7 @@ describe('getJourneyPhotoLocations', () => {
       id: localPhotoId,
       latitude: 48.2,
       longitude: 16.37,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'pending',
     })

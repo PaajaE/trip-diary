@@ -20,6 +20,7 @@ import { JourneyTimelineMoments } from '@/features/journeys/ui/JourneyTimelineMo
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { EmptyState } from '@/shared/ui/EmptyState'
 import { PhotoPreviewStrip } from '@/shared/ui/PhotoPreviewStrip'
 import { StoryKicker } from '@/shared/ui/StoryKicker'
@@ -168,6 +169,7 @@ export function ReaderMomentArticle({
     alt: title,
     entryId: moment.entry.id,
     id: preview.id,
+    ...(preview.mediaType === 'video' ? { mediaType: 'video' as const } : {}),
     thumbUrl: preview.url,
   }))
 
@@ -223,6 +225,7 @@ export function ReaderMomentArticle({
                 loading="lazy"
                 src={cover.url}
               />
+              {cover.mediaType === 'video' ? <VideoPlayOverlay /> : null}
             </button>
           </div>
         )}
@@ -275,6 +278,9 @@ export function ReaderMomentArticle({
                   alt: title,
                   id: photo.id,
                   url: photo.url,
+                  ...(photo.mediaType === 'video'
+                    ? { mediaType: 'video' as const }
+                    : {}),
                   ...(typeof photo.height === 'number'
                     ? { height: photo.height }
                     : {}),

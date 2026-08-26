@@ -1,9 +1,11 @@
 import * as FileSystem from 'expo-file-system'
 import type {
+  PickedMedia,
   PickedPhoto,
   PickedPhotoDiagnostics,
   PhotoMimeType,
 } from '@/platform/media/photo'
+import { isPickedVideo } from '@/platform/media/picked-media'
 import { getMobileDatabase } from '@/platform/storage/database'
 
 export type MomentDraftPhotoStatus = 'ready' | 'failed' | 'enqueued' | 'removed'
@@ -32,6 +34,7 @@ export interface MomentDraftPhotoRow {
   capturedAt: string | null
   diagnostics: PickedPhotoDiagnostics
   draftKey: string
+  durationMs: number | null
   entryId: string | null
   height: number
   id: string
@@ -40,7 +43,8 @@ export interface MomentDraftPhotoRow {
   latitude: number | null
   localUri: string
   longitude: number | null
-  mimeType: PhotoMimeType
+  mediaType: 'photo' | 'video'
+  mimeType: PhotoMimeType | 'video/mp4'
   position: number
   status: MomentDraftPhotoStatus
   smallUri: string | null
@@ -53,20 +57,22 @@ export async function upsertMomentDraftPhoto(input: {
   entryId?: string | null
   isCover?: boolean
   journeyId: string
-  photo: PickedPhoto
+  photo: PickedMedia
   position?: number
 }): Promise<void> {
   const db = await getMobileDatabase()
   const now = new Date().toISOString()
   const status: MomentDraftPhotoStatus =
     input.photo.status === 'ready' ? 'ready' : 'failed'
+  const mediaType = isPickedVideo(input.photo) ? 'video' : 'photo'
+  const durationMs = isPickedVideo(input.photo) ? input.photo.durationMs : null
 
   await db.runAsync(
     `INSERT INTO moment_draft_photos (
        id, draft_key, journey_id, entry_id, status, local_uri, thumb_uri, small_uri,
-       mime_type, width, height, byte_size, captured_at, latitude, longitude,
+       mime_type, media_type, duration_ms, width, height, byte_size, captured_at, latitude, longitude,
        is_cover, position, diagnostics, created_at, updated_at
-     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
        draft_key = excluded.draft_key,
        journey_id = excluded.journey_id,
@@ -76,6 +82,8 @@ export async function upsertMomentDraftPhoto(input: {
        thumb_uri = excluded.thumb_uri,
        small_uri = excluded.small_uri,
        mime_type = excluded.mime_type,
+       media_type = excluded.media_type,
+       duration_ms = excluded.duration_ms,
        width = excluded.width,
        height = excluded.height,
        byte_size = excluded.byte_size,
@@ -95,6 +103,8 @@ export async function upsertMomentDraftPhoto(input: {
     input.photo.thumbUri,
     input.photo.smallUri,
     input.photo.mimeType,
+    mediaType,
+    durationMs,
     input.photo.width,
     input.photo.height,
     input.photo.diagnostics.normalizedByteSize ??
@@ -119,6 +129,7 @@ export async function listMomentDraftPhotos(
     captured_at: string | null
     diagnostics: string
     draft_key: string
+    duration_ms: number | null
     entry_id: string | null
     height: number
     id: string
@@ -127,6 +138,7 @@ export async function listMomentDraftPhotos(
     latitude: number | null
     local_uri: string
     longitude: number | null
+    media_type: string
     mime_type: string
     position: number
     status: string
@@ -152,10 +164,10 @@ export async function listActiveMomentDraftPhotos(
   return rows.filter((row) => row.status === 'ready' || row.status === 'failed')
 }
 
-export function draftPhotoToPickedPhoto(row: MomentDraftPhotoRow): PickedPhoto {
+export function draftPhotoToPickedPhoto(row: MomentDraftPhotoRow): PickedMedia {
   const ready = row.status === 'ready' && row.localUri.trim().length > 0
 
-  return {
+  const base = {
     diagnostics: row.diagnostics,
     height: row.height,
     localId: row.id,
@@ -166,12 +178,26 @@ export function draftPhotoToPickedPhoto(row: MomentDraftPhotoRow): PickedPhoto {
       longitude: row.longitude,
     },
     mimeType: row.mimeType,
-    status: ready ? 'ready' : 'failed',
+    status: ready ? ('ready' as const) : ('failed' as const),
     smallUri: row.smallUri,
     thumbUri: row.thumbUri,
     uri: ready ? row.localUri : '',
     width: row.width,
   }
+
+  if (row.mediaType === 'video') {
+    return {
+      ...base,
+      durationMs: row.durationMs ?? 0,
+      mediaType: 'video',
+      mimeType: 'video/mp4',
+    }
+  }
+
+  return {
+    ...base,
+    mimeType: row.mimeType === 'image/webp' ? 'image/webp' : 'image/jpeg',
+  } satisfies PickedPhoto
 }
 
 /**
@@ -329,7 +355,9 @@ export async function listTrackedLocalPhotoUris(): Promise<Set<string>> {
   for (const row of queueRows) {
     try {
       const payload = JSON.parse(row.payload) as {
+        durationMs?: unknown
         localUri?: unknown
+        mediaType?: unknown
         smallLocalUri?: unknown
         thumbLocalUri?: unknown
       }
@@ -442,6 +470,7 @@ function mapRow(row: {
   captured_at: string | null
   diagnostics: string
   draft_key: string
+  duration_ms: number | null
   entry_id: string | null
   height: number
   id: string
@@ -450,6 +479,7 @@ function mapRow(row: {
   latitude: number | null
   local_uri: string
   longitude: number | null
+  media_type: string
   mime_type: string
   position: number
   status: string
@@ -490,14 +520,21 @@ function mapRow(row: {
     }
   }
 
-  const mimeType: PhotoMimeType =
-    row.mime_type === 'image/webp' ? 'image/webp' : 'image/jpeg'
+  const mediaType: 'photo' | 'video' =
+    row.media_type === 'video' ? 'video' : 'photo'
+  const mimeType: PhotoMimeType | 'video/mp4' =
+    mediaType === 'video'
+      ? 'video/mp4'
+      : row.mime_type === 'image/webp'
+        ? 'image/webp'
+        : 'image/jpeg'
 
   return {
     byteSize: row.byte_size,
     capturedAt: row.captured_at,
     diagnostics,
     draftKey: row.draft_key,
+    durationMs: row.duration_ms,
     entryId: row.entry_id,
     height: row.height,
     id: row.id,
@@ -506,6 +543,7 @@ function mapRow(row: {
     latitude: row.latitude,
     localUri: row.local_uri,
     longitude: row.longitude,
+    mediaType,
     mimeType,
     position: row.position,
     status: row.status as MomentDraftPhotoStatus,

@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { PhotoNatureSpotting } from '@/features/nature/ui/PhotoNatureSpotting'
 import { getPhotoDetailPreview } from '@/entities/photo/api/photo-gallery.repository'
+import { resolvePhotoVideoSignedUrl } from '@/entities/photo/api/signed-video-url'
 import { PhotoTagEditor } from '@/features/photos/ui/PhotoTagEditor'
 import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
@@ -25,6 +26,7 @@ export interface PhotoLightboxItem {
   id: string
   latitude?: number | null
   longitude?: number | null
+  mediaType?: 'photo' | 'video'
   thumbUrl: string
 }
 
@@ -70,8 +72,10 @@ export function PhotoLightbox({
   const returnFocusElementRef = useRef<HTMLElement | null>(null)
   const [index, setIndex] = useState(initialIndex)
   const [detailUrls, setDetailUrls] = useState<Record<string, string>>({})
+  const [videoUrls, setVideoUrls] = useState<Record<string, string>>({})
   const [deleting, setDeleting] = useState(false)
   const loadedIdsRef = useRef(new Set<string>())
+  const loadedVideoIdsRef = useRef(new Set<string>())
   const touchStartX = useRef<number | null>(null)
   const activePhoto = photos[index]
 
@@ -87,6 +91,14 @@ export function PhotoLightbox({
     return createPreviewUrl(preview.blob)
   }, [])
 
+  const fetchVideoUrl = useCallback(async (photoId: string) => {
+    if (loadedVideoIdsRef.current.has(photoId)) {
+      return null
+    }
+    loadedVideoIdsRef.current.add(photoId)
+    return resolvePhotoVideoSignedUrl(photoId)
+  }, [])
+
   useEffect(() => {
     if (activePhoto === undefined) {
       return
@@ -99,6 +111,17 @@ export function PhotoLightbox({
     ].filter((photoId): photoId is string => photoId !== undefined)
 
     for (const photoId of photoIds) {
+      const item = photos.find((photo) => photo.id === photoId)
+      if (item?.mediaType === 'video') {
+        void fetchVideoUrl(photoId).then((url) => {
+          if (url === null) {
+            return
+          }
+          setVideoUrls((previous) => ({ ...previous, [photoId]: url }))
+        })
+        continue
+      }
+
       void fetchDetailUrl(photoId).then((url) => {
         if (url === null) {
           return
@@ -106,7 +129,7 @@ export function PhotoLightbox({
         setDetailUrls((previous) => ({ ...previous, [photoId]: url }))
       })
     }
-  }, [activePhoto, fetchDetailUrl, index, photos])
+  }, [activePhoto, fetchDetailUrl, fetchVideoUrl, index, photos])
 
   useEffect(() => {
     returnFocusElementRef.current =
@@ -212,6 +235,8 @@ export function PhotoLightbox({
   }
 
   const displayUrl = detailUrls[activePhoto.id] ?? activePhoto.thumbUrl
+  const activeVideoUrl = videoUrls[activePhoto.id]
+  const isActiveVideo = activePhoto.mediaType === 'video'
   const activeTags = tagsByPhotoId?.get(activePhoto.id) ?? []
   const canSpotNature =
     canLogObservation && creatorId !== undefined && journeyId !== undefined
@@ -306,11 +331,23 @@ export function PhotoLightbox({
           </button>
         ) : null}
 
-        <img
-          alt={activePhoto.alt}
-          className="max-h-full max-w-full object-contain px-4"
-          src={displayUrl}
-        />
+        {isActiveVideo && activeVideoUrl !== undefined ? (
+          <video
+            className="max-h-full max-w-full object-contain px-4"
+            controls
+            playsInline
+            preload="metadata"
+            src={activeVideoUrl}
+          >
+            <track kind="captions" />
+          </video>
+        ) : (
+          <img
+            alt={activePhoto.alt}
+            className="max-h-full max-w-full object-contain px-4"
+            src={isActiveVideo ? activePhoto.thumbUrl : displayUrl}
+          />
+        )}
 
         {index < photos.length - 1 ? (
           <button

@@ -2,6 +2,7 @@ import {
   FULL_JPEG_QUALITY,
   PHOTO_VARIANT_POLICY,
   UPLOAD_PHOTO_VARIANTS,
+  VIDEO_UPLOAD_VARIANTS,
   type CanonicalPhotoVariant,
 } from '@trip-diary/utils'
 import type { PhotoVariantKind } from '@/entities/photo/model/photo'
@@ -44,4 +45,5 @@ export const LOCAL_PHOTO_VARIANT_SIZES: PhotoVariantSizeConfig[] = [
 
 export const SYNC_PHOTO_VARIANT_KINDS = new Set<PhotoVariantKind>([
   ...UPLOAD_PHOTO_VARIANTS,
+  ...VIDEO_UPLOAD_VARIANTS,
 ])

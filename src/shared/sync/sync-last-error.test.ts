@@ -80,6 +80,7 @@ describe('sync dependency helpers', () => {
       id: photoId,
       latitude: null,
       longitude: null,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'pending',
     })

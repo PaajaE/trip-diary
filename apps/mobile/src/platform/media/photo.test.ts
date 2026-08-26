@@ -39,6 +39,9 @@ vi.mock('expo-image-picker', () => ({
   UIImagePickerPresentationStyle: {
     FULL_SCREEN: 'fullScreen',
   },
+  VideoExportPreset: {
+    H264_1920x1080: 'H264_1920x1080',
+  },
   getCameraPermissionsAsync: vi.fn(async () => ({
     granted: true,
     status: 'granted',
@@ -51,6 +54,11 @@ vi.mock('expo-image-picker', () => ({
   launchImageLibraryAsync: vi.fn(),
   requestCameraPermissionsAsync: vi.fn(),
   requestMediaLibraryPermissionsAsync: vi.fn(),
+}))
+
+vi.mock('@/platform/media/video', () => ({
+  isVideoPickerAsset: vi.fn(() => false),
+  materializePickedVideoAssetSafe: vi.fn(),
 }))
 
 vi.mock('expo-location', () => ({

@@ -34,7 +34,10 @@ import {
   processPhotoUploadOperation,
   type PhotoUploadDeps,
 } from './photo-upload'
-import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from './photo-storage-limits'
+import {
+  PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES,
+  VIDEO_MAX_CANONICAL_BYTES,
+} from './photo-storage-limits'
 
 function createValidPayload(): Record<string, unknown> {
   return {
@@ -150,6 +153,28 @@ describe('photo upload contract', () => {
     expect(
       buildPhotoStoragePath('user-1', 'photo-1', 'thumb', 'image/webp'),
     ).toBe('user-1/photo-1/thumb.webp')
+    expect(
+      buildPhotoStoragePath('user-1', 'photo-1', 'video', 'video/mp4'),
+    ).toBe('user-1/photo-1/video.mp4')
+  })
+
+  it('parses video upload payloads', () => {
+    expect(
+      parsePhotoUploadPayload({
+        ...createValidPayload(),
+        durationMs: 15_000,
+        localUri: 'file:///mock/documents/photos/test.mp4',
+        mediaType: 'video',
+        mimeType: 'video/mp4',
+        originalFilename: 'test.mp4',
+        variant: 'video',
+      }),
+    ).toMatchObject({
+      durationMs: 15_000,
+      mediaType: 'video',
+      mimeType: 'video/mp4',
+      variant: 'video',
+    })
   })
 
   it('parses valid upload payloads', () => {
@@ -226,6 +251,16 @@ describe('assertPhotoFileWithinStorageLimit', () => {
         retryable: false,
       })
     }
+  })
+
+  it('uses the canonical video limit for video uploads', () => {
+    expect(() =>
+      assertPhotoFileWithinStorageLimit(VIDEO_MAX_CANONICAL_BYTES, 'video'),
+    ).not.toThrow()
+
+    expect(() =>
+      assertPhotoFileWithinStorageLimit(VIDEO_MAX_CANONICAL_BYTES + 1, 'video'),
+    ).toThrow(PhotoUploadError)
   })
 })
 
@@ -415,8 +450,10 @@ describe('processPhotoUploadOperation', () => {
 
     expect(updatePhoto).toHaveBeenCalledWith({
       captured_at: expect.stringMatching(/^2026-07-10T/),
+      duration_ms: null,
       latitude: null,
       longitude: null,
+      media_type: 'photo',
     })
     expect(updateEqId).toHaveBeenCalledWith(
       'id',

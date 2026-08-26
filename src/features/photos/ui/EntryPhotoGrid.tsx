@@ -15,6 +15,7 @@ import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { useToast } from '@/shared/ui/use-toast'
 import { cn } from '@/shared/lib/cn'
 
@@ -40,6 +41,7 @@ function GridImage({
   height,
   isCover,
   isSelected,
+  isVideo = false,
   onOpen,
   onSelect,
   onSetCover,
@@ -52,6 +54,7 @@ function GridImage({
   height?: number
   isCover: boolean
   isSelected: boolean
+  isVideo?: boolean
   onOpen: () => void
   onSelect?: () => void
   onSetCover?: () => void
@@ -95,6 +98,7 @@ function GridImage({
           src={src}
           {...(typeof width === 'number' ? { width } : {})}
         />
+        {isVideo ? <VideoPlayOverlay /> : null}
       </button>
       {isCover ? (
         <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
@@ -237,6 +241,7 @@ export function EntryPhotoGrid({
     caption: captionsQuery.data?.get(preview.id) ?? null,
     entryId,
     id: preview.id,
+    ...(preview.mediaType === 'video' ? { mediaType: 'video' as const } : {}),
     thumbUrl: preview.url,
   }))
 
@@ -255,6 +260,7 @@ export function EntryPhotoGrid({
                 : {})}
               isCover={isCover}
               isSelected={selectedPhotoId === preview.id}
+              isVideo={meta?.mediaType === 'video'}
               key={preview.id}
               onOpen={() => {
                 openLightbox(lightboxPhotos, previewIndex)

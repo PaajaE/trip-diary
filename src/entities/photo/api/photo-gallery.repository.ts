@@ -7,13 +7,15 @@ import {
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { getMeaningfulGpsCoordinates } from '@/entities/photo/lib/photo-exif-gps'
-import type { LocalPhotoVariant } from '@/entities/photo/model/photo'
+import type { LocalPhotoVariant, MediaType } from '@/entities/photo/model/photo'
 
 export interface PhotoPreview {
   blob: Blob
+  durationMs?: number
   height?: number
   id: string
   isCover?: boolean
+  mediaType?: MediaType
   width?: number
 }
 
@@ -111,14 +113,23 @@ function pickLocalZoomVariant(
 function previewFromVariant(
   photoId: string,
   variant: LocalPhotoVariant,
-  extras?: { isCover?: boolean; position?: number },
+  extras?: {
+    durationMs?: number
+    isCover?: boolean
+    mediaType?: MediaType
+    position?: number
+  },
 ): PositionedPhotoPreview {
   return {
     blob: variant.blob,
     height: variant.height,
     id: photoId,
     width: variant.width,
+    ...(extras?.durationMs === undefined
+      ? {}
+      : { durationMs: extras.durationMs }),
     ...(extras?.isCover === undefined ? {} : { isCover: extras.isCover }),
+    ...(extras?.mediaType === undefined ? {} : { mediaType: extras.mediaType }),
     position: extras?.position ?? 0,
   }
 }
@@ -164,12 +175,16 @@ function mergePositionedPreviews(
       // Prefer local blob (fresher offline), but keep remote cover/position.
       const height = preview.height ?? remote.height
       const width = preview.width ?? remote.width
+      const durationMs = preview.durationMs ?? remote.durationMs
+      const mediaType = preview.mediaType ?? remote.mediaType
       previewsById.set(preview.id, {
         blob: preview.blob,
         id: preview.id,
         position: remote.position,
+        ...(durationMs === undefined ? {} : { durationMs }),
         ...(height === undefined ? {} : { height }),
         ...(width === undefined ? {} : { width }),
+        ...(mediaType === undefined ? {} : { mediaType }),
         ...(remote.isCover === undefined ? {} : { isCover: remote.isCover }),
       })
     }
@@ -177,11 +192,13 @@ function mergePositionedPreviews(
 
   return [...previewsById.values()]
     .sort(comparePositionedPhotoPreviews)
-    .map(({ blob, height, id, isCover, width }) => ({
+    .map(({ blob, durationMs, height, id, isCover, mediaType, width }) => ({
       blob,
       id,
+      ...(durationMs === undefined ? {} : { durationMs }),
       ...(height === undefined ? {} : { height }),
       ...(isCover === undefined ? {} : { isCover }),
+      ...(mediaType === undefined ? {} : { mediaType }),
       ...(width === undefined ? {} : { width }),
     }))
 }
@@ -227,7 +244,11 @@ async function getLocalPhotoPreviewsForPicker(
       return variant === undefined
         ? null
         : previewFromVariant(photo.id, variant, {
+            ...(typeof photo.durationMs === 'number'
+              ? { durationMs: photo.durationMs }
+              : {}),
             isCover: photo.position === 0,
+            mediaType: photo.mediaType,
             position: photo.position,
           })
     }),
@@ -285,7 +306,11 @@ async function getLocalPhotoPreviewsBatchForPicker(
     const previews = result.get(photo.entryId) ?? []
     previews.push(
       previewFromVariant(photo.id, variant, {
+        ...(typeof photo.durationMs === 'number'
+          ? { durationMs: photo.durationMs }
+          : {}),
         isCover: photo.position === 0,
+        mediaType: photo.mediaType,
         position: photo.position,
       }),
     )
@@ -325,6 +350,39 @@ interface RemoteVariantRow {
   width: number | null
 }
 
+interface RemotePhotoMediaMeta {
+  durationMs?: number
+  mediaType?: MediaType
+}
+
+async function getRemotePhotoMediaMeta(
+  photoIds: string[],
+): Promise<Map<string, RemotePhotoMediaMeta>> {
+  if (photoIds.length === 0) {
+    return new Map()
+  }
+
+  const client = getSupabaseClient()
+  const { data, error } = await client
+    .from('photos')
+    .select('id, media_type, duration_ms')
+    .in('id', photoIds)
+  if (error !== null) {
+    return new Map()
+  }
+
+  const result = new Map<string, RemotePhotoMediaMeta>()
+  for (const row of data) {
+    result.set(row.id, {
+      ...(row.media_type === 'video' ? { mediaType: 'video' as const } : {}),
+      ...(typeof row.duration_ms === 'number'
+        ? { durationMs: row.duration_ms }
+        : {}),
+    })
+  }
+  return result
+}
+
 function pickRemoteStoragePath(
   rows: RemoteVariantRow[],
   context: PhotoDisplayContext,
@@ -336,8 +394,10 @@ async function downloadRemotePreview(
   storagePath: string,
   photoId: string,
   extras: {
+    durationMs?: number
     height?: number | null
     isCover?: boolean
+    mediaType?: MediaType
     position: number
     width?: number | null
   },
@@ -353,7 +413,11 @@ async function downloadRemotePreview(
     blob,
     id: photoId,
     position: extras.position,
+    ...(extras.durationMs === undefined
+      ? {}
+      : { durationMs: extras.durationMs }),
     ...(extras.isCover === undefined ? {} : { isCover: extras.isCover }),
+    ...(extras.mediaType === undefined ? {} : { mediaType: extras.mediaType }),
     ...(typeof extras.height === 'number' ? { height: extras.height } : {}),
     ...(typeof extras.width === 'number' ? { width: extras.width } : {}),
   }
@@ -378,11 +442,15 @@ async function getRemotePhotoPreviewsForContext(
   }
 
   const photoIds = links.map((link) => link.photo_id)
-  const { data: variantRows, error: variantError } = await client
-    .from('photo_variants')
-    .select('photo_id, storage_path, variant, width, height')
-    .in('photo_id', photoIds)
-    .in('variant', [...variantKinds])
+  const [variantResult, mediaMetaByPhotoId] = await Promise.all([
+    client
+      .from('photo_variants')
+      .select('photo_id, storage_path, variant, width, height')
+      .in('photo_id', photoIds)
+      .in('variant', [...variantKinds]),
+    getRemotePhotoMediaMeta(photoIds),
+  ])
+  const { data: variantRows, error: variantError } = variantResult
   if (variantError !== null) {
     throw variantError
   }
@@ -403,11 +471,18 @@ async function getRemotePhotoPreviewsForContext(
       if (match === null) {
         throw new Error('missing variant')
       }
+      const mediaMeta = mediaMetaByPhotoId.get(link.photo_id)
       return downloadRemotePreview(match.storage_path, link.photo_id, {
         height: match.height,
         isCover: link.is_cover,
         position: link.position,
         width: match.width,
+        ...(mediaMeta?.durationMs === undefined
+          ? {}
+          : { durationMs: mediaMeta.durationMs }),
+        ...(mediaMeta?.mediaType === undefined
+          ? {}
+          : { mediaType: mediaMeta.mediaType }),
       })
     }),
   )
@@ -460,11 +535,15 @@ async function getRemotePhotoPreviewsBatch(
   }
 
   const photoIds = [...new Set(links.map((link) => link.photo_id))]
-  const { data: variantRows, error: variantError } = await client
-    .from('photo_variants')
-    .select('photo_id, storage_path, variant, width, height')
-    .in('photo_id', photoIds)
-    .in('variant', [...variantKinds])
+  const [variantResult, mediaMetaByPhotoId] = await Promise.all([
+    client
+      .from('photo_variants')
+      .select('photo_id, storage_path, variant, width, height')
+      .in('photo_id', photoIds)
+      .in('variant', [...variantKinds]),
+    getRemotePhotoMediaMeta(photoIds),
+  ])
+  const { data: variantRows, error: variantError } = variantResult
   if (variantError !== null) {
     throw variantError
   }
@@ -485,6 +564,7 @@ async function getRemotePhotoPreviewsBatch(
       if (match === null) {
         throw new Error('missing preview variant')
       }
+      const mediaMeta = mediaMetaByPhotoId.get(link.photo_id)
       const preview = await downloadRemotePreview(
         match.storage_path,
         link.photo_id,
@@ -493,6 +573,12 @@ async function getRemotePhotoPreviewsBatch(
           isCover: link.is_cover,
           position: link.position,
           width: match.width,
+          ...(mediaMeta?.durationMs === undefined
+            ? {}
+            : { durationMs: mediaMeta.durationMs }),
+          ...(mediaMeta?.mediaType === undefined
+            ? {}
+            : { mediaType: mediaMeta.mediaType }),
         },
       )
       return { ...preview, entryId: link.entry_id }

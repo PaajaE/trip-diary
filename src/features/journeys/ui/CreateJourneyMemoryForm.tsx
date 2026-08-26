@@ -23,6 +23,7 @@ import {
   createSelectedPhotos,
   supportsFileSystemPhotoSelection,
   supportsNativePhotoSelection,
+  WEB_PHOTO_VIDEO_ACCEPT,
 } from '@/entities/photo/lib/photo-selection'
 import { useMemoryPhotoPreviews } from '@/features/journeys/lib/use-memory-photo-previews'
 import {
@@ -286,6 +287,8 @@ export function CreateJourneyMemoryForm({
       setSuggestedTitle(null)
       if (error instanceof Error && error.message === 'HEIC_UNSUPPORTED') {
         setLinkError(t('entry.heicUnsupported'))
+      } else if (error instanceof Error) {
+        setLinkError(formatMediaProcessingError(error, t))
       } else {
         setLinkError(
           `${t('journey.photoInsightsError')} (${formatPhotoError(error)})`,
@@ -502,7 +505,7 @@ export function CreateJourneyMemoryForm({
               </Button>
             ) : null}
             <input
-              accept="image/*"
+              accept={WEB_PHOTO_VIDEO_ACCEPT}
               className="block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
               multiple
               onChange={(event) => {
@@ -684,4 +687,20 @@ function formatPhotoError(error: unknown): string {
   }
 
   return 'Unknown error'
+}
+
+function formatMediaProcessingError(
+  error: Error,
+  t: (key: string) => string,
+): string {
+  switch (error.message) {
+    case 'VIDEO_TOO_LONG':
+      return t('entry.videoTooLong')
+    case 'VIDEO_TOO_LARGE':
+      return t('entry.videoTooLarge')
+    case 'UNSUPPORTED_VIDEO_FORMAT':
+      return t('entry.unsupportedVideoFormat')
+    default:
+      return `${t('journey.photoInsightsError')} (${error.message})`
+  }
 }

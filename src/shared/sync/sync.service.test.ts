@@ -393,6 +393,7 @@ describe('syncPendingOperations', () => {
       id: photoId,
       latitude: 49.1967,
       longitude: 16.607,
+      mediaType: 'photo',
       position: 2,
       syncStatus: 'pending',
     })

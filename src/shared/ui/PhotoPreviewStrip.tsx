@@ -1,11 +1,13 @@
 import { cn } from '@/shared/lib/cn'
 import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 
 export interface PhotoPreviewStripItem {
   alt: string
   height?: number
   id: string
+  mediaType?: 'photo' | 'video'
   url: string
   width?: number
 }
@@ -69,6 +71,7 @@ export function PhotoPreviewStrip({
                   ? { width: photo.width }
                   : {})}
               />
+              {photo.mediaType === 'video' ? <VideoPlayOverlay /> : null}
               {showOverflow ? (
                 <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-sm font-semibold text-white">
                   +{overflowCount}

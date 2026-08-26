@@ -181,4 +181,12 @@ export const MOBILE_SQL_MIGRATIONS: readonly SqlMigration[] = [
       ALTER TABLE moment_draft_photos ADD COLUMN small_uri TEXT;
     `,
   },
+  {
+    id: 10,
+    name: 'add_moment_draft_photos_video_fields',
+    sql: `
+      ALTER TABLE moment_draft_photos ADD COLUMN media_type TEXT NOT NULL DEFAULT 'photo';
+      ALTER TABLE moment_draft_photos ADD COLUMN duration_ms INTEGER;
+    `,
+  },
 ]

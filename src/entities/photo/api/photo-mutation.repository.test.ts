@@ -38,6 +38,7 @@ describe('photo mutations offline', () => {
       id: photoId,
       latitude: null,
       longitude: null,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'pending',
     })
@@ -87,6 +88,7 @@ describe('photo mutations offline', () => {
       id: photoId,
       latitude: null,
       longitude: null,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'synced',
     })

@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(38);
+select plan(42);
 
 select has_table('public', 'photos', 'photos table exists');
 select has_table('public', 'photo_variants', 'photo_variants table exists');
@@ -12,8 +12,8 @@ select has_trigger('public', 'photos', 'set_photos_updated_at', 'photos has upda
 select results_eq(
   $$ select id, public, file_size_limit, allowed_mime_types
      from storage.buckets where id = 'photos' $$,
-  $$ values ('photos'::text, false, 8388608::bigint, array['image/webp', 'image/jpeg']::text[]) $$,
-  'photos bucket is private and accepts WebP and JPEG'
+  $$ values ('photos'::text, false, 104857600::bigint, array['image/webp', 'image/jpeg', 'video/mp4']::text[]) $$,
+  'photos bucket accepts WebP, JPEG, and MP4 up to 100 MiB'
 );
 
 insert into auth.users (
@@ -257,6 +257,38 @@ select lives_ok(
        '{"mimetype":"image/jpeg"}'::jsonb
      ) $$,
   'authors can upload responsive small.jpg paths'
+);
+select lives_ok(
+  $$ insert into storage.objects (bucket_id, name, owner_id, metadata)
+     values (
+       'photos',
+       '00000000-0000-4000-8000-000000000032/40000000-0000-4000-8000-000000000099/video.mp4',
+       '00000000-0000-4000-8000-000000000032',
+       '{"mimetype":"video/mp4"}'::jsonb
+     ) $$,
+  'authors can upload canonical video.mp4 paths'
+);
+select lives_ok(
+  $$ insert into public.photos (id, creator_id, media_type, duration_ms)
+     values (
+       '40000000-0000-4000-8000-000000000099',
+       '00000000-0000-4000-8000-000000000032',
+       'video',
+       15000
+     ) $$,
+  'authors can insert video media rows'
+);
+select lives_ok(
+  $$ insert into public.photo_variants (
+       photo_id, creator_id, variant, storage_path, width, height, byte_size, mime_type
+     ) values (
+       '40000000-0000-4000-8000-000000000099',
+       '00000000-0000-4000-8000-000000000032',
+       'video',
+       '00000000-0000-4000-8000-000000000032/40000000-0000-4000-8000-000000000099/video.mp4',
+       1920, 1080, 5000000, 'video/mp4'
+     ) $$,
+  'authors can declare video variant rows'
 );
 
 select set_config(

@@ -1,3 +1,4 @@
+import { buildVideoStoragePath } from '@trip-diary/utils'
 import { createSignedPhotoUrls } from '@/features/photos/api/signed-photo-url'
 import {
   groupVariantsByPhotoId,
@@ -21,8 +22,10 @@ export interface JourneyGalleryPhoto {
   isCover: boolean
   latitude: number | null
   longitude: number | null
+  mediaType: 'photo' | 'video'
   position: number
   previewUrl: string | null
+  videoStoragePath: string | null
 }
 
 export async function listJourneyGalleryPhotos(
@@ -79,7 +82,10 @@ export async function listJourneyGalleryPhotos(
     { data: photos, error: photosError },
     { data: variants, error: variantsError },
   ] = await Promise.all([
-    client.from('photos').select('id, latitude, longitude').in('id', photoIds),
+    client
+      .from('photos')
+      .select('id, latitude, longitude, media_type, creator_id')
+      .in('id', photoIds),
     client
       .from('photo_variants')
       .select('photo_id, storage_path, variant')
@@ -123,6 +129,16 @@ export async function listJourneyGalleryPhotos(
     const previewUrl =
       storagePath !== undefined ? (signedByPath.get(storagePath) ?? null) : null
     const coords = readMeaningfulPhotoGps(photo?.latitude, photo?.longitude)
+    const mediaType =
+      photo !== undefined && photo.media_type === 'video' ? 'video' : 'photo'
+    const creatorId =
+      photo !== undefined && typeof photo.creator_id === 'string'
+        ? photo.creator_id
+        : null
+    const videoStoragePath =
+      mediaType === 'video' && creatorId !== null
+        ? buildVideoStoragePath(creatorId, photoId)
+        : null
 
     byPhotoId.set(photoId, {
       entryId,
@@ -131,8 +147,10 @@ export async function listJourneyGalleryPhotos(
       isCover: link.is_cover === true,
       latitude: coords?.latitude ?? null,
       longitude: coords?.longitude ?? null,
+      mediaType,
       position: typeof link.position === 'number' ? link.position : 0,
       previewUrl,
+      videoStoragePath,
     })
   }
 

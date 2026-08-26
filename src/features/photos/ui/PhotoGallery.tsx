@@ -6,6 +6,7 @@ import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { getEntryPhotoPreviews } from '@/entities/photo/api/photo-gallery.repository'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 
 interface PhotoGalleryProps {
   alt: string
@@ -22,10 +23,12 @@ interface PhotoGalleryProps {
 
 function GalleryImage({
   alt,
+  isVideo = false,
   onOpen,
   src,
 }: {
   alt: string
+  isVideo?: boolean
   onOpen: () => void
   src: string
 }) {
@@ -38,7 +41,7 @@ function GalleryImage({
   return (
     <button
       aria-label={alt}
-      className="block w-full overflow-hidden rounded-md focus-visible:outline-offset-2"
+      className="relative block w-full overflow-hidden rounded-md focus-visible:outline-offset-2"
       onClick={onOpen}
       type="button"
     >
@@ -52,6 +55,7 @@ function GalleryImage({
         }}
         src={src}
       />
+      {isVideo ? <VideoPlayOverlay /> : null}
     </button>
   )
 }
@@ -110,6 +114,7 @@ export function PhotoGallery({
     alt,
     entryId,
     id: preview.id,
+    ...(preview.mediaType === 'video' ? { mediaType: 'video' as const } : {}),
     thumbUrl: preview.url,
   }))
 
@@ -119,6 +124,7 @@ export function PhotoGallery({
         {urls.map((preview, previewIndex) => (
           <GalleryImage
             alt={alt}
+            isVideo={preview.mediaType === 'video'}
             key={preview.id}
             onOpen={() => {
               openLightbox(lightboxPhotos, previewIndex)

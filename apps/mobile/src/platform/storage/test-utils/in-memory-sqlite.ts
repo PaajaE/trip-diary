@@ -317,6 +317,18 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return
       }
 
+      if (
+        normalized.includes(
+          'ALTER TABLE moment_draft_photos ADD COLUMN media_type',
+        )
+      ) {
+        addColumn('moment_draft_photos', 'media_type', 'photo')
+        if (normalized.includes('duration_ms')) {
+          addColumn('moment_draft_photos', 'duration_ms', null)
+        }
+        return
+      }
+
       if (normalized.includes('CREATE TABLE IF NOT EXISTS local_moments')) {
         ensureTable('local_moments', [
           'id',
@@ -676,6 +688,8 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'thumb_uri',
           'small_uri',
           'mime_type',
+          'media_type',
+          'duration_ms',
           'width',
           'height',
           'byte_size',
@@ -698,6 +712,8 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           thumbUri,
           smallUri,
           mimeType,
+          mediaType,
+          durationMs,
           width,
           height,
           byteSize,
@@ -719,6 +735,8 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           string | null,
           string | null,
           string,
+          string,
+          number | null,
           number,
           number,
           number | null,
@@ -738,6 +756,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           created_at: existing?.created_at ?? createdAt,
           diagnostics,
           draft_key: draftKey,
+          duration_ms: durationMs,
           entry_id:
             entryId ??
             (sql.includes('ON CONFLICT')
@@ -750,6 +769,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           latitude,
           local_uri: localUri,
           longitude,
+          media_type: mediaType,
           mime_type: mimeType,
           position,
           small_uri: smallUri,

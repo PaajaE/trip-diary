@@ -217,6 +217,7 @@ export const en = {
       '{{failed}} of {{total}} selected photos could not be prepared. Failed items stay visible — long-press to remove.',
     photoPrepareFailed: 'This photo could not be prepared for upload.',
     photoStatusFailed: 'Failed',
+    videoClip: 'Video',
     photoFailedRetry: 'Failed photo — tap for details, long-press to remove',
     filePickerAction: 'Choose photos from files',
     filePickerFallbackHint:
@@ -236,6 +237,10 @@ export const en = {
     editPhotoCaption: 'Edit caption',
     heicUnsupported:
       'HEIC/HEIF photos are not supported in this browser. Convert them to JPEG or WebP first.',
+    videoTooLong: 'This video is too long. Maximum length is 3 minutes.',
+    videoTooLarge:
+      'This video file is too large. Try a shorter clip or lower resolution.',
+    unsupportedVideoFormat: 'Only MP4 video is supported in this browser.',
     photoHasGps: 'Photo location',
     photoNoGps: 'No photo location',
     deletePhoto: 'Remove photo',

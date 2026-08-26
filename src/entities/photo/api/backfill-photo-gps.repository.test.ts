@@ -30,6 +30,7 @@ describe('backfillPhotoGpsFromLocalVariants', () => {
       id: photoId,
       latitude: null,
       longitude: null,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'synced',
     })
@@ -70,6 +71,7 @@ describe('backfillPhotoGpsFromLocalVariants', () => {
       id: photoId,
       latitude: 48.2,
       longitude: 16.37,
+      mediaType: 'photo',
       position: 0,
       syncStatus: 'synced',
     })

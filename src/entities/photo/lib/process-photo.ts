@@ -17,10 +17,10 @@ import type { PhotoVariantKind } from '@/entities/photo/model/photo'
 
 interface ProcessedVariant {
   blob: Blob
-  ext: 'jpg' | 'webp'
+  ext: 'jpg' | 'webp' | 'mp4'
   height: number
   kind: PhotoVariantKind
-  mimeType: 'image/jpeg' | 'image/webp'
+  mimeType: 'image/jpeg' | 'image/webp' | 'video/mp4'
   width: number
 }
 

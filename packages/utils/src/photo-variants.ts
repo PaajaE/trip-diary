@@ -14,7 +14,11 @@
 
 export type CanonicalPhotoVariant = 'thumb' | 'small' | 'medium' | 'full'
 export type LegacyPhotoVariant = 'preview' | 'large'
-export type PhotoVariantKind = CanonicalPhotoVariant | LegacyPhotoVariant
+export type VideoCanonicalVariant = 'video'
+export type PhotoVariantKind =
+  | CanonicalPhotoVariant
+  | LegacyPhotoVariant
+  | VideoCanonicalVariant
 
 export type PhotoDisplayContext =
   | 'tiny'
@@ -96,6 +100,7 @@ const ALL_VARIANT_KINDS = new Set<string>([
   'full',
   'preview',
   'large',
+  'video',
 ])
 
 export function isPhotoVariantKind(value: string): value is PhotoVariantKind {
@@ -119,6 +124,9 @@ export function canonicalizePhotoVariant(
 ): CanonicalPhotoVariant {
   if (variant === 'preview' || variant === 'large') {
     return 'full'
+  }
+  if (variant === 'video') {
+    throw new Error('video is not a photo canonical variant')
   }
   return variant
 }
@@ -215,8 +223,11 @@ export function buildPhotoStoragePath(
   creatorId: string,
   photoId: string,
   variant: PhotoVariantKind,
-  extension: 'jpg' | 'webp' = 'jpg',
+  extension: 'jpg' | 'webp' | 'mp4' = 'jpg',
 ): string {
+  if (variant === 'video') {
+    return `${creatorId}/${photoId}/video.mp4`
+  }
   return `${creatorId}/${photoId}/${variant}.${extension}`
 }
 

@@ -16,7 +16,19 @@ import {
   resolveSmallDimensions,
   resolveThumbDimensions,
 } from '@/platform/media/normalize-dimensions'
+import { VIDEO_MAX_DURATION_SECONDS } from '@trip-diary/utils'
+import type { PickedVideo } from '@/platform/media/video'
+import {
+  isVideoPickerAsset,
+  materializePickedVideoAssetSafe,
+} from '@/platform/media/video'
 import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from '@/platform/sync/photo-storage-limits'
+
+export type { PickedVideo } from '@/platform/media/video'
+
+export type PickedMedia = PickedPhoto | PickedVideo
+
+export { isPickedVideo } from '@/platform/media/picked-media'
 
 export interface PhotoMetadata {
   capturedAt: string | null
@@ -80,7 +92,7 @@ export type PickPhotosStatus = 'selected' | 'canceled' | 'empty'
 
 export interface PickPhotosResult {
   /** Accepted + failed items — length matches picker selection when possible. */
-  photos: PickedPhoto[]
+  photos: PickedMedia[]
   status: PickPhotosStatus
 }
 
@@ -88,13 +100,15 @@ const imageLibraryOptions: ImagePicker.ImagePickerOptions = {
   allowsEditing: false,
   allowsMultipleSelection: true,
   exif: true,
-  mediaTypes: ['images'],
+  mediaTypes: ['images', 'videos'],
   orderedSelection: true,
   preferredAssetRepresentationMode:
     ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
   presentationStyle: ImagePicker.UIImagePickerPresentationStyle.FULL_SCREEN,
   quality: 1,
   selectionLimit: 0,
+  videoExportPreset: ImagePicker.VideoExportPreset.H264_1920x1080,
+  videoMaxDuration: VIDEO_MAX_DURATION_SECONDS,
 }
 
 export interface PickPhotosOptions {
@@ -102,13 +116,13 @@ export interface PickPhotosOptions {
    * Called immediately after each asset is prepared (ready or failed).
    * Use to persist durable draft state before the next asset / before crash.
    */
-  onItemPrepared?: (photo: PickedPhoto) => Promise<void>
+  onItemPrepared?: (photo: PickedMedia) => Promise<void>
 }
 
 async function pickImageFromSource(
   source: 'library' | 'camera',
   options: PickPhotosOptions = {},
-): Promise<PickedPhoto | null> {
+): Promise<PickedMedia | null> {
   const result = await pickPhotosFromSource(source, options)
   return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
@@ -150,26 +164,26 @@ async function pickPhotosFromSource(
     return { photos: [], status: 'empty' }
   }
 
-  const photos: PickedPhoto[] = []
+  const photos: PickedMedia[] = []
 
   for (const asset of result.assets) {
     // Every selected asset becomes a durable row in the returned list —
     // never silently omit a failure.
-    const prepared = await materializePickedAssetSafe(asset)
+    const prepared = await materializeLibraryAsset(asset)
     if (options.onItemPrepared !== undefined) {
       await options.onItemPrepared(prepared)
     }
     photos.push(prepared)
   }
 
-  const anyReady = photos.some((photo) => photo.status === 'ready')
+  const anyReady = photos.some((item) => item.status === 'ready')
   return {
     photos,
     status: anyReady || photos.length > 0 ? 'selected' : 'empty',
   }
 }
 
-export async function pickPhoto(): Promise<PickedPhoto | null> {
+export async function pickPhoto(): Promise<PickedMedia | null> {
   const result = await pickPhotos()
   return result.photos.find((photo) => photo.status === 'ready') ?? null
 }
@@ -181,8 +195,18 @@ export async function pickPhotos(
   return pickPhotosFromSource('library', options)
 }
 
-export async function capturePhoto(): Promise<PickedPhoto | null> {
+export async function capturePhoto(): Promise<PickedMedia | null> {
   return pickImageFromSource('camera')
+}
+
+async function materializeLibraryAsset(
+  asset: ImagePicker.ImagePickerAsset,
+): Promise<PickedMedia> {
+  if (isVideoPickerAsset(asset)) {
+    return materializePickedVideoAssetSafe(asset)
+  }
+
+  return materializePickedAssetSafe(asset)
 }
 
 export async function materializePickedAssetSafe(

@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildPhotoStoragePath as buildSharedPhotoStoragePath,
   isOversizedThumbVariant,
+  type MediaType,
   type PhotoVariantKind,
 } from '@trip-diary/utils'
 import {
@@ -13,7 +14,10 @@ import {
 } from '@/platform/media/photo'
 import { normalizePhotoCapturedAt } from '@/platform/media/normalize-captured-at'
 import { getSupabaseClient, isSupabaseConfigured } from '@/platform/supabase'
-import { PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES } from './photo-storage-limits'
+import {
+  PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES,
+  VIDEO_MAX_CANONICAL_BYTES,
+} from './photo-storage-limits'
 
 export const PHOTO_UPLOAD_OPERATION = 'photo.upload'
 export const PHOTOS_STORAGE_BUCKET = 'photos'
@@ -21,7 +25,7 @@ export const PHOTOS_STORAGE_BUCKET = 'photos'
 export const DEFAULT_PHOTO_VARIANT = 'full' as const
 
 export type PhotoVariantType = PhotoVariantKind
-export type PhotoMimeType = 'image/jpeg' | 'image/webp'
+export type PhotoMimeType = 'image/jpeg' | 'image/webp' | 'video/mp4'
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -29,6 +33,7 @@ const UUID_PATTERN =
 export interface PhotoUploadPayload {
   byteSize: number
   capturedAt?: string | null
+  durationMs?: number | null
   entryId?: string | null
   height: number
   isCover?: boolean
@@ -36,6 +41,7 @@ export interface PhotoUploadPayload {
   latitude?: number | null
   localUri: string
   longitude?: number | null
+  mediaType?: MediaType
   mimeType: PhotoMimeType
   originalFilename: string
   photoId: string
@@ -87,6 +93,10 @@ export function buildPhotoStoragePath(
   variant: PhotoVariantType,
   mimeType: PhotoMimeType,
 ): string {
+  if (variant === 'video' || mimeType === 'video/mp4') {
+    return buildSharedPhotoStoragePath(creatorId, photoId, 'video', 'mp4')
+  }
+
   const extension = mimeType === 'image/jpeg' ? 'jpg' : 'webp'
   return buildSharedPhotoStoragePath(creatorId, photoId, variant, extension)
 }
@@ -102,6 +112,8 @@ export function parsePhotoUploadPayload(
     'originalFilename',
   )
   const mimeType = readMimeType(payload.mimeType)
+  const mediaType = readMediaType(payload.mediaType, mimeType)
+  const durationMs = readOptionalPositiveInteger(payload.durationMs)
   const width = readPositiveInteger(payload.width, 'width')
   const height = readPositiveInteger(payload.height, 'height')
   const byteSize = readPositiveInteger(payload.byteSize, 'byteSize')
@@ -128,6 +140,7 @@ export function parsePhotoUploadPayload(
     byteSize,
     capturedAt,
     declaredMime: readOptionalNullableString(payload.declaredMime),
+    durationMs,
     entryId,
     failedStage: readOptionalNullableString(payload.failedStage),
     height,
@@ -136,6 +149,7 @@ export function parsePhotoUploadPayload(
     latitude,
     localUri,
     longitude,
+    mediaType,
     mimeType,
     originalFilename,
     photoId,
@@ -154,10 +168,18 @@ export function parsePhotoUploadPayload(
   }
 }
 
-export function assertPhotoFileWithinStorageLimit(byteSize: number): void {
-  if (byteSize > PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES) {
+export function assertPhotoFileWithinStorageLimit(
+  byteSize: number,
+  mediaType: MediaType = 'photo',
+): void {
+  const limit =
+    mediaType === 'video'
+      ? VIDEO_MAX_CANONICAL_BYTES
+      : PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES
+
+  if (byteSize > limit) {
     throw new PhotoUploadError(
-      `Photo exceeds Storage limit (${String(PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES)} bytes): ${String(byteSize)} bytes.`,
+      `${mediaType === 'video' ? 'Video' : 'Photo'} exceeds Storage limit (${String(limit)} bytes): ${String(byteSize)} bytes.`,
       false,
       'validate',
     )
@@ -299,6 +321,7 @@ export async function processPhotoUploadOperation(
   }
 
   const creatorId = session.user.id
+  const isVideo = parsed.mediaType === 'video'
 
   const enqueuedByUserId = readOptionalNullableString(payload.enqueuedByUserId)
   if (
@@ -313,9 +336,9 @@ export async function processPhotoUploadOperation(
     )
   }
 
-  // Master is always declared as `full`. Legacy payload variant `preview` still
-  // identifies the master local file, never a derivative.
-  const masterVariant: PhotoVariantType = 'full'
+  // Master is `full` for photos and `video` for clips. Legacy payload variant
+  // `preview` still identifies the master local file, never a derivative.
+  const masterVariant: PhotoVariantType = isVideo ? 'video' : 'full'
   const masterStoragePath = buildPhotoStoragePath(
     creatorId,
     parsed.photoId,
@@ -333,19 +356,19 @@ export async function processPhotoUploadOperation(
   }
 
   const fileByteSize = await deps.getLocalFileByteSize(parsed.localUri)
-  assertPhotoFileWithinStorageLimit(fileByteSize)
+  assertPhotoFileWithinStorageLimit(fileByteSize, parsed.mediaType ?? 'photo')
 
   const fileBytes = await deps.readLocalFileBytes(parsed.localUri)
   if (fileBytes.byteLength === 0) {
     throw new PhotoUploadError(
-      `Local photo file decoded to zero bytes: ${parsed.localUri}`,
+      `Local ${isVideo ? 'video' : 'photo'} file decoded to zero bytes: ${parsed.localUri}`,
       false,
       'validate',
     )
   }
 
   const uploadByteSize = fileBytes.byteLength
-  assertPhotoFileWithinStorageLimit(uploadByteSize)
+  assertPhotoFileWithinStorageLimit(uploadByteSize, parsed.mediaType ?? 'photo')
 
   // Photo row may exist without variants — safe for retries.
   await ensurePhotoRow(client, parsed, creatorId)
@@ -391,8 +414,11 @@ export async function processPhotoUploadOperation(
   let thumbStoragePath: string | null = null
   let thumbUploadError: string | null = null
 
-  // Upload order: full (done) → small → medium → thumb.
-  for (const kind of ['small', 'medium', 'thumb'] as const) {
+  const derivativeKinds: DerivativeKind[] = isVideo
+    ? ['small', 'thumb']
+    : ['small', 'medium', 'thumb']
+
+  for (const kind of derivativeKinds) {
     try {
       const uploaded = await uploadDerivativeVariant({
         client,
@@ -555,7 +581,10 @@ async function uploadDerivativeVariant(input: {
     )
   }
 
-  assertPhotoFileWithinStorageLimit(bytes.byteLength)
+  assertPhotoFileWithinStorageLimit(
+    bytes.byteLength,
+    parsed.mediaType ?? 'photo',
+  )
 
   const storagePath = buildPhotoStoragePath(
     creatorId,
@@ -672,6 +701,10 @@ async function ensurePhotoRow(
   const metadata = {
     captured_at: normalizePhotoCapturedAt(payload.capturedAt),
     creator_id: creatorId,
+    duration_ms:
+      payload.durationMs !== null && payload.durationMs !== undefined
+        ? payload.durationMs
+        : null,
     id: payload.photoId,
     latitude:
       payload.latitude !== null && payload.latitude !== undefined
@@ -681,6 +714,7 @@ async function ensurePhotoRow(
       payload.longitude !== null && payload.longitude !== undefined
         ? payload.longitude
         : null,
+    media_type: payload.mediaType ?? 'photo',
   }
 
   const { error: insertError } = await client.from('photos').insert(metadata)
@@ -696,8 +730,10 @@ async function ensurePhotoRow(
     .from('photos')
     .update({
       captured_at: metadata.captured_at,
+      duration_ms: metadata.duration_ms,
       latitude: metadata.latitude,
       longitude: metadata.longitude,
+      media_type: metadata.media_type,
     })
     .eq('id', payload.photoId)
     .eq('creator_id', creatorId)
@@ -1017,11 +1053,23 @@ function readPositiveInteger(value: unknown, field: string): number {
 }
 
 function readMimeType(value: unknown): PhotoMimeType {
-  if (value === 'image/jpeg' || value === 'image/webp') {
+  if (
+    value === 'image/jpeg' ||
+    value === 'image/webp' ||
+    value === 'video/mp4'
+  ) {
     return value
   }
 
   throw new Error('Invalid photo upload payload: mimeType')
+}
+
+function readMediaType(value: unknown, mimeType: PhotoMimeType): MediaType {
+  if (value === 'photo' || value === 'video') {
+    return value
+  }
+
+  return mimeType === 'video/mp4' ? 'video' : 'photo'
 }
 
 function readVariant(value: unknown): PhotoVariantType | undefined {
@@ -1035,7 +1083,8 @@ function readVariant(value: unknown): PhotoVariantType | undefined {
     value === 'medium' ||
     value === 'full' ||
     value === 'preview' ||
-    value === 'large'
+    value === 'large' ||
+    value === 'video'
   ) {
     return value
   }

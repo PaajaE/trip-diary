@@ -39,8 +39,9 @@ import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import {
   pickPhotos,
   getCurrentLocation,
-  type PickedPhoto,
+  type PickedMedia,
 } from '@/platform/media/photo'
+import { isPickedVideo } from '@/platform/media/picked-media'
 import {
   buildMomentDraftKey,
   draftPhotoToPickedPhoto,
@@ -115,7 +116,7 @@ export function MomentEditorForm({
     latitude: number
     longitude: number
   } | null>(() => readStopPoint(stops, entry?.stopId))
-  const [pickedPhotos, setPickedPhotos] = useState<PickedPhoto[]>([])
+  const [pickedPhotos, setPickedPhotos] = useState<PickedMedia[]>([])
   const [coverLocalId, setCoverLocalId] = useState<string | null>(null)
   const [existingPhotos, setExistingPhotos] = useState<EntryPhotoSummary[]>([])
   const [captionPhotoId, setCaptionPhotoId] = useState<string | null>(null)
@@ -647,6 +648,7 @@ export function MomentEditorForm({
           {pickedPhotos.map((photo) => {
             const isCover = photo.localId === coverLocalId
             const isFailed = photo.status === 'failed'
+            const isVideo = isPickedVideo(photo)
             return (
               <Pressable
                 accessibilityLabel={
@@ -716,44 +718,53 @@ export function MomentEditorForm({
                     </Text>
                   </View>
                 ) : (
-                  <Image
-                    accessibilityIgnoresInvertColors
-                    onError={() => {
-                      setPickedPhotos((current) =>
-                        current.map((item) =>
-                          item.localId === photo.localId
-                            ? {
-                                ...item,
-                                diagnostics: {
-                                  ...item.diagnostics,
-                                  failedStage: 'validate',
-                                  lastError:
-                                    item.diagnostics.lastError ??
-                                    'Photo preview failed to render.',
-                                },
-                                status: 'failed',
-                              }
-                            : item,
-                        ),
-                      )
-                    }}
-                    source={{
-                      uri: photo.smallUri ?? photo.thumbUri ?? photo.uri,
-                    }}
-                    style={[
-                      styles.previewImage,
-                      isCover ? styles.previewImageCover : null,
-                    ]}
-                  />
+                  <View style={styles.previewImageWrap}>
+                    <Image
+                      accessibilityIgnoresInvertColors
+                      onError={() => {
+                        setPickedPhotos((current) =>
+                          current.map((item) =>
+                            item.localId === photo.localId
+                              ? {
+                                  ...item,
+                                  diagnostics: {
+                                    ...item.diagnostics,
+                                    failedStage: 'validate',
+                                    lastError:
+                                      item.diagnostics.lastError ??
+                                      'Photo preview failed to render.',
+                                  },
+                                  status: 'failed',
+                                }
+                              : item,
+                          ),
+                        )
+                      }}
+                      source={{
+                        uri: photo.smallUri ?? photo.thumbUri ?? photo.uri,
+                      }}
+                      style={[
+                        styles.previewImage,
+                        isCover ? styles.previewImageCover : null,
+                      ]}
+                    />
+                    {isVideo ? (
+                      <View pointerEvents="none" style={styles.playBadge}>
+                        <Text style={styles.playBadgeText}>▶</Text>
+                      </View>
+                    ) : null}
+                  </View>
                 )}
                 <Text style={styles.previewBadge}>
                   {isFailed
                     ? t('entry.photoStatusFailed')
                     : isCover
                       ? t('entry.coverPhoto')
-                      : photo.metadata.latitude !== null
-                        ? t('entry.photoHasGps')
-                        : t('entry.photoNoGps')}
+                      : isVideo
+                        ? t('entry.videoClip')
+                        : photo.metadata.latitude !== null
+                          ? t('entry.photoHasGps')
+                          : t('entry.photoNoGps')}
                 </Text>
               </Pressable>
             )
@@ -1216,6 +1227,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  playBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    borderRadius: 999,
+    height: 24,
+    justifyContent: 'center',
+    left: '50%',
+    marginLeft: -12,
+    marginTop: -12,
+    position: 'absolute',
+    top: '50%',
+    width: 24,
+  },
+  playBadgeText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  previewImageWrap: {
+    position: 'relative',
   },
   previewImageCover: {
     borderColor: colors.primary,

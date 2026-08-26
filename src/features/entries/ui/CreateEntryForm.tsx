@@ -15,6 +15,7 @@ import {
   createSelectedPhotos,
   supportsFileSystemPhotoSelection,
   supportsNativePhotoSelection,
+  WEB_PHOTO_VIDEO_ACCEPT,
 } from '@/entities/photo/lib/photo-selection'
 import type { SelectedPhotoFile } from '@/entities/photo/lib/process-photo'
 import { canAutomaticallySync } from '@/shared/sync/auto-sync'
@@ -55,11 +56,25 @@ export function CreateEntryForm({
     let photosFailed = false
     try {
       await addLocalPhotos(creatorId, entry.id, photos)
-    } catch {
-      // Don't block saving the moment if the browser can't process photos.
-      // The user can retry with different photos or proceed without them.
-      setPhotoError(t('entry.photoProcessingFailed'))
+    } catch (error) {
       photosFailed = true
+      if (error instanceof Error && error.message === 'VIDEO_TOO_LONG') {
+        setPhotoError(t('entry.videoTooLong'))
+      } else if (
+        error instanceof Error &&
+        error.message === 'VIDEO_TOO_LARGE'
+      ) {
+        setPhotoError(t('entry.videoTooLarge'))
+      } else if (
+        error instanceof Error &&
+        error.message === 'UNSUPPORTED_VIDEO_FORMAT'
+      ) {
+        setPhotoError(t('entry.unsupportedVideoFormat'))
+      } else {
+        // Don't block saving the moment if the browser can't process photos.
+        // The user can retry with different photos or proceed without them.
+        setPhotoError(t('entry.photoProcessingFailed'))
+      }
     }
     try {
       if (await canAutomaticallySync()) {
@@ -154,7 +169,7 @@ export function CreateEntryForm({
               </Button>
             ) : null}
             <input
-              accept="image/*"
+              accept={WEB_PHOTO_VIDEO_ACCEPT}
               className="block w-full rounded-md border border-border bg-surface px-3 py-3 text-sm"
               multiple
               onChange={(event) => {

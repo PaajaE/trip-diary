@@ -7,30 +7,10 @@ export type Json =
   | Json[]
 
 export type Database = {
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: '14.15'
   }
   public: {
     Tables: {
@@ -926,27 +906,33 @@ export type Database = {
           captured_at: string | null
           created_at: string
           creator_id: string
+          duration_ms: number | null
           id: string
           latitude: number | null
           longitude: number | null
+          media_type: string
           updated_at: string
         }
         Insert: {
           captured_at?: string | null
           created_at?: string
           creator_id: string
+          duration_ms?: number | null
           id: string
           latitude?: number | null
           longitude?: number | null
+          media_type?: string
           updated_at?: string
         }
         Update: {
           captured_at?: string | null
           created_at?: string
           creator_id?: string
+          duration_ms?: number | null
           id?: string
           latitude?: number | null
           longitude?: number | null
+          media_type?: string
           updated_at?: string
         }
         Relationships: []
@@ -1363,6 +1349,7 @@ export type Database = {
         | 'small'
         | 'medium'
         | 'full'
+        | 'video'
       space_kind: 'personal' | 'family'
       space_role: 'owner' | 'editor' | 'member'
       translation_status:
@@ -1496,9 +1483,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       checklist_item_category: [
@@ -1525,6 +1509,7 @@ export const Constants = {
         'small',
         'medium',
         'full',
+        'video',
       ],
       space_kind: ['personal', 'family'],
       space_role: ['owner', 'editor', 'member'],
