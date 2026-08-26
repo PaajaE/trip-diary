@@ -494,7 +494,7 @@ export async function verifyRemoteObjectByteSize(
     throw classifySupabaseError(error)
   }
 
-  const match = (data ?? []).find((row) => row.name === fileName)
+  const match = data.find((row) => row.name === fileName)
   if (match === undefined) {
     throw new PhotoUploadError(
       `Uploaded Storage object not found: ${storagePath}`,

@@ -171,7 +171,7 @@ describe('materializePickedAssetSafe', () => {
     manipulateResize.mockClear()
     saveAsync.mockClear()
     renderAsync.mockClear()
-    vi.mocked(FileSystem.copyAsync).mockResolvedValue(undefined as never)
+    vi.mocked(FileSystem.copyAsync).mockResolvedValue(undefined)
     vi.mocked(FileSystem.getInfoAsync).mockResolvedValue({
       exists: true,
       isDirectory: false,
@@ -188,7 +188,7 @@ describe('materializePickedAssetSafe', () => {
       mimeType: 'image/jpeg',
       uri: 'file:///tmp/camera.jpg',
       width: 4032,
-    } as ImagePicker.ImagePickerAsset)
+    })
 
     expect(result.status).toBe('ready')
     expect(manipulateResize).toHaveBeenCalled()
@@ -207,7 +207,7 @@ describe('materializePickedAssetSafe', () => {
       mimeType: 'image/jpeg',
       uri: 'ph://asset-1',
       width: 100,
-    } as ImagePicker.ImagePickerAsset)
+    })
 
     expect(result.status).toBe('failed')
     expect(result.diagnostics.failedStage).toBe('copy')
