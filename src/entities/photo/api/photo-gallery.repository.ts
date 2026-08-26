@@ -84,6 +84,15 @@ function pickLocalThumbVariant(
   )
 }
 
+function pickLocalCardVariant(
+  variants: LocalPhotoVariant[],
+): LocalPhotoVariant | undefined {
+  return (
+    pickLocalVariantForContext(variants, CARD_CONTEXT) ??
+    pickLocalVariantForContext(variants, GRID_CONTEXT)
+  )
+}
+
 function pickLocalDetailVariant(
   variants: LocalPhotoVariant[],
 ): LocalPhotoVariant | undefined {
@@ -294,6 +303,12 @@ async function getLocalPhotoPreviewsBatch(
   entryIds: string[],
 ): Promise<Map<string, PositionedPhotoPreview[]>> {
   return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalThumbVariant)
+}
+
+async function getLocalPhotoCardPreviewsBatch(
+  entryIds: string[],
+): Promise<Map<string, PositionedPhotoPreview[]>> {
+  return getLocalPhotoPreviewsBatchForPicker(entryIds, pickLocalCardVariant)
 }
 
 async function getLocalPhotoDetailPreviewsBatch(
@@ -685,6 +700,18 @@ export async function getJourneyEntryPhotoPreviews(
     entryIds,
     getLocalPhotoPreviewsBatch,
     GRID_CONTEXT,
+    GRID_REMOTE_VARIANT_KINDS,
+  )
+}
+
+/** Card/inline journey surfaces: prefer small (~800) over thumb/medium. */
+export async function getJourneyEntryPhotoCardPreviews(
+  entryIds: string[],
+): Promise<JourneyEntryPhotoPreviews> {
+  return getJourneyEntryPhotoPreviewsForVariant(
+    entryIds,
+    getLocalPhotoCardPreviewsBatch,
+    CARD_CONTEXT,
     GRID_REMOTE_VARIANT_KINDS,
   )
 }

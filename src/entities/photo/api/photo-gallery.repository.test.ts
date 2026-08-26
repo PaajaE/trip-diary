@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getEntryPhotoPreviews,
+  getJourneyEntryPhotoCardPreviews,
   getJourneyEntryPhotoPreviews,
 } from '@/entities/photo/api/photo-gallery.repository'
 import type {
@@ -385,6 +386,81 @@ describe('getJourneyEntryPhotoPreviews', () => {
     ])
     expect(previewsByEntry.get(secondEntryId)).toEqual([
       { blob: secondBlob, height: 220, id: secondPhotoId, width: 220 },
+    ])
+  })
+})
+
+describe('getJourneyEntryPhotoCardPreviews', () => {
+  beforeEach(() => {
+    getSupabaseClientMock.mockReset()
+  })
+
+  afterEach(async () => {
+    await localDb.photos.clear()
+    await localDb.photoVariants.clear()
+  })
+
+  it('prefers small over thumb and medium for card context', async () => {
+    const entryId = crypto.randomUUID()
+    const photoId = crypto.randomUUID()
+    const smallBlob = new Blob(['small'])
+
+    const links = createQuery({
+      data: [{ entry_id: entryId, photo_id: photoId, position: 0 }],
+      error: null,
+    })
+    const variants = createQuery({
+      data: [
+        {
+          height: 220,
+          photo_id: photoId,
+          storage_path: 'thumb-path',
+          variant: 'thumb',
+          width: 220,
+        },
+        {
+          height: 800,
+          photo_id: photoId,
+          storage_path: 'small-path',
+          variant: 'small',
+          width: 800,
+        },
+        {
+          height: 1600,
+          photo_id: photoId,
+          storage_path: 'medium-path',
+          variant: 'medium',
+          width: 1600,
+        },
+      ],
+      error: null,
+    })
+    const download = vi.fn((path: string) =>
+      Promise.resolve({
+        data: path === 'small-path' ? smallBlob : new Blob(['other']),
+        error: null,
+      }),
+    )
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'entry_photos') {
+          return links
+        }
+        return variants
+      }),
+      storage: {
+        from: vi.fn(() => ({ download })),
+      },
+    })
+
+    const { failedEntryIds, previewsByEntry } =
+      await getJourneyEntryPhotoCardPreviews([entryId])
+
+    expect(failedEntryIds.size).toBe(0)
+    expect(download).toHaveBeenCalledWith('small-path')
+    expect(download).not.toHaveBeenCalledWith('medium-path')
+    expect(previewsByEntry.get(entryId)).toEqual([
+      { blob: smallBlob, height: 800, id: photoId, width: 800 },
     ])
   })
 })

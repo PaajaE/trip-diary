@@ -16,6 +16,7 @@ function isJourneyGalleryPreviews(
   return (
     typeof value === 'object' &&
     value !== null &&
+    'previewsByEntry' in value &&
     'previewsByMoment' in value &&
     Array.isArray((value as JourneyGalleryPreviews).previewsByMoment)
   )

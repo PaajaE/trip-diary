@@ -41,7 +41,7 @@ export const JourneyReaderMomentStrip = forwardRef<
   const { isPending, photosByEntryId } = useJourneyMomentPhotos(
     orderedMoments,
     orderedMoments.length > 0,
-    'thumb',
+    'card',
   )
 
   useImperativeHandle(ref, () => ({

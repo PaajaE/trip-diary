@@ -177,7 +177,7 @@ export function JourneyReaderPage({
   const { photosByEntryId } = useJourneyMomentPhotos(
     content?.moments ?? [],
     content !== null,
-    'detail',
+    'card',
   )
   const coverPhoto = useMemo(
     () =>

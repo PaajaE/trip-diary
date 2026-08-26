@@ -224,6 +224,7 @@ function isJourneyGalleryPreviews(
     typeof value === 'object' &&
     value !== null &&
     'failedMomentCount' in value &&
+    'previewsByEntry' in value &&
     'previewsByMoment' in value
   )
 }

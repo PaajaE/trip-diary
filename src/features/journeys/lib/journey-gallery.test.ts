@@ -51,6 +51,10 @@ describe('mergeJourneyGalleryPhotos', () => {
       ),
     ).resolves.toEqual({
       failedMomentCount: 1,
+      previewsByEntry: new Map([
+        [firstEntryId, [preview]],
+        [secondEntryId, []],
+      ]),
       previewsByMoment: [[preview], []],
     })
   })

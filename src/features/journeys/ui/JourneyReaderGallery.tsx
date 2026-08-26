@@ -34,7 +34,7 @@ export function JourneyReaderGallery({
   const { isPending, photosByEntryId } = useJourneyMomentPhotos(
     moments,
     moments.length > 0,
-    'thumb',
+    'card',
   )
   const gallery = useMemo(
     () =>

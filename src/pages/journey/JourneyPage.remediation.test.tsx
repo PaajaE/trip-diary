@@ -148,7 +148,11 @@ describe('JourneyPage remediation', () => {
       }
       if (queryKey[0] === 'journey-gallery') {
         return {
-          data: { failedMomentCount: 0, previewsByMoment: [[]] },
+          data: {
+            failedMomentCount: 0,
+            previewsByEntry: new Map(),
+            previewsByMoment: [[]],
+          },
           isError: false,
           isPending: false,
         }
