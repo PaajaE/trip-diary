@@ -1358,11 +1358,11 @@ export type Database = {
       observation_confidence: 'seen' | 'heard' | 'unsure'
       photo_variant_type:
         | 'thumb'
+        | 'preview'
+        | 'large'
         | 'small'
         | 'medium'
         | 'full'
-        | 'preview'
-        | 'large'
       space_kind: 'personal' | 'family'
       space_role: 'owner' | 'editor' | 'member'
       translation_status:
@@ -1520,11 +1520,11 @@ export const Constants = {
       observation_confidence: ['seen', 'heard', 'unsure'],
       photo_variant_type: [
         'thumb',
+        'preview',
+        'large',
         'small',
         'medium',
         'full',
-        'preview',
-        'large',
       ],
       space_kind: ['personal', 'family'],
       space_role: ['owner', 'editor', 'member'],
