@@ -69,9 +69,9 @@ describe('photo-variants policy', () => {
   })
 
   it('builds deterministic storage paths', () => {
-    expect(
-      buildPhotoStoragePath('creator', 'photo', 'small', 'jpg'),
-    ).toBe('creator/photo/small.jpg')
+    expect(buildPhotoStoragePath('creator', 'photo', 'small', 'jpg')).toBe(
+      'creator/photo/small.jpg',
+    )
   })
 
   it('picks context-appropriate variants with legacy fallback', () => {

@@ -227,15 +227,18 @@ async function callWriter(payload) {
     return { remoteSize: remote.size }
   }
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/${WRITER_FUNCTION}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      apikey: anonKey,
-      'Content-Type': 'application/json',
+  const response = await fetch(
+    `${supabaseUrl}/functions/v1/${WRITER_FUNCTION}`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${anonKey}`,
+        apikey: anonKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ ...payload, maintenanceToken }),
     },
-    body: JSON.stringify({ ...payload, maintenanceToken }),
-  })
+  )
   const payloadJson = await response.json().catch(() => ({}))
   if (!response.ok) {
     throw new Error(
@@ -344,7 +347,12 @@ async function processPhoto(row) {
 
   // 1) Ensure full (reuse preview bytes via copy — no recompress)
   if (row.byVariant.full === undefined) {
-    const toPath = buildPhotoStoragePath(row.creatorId, row.photoId, 'full', 'jpg')
+    const toPath = buildPhotoStoragePath(
+      row.creatorId,
+      row.photoId,
+      'full',
+      'jpg',
+    )
     if (dryRun) {
       actions.push({ op: 'copy_preview_to_full', bytes: sourceProbe.size })
       bytesAdded += sourceProbe.size
@@ -359,7 +367,8 @@ async function processPhoto(row) {
         width: sourceMeta.width,
         height: sourceMeta.height,
         byteSize: sourceProbe.size,
-        mimeType: sourceMeta.mime_type === 'image/webp' ? 'image/webp' : 'image/jpeg',
+        mimeType:
+          sourceMeta.mime_type === 'image/webp' ? 'image/webp' : 'image/jpeg',
       })
       actions.push({ op: 'copied_full', bytes: result.remoteSize })
       bytesAdded += result.remoteSize ?? sourceProbe.size
@@ -420,7 +429,10 @@ async function processPhoto(row) {
             byteSize: thumbProbe.size,
             mimeType: 'image/jpeg',
           })
-          actions.push({ op: 'copied_small_from_thumb', bytes: result.remoteSize })
+          actions.push({
+            op: 'copied_small_from_thumb',
+            bytes: result.remoteSize,
+          })
           bytesAdded += result.remoteSize ?? thumbProbe.size
           row.byVariant.small = {
             ...thumbMeta,
@@ -640,7 +652,11 @@ async function processPhoto(row) {
 
   return {
     photoId: row.photoId,
-    result: created ? (dryRun ? 'would_update' : 'updated') : 'skipped_existing',
+    result: created
+      ? dryRun
+        ? 'would_update'
+        : 'updated'
+      : 'skipped_existing',
     actions,
     bytesAdded,
   }
@@ -689,9 +705,11 @@ async function main() {
 
   const summary = {
     inspected: results.length,
-    updated: results.filter((r) => r.result === 'updated' || r.result === 'would_update')
+    updated: results.filter(
+      (r) => r.result === 'updated' || r.result === 'would_update',
+    ).length,
+    skipped_existing: results.filter((r) => r.result === 'skipped_existing')
       .length,
-    skipped_existing: results.filter((r) => r.result === 'skipped_existing').length,
     skipped_invalid_preview: results.filter(
       (r) => r.result === 'skipped_invalid_preview',
     ).length,
@@ -707,10 +725,7 @@ async function main() {
     'Downloads',
     `trip-diary-variant-backfill-${dryRun ? 'dryrun' : 'run'}-${Date.now()}.json`,
   )
-  writeFileSync(
-    reportPath,
-    JSON.stringify({ summary, results }, null, 2),
-  )
+  writeFileSync(reportPath, JSON.stringify({ summary, results }, null, 2))
   console.log(`Wrote report ${reportPath}`)
 }
 

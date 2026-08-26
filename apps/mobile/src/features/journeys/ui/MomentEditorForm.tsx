@@ -132,9 +132,7 @@ export function MomentEditorForm({
 
   // Stable local identity for create — allocated before remote insert so photos
   // and Moment content can be saved offline against the same UUID.
-  const [localEntryId] = useState(
-    () => entry?.id ?? createEntryId(),
-  )
+  const [localEntryId] = useState(() => entry?.id ?? createEntryId())
 
   const draftKey = useMemo(
     () =>
@@ -326,8 +324,9 @@ export function MomentEditorForm({
       }
 
       const photos = result.photos
-      const failedCount = photos.filter((photo) => photo.status === 'failed')
-        .length
+      const failedCount = photos.filter(
+        (photo) => photo.status === 'failed',
+      ).length
       if (failedCount > 0) {
         setPhotoNotice(
           t('entry.photosPreparePartial', {
@@ -403,7 +402,9 @@ export function MomentEditorForm({
     try {
       const language = i18n.language === 'en' ? 'en' : 'cs'
       const eventAt =
-        mode === 'edit' && entry?.eventAt !== null && entry?.eventAt !== undefined
+        mode === 'edit' &&
+        entry?.eventAt !== null &&
+        entry?.eventAt !== undefined
           ? entry.eventAt
           : new Date().toISOString()
       let photoUploadError: string | null = null
@@ -737,10 +738,7 @@ export function MomentEditorForm({
                       )
                     }}
                     source={{
-                      uri:
-                        photo.smallUri ??
-                        photo.thumbUri ??
-                        photo.uri,
+                      uri: photo.smallUri ?? photo.thumbUri ?? photo.uri,
                     }}
                     style={[
                       styles.previewImage,

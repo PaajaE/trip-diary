@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(37);
+select plan(38);
 
 select has_table('public', 'photos', 'photos table exists');
 select has_table('public', 'photo_variants', 'photo_variants table exists');
@@ -236,7 +236,9 @@ select throws_ok(
      ) $$,
   '42501', null, 'foreign users cannot upload an owner variant'
 );
-select throws_ok(
+-- Authors may upload Storage objects before inserting photo_variants
+-- (mobile upload pipeline: put bytes, verify size, then declare).
+select lives_ok(
   $$ insert into storage.objects (bucket_id, name, owner_id, metadata)
      values (
        'photos',
@@ -244,7 +246,17 @@ select throws_ok(
        '00000000-0000-4000-8000-000000000032',
        '{"mimetype":"image/webp"}'::jsonb
      ) $$,
-  '42501', null, 'users cannot upload an undeclared variant'
+  'authors can upload a canonical path before declaring photo_variants'
+);
+select lives_ok(
+  $$ insert into storage.objects (bucket_id, name, owner_id, metadata)
+     values (
+       'photos',
+       '00000000-0000-4000-8000-000000000032/40000000-0000-4000-8000-000000000099/small.jpg',
+       '00000000-0000-4000-8000-000000000032',
+       '{"mimetype":"image/jpeg"}'::jsonb
+     ) $$,
+  'authors can upload responsive small.jpg paths'
 );
 
 select set_config(

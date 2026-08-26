@@ -64,14 +64,11 @@ if (supabaseUrl === undefined || supabaseUrl.length === 0) {
   process.exit(1)
 }
 
-const hasServiceRole =
-  serviceRoleKey !== undefined && serviceRoleKey.length > 0
+const hasServiceRole = serviceRoleKey !== undefined && serviceRoleKey.length > 0
 const hasAnon = anonKey !== undefined && anonKey.length > 0
 
 if (!hasServiceRole && !hasAnon) {
-  console.error(
-    'Provide SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY.',
-  )
+  console.error('Provide SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_ANON_KEY.')
   process.exit(1)
 }
 
@@ -141,9 +138,8 @@ async function mapPool(items, poolSize, worker) {
     }
   }
 
-  const runners = Array.from(
-    { length: Math.min(poolSize, items.length) },
-    () => run(),
+  const runners = Array.from({ length: Math.min(poolSize, items.length) }, () =>
+    run(),
   )
   await Promise.all(runners)
   return results
@@ -156,10 +152,12 @@ async function listStorageObjectSize(client, storagePath) {
   }
   const folder = storagePath.slice(0, slash)
   const fileName = storagePath.slice(slash + 1)
-  const { data, error } = await client.storage.from(PHOTOS_BUCKET).list(folder, {
-    limit: 100,
-    search: fileName,
-  })
+  const { data, error } = await client.storage
+    .from(PHOTOS_BUCKET)
+    .list(folder, {
+      limit: 100,
+      search: fileName,
+    })
   if (error !== null) {
     return { exists: false, size: 0, error: error.message }
   }
@@ -410,8 +408,7 @@ async function classifyRow(row) {
         const { data, error } = await readClient.storage
           .from(PHOTOS_BUCKET)
           .download(row.thumb.storage_path)
-        thumbValid =
-          error === null && data !== null && data.size > 0
+        thumbValid = error === null && data !== null && data.size > 0
         thumbRemote.size = data?.size ?? 0
       } catch {
         thumbValid = false
@@ -481,7 +478,8 @@ async function processRow(row, classification) {
     }
   }
 
-  const put = writeClient !== null ? putThumbViaServiceRole : putThumbViaEdgeFunction
+  const put =
+    writeClient !== null ? putThumbViaServiceRole : putThumbViaEdgeFunction
   const remoteSize = await put({
     photoId: row.photoId,
     creatorId: row.creatorId,
@@ -574,7 +572,9 @@ async function main() {
         reason: item.classification.reason,
         bytesAdded: 0,
       })
-      console.log(`${action} ${item.row.photoId} (${item.classification.reason})`)
+      console.log(
+        `${action} ${item.row.photoId} (${item.classification.reason})`,
+      )
       continue
     }
 
@@ -640,13 +640,22 @@ async function main() {
           item.classification?.action === 'create' ||
           item.classification?.action === 'repair',
       )
-      .reduce((sum, item) => sum + (item.classification?.estimatedBytes ?? 0), 0),
+      .reduce(
+        (sum, item) => sum + (item.classification?.estimatedBytes ?? 0),
+        0,
+      ),
   }
 
   console.log('--- inventory ---')
   console.log(JSON.stringify(inventory, null, 2))
   console.log('--- run summary ---')
-  console.log(JSON.stringify({ ...summary.counts, bytesAdded: summary.bytesAdded }, null, 2))
+  console.log(
+    JSON.stringify(
+      { ...summary.counts, bytesAdded: summary.bytesAdded },
+      null,
+      2,
+    ),
+  )
 
   const reportPath = join(
     homedir(),

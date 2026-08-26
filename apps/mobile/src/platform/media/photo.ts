@@ -513,9 +513,7 @@ async function normalizeToPersistentJpeg(input: {
 }): Promise<{ height: number; uri: string; width: number }> {
   try {
     const resizeWidth =
-      input.targetWidth >= input.targetHeight
-        ? input.targetWidth
-        : undefined
+      input.targetWidth >= input.targetHeight ? input.targetWidth : undefined
     const resizeHeight =
       input.targetHeight > input.targetWidth ? input.targetHeight : undefined
 

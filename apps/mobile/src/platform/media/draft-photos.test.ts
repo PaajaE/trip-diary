@@ -47,7 +47,10 @@ vi.mocked(openDatabaseAsync).mockImplementation(
   async () => memoryDb as unknown as SQLiteDatabase,
 )
 
-function readyPhoto(id: string, overrides: Partial<PickedPhoto> = {}): PickedPhoto {
+function readyPhoto(
+  id: string,
+  overrides: Partial<PickedPhoto> = {},
+): PickedPhoto {
   return {
     diagnostics: {
       attemptCount: 1,

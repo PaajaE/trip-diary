@@ -353,8 +353,7 @@ export async function processPhotoUploadOperation(
   // Storage first — never declare a variant before bytes exist remotely.
   await uploadPhotoBytes(client, masterStoragePath, fileBytes, parsed.mimeType)
 
-  const verify =
-    deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
+  const verify = deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
   const remoteSize = await verify(client, masterStoragePath)
   if (remoteSize <= 0) {
     throw new PhotoUploadError(
@@ -412,13 +411,10 @@ export async function processPhotoUploadOperation(
         error instanceof Error
           ? error.message
           : `${kind} variant upload failed.`
-      console.warn(
-        `[photo-upload] ${kind} failed; master remains valid`,
-        {
-          photoId: parsed.photoId,
-          uploadError: message,
-        },
-      )
+      console.warn(`[photo-upload] ${kind} failed; master remains valid`, {
+        photoId: parsed.photoId,
+        uploadError: message,
+      })
       if (kind === 'thumb') {
         thumbUploadError = message
       }
@@ -570,8 +566,7 @@ async function uploadDerivativeVariant(input: {
 
   await uploadPhotoBytes(client, storagePath, bytes, 'image/jpeg')
 
-  const verify =
-    deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
+  const verify = deps.verifyRemoteObjectByteSize ?? verifyRemoteObjectByteSize
   const remoteSize = await verify(client, storagePath)
   if (remoteSize <= 0) {
     throw new PhotoUploadError(
@@ -650,7 +645,7 @@ export async function verifyRemoteObjectByteSize(
           match.metadata !== null &&
           'size' in match.metadata &&
           typeof (match.metadata as { size?: unknown }).size === 'number'
-        ? ((match.metadata as { size: number }).size)
+        ? (match.metadata as { size: number }).size
         : -1
 
   // Some Storage list responses omit size; fall back to a ranged download check.

@@ -205,7 +205,9 @@ export function JourneyGallery({
               showOnMapLabel={t('journey.showOnMap')}
               src={photo.url}
               tags={tagsByPhotoId?.get(photo.id) ?? []}
-              {...(typeof meta?.width === 'number' ? { width: meta.width } : {})}
+              {...(typeof meta?.width === 'number'
+                ? { width: meta.width }
+                : {})}
             />
           )
         })}

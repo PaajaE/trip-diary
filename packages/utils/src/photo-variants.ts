@@ -60,7 +60,10 @@ export const PHOTO_VARIANT_POLICY: Record<
   thumb: { maxLongestEdge: 220, jpegQuality: 0.72 },
   small: { maxLongestEdge: 800, jpegQuality: 0.75 },
   medium: { maxLongestEdge: 1600, jpegQuality: 0.78 },
-  full: { maxLongestEdge: FULL_MAX_LONGEST_EDGE, jpegQuality: FULL_JPEG_QUALITY },
+  full: {
+    maxLongestEdge: FULL_MAX_LONGEST_EDGE,
+    jpegQuality: FULL_JPEG_QUALITY,
+  },
 }
 
 /** Variants written by current clients for new uploads. */
@@ -181,14 +184,18 @@ export function resolveNormalizedDimensions(
   }
 }
 
-export function resolveThumbDimensions(source: PhotoDimensions): PhotoDimensions {
+export function resolveThumbDimensions(
+  source: PhotoDimensions,
+): PhotoDimensions {
   return resolveVariantDimensions(
     source,
     PHOTO_VARIANT_POLICY.thumb.maxLongestEdge,
   )
 }
 
-export function resolveSmallDimensions(source: PhotoDimensions): PhotoDimensions {
+export function resolveSmallDimensions(
+  source: PhotoDimensions,
+): PhotoDimensions {
   return resolveVariantDimensions(
     source,
     PHOTO_VARIANT_POLICY.small.maxLongestEdge,
@@ -278,6 +285,9 @@ export const PHOTO_SRCSET_WIDTHS: readonly {
  * True when an existing thumb row looks like the temporary ~800px backfill
  * (or older mobile thumb) rather than the canonical ~220px thumb.
  */
-export function isOversizedThumbVariant(width: number, height: number): boolean {
+export function isOversizedThumbVariant(
+  width: number,
+  height: number,
+): boolean {
   return Math.max(width, height) >= 400
 }

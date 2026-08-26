@@ -1,4 +1,7 @@
-import { PHOTO_SRCSET_WIDTHS, type CanonicalPhotoVariant } from '@trip-diary/utils'
+import {
+  PHOTO_SRCSET_WIDTHS,
+  type CanonicalPhotoVariant,
+} from '@trip-diary/utils'
 
 export interface PhotoSrcsetSource {
   url: string

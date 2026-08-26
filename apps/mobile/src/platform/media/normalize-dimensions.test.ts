@@ -32,7 +32,9 @@ describe('resolveNormalizedDimensions', () => {
     expect(Math.max(result.width, result.height)).toBeLessThanOrEqual(
       PANORAMA_MAX_LONGEST_EDGE,
     )
-    expect(result.width * result.height).toBeLessThanOrEqual(PANORAMA_MAX_PIXELS)
+    expect(result.width * result.height).toBeLessThanOrEqual(
+      PANORAMA_MAX_PIXELS,
+    )
     // Must remain meaningfully wide — not crushed to a normal-photo width.
     expect(result.width).toBeGreaterThan(NORMAL_MAX_LONGEST_EDGE)
   })

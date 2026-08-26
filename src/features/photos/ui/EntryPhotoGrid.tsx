@@ -276,7 +276,9 @@ export function EntryPhotoGrid({
                 : {})}
               setCoverLabel={t('entry.setCoverPhoto')}
               src={preview.url}
-              {...(typeof meta?.width === 'number' ? { width: meta.width } : {})}
+              {...(typeof meta?.width === 'number'
+                ? { width: meta.width }
+                : {})}
             />
           )
         })}

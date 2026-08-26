@@ -219,7 +219,8 @@ export const cs: TranslationResources = {
       '{{failed}} z {{total}} vybraných fotek se nepodařilo připravit. Nezdařené položky zůstávají viditelné — dlouhým stiskem je odebereš.',
     photoPrepareFailed: 'Tuto fotku se nepodařilo připravit k nahrání.',
     photoStatusFailed: 'Selhalo',
-    photoFailedRetry: 'Nezdařená fotka — klepni pro detail, dlouhý stisk pro odebrání',
+    photoFailedRetry:
+      'Nezdařená fotka — klepni pro detail, dlouhý stisk pro odebrání',
     filePickerAction: 'Vybrat fotky ze souborů',
     filePickerFallbackHint:
       'Když prohlížeč neumí systémový výběr souborů, zůstává k dispozici běžný výběr fotek.',

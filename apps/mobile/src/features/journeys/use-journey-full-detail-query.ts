@@ -3,9 +3,7 @@ import { fetchJourneyFullDetail } from '@/features/journeys/api/journey-detail.r
 import { mergeLocalMomentsIntoJourneyDetail } from '@/features/journeys/lib/merge-local-moments'
 import { journeyQueryKeys } from '@/features/journeys/query-keys'
 import { isNetworkOnline, useNetworkState } from '@/foundation/network'
-import {
-  listActiveMomentDraftPhotos,
-} from '@/platform/media/draft-photos'
+import { listActiveMomentDraftPhotos } from '@/platform/media/draft-photos'
 import {
   cacheJourneyContent,
   getCachedJourneyContent,
@@ -39,10 +37,7 @@ async function loadLocalCoverPreviewUrls(
     if (ready === undefined) {
       continue
     }
-    map.set(
-      entryId,
-      ready.smallUri ?? ready.thumbUri ?? ready.localUri,
-    )
+    map.set(entryId, ready.smallUri ?? ready.thumbUri ?? ready.localUri)
   }
   // Also check create-key leftovers for this journey (pre-save drafts).
   const createDrafts = await listActiveMomentDraftPhotos(

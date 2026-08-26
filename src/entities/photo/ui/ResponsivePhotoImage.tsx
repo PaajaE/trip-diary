@@ -5,11 +5,10 @@ import {
 } from '@/entities/photo/lib/responsive-photo'
 import { cn } from '@/shared/lib/cn'
 
-export interface ResponsivePhotoImageProps
-  extends Omit<
-    ImgHTMLAttributes<HTMLImageElement>,
-    'src' | 'srcSet' | 'sizes' | 'width' | 'height'
-  > {
+export interface ResponsivePhotoImageProps extends Omit<
+  ImgHTMLAttributes<HTMLImageElement>,
+  'src' | 'srcSet' | 'sizes' | 'width' | 'height'
+> {
   /** Fallback alt when decorative=false; decorative images use empty alt. */
   alt: string
   className?: string
@@ -67,7 +66,9 @@ export function ResponsivePhotoImage({
       }}
       src={responsive.src}
       {...(style === undefined ? {} : { style })}
-      {...(responsive.srcSet === undefined ? {} : { srcSet: responsive.srcSet })}
+      {...(responsive.srcSet === undefined
+        ? {}
+        : { srcSet: responsive.srcSet })}
       {...(responsive.sizes === undefined ? {} : { sizes: responsive.sizes })}
       {...(typeof width === 'number' ? { width } : {})}
       {...(typeof height === 'number' ? { height } : {})}

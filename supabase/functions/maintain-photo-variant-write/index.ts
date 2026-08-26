@@ -5,15 +5,16 @@
  */
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
 
-Deno.serve((_req: Request) =>
-  new Response(
-    JSON.stringify({
-      error: 'disabled',
-      message: 'one-shot photo variant maintenance writer retired',
-    }),
-    {
-      status: 410,
-      headers: { 'Content-Type': 'application/json' },
-    },
-  ),
+Deno.serve(
+  (_req: Request) =>
+    new Response(
+      JSON.stringify({
+        error: 'disabled',
+        message: 'one-shot photo variant maintenance writer retired',
+      }),
+      {
+        status: 410,
+        headers: { 'Content-Type': 'application/json' },
+      },
+    ),
 )

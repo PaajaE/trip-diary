@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { PHOTO_VARIANT_PREFERENCE, pickPreferredPhotoVariant } from '@trip-diary/utils'
+import {
+  PHOTO_VARIANT_PREFERENCE,
+  pickPreferredPhotoVariant,
+} from '@trip-diary/utils'
 import type {
   ProcessedPhoto,
   SelectedPhotoFile,

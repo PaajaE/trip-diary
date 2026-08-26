@@ -161,7 +161,9 @@ async function enqueueEntryUpdateIfNeeded(input: {
 }): Promise<void> {
   // If create is still unfinished, local upsert is enough — create will push
   // the latest local_moments row when it runs.
-  const createOp = await getSyncOperation(entryCreateOperationId(input.record.id))
+  const createOp = await getSyncOperation(
+    entryCreateOperationId(input.record.id),
+  )
   if (
     createOp !== null &&
     (createOp.status === 'pending' ||

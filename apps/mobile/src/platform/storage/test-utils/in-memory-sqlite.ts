@@ -340,7 +340,9 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           'updated_at',
         ])
         if (
-          normalized.includes('CREATE TABLE IF NOT EXISTS journey_content_cache')
+          normalized.includes(
+            'CREATE TABLE IF NOT EXISTS journey_content_cache',
+          )
         ) {
           ensureTable('journey_content_cache', [
             'journey_id',
@@ -417,8 +419,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           )
         }
         rows.sort((left, right) => {
-          const positionDelta =
-            Number(left.position) - Number(right.position)
+          const positionDelta = Number(left.position) - Number(right.position)
           if (positionDelta !== 0) {
             return positionDelta
           }
@@ -522,11 +523,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
             if (row.operation_type !== 'photo.upload') {
               return false
             }
-            if (
-              sql.includes(
-                "status IN ('pending', 'processing', 'failed')",
-              )
-            ) {
+            if (sql.includes("status IN ('pending', 'processing', 'failed')")) {
               return ['pending', 'processing', 'failed'].includes(
                 String(row.status),
               )
@@ -744,7 +741,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           entry_id:
             entryId ??
             (sql.includes('ON CONFLICT')
-              ? ((existing?.entry_id) ?? null)
+              ? (existing?.entry_id ?? null)
               : entryId),
           height,
           id,
@@ -867,7 +864,10 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
           if (row.draft_key !== draftKey) {
             continue
           }
-          if (sql.includes("status = 'enqueued'") && row.status !== 'enqueued') {
+          if (
+            sql.includes("status = 'enqueued'") &&
+            row.status !== 'enqueued'
+          ) {
             continue
           }
           table.rows.delete(id)
@@ -894,9 +894,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return { changes: 0 }
       }
 
-      if (
-        sql.includes('UPDATE moment_draft_photos SET is_cover = 0')
-      ) {
+      if (sql.includes('UPDATE moment_draft_photos SET is_cover = 0')) {
         const table = tables.get('moment_draft_photos')
         const draftKey = String(params[1])
         let changes = 0
@@ -912,9 +910,7 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return { changes }
       }
 
-      if (
-        sql.includes('UPDATE moment_draft_photos SET is_cover = 1')
-      ) {
+      if (sql.includes('UPDATE moment_draft_photos SET is_cover = 1')) {
         const table = tables.get('moment_draft_photos')
         const photoId = String(params[1])
         const row = table?.rows.get(photoId)
@@ -990,7 +986,9 @@ export function createInMemorySQLiteDatabase(): InMemorySQLiteDatabase {
         return { changes: existed ? 1 : 0 }
       }
 
-      if (sql.includes('DELETE FROM journey_content_cache WHERE journey_id = ?')) {
+      if (
+        sql.includes('DELETE FROM journey_content_cache WHERE journey_id = ?')
+      ) {
         const table = tables.get('journey_content_cache')
         const existed = table?.rows.delete(String(params[0])) === true
         return { changes: existed ? 1 : 0 }

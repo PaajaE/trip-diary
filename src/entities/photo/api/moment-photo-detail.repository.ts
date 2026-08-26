@@ -83,14 +83,7 @@ export async function getPublicMomentPhotos(
       .from('photo_variants')
       .select('photo_id, storage_path, variant')
       .in('photo_id', photoIds)
-      .in('variant', [
-        'thumb',
-        'small',
-        'medium',
-        'full',
-        'preview',
-        'large',
-      ]),
+      .in('variant', ['thumb', 'small', 'medium', 'full', 'preview', 'large']),
   ])
 
   if (photosError !== null) {

@@ -6,11 +6,7 @@ import type {
 } from '@/platform/media/photo'
 import { getMobileDatabase } from '@/platform/storage/database'
 
-export type MomentDraftPhotoStatus =
-  | 'ready'
-  | 'failed'
-  | 'enqueued'
-  | 'removed'
+export type MomentDraftPhotoStatus = 'ready' | 'failed' | 'enqueued' | 'removed'
 
 /** Untracked files older than this may be deleted at startup. */
 export const ORPHAN_PHOTO_FILE_MAX_AGE_MS = 24 * 60 * 60 * 1000

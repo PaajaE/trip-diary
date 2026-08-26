@@ -131,7 +131,14 @@ async function resolveFirstPhotoSignedUrl(
     return null
   }
 
-  const preference = ['full', 'preview', 'medium', 'large', 'small', 'thumb'] as const
+  const preference = [
+    'full',
+    'preview',
+    'medium',
+    'large',
+    'small',
+    'thumb',
+  ] as const
   const byKind = new Map(variant.map((row) => [row.variant, row.storage_path]))
   let storagePath: string | null = null
   for (const kind of preference) {

@@ -1,11 +1,7 @@
 import type { JourneyEntry } from '@/features/journeys/model/journey-detail'
 import { getMobileDatabase } from '@/platform/storage/database'
 
-export type LocalMomentSyncStatus =
-  | 'failed'
-  | 'pending'
-  | 'synced'
-  | 'syncing'
+export type LocalMomentSyncStatus = 'failed' | 'pending' | 'synced' | 'syncing'
 
 export interface LocalMomentRecord {
   body: string

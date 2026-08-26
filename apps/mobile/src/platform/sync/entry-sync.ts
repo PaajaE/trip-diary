@@ -72,10 +72,7 @@ export async function processEntryCreateOperation(
   if (source.stopId !== null) {
     rpcInput.p_stop_id = source.stopId
   }
-  if (
-    source.locationTitle !== null &&
-    source.locationTitle.trim().length > 0
-  ) {
+  if (source.locationTitle !== null && source.locationTitle.trim().length > 0) {
     rpcInput.p_location_title = source.locationTitle.trim()
   }
   if (
@@ -177,8 +174,7 @@ function momentFromPayload(
   const now = new Date().toISOString()
   return {
     body: typeof payload.body === 'string' ? payload.body : '',
-    createdAt:
-      typeof payload.createdAt === 'string' ? payload.createdAt : now,
+    createdAt: typeof payload.createdAt === 'string' ? payload.createdAt : now,
     creatorId: requireString(payload.creatorId, 'creatorId'),
     eventAt: typeof payload.eventAt === 'string' ? payload.eventAt : null,
     id,
@@ -187,8 +183,7 @@ function momentFromPayload(
     latitude: typeof payload.latitude === 'number' ? payload.latitude : null,
     locationTitle:
       typeof payload.locationTitle === 'string' ? payload.locationTitle : null,
-    longitude:
-      typeof payload.longitude === 'number' ? payload.longitude : null,
+    longitude: typeof payload.longitude === 'number' ? payload.longitude : null,
     slug: typeof payload.slug === 'string' ? payload.slug : null,
     spaceId: requireString(payload.spaceId, 'spaceId'),
     stageId: typeof payload.stageId === 'string' ? payload.stageId : null,
