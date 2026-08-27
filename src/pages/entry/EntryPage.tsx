@@ -72,7 +72,7 @@ export function EntryPage({
       entryQuery.data !== null &&
       user !== null &&
       entryQuery.data.creatorId === user.id,
-    queryFn: () => localDb.journeyLinks.get(entryId),
+    queryFn: async () => (await localDb.journeyLinks.get(entryId)) ?? null,
     queryKey: ['entry-journey-link', entryId],
   })
   const entry = entryQuery.data
@@ -135,7 +135,11 @@ export function EntryPage({
           />
         </article>
       ) : (
-        <article className={returnTo === undefined ? 'mt-10' : 'mt-6'}>
+        <article
+          className={returnTo === undefined ? 'mt-10' : 'mt-6'}
+          data-entry-id={entry.id}
+          data-sync-status={entry.syncStatus}
+        >
           {notice === 'photos_failed' ? (
             <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
               {t('entry.photosFailedNotice')}

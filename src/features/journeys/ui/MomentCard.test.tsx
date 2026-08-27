@@ -109,21 +109,17 @@ describe('MomentCard authoring preview', () => {
     cleanup()
   })
 
-  it('opens the moment when the card is clicked', async () => {
+  it('opens the moment when card content is clicked', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()
     renderCard(buildJourney(), { onOpen })
 
-    await user.click(
-      screen.getByRole('button', {
-        name: 'Otevřít moment: On-screen title',
-      }),
-    )
+    await user.click(screen.getByRole('heading', { name: 'On-screen title' }))
 
     expect(onOpen).toHaveBeenCalledWith(entryId)
   })
 
-  it('opens the editor without triggering card navigation', async () => {
+  it('does not open the moment when Edit is clicked', async () => {
     const user = userEvent.setup()
     const onOpen = vi.fn()
     renderCard(buildJourney(), { onOpen })

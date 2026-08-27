@@ -47,31 +47,36 @@ export function createAdminClient() {
   })
 }
 
-/** Wait until moment cards report a fully synced queue — not merely "not failed". */
+function authorMomentCards(page: Page) {
+  return page.locator('#story article[data-entry-id]')
+}
+
+/** Wait until authoring surfaces report synced status in the data contract. */
 export async function waitForFullySynced(page: Page): Promise<void> {
   await expect
     .poll(
       async () => {
-        const momentCards = await page.locator('#story article').count()
-        const synced = await page
-          .getByLabel('Synchronizováno', { exact: true })
-          .count()
-        const syncing = await page
-          .getByLabel('Synchronizuje se…', { exact: true })
-          .count()
-        const pending = await page
-          .getByLabel('Uloženo lokálně · čeká na synchronizaci', {
-            exact: true,
-          })
-          .count()
-        const failed = await page
-          .getByRole('button', { name: /Synchronizace selhala/i })
-          .count()
-        const queueClear = syncing === 0 && pending === 0 && failed === 0
-        if (momentCards === 0) {
-          return queueClear
+        const journeyCards = authorMomentCards(page)
+        const journeyCount = await journeyCards.count()
+        if (journeyCount > 0) {
+          const statuses = await journeyCards.evaluateAll((elements) =>
+            elements.map((element) => element.getAttribute('data-sync-status')),
+          )
+          return (
+            statuses.length === journeyCount &&
+            statuses.every((status) => status === 'synced')
+          )
         }
-        return synced >= momentCards && queueClear
+
+        const entryArticle = page
+          .locator('main article[data-sync-status]')
+          .first()
+        if ((await entryArticle.count()) === 0) {
+          return false
+        }
+        return (
+          (await entryArticle.getAttribute('data-sync-status')) === 'synced'
+        )
       },
       { timeout: 90_000 },
     )

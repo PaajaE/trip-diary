@@ -27,7 +27,7 @@ async function expectLoadedImage(image: Locator): Promise<void> {
 }
 
 function momentArticle(page: import('@playwright/test').Page, title: string) {
-  return page.locator('#story article').filter({
+  return page.locator('#story article[data-entry-id]').filter({
     has: page.getByRole('heading', { name: title, level: 4 }),
   })
 }
@@ -37,9 +37,7 @@ async function openMomentEntry(
   momentTitle: string,
 ): Promise<void> {
   const card = momentArticle(page, momentTitle)
-  await card
-    .getByRole('button', { name: `Otevřít moment: ${momentTitle}` })
-    .click()
+  await card.getByRole('heading', { name: momentTitle, level: 4 }).click()
   await expect(page).toHaveURL(/\/e\//, { timeout: 20_000 })
 }
 

@@ -424,6 +424,13 @@ export async function syncPendingOperations(): Promise<void> {
 
   clearSyncError()
   clearSyncProgress()
+
+  if (processedCount > 0) {
+    const { queryClient } = await import('@/app/query-client')
+    const { invalidateAfterManualSync } =
+      await import('@/features/sync/lib/invalidate-after-sync')
+    await invalidateAfterManualSync(queryClient, creatorId)
+  }
 }
 
 export async function recoverStaleSyncingOperations(

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { MapPin, MoreHorizontal } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
 import { commitJourneyEntryTextUpdate } from '@/entities/journey/api/commit-journey-entry-text-update'
@@ -54,6 +54,7 @@ export function MomentCard({
   const { i18n, t } = useTranslation()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
+  const titleId = useId()
   const [editing, setEditing] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -91,8 +92,7 @@ export function MomentCard({
     setEditing(false)
   }
 
-  function openEditor(event: React.MouseEvent) {
-    event.stopPropagation()
+  function openEditor() {
     if (editing) {
       return
     }
@@ -132,200 +132,112 @@ export function MomentCard({
     }
   }
 
+  const previewBody = (
+    <>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
+        <span className="font-semibold tracking-wide text-accent uppercase">
+          {t(`entry.type.${moment.entry.type}`)}
+        </span>
+        {timeLabel === null ? null : (
+          <>
+            <span aria-hidden="true">·</span>
+            <time
+              {...(moment.entry.eventAt !== null
+                ? { dateTime: moment.entry.eventAt }
+                : {})}
+            >
+              {timeLabel}
+            </time>
+          </>
+        )}
+        {locationLabel === null ? null : (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin aria-hidden="true" size={12} />
+              {locationLabel}
+            </span>
+          </>
+        )}
+        {moment.location === null ? null : (
+          <>
+            <span aria-hidden="true">·</span>
+            <span className="inline-flex items-center gap-1">
+              <MapPin aria-hidden="true" size={12} />
+              {t('journey.hasLocation')}
+            </span>
+          </>
+        )}
+      </div>
+
+      <h4
+        className="mt-1.5 text-lg leading-snug font-semibold tracking-[-0.01em]"
+        id={titleId}
+      >
+        {title}
+      </h4>
+
+      {excerpt === '' ? null : (
+        <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
+          {excerpt}
+        </p>
+      )}
+
+      {resolvedPhotos.length > 0 ? (
+        <ul aria-hidden="true" className="mt-3 flex gap-1.5 overflow-hidden">
+          {resolvedPhotos.map((photo, index) => {
+            const showOverflow =
+              overflowCount > 0 && index === resolvedPhotos.length - 1
+            return (
+              <li
+                className="relative size-14 shrink-0 overflow-hidden rounded-lg sm:size-16"
+                key={photo.id}
+              >
+                <ResponsivePhotoImage
+                  alt=""
+                  className="size-full object-cover"
+                  {...(typeof photo.height === 'number'
+                    ? { height: photo.height }
+                    : {})}
+                  sizes={READER_STRIP_SIZES}
+                  src={photo.url}
+                  {...(typeof photo.width === 'number'
+                    ? { width: photo.width }
+                    : {})}
+                />
+                {photo.mediaType === 'video' ? <VideoPlayOverlay /> : null}
+                {showOverflow ? (
+                  <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
+                    +{overflowCount}
+                  </span>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+      ) : null}
+    </>
+  )
+
   return (
     <article
+      aria-labelledby={titleId}
       className={cn(
-        'author-moment-card group relative overflow-hidden rounded-xl border border-border/70 bg-surface shadow-soft',
+        'author-moment-card overflow-hidden rounded-xl border border-border/70 bg-surface shadow-soft',
         highlighted &&
           'ring-2 ring-primary/40 motion-safe:animate-pulse motion-reduce:ring-primary/60',
         editing && 'ring-1 ring-primary/25',
       )}
       data-entry-id={moment.entry.id}
+      data-sync-status={syncStatus}
       id={`moment-${moment.entry.id}`}
     >
-      {!editing && onOpen !== undefined ? (
-        <button
-          aria-label={t('reader.openMomentCard', { title })}
-          className="reader-moment-card__hit-target absolute inset-0 z-0 rounded-xl"
-          onClick={openMoment}
-          type="button"
-        />
-      ) : null}
-
-      <div className="pointer-events-none relative z-[1] p-4">
-        <div className="flex items-start gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-              <span className="font-semibold tracking-wide text-accent uppercase">
-                {t(`entry.type.${moment.entry.type}`)}
-              </span>
-              {timeLabel === null ? null : (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <time
-                    {...(moment.entry.eventAt !== null
-                      ? { dateTime: moment.entry.eventAt }
-                      : {})}
-                  >
-                    {timeLabel}
-                  </time>
-                </>
-              )}
-              {locationLabel === null ? null : (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin aria-hidden="true" size={12} />
-                    {locationLabel}
-                  </span>
-                </>
-              )}
-              {moment.location === null ? null : (
-                <>
-                  <span aria-hidden="true">·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <MapPin aria-hidden="true" size={12} />
-                    {t('journey.hasLocation')}
-                  </span>
-                </>
-              )}
-            </div>
-
-            {editing ? (
-              <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-accent">
-                {t(`entry.type.${moment.entry.type}`)}
-              </p>
-            ) : (
-              <h4 className="mt-1.5 text-lg leading-snug font-semibold tracking-[-0.01em]">
-                {title}
-              </h4>
-            )}
-
-            {editing || excerpt === '' ? null : (
-              <p className="mt-2 line-clamp-3 text-sm leading-6 text-muted">
-                {excerpt}
-              </p>
-            )}
-
-            {resolvedPhotos.length > 0 && !editing ? (
-              <ul
-                aria-hidden="true"
-                className="mt-3 flex gap-1.5 overflow-hidden"
-              >
-                {resolvedPhotos.map((photo, index) => {
-                  const showOverflow =
-                    overflowCount > 0 && index === resolvedPhotos.length - 1
-                  return (
-                    <li
-                      className="relative size-14 shrink-0 overflow-hidden rounded-lg sm:size-16"
-                      key={photo.id}
-                    >
-                      <ResponsivePhotoImage
-                        alt=""
-                        className="size-full object-cover"
-                        {...(typeof photo.height === 'number'
-                          ? { height: photo.height }
-                          : {})}
-                        sizes={READER_STRIP_SIZES}
-                        src={photo.url}
-                        {...(typeof photo.width === 'number'
-                          ? { width: photo.width }
-                          : {})}
-                      />
-                      {photo.mediaType === 'video' ? (
-                        <VideoPlayOverlay />
-                      ) : null}
-                      {showOverflow ? (
-                        <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-xs font-semibold text-white">
-                          +{overflowCount}
-                        </span>
-                      ) : null}
-                    </li>
-                  )
-                })}
-              </ul>
-            ) : null}
-          </div>
-
-          <div className="pointer-events-auto relative z-[2] flex shrink-0 items-start gap-0.5">
-            <MomentSyncIndicator
-              onRetry={() => {
-                void handleRetrySync()
-              }}
-              syncStatus={syncStatus}
-            />
-            {momentShare !== null ? (
-              <ShareIconButton
-                disabled={!isSynced}
-                onDisabledClick={() => {
-                  showToast({ message: t('moment.shareWaitForSync') })
-                }}
-                shareText={momentShare.shareText}
-                shareUrl={momentShare.shareUrl}
-                title={title}
-              />
-            ) : null}
-            {canEdit ? (
-              <button
-                className="inline-flex min-h-10 items-center rounded-lg px-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
-                onClick={openEditor}
-                type="button"
-              >
-                {t('entry.editAction')}
-              </button>
-            ) : null}
-            {canEdit ? (
-              <div className="relative">
-                <button
-                  aria-expanded={menuOpen}
-                  aria-haspopup="menu"
-                  aria-label={t('journey.more')}
-                  className="inline-flex size-10 items-center justify-center rounded-lg text-muted hover:bg-background"
-                  onClick={(event) => {
-                    event.stopPropagation()
-                    setMenuOpen((open) => !open)
-                  }}
-                  type="button"
-                >
-                  <MoreHorizontal aria-hidden="true" size={18} />
-                </button>
-                {menuOpen ? (
-                  <>
-                    <button
-                      aria-label={t('journey.manageClose')}
-                      className="fixed inset-0 z-10 cursor-default bg-transparent"
-                      onClick={() => {
-                        setMenuOpen(false)
-                      }}
-                      type="button"
-                    />
-                    <div
-                      className="absolute right-0 top-[calc(100%+0.25rem)] z-20 min-w-[10rem] overflow-hidden rounded-xl border border-border/80 bg-surface shadow-soft"
-                      role="menu"
-                    >
-                      <button
-                        className="flex min-h-11 w-full items-center px-4 text-left text-sm font-semibold text-destructive hover:bg-background disabled:opacity-50"
-                        disabled={deleting}
-                        onClick={() => {
-                          void handleDelete()
-                        }}
-                        role="menuitem"
-                        type="button"
-                      >
-                        {deleting
-                          ? t('entry.deleting')
-                          : t('entry.deleteAction')}
-                      </button>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
+      <div className="p-4">
         {editing ? (
-          <div className="pointer-events-auto">
+          <>
+            <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+              {t(`entry.type.${moment.entry.type}`)}
+            </p>
             <InlineMomentEditor
               creatorId={creatorId}
               entryId={moment.entry.id}
@@ -341,8 +253,101 @@ export function MomentCard({
                 onUpdated?.()
               }}
             />
+          </>
+        ) : (
+          <div className="flex items-start gap-3">
+            {onOpen !== undefined ? (
+              <button
+                aria-labelledby={titleId}
+                className="min-w-0 flex-1 rounded-lg text-left transition-colors hover:bg-background/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                onClick={openMoment}
+                type="button"
+              >
+                {previewBody}
+              </button>
+            ) : (
+              <div className="min-w-0 flex-1">{previewBody}</div>
+            )}
+
+            <div
+              className="flex shrink-0 items-start gap-0.5"
+              data-moment-actions=""
+            >
+              <MomentSyncIndicator
+                onRetry={() => {
+                  void handleRetrySync()
+                }}
+                syncStatus={syncStatus}
+              />
+              {momentShare !== null ? (
+                <ShareIconButton
+                  disabled={!isSynced}
+                  onDisabledClick={() => {
+                    showToast({ message: t('moment.shareWaitForSync') })
+                  }}
+                  shareText={momentShare.shareText}
+                  shareUrl={momentShare.shareUrl}
+                  title={title}
+                />
+              ) : null}
+              {canEdit ? (
+                <button
+                  className="inline-flex min-h-10 items-center rounded-lg px-2.5 text-sm font-semibold text-primary hover:bg-primary/5"
+                  onClick={openEditor}
+                  type="button"
+                >
+                  {t('entry.editAction')}
+                </button>
+              ) : null}
+              {canEdit ? (
+                <div className="relative">
+                  <button
+                    aria-expanded={menuOpen}
+                    aria-haspopup="menu"
+                    aria-label={t('journey.more')}
+                    className="inline-flex size-10 items-center justify-center rounded-lg text-muted hover:bg-background"
+                    onClick={() => {
+                      setMenuOpen((open) => !open)
+                    }}
+                    type="button"
+                  >
+                    <MoreHorizontal aria-hidden="true" size={18} />
+                  </button>
+                  {menuOpen ? (
+                    <>
+                      <button
+                        aria-label={t('journey.manageClose')}
+                        className="fixed inset-0 z-10 cursor-default bg-transparent"
+                        onClick={() => {
+                          setMenuOpen(false)
+                        }}
+                        type="button"
+                      />
+                      <div
+                        className="absolute right-0 top-[calc(100%+0.25rem)] z-20 min-w-[10rem] overflow-hidden rounded-xl border border-border/80 bg-surface shadow-soft"
+                        role="menu"
+                      >
+                        <button
+                          className="flex min-h-11 w-full items-center px-4 text-left text-sm font-semibold text-destructive hover:bg-background disabled:opacity-50"
+                          disabled={deleting}
+                          onClick={() => {
+                            void handleDelete()
+                          }}
+                          role="menuitem"
+                          type="button"
+                        >
+                          {deleting
+                            ? t('entry.deleting')
+                            : t('entry.deleteAction')}
+                        </button>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
-        ) : null}
+        )}
       </div>
     </article>
   )

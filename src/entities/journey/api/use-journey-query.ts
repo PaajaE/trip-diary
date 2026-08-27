@@ -49,21 +49,23 @@ export function useJourneyQuery(journeyId: string) {
 }
 
 export function useJourneyContributionQuery(journeyId: string) {
-  const cacheQuery = useQuery({
-    queryFn: () => getCachedCanContributeToJourney(journeyId),
+  const cacheQuery = useQuery<boolean | null>({
+    queryFn: async () =>
+      (await getCachedCanContributeToJourney(journeyId)) ?? null,
     queryKey: journeyQueryKeys.contributionLocal(journeyId),
   })
 
-  const contributionQuery = useQuery({
+  const contributionQuery = useQuery<boolean>({
     enabled: cacheQuery.isFetched,
-    placeholderData: () => cacheQuery.data,
+    placeholderData: (): boolean | undefined =>
+      cacheQuery.data === null ? undefined : cacheQuery.data,
     queryFn: () => canContributeToJourney(journeyId),
     queryKey: journeyQueryKeys.contribution(journeyId),
   })
 
   return {
     ...contributionQuery,
-    data: contributionQuery.data ?? cacheQuery.data,
-    isLoading: contributionQuery.isLoading && cacheQuery.data === undefined,
+    data: contributionQuery.data ?? cacheQuery.data ?? undefined,
+    isLoading: !cacheQuery.isFetched || contributionQuery.isLoading,
   }
 }

@@ -59,7 +59,7 @@ test('offline trip capture keeps the journey readable and shows pending sync', a
     timeout: 30_000,
   })
   await expect(page.locator('#story')).toBeVisible({ timeout: 30_000 })
-  const momentCard = page.locator('#story article').filter({
+  const momentCard = page.locator('#story article[data-entry-id]').filter({
     has: page.getByRole('heading', { name: momentTitle, level: 4 }),
   })
   await momentCard.scrollIntoViewIfNeeded()
