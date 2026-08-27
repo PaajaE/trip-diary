@@ -142,7 +142,9 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(
     page.getByRole('button', { name: 'Posunout později' }),
   ).toHaveCount(0)
-  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(
+    page.getByRole('button', { name: `${momentTitle} 1 · Titulní` }),
+  ).toHaveCount(1)
   await page.getByRole('button', { name: `${momentTitle} 2` }).click()
   await expect(page.getByRole('dialog', { name: 'Fotografie' })).toBeVisible()
   await page.getByRole('button', { name: 'Nastavit jako titulní' }).click()
@@ -163,11 +165,17 @@ test('moment cover selection persists across edit, refresh, and public page', as
     .getByRole('button', { name: 'Zrušit' })
     .click()
   await expect(page.getByRole('dialog', { name: 'Fotografie' })).toHaveCount(0)
+  // Cover sorts first after refresh, so the star badge stays on index 1.
+  await expect(
+    page.getByRole('button', { name: `${momentTitle} 1 · Titulní` }),
+  ).toHaveCount(1, { timeout: 15_000 })
   await page.getByRole('button', { name: 'Hotovo' }).click()
   await expect(
     page.getByRole('button', { name: 'Upravit' }).first(),
   ).toBeVisible()
-  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: /· Titulní$/ }),
+  ).toHaveCount(0)
   await waitForFullySynced(page)
 
   const entryIdMatch = /\/e\/([^/?]+)/.exec(page.url())
