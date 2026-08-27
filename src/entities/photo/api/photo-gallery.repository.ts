@@ -689,6 +689,291 @@ export async function getEntryPhotoPreviews(
   return mergePositionedPreviews(localResult, remoteResult)
 }
 
+export interface EntryPhotoListItem {
+  focalX?: number
+  focalY?: number
+  id: string
+  isCover?: boolean
+  mediaType?: MediaType
+}
+
+export interface EntryPhotoViewData {
+  allPhotos: EntryPhotoListItem[]
+  displayPhotos: PhotoPreview[]
+  totalCount: number
+}
+
+interface PhotoLinkMeta {
+  focalX?: number
+  focalY?: number
+  id: string
+  isCover?: boolean
+  mediaType?: MediaType
+  position: number
+}
+
+const VIEW_PREVIEW_LIMIT = 5
+
+function comparePhotoLinkMeta(left: PhotoLinkMeta, right: PhotoLinkMeta): number {
+  const coverDelta =
+    Number(right.isCover === true) - Number(left.isCover === true)
+  if (coverDelta !== 0) {
+    return coverDelta
+  }
+  return left.position - right.position
+}
+
+function selectViewDisplayPhotoIds(ordered: PhotoLinkMeta[]): string[] {
+  if (ordered.length === 0) {
+    return []
+  }
+  const cover = ordered.find((photo) => photo.isCover === true) ?? ordered[0]
+  if (cover === undefined) {
+    return []
+  }
+  const previewIds = ordered
+    .filter((photo) => photo.id !== cover.id)
+    .slice(0, VIEW_PREVIEW_LIMIT)
+    .map((photo) => photo.id)
+  return [cover.id, ...previewIds]
+}
+
+function mergePhotoLinkMeta(
+  localResult: PromiseSettledResult<PhotoLinkMeta[]>,
+  remoteResult: PromiseSettledResult<PhotoLinkMeta[]>,
+): PhotoLinkMeta[] {
+  const metaById = new Map<string, PhotoLinkMeta>()
+  if (remoteResult.status === 'fulfilled') {
+    for (const meta of remoteResult.value) {
+      metaById.set(meta.id, meta)
+    }
+  }
+  if (localResult.status === 'fulfilled') {
+    for (const meta of localResult.value) {
+      const remote = metaById.get(meta.id)
+      if (remote === undefined) {
+        metaById.set(meta.id, meta)
+        continue
+      }
+      metaById.set(meta.id, {
+        id: meta.id,
+        position: remote.position,
+        ...(remote.isCover !== undefined || meta.isCover !== undefined
+          ? { isCover: remote.isCover ?? meta.isCover }
+          : {}),
+        ...(remote.focalX !== undefined || meta.focalX !== undefined
+          ? { focalX: remote.focalX ?? meta.focalX }
+          : {}),
+        ...(remote.focalY !== undefined || meta.focalY !== undefined
+          ? { focalY: remote.focalY ?? meta.focalY }
+          : {}),
+        ...(meta.mediaType !== undefined || remote.mediaType !== undefined
+          ? { mediaType: meta.mediaType ?? remote.mediaType }
+          : {}),
+      })
+    }
+  }
+  return [...metaById.values()].sort(comparePhotoLinkMeta)
+}
+
+async function getLocalPhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]> {
+  const photos = await localDb.photos
+    .where('entryId')
+    .equals(entryId)
+    .sortBy('position')
+  return photos.map((photo) => ({
+    id: photo.id,
+    isCover: photo.position === 0,
+    mediaType: photo.mediaType,
+    position: photo.position,
+  }))
+}
+
+async function getRemotePhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]> {
+  const client = getSupabaseClient()
+  const { data: links, error: linksError } = await client
+    .from('entry_photos')
+    .select('photo_id, position, is_cover, focal_x, focal_y')
+    .eq('entry_id', entryId)
+    .order('position')
+  if (linksError !== null) {
+    throw linksError
+  }
+  if (links.length === 0) {
+    return []
+  }
+
+  const photoIds = links.map((link) => link.photo_id)
+  const mediaMetaByPhotoId = await getRemotePhotoMediaMeta(photoIds)
+
+  return links.map((link) => {
+    const mediaMeta = mediaMetaByPhotoId.get(link.photo_id)
+    const focal = focalFieldsFromLink(link)
+    return {
+      id: link.photo_id,
+      isCover: link.is_cover === true,
+      position: link.position,
+      ...(focal.focalX === undefined ? {} : { focalX: focal.focalX }),
+      ...(focal.focalY === undefined ? {} : { focalY: focal.focalY }),
+      ...(mediaMeta?.mediaType === undefined
+        ? {}
+        : { mediaType: mediaMeta.mediaType }),
+    }
+  })
+}
+
+async function getLocalPhotoPreviewsForIds(
+  entryId: string,
+  photoIds: readonly string[],
+): Promise<PositionedPhotoPreview[]> {
+  if (photoIds.length === 0) {
+    return []
+  }
+  const idSet = new Set(photoIds)
+  const photos = await localDb.photos
+    .where('entryId')
+    .equals(entryId)
+    .sortBy('position')
+  const selected = photos.filter((photo) => idSet.has(photo.id))
+  const previews = await Promise.allSettled(
+    selected.map(async (photo) => {
+      const variants = await localDb.photoVariants
+        .where('photoId')
+        .equals(photo.id)
+        .toArray()
+      const variant = pickLocalThumbVariant(variants)
+      return variant === undefined
+        ? null
+        : previewFromVariant(photo.id, variant, {
+            ...(typeof photo.durationMs === 'number'
+              ? { durationMs: photo.durationMs }
+              : {}),
+            isCover: photo.position === 0,
+            mediaType: photo.mediaType,
+            position: photo.position,
+          })
+    }),
+  )
+  return previews.flatMap((preview) =>
+    preview.status === 'fulfilled' && preview.value !== null
+      ? [preview.value]
+      : [],
+  )
+}
+
+async function getRemotePhotoThumbPreviewsForIds(
+  entryId: string,
+  photoIds: readonly string[],
+): Promise<PositionedPhotoPreview[]> {
+  if (photoIds.length === 0) {
+    return []
+  }
+  const client = getSupabaseClient()
+  const { data: links, error: linksError } = await client
+    .from('entry_photos')
+    .select('photo_id, position, is_cover, focal_x, focal_y')
+    .eq('entry_id', entryId)
+    .in('photo_id', [...photoIds])
+    .order('position')
+  if (linksError !== null) {
+    throw linksError
+  }
+  if (links.length === 0) {
+    return []
+  }
+
+  const idSet = new Set(photoIds)
+  const filteredLinks = links.filter((link) => idSet.has(link.photo_id))
+
+  const [variantResult, mediaMetaByPhotoId] = await Promise.all([
+    client
+      .from('photo_variants')
+      .select('photo_id, storage_path, variant, width, height')
+      .in('photo_id', [...photoIds])
+      .in('variant', [...GRID_REMOTE_VARIANT_KINDS]),
+    getRemotePhotoMediaMeta([...photoIds]),
+  ])
+  const { data: variantRows, error: variantError } = variantResult
+  if (variantError !== null) {
+    throw variantError
+  }
+
+  const rowsByPhotoId = new Map<string, RemoteVariantRow[]>()
+  for (const row of variantRows) {
+    const list = rowsByPhotoId.get(row.photo_id) ?? []
+    list.push(row)
+    rowsByPhotoId.set(row.photo_id, list)
+  }
+
+  const previews = await Promise.allSettled(
+    filteredLinks.map(async (link) => {
+      const match = pickRemoteStoragePath(
+        rowsByPhotoId.get(link.photo_id) ?? [],
+        GRID_CONTEXT,
+      )
+      if (match === null) {
+        throw new Error('missing variant')
+      }
+      const mediaMeta = mediaMetaByPhotoId.get(link.photo_id)
+      return downloadRemotePreview(match.storage_path, link.photo_id, {
+        height: match.height,
+        isCover: link.is_cover,
+        position: link.position,
+        width: match.width,
+        ...focalFieldsFromLink(link),
+        ...(mediaMeta?.durationMs === undefined
+          ? {}
+          : { durationMs: mediaMeta.durationMs }),
+        ...(mediaMeta?.mediaType === undefined
+          ? {}
+          : { mediaType: mediaMeta.mediaType }),
+      })
+    }),
+  )
+
+  return previews.flatMap((preview) =>
+    preview.status === 'fulfilled' ? [preview.value] : [],
+  )
+}
+
+/**
+ * View-mode payload: metadata for every photo, but thumb blobs only for the
+ * cover plus up to five secondary preview tiles.
+ */
+export async function getEntryPhotoViewPreviews(
+  entryId: string,
+): Promise<EntryPhotoViewData> {
+  const [localMetaResult, remoteMetaResult] = await Promise.allSettled([
+    getLocalPhotoLinkMeta(entryId),
+    getRemotePhotoLinkMeta(entryId),
+  ])
+
+  const allLinkMeta = mergePhotoLinkMeta(localMetaResult, remoteMetaResult)
+  const displayIds = selectViewDisplayPhotoIds(allLinkMeta)
+
+  const [localDisplayResult, remoteDisplayResult] = await Promise.allSettled([
+    getLocalPhotoPreviewsForIds(entryId, displayIds),
+    getRemotePhotoThumbPreviewsForIds(entryId, displayIds),
+  ])
+
+  const displayPhotos = mergePositionedPreviews(
+    localDisplayResult,
+    remoteDisplayResult,
+  ).filter((photo) => new Set(displayIds).has(photo.id))
+
+  return {
+    allPhotos: allLinkMeta.map(({ focalX, focalY, id, isCover, mediaType }) => ({
+      id,
+      ...(focalX === undefined ? {} : { focalX }),
+      ...(focalY === undefined ? {} : { focalY }),
+      ...(isCover === undefined ? {} : { isCover }),
+      ...(mediaType === undefined ? {} : { mediaType }),
+    })),
+    displayPhotos,
+    totalCount: allLinkMeta.length,
+  }
+}
+
 export async function getEntryPhotoDetailPreviews(
   entryId: string,
 ): Promise<PhotoPreview[]> {

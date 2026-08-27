@@ -18,6 +18,11 @@ describe('entryQueryKeys', () => {
     expect(entryQueryKeys.photoPreviews('entry-a')).toEqual(
       entryQueryKeys.photoPreviews('entry-a'),
     )
+    expect(entryQueryKeys.photoViewPreviews('entry-a')).toEqual([
+      'entries',
+      'entry-a',
+      'photo-view-previews',
+    ])
     expect(entryQueryKeys.public('entry-a')).toEqual([
       'entries',
       'entry-a',

@@ -1,12 +1,19 @@
 import { Star } from 'lucide-react'
+import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
+import type { EntryPhotoViewData } from '@/entities/photo/api/photo-gallery.repository'
+import { MOMENT_PHOTO_PREVIEW_LIMIT } from '@/entities/photo/api/moment-photo-detail.repository'
 import {
   coverObjectPositionStyle,
   focalFromPreview,
 } from '@/entities/photo/lib/cover-focal-point'
 import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
+import {
+  countHiddenMomentPreviewPhotos,
+  momentPhotoMosaicClassName,
+  resolveMomentPhotoMosaicCount,
+} from '@/features/journeys/lib/moment-photo-preview-layout'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
@@ -15,129 +22,198 @@ import { cn } from '@/shared/lib/cn'
 interface MomentMediaViewProps {
   alt: string
   entryId: string
-  photos: PhotoPreview[]
+  viewData: EntryPhotoViewData
+}
+
+function morePhotosLabel(
+  t: ReturnType<typeof useTranslation>['t'],
+  language: string,
+  count: number,
+): string {
+  const isCzech = language.startsWith('cs')
+  if (!isCzech) {
+    return t(
+      count === 1 ? 'reader.morePhotosCountOne' : 'reader.morePhotosCountMany',
+      { count },
+    )
+  }
+  if (count === 1) {
+    return t('reader.morePhotosCountOne', { count })
+  }
+  if (count >= 2 && count <= 4) {
+    return t('reader.morePhotosCountFew', { count })
+  }
+  return t('reader.morePhotosCountMany', { count })
 }
 
 export function MomentMediaView({
   alt,
   entryId,
-  photos,
+  viewData,
 }: MomentMediaViewProps) {
-  const { t } = useTranslation()
-  const urls = usePhotoObjectUrls(photos)
+  const { i18n, t } = useTranslation()
+  const displayUrls = usePhotoObjectUrls(viewData.displayPhotos)
 
-  const coverIndex = photos.findIndex((photo) => photo.isCover === true)
+  const coverIndex = viewData.displayPhotos.findIndex(
+    (photo) => photo.isCover === true,
+  )
   const resolvedCoverIndex = coverIndex >= 0 ? coverIndex : 0
-  const cover = urls[resolvedCoverIndex]
-  const coverMeta = photos[resolvedCoverIndex]
-  const rest = urls.filter((_, index) => index !== resolvedCoverIndex)
+  const cover = displayUrls[resolvedCoverIndex]
+  const coverMeta = viewData.displayPhotos[resolvedCoverIndex]
+  const coverPhotoId = coverMeta?.id ?? null
+
+  const previewPhotos = useMemo(
+    () => displayUrls.filter((preview) => preview.id !== coverPhotoId),
+    [coverPhotoId, displayUrls],
+  )
+
+  const previewMeta = useMemo(
+    () =>
+      viewData.displayPhotos.filter((photo) => photo.id !== coverPhotoId).slice(
+        0,
+        MOMENT_PHOTO_PREVIEW_LIMIT,
+      ),
+    [coverPhotoId, viewData.displayPhotos],
+  )
+
+  const mosaic = previewPhotos.slice(0, MOMENT_PHOTO_PREVIEW_LIMIT)
+  const hiddenCount = useMemo(
+    () =>
+      countHiddenMomentPreviewPhotos(
+        viewData.allPhotos.map((photo) => ({
+          caption: null,
+          capturedAt: null,
+          focalX: photo.focalX ?? null,
+          focalY: photo.focalY ?? null,
+          id: photo.id,
+          isCover: photo.isCover === true,
+          latitude: null,
+          longitude: null,
+          position: 0,
+        })),
+        mosaic.map((photo) => ({
+          caption: null,
+          capturedAt: null,
+          focalX: null,
+          focalY: null,
+          id: photo.id,
+          isCover: false,
+          latitude: null,
+          longitude: null,
+          position: 0,
+          thumbUrl: photo.url,
+        })),
+      ),
+    [mosaic, viewData.allPhotos],
+  )
 
   const { lightboxElement, openLightbox } = usePhotoLightbox({})
-  const lightboxPhotos = urls.map((preview) => ({
-    alt,
-    entryId,
-    id: preview.id,
-    ...(photos.find((photo) => photo.id === preview.id)?.mediaType === 'video'
-      ? { mediaType: 'video' as const }
-      : {}),
-    thumbUrl: preview.url,
-  }))
+  const lightboxPhotos = useMemo(
+    () =>
+      viewData.allPhotos.map((photo) => {
+        const displayUrl = displayUrls.find((item) => item.id === photo.id)
+        return {
+          alt,
+          entryId,
+          id: photo.id,
+          ...(photo.mediaType === 'video' ? { mediaType: 'video' as const } : {}),
+          thumbUrl: displayUrl?.url ?? '',
+        }
+      }),
+    [alt, displayUrls, entryId, viewData.allPhotos],
+  )
 
-  if (urls.length === 0) {
+  function openAtPhotoId(photoId: string) {
+    const index = viewData.allPhotos.findIndex((photo) => photo.id === photoId)
+    openLightbox(lightboxPhotos, index >= 0 ? index : 0)
+  }
+
+  if (displayUrls.length === 0) {
     return null
   }
 
   const focalStyle =
     coverMeta !== undefined
-      ? coverObjectPositionStyle(focalFromPreview(coverMeta), '50% 50%')
+      ? coverObjectPositionStyle(focalFromPreview(coverMeta), 'center 32%')
       : undefined
 
+  const mosaicCount =
+    mosaic.length > 0 ? resolveMomentPhotoMosaicCount(mosaic.length) : 0
+  const lastMosaicIndex = mosaic.length - 1
+  const showOverlayOnLast = hiddenCount > 0
+
   return (
-    <section className="mt-10">
-      <div className="mb-4 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-          {t('entry.mediaSectionTitle', { count: photos.length })}
-        </h2>
-      </div>
+    <section aria-label={t('entry.mediaSectionTitle', { count: viewData.totalCount })}>
+      {cover !== undefined ? (
+        <button
+          aria-label={alt}
+          className="group relative block w-full overflow-hidden rounded-2xl focus-visible:outline-offset-2 sm:rounded-[1.25rem]"
+          onClick={() => {
+            openAtPhotoId(cover.id)
+          }}
+          type="button"
+        >
+          <ResponsivePhotoImage
+            alt={alt}
+            className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover transition duration-500 group-hover:scale-[1.01]"
+            sizes="(max-width: 640px) 100vw, min(68rem, 90vw)"
+            src={cover.url}
+            {...(focalStyle === undefined ? {} : { style: focalStyle })}
+          />
+          {coverMeta?.mediaType === 'video' ? <VideoPlayOverlay /> : null}
+          <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/95">
+            <Star aria-hidden="true" className="size-3 fill-current" />
+            {t('entry.coverPhoto')}
+          </span>
+        </button>
+      ) : null}
 
-      <div
-        className={cn(
-          'grid gap-2',
-          rest.length > 0
-            ? 'grid-cols-2 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]'
-            : 'grid-cols-1',
-        )}
-      >
-        {cover !== undefined ? (
-          <button
-            aria-label={alt}
-            className={cn(
-              'relative overflow-hidden rounded-2xl focus-visible:outline-offset-2',
-              rest.length > 0
-                ? 'row-span-2 min-h-[14rem] sm:min-h-[18rem]'
-                : '',
-            )}
-            onClick={() => {
-              openLightbox(lightboxPhotos, resolvedCoverIndex)
-            }}
-            type="button"
-          >
-            <ResponsivePhotoImage
-              alt={alt}
-              className="size-full min-h-[14rem] object-cover sm:min-h-[18rem]"
-              {...(typeof coverMeta?.height === 'number'
-                ? { height: coverMeta.height }
-                : {})}
-              sizes={GALLERY_GRID_SIZES}
-              src={cover.url}
-              {...(focalStyle === undefined ? {} : { style: focalStyle })}
-              {...(typeof coverMeta?.width === 'number'
-                ? { width: coverMeta.width }
-                : {})}
-            />
-            {coverMeta?.mediaType === 'video' ? <VideoPlayOverlay /> : null}
-            <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-              <Star aria-hidden="true" className="size-3 fill-current" />
-              {t('entry.coverPhoto')}
-            </span>
-          </button>
-        ) : null}
+      {mosaic.length > 0 ? (
+        <div
+          className={cn(
+            momentPhotoMosaicClassName(mosaicCount as 1 | 2 | 3 | 4 | 5),
+            'mt-3',
+          )}
+        >
+          {mosaic.map((preview, index) => {
+            const meta = previewMeta.find((photo) => photo.id === preview.id)
+            const showMoreOverlay = showOverlayOnLast && index === lastMosaicIndex
 
-        {rest.length > 0 ? (
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-1">
-            {rest.map((preview, index) => {
-              const meta = photos.find((photo) => photo.id === preview.id)
-              const openIndex = urls.findIndex((item) => item.id === preview.id)
-              return (
+            return (
+              <div className="moment-photo-mosaic__tile" key={preview.id}>
                 <button
                   aria-label={`${alt} ${String(index + 2)}`}
-                  className="relative overflow-hidden rounded-xl focus-visible:outline-offset-2"
-                  key={preview.id}
+                  className="group relative block size-full overflow-hidden rounded-[inherit] focus-visible:outline-offset-2"
                   onClick={() => {
-                    openLightbox(lightboxPhotos, openIndex >= 0 ? openIndex : 0)
+                    openAtPhotoId(preview.id)
                   }}
                   type="button"
                 >
                   <ResponsivePhotoImage
                     alt=""
-                    className="aspect-square w-full object-cover"
+                    className="size-full object-cover transition duration-500 group-hover:scale-[1.03]"
                     decorative
-                    {...(typeof meta?.height === 'number'
-                      ? { height: meta.height }
-                      : {})}
                     sizes={GALLERY_GRID_SIZES}
                     src={preview.url}
-                    {...(typeof meta?.width === 'number'
-                      ? { width: meta.width }
-                      : {})}
                   />
                   {meta?.mediaType === 'video' ? <VideoPlayOverlay /> : null}
                 </button>
-              )
-            })}
-          </div>
-        ) : null}
-      </div>
+                {showMoreOverlay ? (
+                  <button
+                    className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/45 text-center text-base font-semibold text-white backdrop-blur-[1px] transition hover:bg-black/55"
+                    onClick={() => {
+                      openAtPhotoId(preview.id)
+                    }}
+                    type="button"
+                  >
+                    {morePhotosLabel(t, i18n.language, hiddenCount)}
+                  </button>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      ) : null}
 
       {lightboxElement}
     </section>

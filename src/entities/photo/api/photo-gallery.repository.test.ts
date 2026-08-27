@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   getEntryPhotoPreviews,
+  getEntryPhotoViewPreviews,
   getJourneyEntryPhotoCardPreviews,
   getJourneyEntryPhotoPreviews,
 } from '@/entities/photo/api/photo-gallery.repository'
@@ -95,8 +96,10 @@ function createPreview(photoId: string, blob: Blob): LocalPhotoVariant {
 }
 
 describe('getEntryPhotoPreviews', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     getSupabaseClientMock.mockReset()
+    await localDb.photos.clear()
+    await localDb.photoVariants.clear()
   })
 
   afterEach(async () => {
@@ -390,6 +393,75 @@ describe('getEntryPhotoPreviews', () => {
         width: 220,
       },
     ])
+  })
+
+  it('loads view-mode blobs only for cover plus five preview photos', async () => {
+    const entryId = crypto.randomUUID()
+    const coverId = crypto.randomUUID()
+    const previewIds = Array.from({ length: 5 }, () => crypto.randomUUID())
+    const hiddenIds = Array.from({ length: 3 }, () => crypto.randomUUID())
+    const allIds = [coverId, ...previewIds, ...hiddenIds]
+
+    const links = createQuery({
+      data: allIds.map((photoId, index) => ({
+        focal_x: null,
+        focal_y: null,
+        is_cover: photoId === coverId,
+        photo_id: photoId,
+        position: index,
+      })),
+      error: null,
+    })
+    const variants = createQuery({
+      data: allIds.map((photoId) => ({
+        height: 100,
+        photo_id: photoId,
+        storage_path: `${photoId}-thumb`,
+        variant: 'thumb',
+        width: 100,
+      })),
+      error: null,
+    })
+    const photosMeta = createQuery({
+      data: allIds.map((photoId) => ({
+        duration_ms: null,
+        id: photoId,
+        media_type: 'photo',
+      })),
+      error: null,
+    })
+    const download = vi.fn((path: string) =>
+      Promise.resolve({
+        data: new Blob([path]),
+        error: null,
+      }),
+    )
+    getSupabaseClientMock.mockReturnValue({
+      from: vi.fn((table: string) => {
+        if (table === 'entry_photos') {
+          return links
+        }
+        if (table === 'photos') {
+          return photosMeta
+        }
+        return variants
+      }),
+      storage: {
+        from: vi.fn(() => ({ download })),
+      },
+    })
+
+    const viewData = await getEntryPhotoViewPreviews(entryId)
+
+    expect(viewData.totalCount).toBe(9)
+    expect(viewData.allPhotos).toHaveLength(9)
+    expect(viewData.displayPhotos).toHaveLength(6)
+    expect(viewData.displayPhotos.map((photo) => photo.id)).toEqual([
+      coverId,
+      ...previewIds,
+    ])
+    expect(download).toHaveBeenCalledTimes(6)
+    expect(download).not.toHaveBeenCalledWith(`${hiddenIds[0]}-thumb`)
   })
 })
 

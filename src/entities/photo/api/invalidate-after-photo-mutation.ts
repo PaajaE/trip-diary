@@ -13,6 +13,9 @@ export async function invalidateAfterPhotoDelete(
       queryKey: entryQueryKeys.photoPreviews(input.entryId),
     })
     await queryClient.invalidateQueries({
+      queryKey: entryQueryKeys.photoViewPreviews(input.entryId),
+    })
+    await queryClient.invalidateQueries({
       queryKey: entryQueryKeys.photoDetailPreviews(input.entryId),
     })
   }

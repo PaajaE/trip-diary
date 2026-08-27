@@ -11,6 +11,7 @@ const entryDetailVariants = (entryId: string) =>
     entryQueryKeys.detail(entryId),
     entryQueryKeys.public(entryId),
     entryQueryKeys.photoPreviews(entryId),
+    entryQueryKeys.photoViewPreviews(entryId),
     entryQueryKeys.photoDetailPreviews(entryId),
     entryQueryKeys.inlineEdit(entryId),
     entryQueryKeys.publicCardThumb(entryId),

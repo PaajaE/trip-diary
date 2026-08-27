@@ -4,6 +4,8 @@ export const entryQueryKeys = {
   public: (entryId: string) => ['entries', entryId, 'public'] as const,
   photoPreviews: (entryId: string) =>
     ['entries', entryId, 'photo-previews'] as const,
+  photoViewPreviews: (entryId: string) =>
+    ['entries', entryId, 'photo-view-previews'] as const,
   photoDetailPreviews: (entryId: string) =>
     ['entries', entryId, 'photo-detail-previews'] as const,
   publicMomentPhotos: (entryId: string) =>

@@ -113,6 +113,9 @@ export function MomentMediaEditor({
       queryKey: entryQueryKeys.photoPreviews(entryId),
     })
     await queryClient.invalidateQueries({
+      queryKey: entryQueryKeys.photoViewPreviews(entryId),
+    })
+    await queryClient.invalidateQueries({
       queryKey: entryQueryKeys.publicMomentPhotos(entryId),
     })
   }
@@ -184,10 +187,10 @@ export function MomentMediaEditor({
       : (urls.find((preview) => preview.id === activePhotoId) ?? null)
 
   return (
-    <section className="mt-10">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
-          {t('entry.mediaSectionTitle', { count: photos.length })}
+    <section aria-label={t('entry.mediaSectionTitle', { count: photos.length })}>
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+        <h2 className="reader-display text-2xl tracking-[-0.03em]">
+          {t('reader.photosHeading')}
         </h2>
         <div className="flex flex-wrap gap-2">
           {isNativePlatform ? (
@@ -250,11 +253,11 @@ export function MomentMediaEditor({
       </div>
 
       {photos.length === 0 ? (
-        <p className="rounded-2xl border border-dashed border-border/80 px-5 py-8 text-center text-sm text-muted">
+        <p className="rounded-2xl border border-dashed border-border/60 px-5 py-10 text-center text-sm text-muted">
           {t('entry.mediaEmptyEdit')}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
           {urls.map((preview, index) => {
             const meta = photos.find((photo) => photo.id === preview.id)
             if (meta === undefined) {
@@ -270,7 +273,7 @@ export function MomentMediaEditor({
                   aria-label={`${alt} ${String(index + 1)}`}
                   className={cn(
                     'block w-full overflow-hidden rounded-xl focus-visible:outline-offset-2',
-                    isCover && 'ring-1 ring-primary/40 ring-offset-1',
+                    isCover && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
                   )}
                   onClick={() => {
                     setActivePhotoId(preview.id)
@@ -281,30 +284,24 @@ export function MomentMediaEditor({
                     alt=""
                     className="aspect-square w-full object-cover"
                     decorative
-                    {...(typeof meta.height === 'number'
-                      ? { height: meta.height }
-                      : {})}
                     sizes={GALLERY_GRID_SIZES}
                     src={preview.url}
                     {...(focalStyle === undefined ? {} : { style: focalStyle })}
-                    {...(typeof meta.width === 'number'
-                      ? { width: meta.width }
-                      : {})}
                   />
                   {meta.mediaType === 'video' ? <VideoPlayOverlay /> : null}
                 </button>
 
                 {isCover ? (
-                  <span className="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                  <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
                     <Star aria-hidden="true" className="size-3 fill-current" />
                     {t('entry.coverPhoto')}
                   </span>
                 ) : null}
 
-                <div className="absolute right-1 top-1 flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                <div className="absolute right-1.5 top-1.5 flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
                   <button
                     aria-label={t('entry.movePhotoEarlier')}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-black/60 text-white disabled:opacity-40"
+                    className="inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white disabled:opacity-40"
                     disabled={index === 0 || reorderMutation.isPending}
                     onClick={(event) => {
                       event.stopPropagation()
@@ -316,7 +313,7 @@ export function MomentMediaEditor({
                   </button>
                   <button
                     aria-label={t('entry.movePhotoLater')}
-                    className="inline-flex size-8 items-center justify-center rounded-full bg-black/60 text-white disabled:opacity-40"
+                    className="inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white disabled:opacity-40"
                     disabled={
                       index === photos.length - 1 || reorderMutation.isPending
                     }
