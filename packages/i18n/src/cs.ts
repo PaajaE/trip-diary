@@ -245,7 +245,8 @@ export const cs: TranslationResources = {
     mediaSectionTitle: 'Média ({{count}} fotek)',
     mediaSectionTitle_one: 'Média ({{count}} fotka)',
     photosEditHeading: 'Fotografie ({{count}})',
-    addMediaAction: 'Přidat fotky nebo video',
+    addMediaShort: 'Přidat média',
+    addMediaAction: 'Nahrát fotky nebo video',
     addMediaFallback: 'Vybrat z knihovny',
     mediaEmptyEdit:
       'Zatím tu nejsou žádné fotky. Přidejte je pro ilustraci momentu.',

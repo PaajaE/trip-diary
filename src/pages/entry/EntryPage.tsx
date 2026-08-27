@@ -8,6 +8,7 @@ import { getLocalEntry } from '@/entities/entry/api/local-entry.repository'
 import { getPublicEntry } from '@/entities/entry/api/public-entry.repository'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import {
+  getEntryPhotoEditPreviews,
   getEntryPhotoPreviews,
   getEntryPhotoViewPreviews,
 } from '@/entities/photo/api/photo-gallery.repository'
@@ -88,15 +89,14 @@ function OwnerEntryDetail({
   const [menuOpen, setMenuOpen] = useState(false)
 
   const viewPhotosQuery = useQuery({
-    enabled: !editing,
     queryFn: () => getEntryPhotoViewPreviews(entry.id),
     queryKey: entryQueryKeys.photoViewPreviews(entry.id),
   })
 
   const editPhotosQuery = useQuery({
     enabled: editing,
-    queryFn: () => getEntryPhotoPreviews(entry.id),
-    queryKey: entryQueryKeys.photoPreviews(entry.id),
+    queryFn: () => getEntryPhotoEditPreviews(entry.id),
+    queryKey: entryQueryKeys.photoEditPreviews(entry.id),
   })
 
   const textDraft = useMomentTextDraft({
@@ -146,12 +146,10 @@ function OwnerEntryDetail({
     setEditing(true)
   }
 
-  const photosPending = editing
-    ? editPhotosQuery.isPending
-    : viewPhotosQuery.isPending
-  const photosError = editing
-    ? editPhotosQuery.isError
-    : viewPhotosQuery.isError
+  const photosPending = viewPhotosQuery.isPending
+  const photosError = viewPhotosQuery.isError
+  const editPhotosPending = editing && editPhotosQuery.isPending
+  const editPhotosError = editing && editPhotosQuery.isError
 
   const viewPhotoData = viewPhotosQuery.data
   const hasViewMedia =
@@ -204,82 +202,15 @@ function OwnerEntryDetail({
       </p>
     ) : null
 
-  // Edit mode keeps its existing layout (TASK 2). VIEW converges to public composition.
-  if (editing) {
-    return (
-      <>
-        {noticeBanner}
-        {header}
-        <div className={momentTextColumnClass}>
-          <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
-          <MetadataRow
-            className="mt-2"
-            items={[
-              { icon: CalendarDays, label: dateLabel ?? '' },
-              { icon: MapPin, label: resolvedLocation ?? '' },
-            ]}
-          />
-          <MomentInlineTextFields
-            body={textDraft.body}
-            className="mt-4"
-            disabled={textDraft.saveState === 'saving'}
-            editing
-            onBodyChange={textDraft.setBody}
-            onTitleChange={textDraft.setTitle}
-            title={textDraft.title}
-          />
-        </div>
-        {photosPending ? (
-          <p
-            className={cn(momentMediaColumnClass, 'mt-10 text-sm text-muted')}
-            role="status"
-          >
-            {t('photos.loading')}
-          </p>
-        ) : photosError ? (
-          <p
-            className={cn(
-              momentMediaColumnClass,
-              'mt-10 text-sm text-destructive',
-            )}
-            role="alert"
-          >
-            {t('photos.error')}
-          </p>
-        ) : (
-          <div className={cn(momentMediaColumnClass, 'mt-10')}>
-            <MomentMediaEditor
-              alt={entry.title}
-              creatorId={userId}
-              entryId={entry.id}
-              {...(journeyId !== undefined ? { journeyId } : {})}
-              onPhotosChanged={invalidatePhotos}
-              photos={editPhotosQuery.data ?? []}
-            />
-          </div>
-        )}
-        <ContentEngagement
-          className={cn(
-            momentTextColumnClass,
-            'mt-8 border-t border-border/30 pt-5',
-          )}
-          compact
-          countsOnly
-          target={{ id: entry.id, type: 'entry' }}
-        />
-        {entry.language === 'cs' ? (
-          <section
-            className={cn(
-              momentTextColumnClass,
-              'mt-10 border-t border-border/30 pt-6',
-            )}
-          >
-            <EntryTranslationPanel entry={entry} variant="inline" />
-          </section>
-        ) : null}
-      </>
-    )
-  }
+  const metadataRow = (
+    <MetadataRow
+      className="mt-4"
+      items={[
+        { icon: CalendarDays, label: dateLabel ?? '' },
+        { icon: MapPin, label: resolvedLocation ?? '' },
+      ]}
+    />
+  )
 
   return (
     <>
@@ -319,24 +250,47 @@ function OwnerEntryDetail({
       >
         <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
         <MomentInlineTextFields
-          body={entry.body}
-          editing={false}
-          metaSlot={
-            <MetadataRow
-              className="mt-4"
-              items={[
-                { icon: CalendarDays, label: dateLabel ?? '' },
-                { icon: MapPin, label: resolvedLocation ?? '' },
-              ]}
-            />
-          }
-          onBodyChange={() => undefined}
-          onTitleChange={() => undefined}
-          title={entry.title}
+          body={editing ? textDraft.body : entry.body}
+          disabled={editing && textDraft.saveState === 'saving'}
+          editing={editing}
+          metaSlot={metadataRow}
+          onBodyChange={editing ? textDraft.setBody : () => undefined}
+          onTitleChange={editing ? textDraft.setTitle : () => undefined}
+          title={editing ? textDraft.title : entry.title}
         />
       </div>
 
-      {hasViewMedia && viewPhotoData !== undefined ? (
+      {editing ? (
+        editPhotosPending ? (
+          <p
+            className={cn(momentMediaColumnClass, 'mt-10 text-sm text-muted')}
+            role="status"
+          >
+            {t('photos.loading')}
+          </p>
+        ) : editPhotosError ? (
+          <p
+            className={cn(
+              momentMediaColumnClass,
+              'mt-10 text-sm text-destructive',
+            )}
+            role="alert"
+          >
+            {t('photos.error')}
+          </p>
+        ) : (
+          <div className={cn(momentMediaColumnClass, 'mt-10')}>
+            <MomentMediaEditor
+              alt={entry.title}
+              creatorId={userId}
+              entryId={entry.id}
+              {...(journeyId !== undefined ? { journeyId } : {})}
+              onPhotosChanged={invalidatePhotos}
+              photos={editPhotosQuery.data ?? []}
+            />
+          </div>
+        )
+      ) : hasViewMedia && viewPhotoData !== undefined ? (
         <MomentMediaMosaic
           alt={entry.title}
           className="mt-10"
@@ -367,17 +321,19 @@ function OwnerEntryDetail({
         </section>
       ) : null}
 
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/40 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:hidden">
-        <Button
-          className="min-h-11 w-full"
-          onClick={() => {
-            void toggleEditing()
-          }}
-          variant="secondary"
-        >
-          {t('entry.editAction')}
-        </Button>
-      </div>
+      {!editing ? (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/40 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:hidden">
+          <Button
+            className="min-h-11 w-full"
+            onClick={() => {
+              void toggleEditing()
+            }}
+            variant="secondary"
+          >
+            {t('entry.editAction')}
+          </Button>
+        </div>
+      ) : null}
     </>
   )
 }

@@ -112,11 +112,12 @@ export function MomentDetailActions({
     <div className="flex items-center gap-1 sm:gap-2">
       <Button
         className={cn(
-          'min-h-10 px-3 sm:px-4',
-          editing ? 'inline-flex' : 'hidden sm:inline-flex',
+          editing
+            ? 'inline-flex min-h-8 rounded-lg border border-border/50 bg-background/85 px-2.5 text-sm font-semibold shadow-none backdrop-blur-sm sm:min-h-9 sm:px-3'
+            : 'hidden min-h-10 px-3 sm:inline-flex sm:px-4',
         )}
         onClick={onEditToggle}
-        variant={editing ? 'primary' : 'secondary'}
+        variant="secondary"
       >
         {editing ? t('entry.doneAction') : t('entry.editAction')}
       </Button>

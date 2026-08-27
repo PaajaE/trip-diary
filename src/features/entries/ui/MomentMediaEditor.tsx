@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Plus, Star } from 'lucide-react'
+import { Camera, ChevronDown, Plus, Star } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { addPhotosToEntry } from '@/entities/photo/api/entry-photo-mutations.repository'
@@ -51,6 +51,7 @@ export function MomentMediaEditor({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [activePhotoId, setActivePhotoId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const urls = usePhotoObjectUrls(photos)
   const isNativePlatform = supportsNativePhotoSelection()
   const supportsFileSystemPicker = supportsFileSystemPhotoSelection()
@@ -88,6 +89,8 @@ export function MomentMediaEditor({
     },
   })
 
+  const addBusy = adding || addMutation.isPending
+
   async function invalidatePhotos() {
     if (journeyId !== undefined) {
       await queryClient.invalidateQueries({
@@ -96,6 +99,9 @@ export function MomentMediaEditor({
     }
     await queryClient.invalidateQueries({
       queryKey: entryQueryKeys.photoPreviews(entryId),
+    })
+    await queryClient.invalidateQueries({
+      queryKey: entryQueryKeys.photoEditPreviews(entryId),
     })
     await queryClient.invalidateQueries({
       queryKey: entryQueryKeys.photoViewPreviews(entryId),
@@ -157,53 +163,109 @@ export function MomentMediaEditor({
     <section
       aria-label={t('entry.mediaSectionTitle', { count: photos.length })}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/30 pb-3">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <h2 className="reader-display text-2xl tracking-[-0.03em]">
           {t('entry.photosEditHeading', { count: photos.length })}
         </h2>
-        <div className="flex flex-wrap gap-2">
+        <div className="relative">
           {isNativePlatform ? (
             <Button
-              className="min-h-10 px-3 text-sm"
-              disabled={adding || addMutation.isPending}
+              className="min-h-8 gap-1.5 px-2 text-sm font-medium text-foreground/75"
+              disabled={addBusy}
               onClick={() => {
                 void handleNativeAdd()
               }}
               type="button"
-              variant="secondary"
+              variant="ghost"
             >
-              <Camera aria-hidden="true" size={16} />
-              {t('entry.addMediaAction')}
+              <Plus aria-hidden="true" size={15} />
+              {t('entry.addMediaShort')}
             </Button>
+          ) : supportsFileSystemPicker ? (
+            <>
+              <Button
+                aria-expanded={addMenuOpen}
+                aria-haspopup="menu"
+                className="min-h-8 gap-1 px-2 text-sm font-medium text-foreground/75"
+                disabled={addBusy}
+                onClick={() => {
+                  setAddMenuOpen((open) => !open)
+                }}
+                type="button"
+                variant="ghost"
+              >
+                <Plus aria-hidden="true" size={15} />
+                {t('entry.addMediaShort')}
+                <ChevronDown aria-hidden="true" className="opacity-60" size={14} />
+              </Button>
+              {addMenuOpen ? (
+                <>
+                  <button
+                    aria-label={t('journey.manageClose')}
+                    className="fixed inset-0 z-10 cursor-default bg-transparent"
+                    onClick={() => {
+                      setAddMenuOpen(false)
+                    }}
+                    type="button"
+                  />
+                  <div
+                    className="absolute right-0 top-[calc(100%+0.25rem)] z-20 min-w-[13.5rem] overflow-hidden rounded-xl border border-border/50 bg-surface shadow-soft"
+                    role="menu"
+                  >
+                    <button
+                      className="flex min-h-10 w-full items-center gap-2 px-3.5 text-left text-sm hover:bg-background"
+                      disabled={addBusy}
+                      onClick={() => {
+                        setAddMenuOpen(false)
+                        void handleFileSystemAdd()
+                      }}
+                      role="menuitem"
+                      type="button"
+                    >
+                      <Plus aria-hidden="true" size={14} />
+                      {t('entry.addMediaAction')}
+                    </button>
+                    <button
+                      className="flex min-h-10 w-full items-center gap-2 px-3.5 text-left text-sm text-muted hover:bg-background hover:text-foreground"
+                      disabled={addBusy}
+                      onClick={() => {
+                        setAddMenuOpen(false)
+                        fileInputRef.current?.click()
+                      }}
+                      role="menuitem"
+                      type="button"
+                    >
+                      <Camera aria-hidden="true" size={14} />
+                      {t('entry.addMediaFallback')}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+              <input
+                accept={WEB_PHOTO_VIDEO_ACCEPT}
+                className="sr-only"
+                multiple
+                onChange={(event) => {
+                  void handleAddFiles(Array.from(event.target.files ?? []))
+                  event.target.value = ''
+                }}
+                ref={fileInputRef}
+                type="file"
+              />
+            </>
           ) : (
             <>
-              {supportsFileSystemPicker ? (
-                <Button
-                  className="min-h-10 px-3 text-sm"
-                  disabled={adding || addMutation.isPending}
-                  onClick={() => {
-                    void handleFileSystemAdd()
-                  }}
-                  type="button"
-                  variant="secondary"
-                >
-                  <Plus aria-hidden="true" size={16} />
-                  {t('entry.addMediaAction')}
-                </Button>
-              ) : null}
               <Button
-                className="min-h-10 px-3 text-sm"
-                disabled={adding || addMutation.isPending}
+                className="min-h-8 gap-1.5 px-2 text-sm font-medium text-foreground/75"
+                disabled={addBusy}
                 onClick={() => {
                   fileInputRef.current?.click()
                 }}
                 type="button"
-                variant="secondary"
+                variant="ghost"
               >
-                <Plus aria-hidden="true" size={16} />
-                {supportsFileSystemPicker
-                  ? t('entry.addMediaFallback')
-                  : t('entry.addMediaAction')}
+                <Plus aria-hidden="true" size={15} />
+                {t('entry.addMediaShort')}
               </Button>
               <input
                 accept={WEB_PHOTO_VIDEO_ACCEPT}
@@ -226,7 +288,7 @@ export function MomentMediaEditor({
           {t('entry.mediaEmptyEdit')}
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
           {urls.map((preview, index) => {
             const meta = photos.find((photo) => photo.id === preview.id)
             if (meta === undefined) {
@@ -239,11 +301,15 @@ export function MomentMediaEditor({
             return (
               <div className="relative" key={preview.id}>
                 <button
-                  aria-label={`${alt} ${String(index + 1)}`}
+                  aria-label={
+                    isCover
+                      ? `${alt} ${String(index + 1)} · ${t('entry.coverPhoto')}`
+                      : `${alt} ${String(index + 1)}`
+                  }
                   className={cn(
-                    'block w-full overflow-hidden rounded-xl transition hover:opacity-95 focus-visible:outline-offset-2',
-                    isCover &&
-                      'ring-2 ring-primary/30 ring-offset-2 ring-offset-background',
+                    'group block w-full overflow-hidden rounded-xl bg-surface/40 transition duration-150',
+                    'hover:opacity-90 focus-visible:outline-offset-2 active:scale-[0.99]',
+                    isCover && 'ring-1 ring-primary/35 ring-offset-1 ring-offset-background',
                   )}
                   onClick={() => {
                     setActivePhotoId(preview.id)
@@ -252,7 +318,7 @@ export function MomentMediaEditor({
                 >
                   <ResponsivePhotoImage
                     alt=""
-                    className="aspect-square w-full object-cover"
+                    className="aspect-square w-full object-cover transition duration-150 group-hover:brightness-[0.97]"
                     decorative
                     sizes={MOMENT_EDIT_GRID_SIZES}
                     src={preview.url}
@@ -262,9 +328,12 @@ export function MomentMediaEditor({
                 </button>
 
                 {isCover ? (
-                  <span className="pointer-events-none absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                    <Star aria-hidden="true" className="size-3 fill-current" />
-                    {t('entry.coverPhoto')}
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-[2px]"
+                    title={t('entry.coverPhoto')}
+                  >
+                    <Star className="size-3 fill-current" />
                   </span>
                 ) : null}
               </div>

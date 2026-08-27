@@ -689,6 +689,22 @@ export async function getEntryPhotoPreviews(
   return mergePositionedPreviews(localResult, remoteResult)
 }
 
+/** Full entry media set at card/small size for the owner edit management grid. */
+export async function getEntryPhotoEditPreviews(
+  entryId: string,
+): Promise<PhotoPreview[]> {
+  const [localResult, remoteResult] = await Promise.allSettled([
+    getLocalPhotoPreviewsForPicker(entryId, pickLocalCardVariant),
+    getRemotePhotoPreviewsForContext(
+      entryId,
+      CARD_CONTEXT,
+      GRID_REMOTE_VARIANT_KINDS,
+    ),
+  ])
+
+  return mergePositionedPreviews(localResult, remoteResult)
+}
+
 export interface EntryPhotoListItem {
   caption?: string | null
   focalX?: number
