@@ -20,6 +20,7 @@ import { Button } from '@/shared/ui/Button'
 
 interface ContentEngagementProps {
   className?: string
+  collapsibleComposer?: boolean
   compact?: boolean
   countsOnly?: boolean
   target: ContentTarget
@@ -28,6 +29,7 @@ interface ContentEngagementProps {
 
 export function ContentEngagement({
   className,
+  collapsibleComposer = false,
   compact = false,
   countsOnly = false,
   target,
@@ -37,6 +39,7 @@ export function ContentEngagement({
   const { user } = useSession()
   const queryClient = useQueryClient()
   const [draft, setDraft] = useState('')
+  const [composerOpen, setComposerOpen] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingBody, setEditingBody] = useState('')
   const [actionError, setActionError] = useState<string | null>(null)
@@ -149,36 +152,40 @@ export function ContentEngagement({
   const inverse = tone === 'inverse'
 
   const metaButtonClass = countsOnly
-    ? 'inline-flex min-h-11 items-center gap-1.5 text-sm text-muted'
+    ? 'inline-flex min-h-9 items-center gap-1.5 text-sm text-muted'
     : cn(
-        'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold',
+        'inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium',
         inverse
           ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-          : 'border-border bg-surface text-primary hover:bg-white',
+          : 'border-border/70 bg-surface/80 text-foreground hover:bg-surface',
       )
 
   const heartButtonClass = countsOnly
     ? cn(
-        'inline-flex min-h-11 items-center gap-1.5 text-sm transition-colors',
+        'inline-flex min-h-9 items-center gap-1.5 text-sm transition-colors',
         engagement.viewerHasHearted
           ? 'text-primary'
           : 'text-muted hover:text-foreground',
       )
     : cn(
-        'inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-sm font-semibold transition-colors',
+        'inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3.5 text-sm font-medium transition-colors',
         engagement.viewerHasHearted
           ? inverse
             ? 'border-white bg-white text-black'
             : 'border-primary bg-primary text-primary-foreground'
           : inverse
             ? 'border-white/20 bg-white/10 text-white hover:bg-white/20'
-            : 'border-border bg-surface text-foreground hover:bg-white',
+            : 'border-border/70 bg-surface/80 text-foreground hover:bg-surface',
       )
+
+  const showComposer = !countsOnly && (!collapsibleComposer || composerOpen)
+  const showComposerToggle = collapsibleComposer && !countsOnly && user !== null
+  const showCommentsSection = !countsOnly
 
   return (
     <section
       className={cn(
-        compact || countsOnly ? 'space-y-3' : 'space-y-5',
+        compact || countsOnly ? 'space-y-2' : 'space-y-4',
         className,
       )}
     >
@@ -187,7 +194,7 @@ export function ContentEngagement({
           {actionError}
         </p>
       )}
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         {user === null ? (
           <Link
             className={metaButtonClass}
@@ -218,35 +225,53 @@ export function ContentEngagement({
             {t('engagement.heartCount', { count: engagement.heartCount })}
           </button>
         )}
-        {compact && !countsOnly ? null : (
-          <span
-            className={cn(
-              'inline-flex min-h-11 items-center gap-1.5 text-sm text-muted',
-              countsOnly ? '' : 'gap-2',
-            )}
-          >
+        {!countsOnly ? (
+          <span className="inline-flex min-h-9 items-center gap-1.5 text-sm text-muted">
             <MessageCircle aria-hidden="true" size={16} />
             {t('engagement.commentCount', {
               count: engagement.comments.length,
             })}
           </span>
-        )}
+        ) : null}
+        {showComposerToggle ? (
+          <button
+            className="inline-flex min-h-9 items-center text-sm font-medium text-primary hover:underline"
+            onClick={() => {
+              setComposerOpen((open) => !open)
+            }}
+            type="button"
+          >
+            {composerOpen
+              ? t('engagement.cancelEdit')
+              : t('engagement.addComment')}
+          </button>
+        ) : user === null && collapsibleComposer && !countsOnly ? (
+          <Link
+            className="inline-flex min-h-9 items-center text-sm font-medium text-primary hover:underline"
+            onClick={requireSignIn}
+            to="/sign-in"
+          >
+            {t('engagement.addComment')}
+          </Link>
+        ) : null}
       </div>
 
-      {compact || countsOnly ? null : (
+      {showCommentsSection ? (
         <>
           {user === null ? (
-            <p className="text-sm text-muted">
-              {t('engagement.signInToComment')}{' '}
-              <Link
-                className="font-semibold text-primary hover:underline"
-                onClick={requireSignIn}
-                to="/sign-in"
-              >
-                {t('home.signIn')}
-              </Link>
-            </p>
-          ) : (
+            collapsibleComposer ? null : (
+              <p className="text-sm text-muted">
+                {t('engagement.signInToComment')}{' '}
+                <Link
+                  className="font-semibold text-primary hover:underline"
+                  onClick={requireSignIn}
+                  to="/sign-in"
+                >
+                  {t('home.signIn')}
+                </Link>
+              </p>
+            )
+          ) : showComposer ? (
             <form
               className="space-y-3"
               onSubmit={(event) => {
@@ -260,7 +285,7 @@ export function ContentEngagement({
               <label className="block text-sm font-medium">
                 {t('engagement.addComment')}
                 <textarea
-                  className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-surface px-4 py-3 text-base leading-7"
+                  className="mt-2 min-h-20 w-full rounded-xl border border-border/70 bg-surface/60 px-4 py-3 text-base leading-7"
                   onChange={(event) => {
                     setDraft(event.target.value)
                   }}
@@ -275,17 +300,19 @@ export function ContentEngagement({
                 {t('engagement.postComment')}
               </Button>
             </form>
-          )}
+          ) : null}
 
           {engagement.comments.length === 0 ? (
-            <p className="rounded-2xl border border-dashed border-border bg-surface px-5 py-4 text-sm text-muted">
-              {t('engagement.commentsEmpty')}
-            </p>
+            collapsibleComposer ? null : (
+              <p className="text-sm text-muted">
+                {t('engagement.commentsEmpty')}
+              </p>
+            )
           ) : (
             <ul className="space-y-3">
               {engagement.comments.map((comment) => (
                 <li
-                  className="rounded-2xl border border-border bg-surface px-5 py-4 shadow-soft"
+                  className="border-b border-border/40 py-4 last:border-b-0"
                   key={comment.id}
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -394,7 +421,7 @@ export function ContentEngagement({
             </ul>
           )}
         </>
-      )}
+      ) : null}
     </section>
   )
 }

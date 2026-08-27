@@ -111,7 +111,7 @@ export function MomentDetailActions({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
-    <div className="mt-6 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <Button
         className="hidden min-h-10 px-4 sm:inline-flex"
         onClick={onEditToggle}

@@ -23,9 +23,13 @@ interface EntryTranslationPanelProps {
     title: string
     version: number
   }
+  variant?: 'card' | 'inline'
 }
 
-export function EntryTranslationPanel({ entry }: EntryTranslationPanelProps) {
+export function EntryTranslationPanel({
+  entry,
+  variant = 'card',
+}: EntryTranslationPanelProps) {
   const { t } = useTranslation()
   const translationQuery = useEntryTranslationQuery(
     entry.id,
@@ -102,15 +106,34 @@ export function EntryTranslationPanel({ entry }: EntryTranslationPanelProps) {
     }
   }
 
+  const isInline = variant === 'inline'
+
   return (
     <section
       aria-labelledby="entry-translation-heading"
-      className="mt-8 space-y-4 rounded-2xl border border-border bg-surface p-5"
+      className={
+        isInline
+          ? 'mt-4 space-y-4 border-t border-border/40 pt-4'
+          : 'mt-8 space-y-4 rounded-2xl border border-border bg-surface p-5'
+      }
     >
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold" id="entry-translation-heading">
+      <div
+        className={
+          isInline
+            ? 'flex flex-wrap items-center justify-between gap-x-4 gap-y-2'
+            : 'flex flex-wrap items-center justify-between gap-3'
+        }
+      >
+        <h3
+          className={
+            isInline
+              ? 'text-sm font-medium text-foreground'
+              : 'text-lg font-semibold'
+          }
+          id="entry-translation-heading"
+        >
           {t('entry.translation.title')}
-        </h2>
+        </h3>
         <p
           className="text-sm text-muted"
           data-testid="entry-translation-status"
@@ -131,16 +154,24 @@ export function EntryTranslationPanel({ entry }: EntryTranslationPanelProps) {
       ) : null}
 
       {presentation.showTranslateAction ? (
-        <Button
-          disabled={requestMutation.isPending}
-          onClick={() => {
-            void runTranslation(false)
-          }}
-        >
-          {requestMutation.isPending
-            ? t('entry.translation.translating')
-            : t('entry.translation.translateAction')}
-        </Button>
+        <div className={isInline ? 'flex justify-end' : undefined}>
+          <Button
+            className={
+              isInline ? 'min-h-9 px-0 text-sm font-medium' : undefined
+            }
+            disabled={requestMutation.isPending}
+            onClick={() => {
+              void runTranslation(false)
+            }}
+            variant={isInline ? 'ghost' : 'primary'}
+          >
+            {requestMutation.isPending
+              ? t('entry.translation.translating')
+              : isInline
+                ? `${t('entry.translation.translateAction')} →`
+                : t('entry.translation.translateAction')}
+          </Button>
+        </div>
       ) : null}
 
       {presentation.showPendingMessage ? (

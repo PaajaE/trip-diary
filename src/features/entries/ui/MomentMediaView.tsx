@@ -1,4 +1,3 @@
-import { Star } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EntryPhotoViewData } from '@/entities/photo/api/photo-gallery.repository'
@@ -7,13 +6,13 @@ import {
   coverObjectPositionStyle,
   focalFromPreview,
 } from '@/entities/photo/lib/cover-focal-point'
-import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
+import { MomentCoverHero } from '@/features/journeys/ui/MomentCoverHero'
+import { MomentPhotoMosaic } from '@/features/journeys/ui/MomentPhotoMosaic'
 import {
-  countHiddenMomentPreviewPhotos,
-  momentPhotoMosaicClassName,
-  resolveMomentPhotoMosaicCount,
-} from '@/features/journeys/lib/moment-photo-preview-layout'
+  MOMENT_MOSAIC_SIZES,
+  momentMediaColumnClass,
+} from '@/features/journeys/ui/moment-editorial-layout'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
@@ -21,37 +20,28 @@ import { cn } from '@/shared/lib/cn'
 
 interface MomentMediaViewProps {
   alt: string
+  className?: string
+  coverClassName?: string
   entryId: string
+  mosaicClassName?: string
+  showCover?: boolean
+  showMosaic?: boolean
+  showMosaicHeading?: boolean
   viewData: EntryPhotoViewData
-}
-
-function morePhotosLabel(
-  t: ReturnType<typeof useTranslation>['t'],
-  language: string,
-  count: number,
-): string {
-  const isCzech = language.startsWith('cs')
-  if (!isCzech) {
-    return t(
-      count === 1 ? 'reader.morePhotosCountOne' : 'reader.morePhotosCountMany',
-      { count },
-    )
-  }
-  if (count === 1) {
-    return t('reader.morePhotosCountOne', { count })
-  }
-  if (count >= 2 && count <= 4) {
-    return t('reader.morePhotosCountFew', { count })
-  }
-  return t('reader.morePhotosCountMany', { count })
 }
 
 export function MomentMediaView({
   alt,
+  className,
+  coverClassName,
   entryId,
+  mosaicClassName,
+  showCover = true,
+  showMosaic = true,
+  showMosaicHeading = false,
   viewData,
 }: MomentMediaViewProps) {
-  const { i18n, t } = useTranslation()
+  const { t } = useTranslation()
   const displayUrls = usePhotoObjectUrls(viewData.displayPhotos)
 
   const coverIndex = viewData.displayPhotos.findIndex(
@@ -75,35 +65,19 @@ export function MomentMediaView({
     [coverPhotoId, viewData.displayPhotos],
   )
 
-  const mosaic = previewPhotos.slice(0, MOMENT_PHOTO_PREVIEW_LIMIT)
-  const hiddenCount = useMemo(
+  const mosaicTiles = useMemo(
     () =>
-      countHiddenMomentPreviewPhotos(
-        viewData.allPhotos.map((photo) => ({
-          caption: null,
-          capturedAt: null,
-          focalX: photo.focalX ?? null,
-          focalY: photo.focalY ?? null,
-          id: photo.id,
-          isCover: photo.isCover === true,
-          latitude: null,
-          longitude: null,
-          position: 0,
-        })),
-        mosaic.map((photo) => ({
-          caption: null,
-          capturedAt: null,
-          focalX: null,
-          focalY: null,
-          id: photo.id,
-          isCover: false,
-          latitude: null,
-          longitude: null,
-          position: 0,
-          thumbUrl: photo.url,
-        })),
-      ),
-    [mosaic, viewData.allPhotos],
+      previewPhotos.slice(0, MOMENT_PHOTO_PREVIEW_LIMIT).map((preview) => {
+        const meta = previewMeta.find((photo) => photo.id === preview.id)
+        return {
+          id: preview.id,
+          src: preview.url,
+          ...(meta?.mediaType === undefined
+            ? {}
+            : { mediaType: meta.mediaType }),
+        }
+      }),
+    [previewMeta, previewPhotos],
   )
 
   const { lightboxElement, openLightbox } = usePhotoLightbox({})
@@ -138,88 +112,112 @@ export function MomentMediaView({
       ? coverObjectPositionStyle(focalFromPreview(coverMeta), 'center 32%')
       : undefined
 
-  const mosaicCount =
-    mosaic.length > 0 ? resolveMomentPhotoMosaicCount(mosaic.length) : 0
-  const lastMosaicIndex = mosaic.length - 1
-  const showOverlayOnLast = hiddenCount > 0
+  const allPhotosForCount = viewData.allPhotos.map((photo) => ({
+    id: photo.id,
+    isCover: photo.isCover === true,
+  }))
 
   return (
-    <section
+    <div
       aria-label={t('entry.mediaSectionTitle', { count: viewData.totalCount })}
+      className={cn(momentMediaColumnClass, className)}
+      role="group"
     >
-      {cover !== undefined ? (
-        <button
-          aria-label={alt}
-          className="group relative block w-full overflow-hidden rounded-2xl focus-visible:outline-offset-2 sm:rounded-[1.25rem]"
+      {showCover && cover !== undefined ? (
+        <MomentCoverHero
+          alt={alt}
           onClick={() => {
             openAtPhotoId(cover.id)
           }}
-          type="button"
-        >
-          <ResponsivePhotoImage
-            alt={alt}
-            className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover transition duration-500 group-hover:scale-[1.01]"
-            sizes="(max-width: 640px) 100vw, min(68rem, 90vw)"
-            src={cover.url}
-            {...(focalStyle === undefined ? {} : { style: focalStyle })}
-          />
-          {coverMeta?.mediaType === 'video' ? <VideoPlayOverlay /> : null}
-          <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/95">
-            <Star aria-hidden="true" className="size-3 fill-current" />
-            {t('entry.coverPhoto')}
-          </span>
-        </button>
+          showCoverBadge={false}
+          src={cover.url}
+          useResponsiveImage
+          {...(coverClassName === undefined
+            ? {}
+            : { className: coverClassName })}
+          {...(focalStyle === undefined ? {} : { focalStyle })}
+          {...(coverMeta?.mediaType === undefined
+            ? {}
+            : { mediaType: coverMeta.mediaType })}
+        />
       ) : null}
 
-      {mosaic.length > 0 ? (
-        <div
-          className={cn(
-            momentPhotoMosaicClassName(mosaicCount as 1 | 2 | 3 | 4 | 5),
-            'mt-3',
+      {showMosaic && mosaicTiles.length > 0 ? (
+        <MomentPhotoMosaic
+          allPhotos={allPhotosForCount}
+          onOpenPhoto={openAtPhotoId}
+          photos={mosaicTiles}
+          {...(showCover ? { className: 'mt-10' } : {})}
+          {...(showMosaicHeading
+            ? {
+                heading: (
+                  <h2 className="reader-display mb-0 text-2xl tracking-[-0.03em]">
+                    {t('reader.photosHeading')}
+                  </h2>
+                ),
+              }
+            : {})}
+          {...(mosaicClassName === undefined ? {} : { mosaicClassName })}
+          renderTileImage={(photo, imageClassName) => (
+            <>
+              <ResponsivePhotoImage
+                alt=""
+                className={imageClassName}
+                decorative
+                sizes={MOMENT_MOSAIC_SIZES}
+                src={photo.src}
+              />
+              {photo.mediaType === 'video' ? <VideoPlayOverlay /> : null}
+            </>
           )}
-        >
-          {mosaic.map((preview, index) => {
-            const meta = previewMeta.find((photo) => photo.id === preview.id)
-            const showMoreOverlay =
-              showOverlayOnLast && index === lastMosaicIndex
-
-            return (
-              <div className="moment-photo-mosaic__tile" key={preview.id}>
-                <button
-                  aria-label={`${alt} ${String(index + 2)}`}
-                  className="group relative block size-full overflow-hidden rounded-[inherit] focus-visible:outline-offset-2"
-                  onClick={() => {
-                    openAtPhotoId(preview.id)
-                  }}
-                  type="button"
-                >
-                  <ResponsivePhotoImage
-                    alt=""
-                    className="size-full object-cover transition duration-500 group-hover:scale-[1.03]"
-                    decorative
-                    sizes={GALLERY_GRID_SIZES}
-                    src={preview.url}
-                  />
-                  {meta?.mediaType === 'video' ? <VideoPlayOverlay /> : null}
-                </button>
-                {showMoreOverlay ? (
-                  <button
-                    className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/45 text-center text-base font-semibold text-white backdrop-blur-[1px] transition hover:bg-black/55"
-                    onClick={() => {
-                      openAtPhotoId(preview.id)
-                    }}
-                    type="button"
-                  >
-                    {morePhotosLabel(t, i18n.language, hiddenCount)}
-                  </button>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
+        />
       ) : null}
 
       {lightboxElement}
-    </section>
+    </div>
+  )
+}
+
+export function MomentMediaCover({
+  alt,
+  entryId,
+  viewData,
+}: {
+  alt: string
+  entryId: string
+  viewData: EntryPhotoViewData
+}) {
+  return (
+    <MomentMediaView
+      alt={alt}
+      entryId={entryId}
+      showMosaic={false}
+      viewData={viewData}
+    />
+  )
+}
+
+export function MomentMediaMosaic({
+  alt,
+  className,
+  entryId,
+  showHeading = true,
+  viewData,
+}: {
+  alt: string
+  className?: string
+  entryId: string
+  showHeading?: boolean
+  viewData: EntryPhotoViewData
+}) {
+  return (
+    <MomentMediaView
+      alt={alt}
+      entryId={entryId}
+      showCover={false}
+      showMosaicHeading={showHeading}
+      viewData={viewData}
+      {...(className === undefined ? {} : { className })}
+    />
   )
 }

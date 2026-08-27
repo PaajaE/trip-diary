@@ -23,14 +23,21 @@ import {
 } from '@/features/sharing/lib/public-paths'
 import { groupTagsByPhotoId } from '@/features/journeys/lib/journey-tag-collections'
 import { ReaderChrome } from '@/features/journeys/ui/ReaderChrome'
+import { MomentCoverHero } from '@/features/journeys/ui/MomentCoverHero'
 import { MomentPhotoMap } from '@/features/journeys/ui/MomentPhotoMap'
 import { MomentPhotoPreview } from '@/features/journeys/ui/MomentPhotoPreview'
+import {
+  momentMediaColumnClass,
+  momentPageClass,
+  momentTextColumnClass,
+} from '@/features/journeys/ui/moment-editorial-layout'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { PhotoLightbox } from '@/features/photos/ui/PhotoLightbox'
 import { formatMomentDateLabel } from '@/features/journeys/lib/format-moment-datetime'
 import { MetadataRow } from '@/shared/ui/MetadataRow'
 import { StoryKicker } from '@/shared/ui/StoryKicker'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
+import { cn } from '@/shared/lib/cn'
 
 interface MomentReaderPageProps {
   entryId: string
@@ -221,7 +228,7 @@ export function MomentReaderPage({
 
   if (entryQuery.isPending) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-16">
+      <main className={cn(momentPageClass, 'px-5 py-16')}>
         <p className="text-muted">{t('entry.loading')}</p>
       </main>
     )
@@ -229,7 +236,7 @@ export function MomentReaderPage({
 
   if (entryQuery.isError) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-16">
+      <main className={cn(momentPageClass, 'px-5 py-16')}>
         <p className="text-destructive" role="alert">
           {t('entry.error')}
         </p>
@@ -239,7 +246,7 @@ export function MomentReaderPage({
 
   if (entry == null) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-16">
+      <main className={cn(momentPageClass, 'px-5 py-16')}>
         <p className="text-muted">{t('entry.notFound')}</p>
       </main>
     )
@@ -285,32 +292,30 @@ export function MomentReaderPage({
         />
       ) : null}
 
-      <article className="mx-auto w-full max-w-3xl px-5 sm:px-8">
+      <article className={cn(momentPageClass, 'px-5 sm:px-8')}>
         {coverUrl !== null ? (
-          <button
-            aria-label={t('reader.openCoverPhoto')}
-            className="mt-6 block w-full overflow-hidden rounded-[1.25rem]"
-            onClick={() => {
-              const coverId = photosQuery.data?.cover?.id
-              if (coverId !== undefined) {
-                openGallery(coverId)
-              }
-            }}
-            type="button"
-          >
-            <img
-              alt=""
-              className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover"
-              decoding="async"
-              fetchPriority="high"
-              loading="eager"
+          <div className={momentMediaColumnClass}>
+            <MomentCoverHero
+              alt={t('reader.openCoverPhoto')}
+              className="mt-6"
+              focalStyle={coverObjectPositionStyle(coverFocal, 'center 32%')}
+              onClick={() => {
+                const coverId = photosQuery.data?.cover?.id
+                if (coverId !== undefined) {
+                  openGallery(coverId)
+                }
+              }}
               src={coverUrl}
-              style={coverObjectPositionStyle(coverFocal, 'center 32%')}
             />
-          </button>
+          </div>
         ) : null}
 
-        <div className={coverUrl === null ? 'pt-6' : 'pt-8'}>
+        <div
+          className={cn(
+            momentTextColumnClass,
+            coverUrl === null ? 'pt-6' : 'mt-8',
+          )}
+        >
           {navigation !== null ? (
             <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-muted uppercase">
               {t('reader.momentProgress', {
@@ -323,7 +328,7 @@ export function MomentReaderPage({
           <StoryKicker className="mt-3">
             {t(`entry.type.${entry.type}`)}
           </StoryKicker>
-          <h1 className="reader-display mt-3 max-w-3xl text-[clamp(1.85rem,5vw,3.15rem)] leading-[1.05] tracking-[-0.04em]">
+          <h1 className="reader-display mt-3 text-[clamp(1.85rem,5vw,3.15rem)] leading-[1.05] tracking-[-0.04em]">
             {title}
           </h1>
           <MetadataRow
@@ -348,96 +353,109 @@ export function MomentReaderPage({
 
           {entry.body === '' ? (
             hasPhotos ? (
-              <p className="mt-8 max-w-[40rem] text-base leading-relaxed text-muted">
+              <p className="mt-8 text-base leading-relaxed text-muted">
                 {t('reader.shortMomentHint')}
               </p>
             ) : null
           ) : (
-            <div className="prose-reader mt-8 max-w-[40rem] whitespace-pre-wrap text-lg leading-[1.8] text-foreground/90">
+            <div className="prose-reader mt-8 whitespace-pre-wrap text-lg leading-[1.8] text-foreground/90">
               {entry.body}
             </div>
           )}
+        </div>
 
-          {photosQuery.data !== undefined && photosQuery.data.totalCount > 0 ? (
+        {photosQuery.data !== undefined && photosQuery.data.totalCount > 0 ? (
+          <div className={cn(momentMediaColumnClass, 'mt-10')}>
             <MomentPhotoPreview
               onOpenGallery={openGallery}
               photos={supportingPhotos}
               preview={supportingPreview}
               totalCount={photosQuery.data.totalCount}
             />
-          ) : null}
-
-          <div className="mt-10" ref={mapSectionRef}>
-            <MomentPhotoMap
-              activePhotoId={activeMapPhotoId}
-              onSelectPhoto={openGallery}
-              photos={photos}
-              primaryLocation={currentMoment?.location ?? null}
-              thumbUrls={previewThumbs}
-            />
           </div>
+        ) : null}
 
-          {navigation !== null ? (
-            <nav
-              aria-label={t('reader.momentNavigation')}
-              className="mt-12 flex gap-4 border-t border-border/60 pt-8"
-            >
-              {previousMoment !== null && previousMoment.entry.slug !== null ? (
-                <button
-                  className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
-                  onClick={() => {
-                    openSiblingMoment(previousMoment.entry.slug)
-                  }}
-                  type="button"
-                >
-                  <ChevronLeft
-                    aria-hidden="true"
-                    className="shrink-0"
-                    size={18}
-                  />
-                  <span className="min-w-0">
-                    <span className="block text-xs tracking-wide text-muted">
-                      {t('reader.previousMoment')}
-                    </span>
-                    <span className="block truncate font-semibold">
-                      {previousMoment.entry.title ?? t('dashboard.untitled')}
-                    </span>
-                  </span>
-                </button>
-              ) : (
-                <span className="flex-1" />
-              )}
-              {nextMoment !== null && nextMoment.entry.slug !== null ? (
-                <button
-                  className="flex min-h-11 min-w-0 flex-1 items-center justify-end gap-2 text-right"
-                  onClick={() => {
-                    openSiblingMoment(nextMoment.entry.slug)
-                  }}
-                  type="button"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-xs tracking-wide text-muted">
-                      {t('reader.nextMoment')}
-                    </span>
-                    <span className="block truncate font-semibold">
-                      {nextMoment.entry.title ?? t('dashboard.untitled')}
-                    </span>
-                  </span>
-                  <ChevronRight
-                    aria-hidden="true"
-                    className="shrink-0"
-                    size={18}
-                  />
-                </button>
-              ) : null}
-            </nav>
-          ) : null}
-
-          <ContentEngagement
-            className="mt-10 min-h-32 border-t border-border/60 pt-8"
-            target={{ id: entry.id, type: 'entry' }}
+        <div
+          className={cn(momentMediaColumnClass, 'mt-10')}
+          ref={mapSectionRef}
+        >
+          <MomentPhotoMap
+            activePhotoId={activeMapPhotoId}
+            onSelectPhoto={openGallery}
+            photos={photos}
+            primaryLocation={currentMoment?.location ?? null}
+            thumbUrls={previewThumbs}
           />
         </div>
+
+        {navigation !== null ? (
+          <nav
+            aria-label={t('reader.momentNavigation')}
+            className={cn(
+              momentTextColumnClass,
+              'mt-12 flex gap-4 border-t border-border/60 pt-8',
+            )}
+          >
+            {previousMoment !== null && previousMoment.entry.slug !== null ? (
+              <button
+                className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+                onClick={() => {
+                  openSiblingMoment(previousMoment.entry.slug)
+                }}
+                type="button"
+              >
+                <ChevronLeft
+                  aria-hidden="true"
+                  className="shrink-0"
+                  size={18}
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs tracking-wide text-muted">
+                    {t('reader.previousMoment')}
+                  </span>
+                  <span className="block truncate font-semibold">
+                    {previousMoment.entry.title ?? t('dashboard.untitled')}
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <span className="flex-1" />
+            )}
+            {nextMoment !== null && nextMoment.entry.slug !== null ? (
+              <button
+                className="flex min-h-11 min-w-0 flex-1 items-center justify-end gap-2 text-right"
+                onClick={() => {
+                  openSiblingMoment(nextMoment.entry.slug)
+                }}
+                type="button"
+              >
+                <span className="min-w-0">
+                  <span className="block text-xs tracking-wide text-muted">
+                    {t('reader.nextMoment')}
+                  </span>
+                  <span className="block truncate font-semibold">
+                    {nextMoment.entry.title ?? t('dashboard.untitled')}
+                  </span>
+                </span>
+                <ChevronRight
+                  aria-hidden="true"
+                  className="shrink-0"
+                  size={18}
+                />
+              </button>
+            ) : null}
+          </nav>
+        ) : null}
+
+        <ContentEngagement
+          className={cn(
+            momentTextColumnClass,
+            'mt-10 border-t border-border/30 pt-5',
+          )}
+          collapsibleComposer
+          compact
+          target={{ id: entry.id, type: 'entry' }}
+        />
       </article>
 
       {galleryIndex !== null && lightboxPhotos.length > 0 ? (

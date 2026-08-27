@@ -23,7 +23,10 @@ import {
 } from '@/features/entries/ui/MomentDetailHeader'
 import { MomentInlineTextFields } from '@/features/entries/ui/MomentInlineTextFields'
 import { MomentMediaEditor } from '@/features/entries/ui/MomentMediaEditor'
-import { MomentMediaView } from '@/features/entries/ui/MomentMediaView'
+import {
+  MomentMediaCover,
+  MomentMediaMosaic,
+} from '@/features/entries/ui/MomentMediaView'
 import { useMomentTextDraft } from '@/features/entries/lib/use-moment-text-draft'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
@@ -31,10 +34,16 @@ import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messag
 import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { CopyShareLink } from '@/features/sharing'
 import type { Entry } from '@/entities/entry/model/entry'
+import {
+  momentMediaColumnClass,
+  momentPageClass,
+  momentTextColumnClass,
+} from '@/features/journeys/ui/moment-editorial-layout'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { localDb } from '@/shared/lib/local-db'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { Button } from '@/shared/ui/Button'
+import { cn } from '@/shared/lib/cn'
 
 interface EntryPageProps {
   entryId: string
@@ -137,6 +146,29 @@ function OwnerEntryDetail({
     ? editPhotosQuery.isError
     : viewPhotosQuery.isError
 
+  const viewPhotoData = viewPhotosQuery.data
+  const hasViewMedia =
+    viewPhotoData !== undefined && viewPhotoData.totalCount > 0
+
+  const ownerActions = (
+    <MomentDetailActions
+      deleting={deleting}
+      editing={editing}
+      entry={entry}
+      menuOpen={menuOpen}
+      onDelete={() => {
+        void handleDelete()
+      }}
+      onEditToggle={() => {
+        void toggleEditing()
+      }}
+      onMenuOpenChange={setMenuOpen}
+      onSyncRetry={onSyncRetry}
+      shareText={publicShare?.shareText ?? null}
+      shareUrl={publicShare?.shareUrl ?? null}
+    />
+  )
+
   return (
     <>
       {notice === 'photos_failed' ? (
@@ -145,7 +177,20 @@ function OwnerEntryDetail({
         </p>
       ) : null}
 
-      <div className="max-w-[45rem]">
+      {!editing && hasViewMedia ? (
+        <MomentMediaCover
+          alt={entry.title}
+          entryId={entry.id}
+          viewData={viewPhotoData}
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          momentTextColumnClass,
+          hasViewMedia && !editing ? 'mt-8' : undefined,
+        )}
+      >
         <MomentDetailHeader
           editing={editing}
           entry={entry}
@@ -155,33 +200,18 @@ function OwnerEntryDetail({
         />
 
         <MomentInlineTextFields
+          actionsSlot={ownerActions}
           body={editing ? textDraft.body : entry.body}
+          className="mt-6"
           disabled={textDraft.saveState === 'saving'}
           editing={editing}
           onBodyChange={textDraft.setBody}
           onTitleChange={textDraft.setTitle}
           title={editing ? textDraft.title : entry.title}
         />
-
-        <MomentDetailActions
-          deleting={deleting}
-          editing={editing}
-          entry={entry}
-          menuOpen={menuOpen}
-          onDelete={() => {
-            void handleDelete()
-          }}
-          onEditToggle={() => {
-            void toggleEditing()
-          }}
-          onMenuOpenChange={setMenuOpen}
-          onSyncRetry={onSyncRetry}
-          shareText={publicShare?.shareText ?? null}
-          shareUrl={publicShare?.shareUrl ?? null}
-        />
       </div>
 
-      <div className="mt-10 w-full max-w-[68rem]">
+      <div className={cn(momentMediaColumnClass, 'mt-10')}>
         {photosPending ? (
           <p className="text-sm text-muted" role="status">
             {t('photos.loading')}
@@ -199,31 +229,36 @@ function OwnerEntryDetail({
             onPhotosChanged={invalidatePhotos}
             photos={editPhotosQuery.data ?? []}
           />
-        ) : viewPhotosQuery.data !== undefined &&
-          viewPhotosQuery.data.totalCount > 0 ? (
-          <MomentMediaView
+        ) : hasViewMedia ? (
+          <MomentMediaMosaic
             alt={entry.title}
             entryId={entry.id}
-            viewData={viewPhotosQuery.data}
+            viewData={viewPhotoData}
           />
         ) : null}
       </div>
 
       <ContentEngagement
-        className="mt-8 max-w-[45rem] border-t border-border/30 pt-6"
+        className={cn(
+          momentTextColumnClass,
+          'mt-8 border-t border-border/30 pt-5',
+        )}
         compact
         countsOnly
         target={{ id: entry.id, type: 'entry' }}
       />
 
       {entry.language === 'cs' ? (
-        <section className="mt-12 max-w-[45rem] border-t border-border/30 pt-8">
-          <h2 className="text-xs font-semibold tracking-[0.16em] text-muted uppercase">
+        <section
+          className={cn(
+            momentTextColumnClass,
+            'mt-10 border-t border-border/30 pt-6',
+          )}
+        >
+          <h2 className="text-[0.6875rem] font-semibold tracking-[0.16em] text-muted uppercase">
             {t('entry.managementSectionTitle')}
           </h2>
-          <div className="mt-4">
-            <EntryTranslationPanel entry={entry} />
-          </div>
+          <EntryTranslationPanel entry={entry} variant="inline" />
         </section>
       ) : null}
 
@@ -320,9 +355,14 @@ export function EntryPage({
     })
   }
 
+  const mainClassName = cn(
+    momentPageClass,
+    'min-h-svh px-5 py-8 pb-24 sm:py-16 sm:pb-16',
+  )
+
   if (entry === undefined) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-[68rem] px-5 py-8 sm:py-16">
+      <main className={mainClassName}>
         <p className="mt-16 text-muted">{t('entry.loading')}</p>
       </main>
     )
@@ -330,7 +370,7 @@ export function EntryPage({
 
   if (entryQuery.isError) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-[68rem] px-5 py-8 sm:py-16">
+      <main className={mainClassName}>
         <p className="mt-16 text-destructive" role="alert">
           {t('entry.error')}
         </p>
@@ -340,7 +380,7 @@ export function EntryPage({
 
   if (entry === null) {
     return (
-      <main className="mx-auto min-h-svh w-full max-w-[68rem] px-5 py-8 sm:py-16">
+      <main className={mainClassName}>
         <p className="mt-16 text-muted">{t('entry.notFound')}</p>
       </main>
     )
@@ -349,7 +389,7 @@ export function EntryPage({
   const isOwner = user !== null && entry.creatorId === user.id
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-[68rem] px-5 py-8 pb-24 sm:py-16 sm:pb-16">
+    <main className={mainClassName}>
       <article
         className={returnTo === undefined ? 'mt-4 sm:mt-10' : 'mt-2 sm:mt-6'}
         data-entry-id={entry.id}
@@ -377,51 +417,63 @@ export function EntryPage({
                 {t('entry.photosFailedNotice')}
               </p>
             ) : null}
-            <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
-              {t(`entry.type.${entry.type}`)}
-            </p>
-            <MomentInlineTextFields
-              body={entry.body}
-              editing={false}
-              onBodyChange={() => undefined}
-              onTitleChange={() => undefined}
-              title={entry.title}
-            />
+            <div className={momentTextColumnClass}>
+              <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
+                {t(`entry.type.${entry.type}`)}
+              </p>
+              <MomentInlineTextFields
+                body={entry.body}
+                className="mt-3"
+                editing={false}
+                onBodyChange={() => undefined}
+                onTitleChange={() => undefined}
+                title={entry.title}
+              />
+            </div>
             {publicShare !== null ? (
               <ShareActions
-                className="mt-6"
+                className={cn(momentTextColumnClass, 'mt-6')}
                 shareText={publicShare.shareText}
                 shareUrl={publicShare.shareUrl}
                 title={entry.title}
               />
             ) : shareUrl !== undefined ? (
               <CopyShareLink
-                className="mt-6"
+                className={cn(momentTextColumnClass, 'mt-6')}
                 onCopy={() => {
                   void sharePublicUrl(shareUrl, entry.title)
                 }}
               />
             ) : null}
             <ContentEngagement
-              className="mt-8 min-h-32 border-t border-border/60 pt-8"
+              className={cn(
+                momentTextColumnClass,
+                'mt-8 border-t border-border/30 pt-5',
+              )}
+              collapsibleComposer
+              compact
               target={{ id: entry.id, type: 'entry' }}
             />
-            {photosQuery.isPending ? (
-              <p className="mt-8 text-sm text-muted" role="status">
-                {t('photos.loading')}
-              </p>
-            ) : photosQuery.isError ? (
-              <p className="mt-8 text-sm text-destructive" role="alert">
-                {t('photos.error')}
-              </p>
-            ) : (
-              <PhotoGallery
-                alt={entry.title}
-                entryId={entry.id}
-                showPhotoEngagement={publicShare !== null}
-              />
-            )}
-            <p className="mt-10 text-sm text-muted">
+            <div className={cn(momentMediaColumnClass, 'mt-10')}>
+              {photosQuery.isPending ? (
+                <p className="text-sm text-muted" role="status">
+                  {t('photos.loading')}
+                </p>
+              ) : photosQuery.isError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {t('photos.error')}
+                </p>
+              ) : (
+                <PhotoGallery
+                  alt={entry.title}
+                  entryId={entry.id}
+                  showPhotoEngagement={publicShare !== null}
+                />
+              )}
+            </div>
+            <p
+              className={cn(momentTextColumnClass, 'mt-10 text-sm text-muted')}
+            >
               {t(`entry.sync.${entry.syncStatus}`)}
             </p>
           </>

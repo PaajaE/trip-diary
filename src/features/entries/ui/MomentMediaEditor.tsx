@@ -190,7 +190,7 @@ export function MomentMediaEditor({
     <section
       aria-label={t('entry.mediaSectionTitle', { count: photos.length })}
     >
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/30 pb-3">
         <h2 className="reader-display text-2xl tracking-[-0.03em]">
           {t('reader.photosHeading')}
         </h2>
@@ -259,7 +259,7 @@ export function MomentMediaEditor({
           {t('entry.mediaEmptyEdit')}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
           {urls.map((preview, index) => {
             const meta = photos.find((photo) => photo.id === preview.id)
             if (meta === undefined) {
@@ -274,9 +274,9 @@ export function MomentMediaEditor({
                 <button
                   aria-label={`${alt} ${String(index + 1)}`}
                   className={cn(
-                    'block w-full overflow-hidden rounded-xl focus-visible:outline-offset-2',
+                    'block w-full overflow-hidden rounded-xl transition hover:opacity-95 focus-visible:outline-offset-2',
                     isCover &&
-                      'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
+                      'ring-2 ring-primary/30 ring-offset-2 ring-offset-background',
                   )}
                   onClick={() => {
                     setActivePhotoId(preview.id)
