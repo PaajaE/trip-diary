@@ -23,7 +23,7 @@ export function useMomentTextDraft({
   entry,
   onUpdated,
 }: UseMomentTextDraftOptions) {
-  const [draftKey, setDraftKey] = useState(entry.id)
+  const [draftKey, setDraftKey] = useState(`${entry.id}:inactive`)
   const [title, setTitle] = useState(entry.title)
   const [body, setBody] = useState(entry.body)
   const [savedTitle, setSavedTitle] = useState(entry.title)
@@ -37,13 +37,16 @@ export function useMomentTextDraft({
     onUpdatedRef.current = onUpdated
   }, [onUpdated])
 
-  if (enabled && draftKey !== entry.id) {
-    setDraftKey(entry.id)
-    setTitle(entry.title)
-    setBody(entry.body)
-    setSavedTitle(entry.title)
-    setSavedBody(entry.body)
-    setSaveState('idle')
+  const activeKey = enabled ? `${entry.id}:active` : `${entry.id}:inactive`
+  if (draftKey !== activeKey) {
+    setDraftKey(activeKey)
+    if (enabled) {
+      setTitle(entry.title)
+      setBody(entry.body)
+      setSavedTitle(entry.title)
+      setSavedBody(entry.body)
+      setSaveState('idle')
+    }
   }
 
   const dirty = title !== savedTitle || body !== savedBody
