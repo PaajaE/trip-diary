@@ -16,6 +16,8 @@ function meta(
   return {
     caption: null,
     capturedAt: null,
+    focalX: null,
+    focalY: null,
     id,
     isCover: options.isCover === true,
     latitude: null,

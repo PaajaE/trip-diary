@@ -1,6 +1,11 @@
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { createPreviewUrl } from '@/shared/lib/preview-url'
 import { isValidPhotoMapCoordinate } from '@trip-diary/utils'
+import {
+  COVER_FOCAL_CENTER,
+  normalizeCoverFocalPoint,
+  type CoverFocalPoint,
+} from '@/entities/photo/lib/cover-focal-point'
 
 export const MOMENT_PHOTO_PREVIEW_LIMIT = 5
 export const PHOTO_CAPTION_MAX_LENGTH = 500
@@ -8,6 +13,8 @@ export const PHOTO_CAPTION_MAX_LENGTH = 500
 export interface MomentPhotoMeta {
   caption: string | null
   capturedAt: string | null
+  focalX: number | null
+  focalY: number | null
   id: string
   isCover: boolean
   latitude: number | null
@@ -58,7 +65,7 @@ export async function getPublicMomentPhotos(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('photo_id, position, is_cover, caption')
+    .select('photo_id, position, is_cover, caption, focal_x, focal_y')
     .eq('entry_id', entryId)
     .order('position')
 
@@ -133,6 +140,12 @@ export async function getPublicMomentPhotos(
             : null,
         capturedAt:
           typeof photo?.captured_at === 'string' ? photo.captured_at : null,
+        focalX: link.is_cover
+          ? (normalizeCoverFocalPoint(link.focal_x, link.focal_y)?.x ?? null)
+          : null,
+        focalY: link.is_cover
+          ? (normalizeCoverFocalPoint(link.focal_x, link.focal_y)?.y ?? null)
+          : null,
         id: photoId,
         isCover: link.is_cover,
         latitude: coords.latitude,
@@ -199,6 +212,32 @@ export async function updateEntryPhotoCaption(
     .update({ caption: normalized })
     .eq('entry_id', entryId)
     .eq('photo_id', photoId)
+
+  if (error !== null) {
+    throw error
+  }
+}
+
+export async function updateEntryCoverFocalPoint(
+  entryId: string,
+  photoId: string,
+  focal: CoverFocalPoint | null,
+): Promise<void> {
+  const normalized =
+    focal === null ||
+    (focal.x === COVER_FOCAL_CENTER.x && focal.y === COVER_FOCAL_CENTER.y)
+      ? { focal_x: null, focal_y: null }
+      : {
+          focal_x: normalizeCoverFocalPoint(focal.x, focal.y)?.x ?? null,
+          focal_y: normalizeCoverFocalPoint(focal.x, focal.y)?.y ?? null,
+        }
+
+  const { error } = await getSupabaseClient()
+    .from('entry_photos')
+    .update(normalized)
+    .eq('entry_id', entryId)
+    .eq('photo_id', photoId)
+    .eq('is_cover', true)
 
   if (error !== null) {
     throw error

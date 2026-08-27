@@ -239,6 +239,8 @@ export type Database = {
           created_at: string
           creator_id: string
           entry_id: string
+          focal_x: number | null
+          focal_y: number | null
           is_cover: boolean
           photo_id: string
           position: number
@@ -248,6 +250,8 @@ export type Database = {
           created_at?: string
           creator_id: string
           entry_id: string
+          focal_x?: number | null
+          focal_y?: number | null
           is_cover?: boolean
           photo_id: string
           position: number
@@ -257,6 +261,8 @@ export type Database = {
           created_at?: string
           creator_id?: string
           entry_id?: string
+          focal_x?: number | null
+          focal_y?: number | null
           is_cover?: boolean
           photo_id?: string
           position?: number

@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  coverObjectPositionStyle,
+  normalizeCoverFocalPoint,
+  type CoverFocalPoint,
+} from '@/entities/photo/lib/cover-focal-point'
 import { scrollToReaderSection } from '@/features/journeys/lib/journey-reader-section'
 import { JourneyStatsBar } from '@/features/journeys/ui/JourneyStatsBar'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { cn } from '@/shared/lib/cn'
 
 interface JourneyReaderHeroProps {
+  coverFocal?: CoverFocalPoint | null
   coverUrl?: string
   dayCount?: number | null
   mapPointCount: number
@@ -16,6 +22,7 @@ interface JourneyReaderHeroProps {
 }
 
 export function JourneyReaderHero({
+  coverFocal = null,
   coverUrl,
   dayCount = null,
   mapPointCount,
@@ -36,7 +43,11 @@ export function JourneyReaderHero({
         />
 
         {showCover ? (
-          <JourneyReaderCoverImage key={coverUrl} coverUrl={coverUrl} />
+          <JourneyReaderCoverImage
+            coverFocal={coverFocal}
+            coverUrl={coverUrl}
+            key={coverUrl}
+          />
         ) : null}
 
         <div className="relative flex min-h-[min(48svh,22rem)] flex-col justify-end px-5 pb-7 pt-20 sm:min-h-[min(58svh,34rem)] sm:px-8 sm:pb-10 sm:pt-24">
@@ -77,9 +88,19 @@ export function JourneyReaderHero({
   )
 }
 
-function JourneyReaderCoverImage({ coverUrl }: { coverUrl: string }) {
+function JourneyReaderCoverImage({
+  coverFocal,
+  coverUrl,
+}: {
+  coverFocal: CoverFocalPoint | null
+  coverUrl: string
+}) {
   const [coverFailed, setCoverFailed] = useState(false)
   const [coverReady, setCoverReady] = useState(false)
+  const focalStyle = coverObjectPositionStyle(
+    normalizeCoverFocalPoint(coverFocal?.x, coverFocal?.y),
+    'center 38%',
+  )
 
   if (coverFailed) {
     return null
@@ -90,7 +111,7 @@ function JourneyReaderCoverImage({ coverUrl }: { coverUrl: string }) {
       <img
         alt=""
         aria-hidden="true"
-        className={`reader-hero-cover absolute inset-0 size-full object-cover object-[center_38%] transition-opacity duration-700 ${
+        className={`reader-hero-cover absolute inset-0 size-full object-cover transition-opacity duration-700 ${
           coverReady ? 'opacity-100' : 'opacity-0'
         }`}
         decoding="async"
@@ -102,6 +123,7 @@ function JourneyReaderCoverImage({ coverUrl }: { coverUrl: string }) {
           setCoverReady(true)
         }}
         src={coverUrl}
+        style={focalStyle}
       />
       <div className="reader-hero-overlay absolute inset-0" />
     </>

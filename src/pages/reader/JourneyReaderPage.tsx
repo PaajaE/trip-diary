@@ -26,6 +26,7 @@ import {
 } from '@/features/journeys/lib/journey-reader-section'
 import { buildPublicJourneyGallery } from '@/features/journeys/lib/public-journey-gallery'
 import { pickJourneyCoverPhoto } from '@/features/journeys/lib/pick-journey-cover-photo'
+import { normalizeCoverFocalPoint } from '@/entities/photo/lib/cover-focal-point'
 import { useJourneyMomentPhotos } from '@/features/journeys/lib/use-journey-moment-photos'
 import {
   getEntryIdFromMapPoint,
@@ -196,6 +197,10 @@ export function JourneyReaderPage({
   )
   const coverUrls = usePhotoObjectUrls(coverPhoto === null ? [] : [coverPhoto])
   const coverUrl = coverUrls[0]?.url
+  const coverFocal =
+    coverPhoto === null
+      ? null
+      : normalizeCoverFocalPoint(coverPhoto.focalX, coverPhoto.focalY)
 
   const filteredPhotoLocations = useMemo(
     () =>
@@ -434,6 +439,7 @@ export function JourneyReaderPage({
       />
 
       <JourneyReaderHero
+        {...(coverFocal !== null ? { coverFocal } : {})}
         {...(coverUrl !== undefined ? { coverUrl } : {})}
         {...(dayCount === null ? {} : { dayCount })}
         mapPointCount={mapPoints.length}

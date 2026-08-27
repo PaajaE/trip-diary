@@ -7,11 +7,14 @@ import {
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { localDb } from '@/shared/lib/local-db'
 import { getMeaningfulGpsCoordinates } from '@/entities/photo/lib/photo-exif-gps'
+import { normalizeCoverFocalPoint } from '@/entities/photo/lib/cover-focal-point'
 import type { LocalPhotoVariant, MediaType } from '@/entities/photo/model/photo'
 
 export interface PhotoPreview {
   blob: Blob
   durationMs?: number
+  focalX?: number
+  focalY?: number
   height?: number
   id: string
   isCover?: boolean
@@ -110,6 +113,21 @@ function pickLocalZoomVariant(
   return pickLocalVariantForContext(variants, ZOOM_CONTEXT)
 }
 
+function focalFieldsFromLink(link: {
+  focal_x?: number | null
+  focal_y?: number | null
+  is_cover?: boolean | null
+}): Pick<PhotoPreview, 'focalX' | 'focalY'> {
+  if (link.is_cover !== true) {
+    return {}
+  }
+  const focal = normalizeCoverFocalPoint(link.focal_x, link.focal_y)
+  if (focal === null) {
+    return {}
+  }
+  return { focalX: focal.x, focalY: focal.y }
+}
+
 function previewFromVariant(
   photoId: string,
   variant: LocalPhotoVariant,
@@ -186,21 +204,37 @@ function mergePositionedPreviews(
         ...(width === undefined ? {} : { width }),
         ...(mediaType === undefined ? {} : { mediaType }),
         ...(remote.isCover === undefined ? {} : { isCover: remote.isCover }),
+        ...(remote.focalX === undefined ? {} : { focalX: remote.focalX }),
+        ...(remote.focalY === undefined ? {} : { focalY: remote.focalY }),
       })
     }
   }
 
   return [...previewsById.values()]
     .sort(comparePositionedPhotoPreviews)
-    .map(({ blob, durationMs, height, id, isCover, mediaType, width }) => ({
-      blob,
-      id,
-      ...(durationMs === undefined ? {} : { durationMs }),
-      ...(height === undefined ? {} : { height }),
-      ...(isCover === undefined ? {} : { isCover }),
-      ...(mediaType === undefined ? {} : { mediaType }),
-      ...(width === undefined ? {} : { width }),
-    }))
+    .map(
+      ({
+        blob,
+        durationMs,
+        focalX,
+        focalY,
+        height,
+        id,
+        isCover,
+        mediaType,
+        width,
+      }) => ({
+        blob,
+        id,
+        ...(durationMs === undefined ? {} : { durationMs }),
+        ...(focalX === undefined ? {} : { focalX }),
+        ...(focalY === undefined ? {} : { focalY }),
+        ...(height === undefined ? {} : { height }),
+        ...(isCover === undefined ? {} : { isCover }),
+        ...(mediaType === undefined ? {} : { mediaType }),
+        ...(width === undefined ? {} : { width }),
+      }),
+    )
 }
 
 function mergeEntryPreviews(
@@ -415,6 +449,8 @@ async function downloadRemotePreview(
   photoId: string,
   extras: {
     durationMs?: number
+    focalX?: number
+    focalY?: number
     height?: number | null
     isCover?: boolean
     mediaType?: MediaType
@@ -437,6 +473,8 @@ async function downloadRemotePreview(
       ? {}
       : { durationMs: extras.durationMs }),
     ...(extras.isCover === undefined ? {} : { isCover: extras.isCover }),
+    ...(extras.focalX === undefined ? {} : { focalX: extras.focalX }),
+    ...(extras.focalY === undefined ? {} : { focalY: extras.focalY }),
     ...(extras.mediaType === undefined ? {} : { mediaType: extras.mediaType }),
     ...(typeof extras.height === 'number' ? { height: extras.height } : {}),
     ...(typeof extras.width === 'number' ? { width: extras.width } : {}),
@@ -451,7 +489,7 @@ async function getRemotePhotoPreviewsForContext(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('photo_id, position, is_cover')
+    .select('photo_id, position, is_cover, focal_x, focal_y')
     .eq('entry_id', entryId)
     .order('position')
   if (linksError !== null) {
@@ -497,6 +535,7 @@ async function getRemotePhotoPreviewsForContext(
         isCover: link.is_cover,
         position: link.position,
         width: match.width,
+        ...focalFieldsFromLink(link),
         ...(mediaMeta?.durationMs === undefined
           ? {}
           : { durationMs: mediaMeta.durationMs }),
@@ -545,7 +584,7 @@ async function getRemotePhotoPreviewsBatch(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('entry_id, photo_id, position, is_cover')
+    .select('entry_id, photo_id, position, is_cover, focal_x, focal_y')
     .in('entry_id', entryIds)
     .order('position')
   if (linksError !== null) {
@@ -608,6 +647,7 @@ async function getRemotePhotoPreviewsBatch(
           isCover: link.is_cover,
           position: link.position,
           width: match.width,
+          ...focalFieldsFromLink(link),
           ...(mediaMeta?.durationMs === undefined
             ? {}
             : { durationMs: mediaMeta.durationMs }),

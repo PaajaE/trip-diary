@@ -10,6 +10,10 @@ import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { listPhotoTagAssignmentsForPhotos } from '@/entities/photo/api/photo-tag.repository'
 import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import { getPublicMomentPhotos } from '@/entities/photo/api/moment-photo-detail.repository'
+import {
+  coverObjectPositionStyle,
+  normalizeCoverFocalPoint,
+} from '@/entities/photo/lib/cover-focal-point'
 import { composeJourneyContent } from '@/features/journeys/lib/journey-content'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import {
@@ -140,6 +144,10 @@ export function MomentReaderPage({
       : undefined
 
   const coverUrl = photosQuery.data?.cover?.thumbUrl ?? null
+  const coverFocal = normalizeCoverFocalPoint(
+    photosQuery.data?.cover?.focalX,
+    photosQuery.data?.cover?.focalY,
+  )
 
   useDocumentMeta(
     entry === null || entry === undefined
@@ -292,11 +300,12 @@ export function MomentReaderPage({
           >
             <img
               alt=""
-              className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover object-[center_32%]"
+              className="aspect-[16/10] max-h-[min(58svh,34rem)] w-full object-cover"
               decoding="async"
               fetchPriority="high"
               loading="eager"
               src={coverUrl}
+              style={coverObjectPositionStyle(coverFocal, 'center 32%')}
             />
           </button>
         ) : null}

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Crop, Star } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
@@ -7,12 +8,18 @@ import {
   PHOTO_CAPTION_MAX_LENGTH,
   updateEntryPhotoCaption,
 } from '@/entities/photo/api/moment-photo-detail.repository'
+import {
+  coverObjectPositionStyle,
+  focalFromPreview,
+  normalizeCoverFocalPoint,
+} from '@/entities/photo/lib/cover-focal-point'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
+import { CoverFocalPointSheet } from '@/features/photos/ui/CoverFocalPointSheet'
 import { usePhotoLightbox } from '@/features/photos/lib/use-photo-lightbox'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
@@ -36,33 +43,44 @@ interface EntryPhotoGridProps {
 }
 
 function GridImage({
+  adjustFocalLabel,
   alt,
+  canAdjustFocal,
   coverLabel,
   height,
   isCover,
   isSelected,
   isVideo = false,
+  onAdjustFocal,
   onOpen,
   onSelect,
   onSetCover,
+  photoPreview,
   setCoverLabel,
   src,
   width,
 }: {
+  adjustFocalLabel: string
   alt: string
+  canAdjustFocal: boolean
   coverLabel: string
   height?: number
   isCover: boolean
   isSelected: boolean
   isVideo?: boolean
+  onAdjustFocal?: () => void
   onOpen: () => void
   onSelect?: () => void
   onSetCover?: () => void
+  photoPreview: PhotoPreview
   setCoverLabel: string
   src: string
   width?: number
 }) {
   const [isBroken, setIsBroken] = useState(false)
+  const focalStyle = isCover
+    ? coverObjectPositionStyle(focalFromPreview(photoPreview), '50% 50%')
+    : undefined
 
   if (isBroken) {
     return (
@@ -73,12 +91,12 @@ function GridImage({
   }
 
   return (
-    <div className="relative">
+    <div className="group relative">
       <button
         aria-label={alt}
         className={cn(
           'block w-full overflow-hidden rounded-md focus-visible:outline-offset-2',
-          isCover && 'ring-2 ring-primary ring-offset-2',
+          isCover && 'ring-1 ring-primary/40 ring-offset-1',
           isSelected && 'ring-2 ring-accent ring-offset-2',
         )}
         onClick={() => {
@@ -89,26 +107,30 @@ function GridImage({
       >
         <ResponsivePhotoImage
           alt={alt}
-          className="aspect-square w-full object-cover transition-transform duration-300 hover:scale-[1.03]"
+          className="aspect-square w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
           {...(typeof height === 'number' ? { height } : {})}
           onError={() => {
             setIsBroken(true)
           }}
           sizes={GALLERY_GRID_SIZES}
           src={src}
+          {...(focalStyle === undefined ? {} : { style: focalStyle })}
           {...(typeof width === 'number' ? { width } : {})}
         />
         {isVideo ? <VideoPlayOverlay /> : null}
       </button>
+
       {isCover ? (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+        <span className="pointer-events-none absolute left-1.5 top-1.5 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+          <Star aria-hidden="true" className="size-3 fill-current" />
           {coverLabel}
         </span>
       ) : null}
-      {onSetCover !== undefined && !isCover ? (
+
+      {onSetCover !== undefined ? (
         <button
           aria-label={setCoverLabel}
-          className="absolute left-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+          className="absolute inset-x-1 bottom-1 rounded-md bg-black/65 px-2 py-1.5 text-[11px] font-semibold text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={(event) => {
             event.stopPropagation()
             onSetCover()
@@ -118,9 +140,24 @@ function GridImage({
           {setCoverLabel}
         </button>
       ) : null}
+
+      {canAdjustFocal && isCover && onAdjustFocal !== undefined ? (
+        <button
+          aria-label={adjustFocalLabel}
+          className="absolute right-1.5 top-1.5 inline-flex size-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100 group-focus-within:opacity-100"
+          onClick={(event) => {
+            event.stopPropagation()
+            onAdjustFocal()
+          }}
+          type="button"
+        >
+          <Crop aria-hidden="true" size={14} />
+        </button>
+      ) : null}
+
       {onSelect !== undefined ? (
         <button
-          className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white"
+          className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
           onClick={(event) => {
             event.stopPropagation()
             onSelect()
@@ -154,6 +191,9 @@ export function EntryPhotoGrid({
   const queryClient = useQueryClient()
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null)
   const [draftCaption, setDraftCaption] = useState('')
+  const [focalEditorPhotoId, setFocalEditorPhotoId] = useState<string | null>(
+    null,
+  )
   const urls = usePhotoObjectUrls(photos)
   const { lightboxElement, openLightbox } = usePhotoLightbox({
     canDelete,
@@ -196,6 +236,12 @@ export function EntryPhotoGrid({
           queryKey: journeyQueryKeys.detail(journeyId),
         })
       }
+      await queryClient.invalidateQueries({
+        queryKey: entryQueryKeys.photoPreviews(entryId),
+      })
+      await queryClient.invalidateQueries({
+        queryKey: entryQueryKeys.publicMomentPhotos(entryId),
+      })
       onCoverChanged?.()
       showToast({ message: t('entry.coverUpdated'), variant: 'default' })
     },
@@ -235,6 +281,14 @@ export function EntryPhotoGrid({
 
   const coverId =
     photos.find((photo) => photo.isCover === true)?.id ?? photos[0]?.id ?? null
+  const focalEditorPhoto =
+    focalEditorPhotoId === null
+      ? null
+      : (photos.find((photo) => photo.id === focalEditorPhotoId) ?? null)
+  const focalEditorUrl =
+    focalEditorPhotoId === null
+      ? null
+      : (urls.find((preview) => preview.id === focalEditorPhotoId) ?? null)
 
   const lightboxPhotos = urls.map((preview) => ({
     alt,
@@ -251,20 +305,29 @@ export function EntryPhotoGrid({
         {urls.map((preview, previewIndex) => {
           const isCover = preview.id === coverId
           const meta = photos.find((photo) => photo.id === preview.id)
+          if (meta === undefined) {
+            return null
+          }
           return (
             <GridImage
+              adjustFocalLabel={t('entry.adjustCoverFocal')}
               alt={`${alt} ${String(previewIndex + 1)}`}
+              canAdjustFocal={canSetCover}
               coverLabel={t('entry.coverPhoto')}
-              {...(typeof meta?.height === 'number'
+              {...(typeof meta.height === 'number'
                 ? { height: meta.height }
                 : {})}
               isCover={isCover}
               isSelected={selectedPhotoId === preview.id}
-              isVideo={meta?.mediaType === 'video'}
+              isVideo={meta.mediaType === 'video'}
               key={preview.id}
+              onAdjustFocal={() => {
+                setFocalEditorPhotoId(preview.id)
+              }}
               onOpen={() => {
                 openLightbox(lightboxPhotos, previewIndex)
               }}
+              photoPreview={meta}
               {...(canEditCaptions
                 ? {
                     onSelect: () => {
@@ -282,9 +345,7 @@ export function EntryPhotoGrid({
                 : {})}
               setCoverLabel={t('entry.setCoverPhoto')}
               src={preview.url}
-              {...(typeof meta?.width === 'number'
-                ? { width: meta.width }
-                : {})}
+              {...(typeof meta.width === 'number' ? { width: meta.width } : {})}
             />
           )
         })}
@@ -330,6 +391,47 @@ export function EntryPhotoGrid({
           </div>
         </div>
       ) : null}
+
+      {focalEditorPhoto !== null && focalEditorUrl !== null ? (
+        <CoverFocalPointSheet
+          alt={alt}
+          entryId={entryId}
+          initialFocal={normalizeCoverFocalPoint(
+            focalEditorPhoto.focalX,
+            focalEditorPhoto.focalY,
+          )}
+          key={`${focalEditorPhoto.id}:${String(focalEditorPhoto.focalX)}:${String(focalEditorPhoto.focalY)}`}
+          onSaved={() => {
+            void queryClient.invalidateQueries({
+              queryKey: entryQueryKeys.photoPreviews(entryId),
+            })
+            void queryClient.invalidateQueries({
+              queryKey: entryQueryKeys.publicMomentPhotos(entryId),
+            })
+            if (journeyId !== undefined) {
+              void queryClient.invalidateQueries({
+                queryKey: journeyQueryKeys.detail(journeyId),
+              })
+            }
+            onCoverChanged?.()
+          }}
+          open={focalEditorPhotoId !== null}
+          photoId={focalEditorPhoto.id}
+          {...(typeof focalEditorPhoto.height === 'number'
+            ? { previewHeight: focalEditorPhoto.height }
+            : {})}
+          previewUrl={focalEditorUrl.url}
+          {...(typeof focalEditorPhoto.width === 'number'
+            ? { previewWidth: focalEditorPhoto.width }
+            : {})}
+          setOpen={(open) => {
+            if (!open) {
+              setFocalEditorPhotoId(null)
+            }
+          }}
+        />
+      ) : null}
+
       {lightboxElement}
     </>
   )

@@ -9,6 +9,10 @@ import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import type { JourneyMoment } from '@/features/journeys/lib/journey-content'
 import { excerptText } from '@/features/journeys/lib/excerpt-text'
+import {
+  coverObjectPositionStyle,
+  focalFromPreview,
+} from '@/entities/photo/lib/cover-focal-point'
 import { formatMomentTimelineLabel } from '@/features/journeys/lib/format-moment-datetime'
 import { InlineMomentEditor } from '@/features/journeys/ui/InlineMomentEditor'
 import { momentShareFromPaths } from '@/features/sharing/hooks/use-journey-public-share'
@@ -185,9 +189,12 @@ export function MomentCard({
 
       {resolvedPhotos.length > 0 ? (
         <ul aria-hidden="true" className="mt-3 flex gap-1.5 overflow-hidden">
-          {resolvedPhotos.map((photo, index) => {
+          {resolvedPhotos.map((photo) => {
+            const source = previewPhotos.find((item) => item.id === photo.id)
             const showOverflow =
-              overflowCount > 0 && index === resolvedPhotos.length - 1
+              overflowCount > 0 &&
+              photo.id === resolvedPhotos[resolvedPhotos.length - 1]?.id
+            const focal = focalFromPreview(source ?? photo)
             return (
               <li
                 className="relative size-14 shrink-0 overflow-hidden rounded-lg sm:size-16"
@@ -201,6 +208,11 @@ export function MomentCard({
                     : {})}
                   sizes={READER_STRIP_SIZES}
                   src={photo.url}
+                  {...(focal !== null
+                    ? {
+                        style: coverObjectPositionStyle(focal, '50% 50%'),
+                      }
+                    : {})}
                   {...(typeof photo.width === 'number'
                     ? { width: photo.width }
                     : {})}
@@ -270,17 +282,12 @@ export function MomentCard({
             )}
 
             <div
-              className="flex shrink-0 items-start gap-0.5"
+              className="flex shrink-0 items-center gap-0.5"
               data-moment-actions=""
             >
-              <MomentSyncIndicator
-                onRetry={() => {
-                  void handleRetrySync()
-                }}
-                syncStatus={syncStatus}
-              />
               {momentShare !== null ? (
                 <ShareIconButton
+                  className="size-10 rounded-lg"
                   disabled={!isSynced}
                   onDisabledClick={() => {
                     showToast({ message: t('moment.shareWaitForSync') })
@@ -299,6 +306,14 @@ export function MomentCard({
                   {t('entry.editAction')}
                 </button>
               ) : null}
+              <span className="inline-flex size-10 items-center justify-center rounded-lg text-muted">
+                <MomentSyncIndicator
+                  onRetry={() => {
+                    void handleRetrySync()
+                  }}
+                  syncStatus={syncStatus}
+                />
+              </span>
               {canEdit ? (
                 <div className="relative">
                   <button

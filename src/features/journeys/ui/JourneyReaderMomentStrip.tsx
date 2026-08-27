@@ -13,6 +13,10 @@ import {
   scrollMomentIntoView,
 } from '@/features/journeys/ui/journey-reader-moment-strip.logic'
 import { READER_STRIP_SIZES } from '@/entities/photo/lib/responsive-photo'
+import {
+  coverObjectPositionStyle,
+  focalFromPreview,
+} from '@/entities/photo/lib/cover-focal-point'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { cn } from '@/shared/lib/cn'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
@@ -135,6 +139,7 @@ function MomentStripCard({
 }) {
   const { i18n, t } = useTranslation()
   const coverPhoto = photos[0] ?? null
+  const coverFocal = focalFromPreview(coverPhoto ?? {})
   const coverUrls = usePhotoObjectUrls(coverPhoto === null ? [] : [coverPhoto])
   const coverUrl = coverUrls[0]?.url
   const title = moment.entry.title ?? t('dashboard.untitled')
@@ -183,6 +188,11 @@ function MomentStripCard({
               : {})}
             sizes={READER_STRIP_SIZES}
             src={coverUrl}
+            {...(coverFocal !== null
+              ? {
+                  style: coverObjectPositionStyle(coverFocal, 'center 32%'),
+                }
+              : {})}
             {...(typeof coverPhoto?.width === 'number'
               ? { width: coverPhoto.width }
               : {})}

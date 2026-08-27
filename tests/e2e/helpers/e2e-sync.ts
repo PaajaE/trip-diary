@@ -104,6 +104,28 @@ export async function waitForRemoteEntriesByTitle(
     .toBe(titles.length)
 }
 
+export async function waitForRemoteEntryPhotos(
+  entryId: string,
+  minCount: number,
+): Promise<void> {
+  const admin = createAdminClient()
+  await expect
+    .poll(
+      async () => {
+        const { count, error } = await admin
+          .from('entry_photos')
+          .select('photo_id', { count: 'exact', head: true })
+          .eq('entry_id', entryId)
+        if (error !== null) {
+          throw error
+        }
+        return count ?? 0
+      },
+      { timeout: 90_000 },
+    )
+    .toBeGreaterThanOrEqual(minCount)
+}
+
 export async function waitForPublicJourneyPath(
   journeyId: string,
 ): Promise<string> {

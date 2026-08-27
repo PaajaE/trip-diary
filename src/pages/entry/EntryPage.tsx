@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link, useNavigate } from '@tanstack/react-router'
-import { ArrowLeft } from 'lucide-react'
+import { useNavigate } from '@tanstack/react-router'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
@@ -14,18 +13,22 @@ import { invalidateEntryTranslations } from '@/entities/translation/api/invalida
 import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repository'
 import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { useSession } from '@/features/auth/session'
-import { EditEntryForm } from '@/features/entries/ui/EditEntryForm'
 import { EntryTranslationPanel } from '@/features/entries/ui/EntryTranslationPanel'
+import { MomentDetailHeader } from '@/features/entries/ui/MomentDetailHeader'
+import { MomentInlineTextFields } from '@/features/entries/ui/MomentInlineTextFields'
+import { MomentMediaEditor } from '@/features/entries/ui/MomentMediaEditor'
+import { MomentMediaView } from '@/features/entries/ui/MomentMediaView'
+import { useMomentTextDraft } from '@/features/entries/lib/use-moment-text-draft'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
-import { EntryPhotoGrid } from '@/features/photos/ui/EntryPhotoGrid'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messages'
 import { ShareActions } from '@/features/sharing/ui/ShareActions'
 import { CopyShareLink } from '@/features/sharing'
+import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
+import type { Entry } from '@/entities/entry/model/entry'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { localDb } from '@/shared/lib/local-db'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
-import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
 
 interface EntryPageProps {
@@ -35,6 +38,176 @@ interface EntryPageProps {
   shareUrl?: string
 }
 
+interface OwnerEntryDetailProps {
+  entry: Entry
+  journeyId?: string
+  notice?: 'photos_failed'
+  onEntryUpdated: (entry: Entry) => Promise<void>
+  onSyncRetry: () => void
+  photos: PhotoPreview[]
+  photosError: boolean
+  photosPending: boolean
+  onPhotosChanged: () => void
+  publicShare: { shareText: string; shareUrl: string } | null
+  returnTo?: string
+  userId: string
+}
+
+function OwnerEntryDetail({
+  entry,
+  journeyId,
+  notice,
+  onEntryUpdated,
+  onPhotosChanged,
+  onSyncRetry,
+  photos,
+  photosError,
+  photosPending,
+  publicShare,
+  returnTo,
+  userId,
+}: OwnerEntryDetailProps) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+
+  const textDraft = useMomentTextDraft({
+    creatorId: userId,
+    enabled: editing,
+    entry,
+    onUpdated: (updated) => {
+      void onEntryUpdated(updated)
+    },
+  })
+
+  async function handleDelete() {
+    if (!window.confirm(t('entry.deleteConfirm'))) {
+      return
+    }
+    setMenuOpen(false)
+    setDeleting(true)
+    try {
+      const link = await localDb.journeyLinks.get(entry.id)
+      await deleteEntry(entry.id, userId)
+      await invalidateAfterEntryDelete(queryClient, {
+        entryId: entry.id,
+        userId,
+        ...(link?.journeyId !== undefined ? { journeyId: link.journeyId } : {}),
+      })
+      if (returnTo !== undefined) {
+        await navigate({ to: returnTo })
+        return
+      }
+      await navigate({ to: '/' })
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function toggleEditing() {
+    if (editing) {
+      await textDraft.flushSave()
+      setEditing(false)
+      return
+    }
+    setEditing(true)
+  }
+
+  return (
+    <>
+      {notice === 'photos_failed' ? (
+        <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+          {t('entry.photosFailedNotice')}
+        </p>
+      ) : null}
+
+      <MomentDetailHeader
+        deleting={deleting}
+        editing={editing}
+        entry={entry}
+        menuOpen={menuOpen}
+        onDelete={() => {
+          void handleDelete()
+        }}
+        onEditToggle={() => {
+          void toggleEditing()
+        }}
+        onMenuOpenChange={setMenuOpen}
+        onSyncRetry={onSyncRetry}
+        {...(returnTo !== undefined ? { returnTo } : {})}
+        saveState={textDraft.saveState}
+        shareText={publicShare?.shareText ?? null}
+        shareUrl={publicShare?.shareUrl ?? null}
+      />
+
+      <MomentInlineTextFields
+        body={editing ? textDraft.body : entry.body}
+        disabled={textDraft.saveState === 'saving'}
+        editing={editing}
+        onBodyChange={textDraft.setBody}
+        onTitleChange={textDraft.setTitle}
+        title={editing ? textDraft.title : entry.title}
+      />
+
+      <ContentEngagement
+        className="mt-8 border-t border-border/40 pt-6"
+        compact
+        countsOnly
+        target={{ id: entry.id, type: 'entry' }}
+      />
+
+      {photosPending ? (
+        <p className="mt-8 text-sm text-muted" role="status">
+          {t('photos.loading')}
+        </p>
+      ) : photosError ? (
+        <p className="mt-8 text-sm text-destructive" role="alert">
+          {t('photos.error')}
+        </p>
+      ) : editing ? (
+        <MomentMediaEditor
+          alt={entry.title}
+          creatorId={userId}
+          entryId={entry.id}
+          {...(journeyId !== undefined ? { journeyId } : {})}
+          onPhotosChanged={onPhotosChanged}
+          photos={photos}
+        />
+      ) : (
+        <MomentMediaView alt={entry.title} entryId={entry.id} photos={photos} />
+      )}
+
+      {entry.language === 'cs' ? (
+        <section className="mt-12 border-t border-border/50 pt-8">
+          <h2 className="text-sm font-semibold tracking-wide text-muted uppercase">
+            {t('entry.managementSectionTitle')}
+          </h2>
+          <div className="mt-4 rounded-2xl border border-border/60 bg-background/40 p-5">
+            <EntryTranslationPanel entry={entry} />
+          </div>
+        </section>
+      ) : null}
+
+      {!editing ? (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-surface/95 p-4 backdrop-blur-sm sm:hidden">
+          <Button
+            className="min-h-11 w-full"
+            onClick={() => {
+              setEditing(true)
+            }}
+            variant="secondary"
+          >
+            {t('entry.editAction')}
+          </Button>
+        </div>
+      ) : null}
+    </>
+  )
+}
+
 export function EntryPage({
   entryId,
   notice,
@@ -42,11 +215,9 @@ export function EntryPage({
   shareUrl,
 }: EntryPageProps) {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { user } = useSession()
-  const [editing, setEditing] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+
   const entryQuery = useQuery({
     queryKey: entryQueryKeys.detail(entryId),
     queryFn: async () => {
@@ -75,6 +246,7 @@ export function EntryPage({
     queryFn: async () => (await localDb.journeyLinks.get(entryId)) ?? null,
     queryKey: ['entry-journey-link', entryId],
   })
+
   const entry = entryQuery.data
   const publicShare =
     publicShareQuery.data === null || publicShareQuery.data === undefined
@@ -83,96 +255,111 @@ export function EntryPage({
           publicShareQuery.data,
           t('reader.shareMomentMessage', { title: entry?.title ?? '' }),
         )
-  const canManage = user !== null && entry?.creatorId === user.id
 
-  return (
-    <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
-      {returnTo !== undefined ? (
-        <>
-          <Link
-            className="mt-8 inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-            to={returnTo}
-          >
-            <ArrowLeft aria-hidden="true" size={16} />
-            {t('entry.back')}
-          </Link>
-          <p className="mt-3 text-sm text-muted">{t('entry.editOnTripHint')}</p>
-        </>
-      ) : null}
-      {entry === undefined ? (
+  async function handleEntryUpdated(updated: Entry) {
+    void queryClient.setQueryData(entryQueryKeys.detail(updated.id), updated)
+    const link = await localDb.journeyLinks.get(updated.id)
+    if (link?.journeyId === undefined) {
+      await invalidateEntryTranslations(queryClient, updated.id)
+      return
+    }
+    await commitJourneyEntryTextUpdate(queryClient, {
+      journeyId: link.journeyId,
+      updated,
+    })
+  }
+
+  if (entry === undefined) {
+    return (
+      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
         <p className="mt-16 text-muted">{t('entry.loading')}</p>
-      ) : entryQuery.isError ? (
+      </main>
+    )
+  }
+
+  if (entryQuery.isError) {
+    return (
+      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
         <p className="mt-16 text-destructive" role="alert">
           {t('entry.error')}
         </p>
-      ) : entry === null ? (
-        <p className="mt-16 text-muted">{t('entry.notFound')}</p>
-      ) : editing && canManage ? (
-        <article className="mt-16">
-          <EditEntryForm
-            creatorId={user.id}
-            entry={entry}
-            onCancel={() => {
-              setEditing(false)
-            }}
-            onUpdated={(updated) => {
-              setEditing(false)
-              void queryClient.setQueryData(
-                entryQueryKeys.detail(updated.id),
-                updated,
-              )
-              void localDb.journeyLinks.get(updated.id).then((link) => {
-                if (link?.journeyId === undefined) {
-                  return invalidateEntryTranslations(queryClient, updated.id)
-                }
+      </main>
+    )
+  }
 
-                return commitJourneyEntryTextUpdate(queryClient, {
-                  journeyId: link.journeyId,
-                  updated,
-                })
-              })
+  if (entry === null) {
+    return (
+      <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 sm:py-16">
+        <p className="mt-16 text-muted">{t('entry.notFound')}</p>
+      </main>
+    )
+  }
+
+  return (
+    <main className="mx-auto min-h-svh w-full max-w-3xl px-5 py-8 pb-24 sm:py-16 sm:pb-16">
+      <article
+        className={returnTo === undefined ? 'mt-4 sm:mt-10' : 'mt-2 sm:mt-6'}
+        data-entry-id={entry.id}
+        data-sync-status={entry.syncStatus}
+      >
+        {user !== null && entry.creatorId === user.id ? (
+          <OwnerEntryDetail
+            entry={entry}
+            {...(journeyLinkQuery.data?.journeyId !== undefined
+              ? { journeyId: journeyLinkQuery.data.journeyId }
+              : {})}
+            {...(notice !== undefined ? { notice } : {})}
+            onEntryUpdated={handleEntryUpdated}
+            onPhotosChanged={() => {
+              void photosQuery.refetch()
             }}
+            onSyncRetry={() => {
+              void entryQuery.refetch()
+            }}
+            photos={photosQuery.data ?? []}
+            photosError={photosQuery.isError}
+            photosPending={photosQuery.isPending}
+            publicShare={publicShare}
+            {...(returnTo !== undefined ? { returnTo } : {})}
+            userId={user.id}
           />
-        </article>
-      ) : (
-        <article
-          className={returnTo === undefined ? 'mt-10' : 'mt-6'}
-          data-entry-id={entry.id}
-          data-sync-status={entry.syncStatus}
-        >
-          {notice === 'photos_failed' ? (
-            <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
-              {t('entry.photosFailedNotice')}
+        ) : (
+          <>
+            {notice === 'photos_failed' ? (
+              <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+                {t('entry.photosFailedNotice')}
+              </p>
+            ) : null}
+            <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
+              {t(`entry.type.${entry.type}`)}
             </p>
-          ) : null}
-          <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
-            {t(`entry.type.${entry.type}`)}
-          </p>
-          <h1 className="reader-display mt-3 text-[clamp(1.85rem,5vw,3rem)] leading-[1.05] tracking-[-0.04em]">
-            {entry.title}
-          </h1>
-          <p className="prose-reader mt-8 max-w-[40rem] whitespace-pre-wrap text-lg leading-[1.8]">
-            {entry.body}
-          </p>
-          {publicShare !== null ? (
-            <ShareActions
-              className="mt-6"
-              shareText={publicShare.shareText}
-              shareUrl={publicShare.shareUrl}
+            <MomentInlineTextFields
+              body={entry.body}
+              editing={false}
+              onBodyChange={() => undefined}
+              onTitleChange={() => undefined}
               title={entry.title}
             />
-          ) : shareUrl === undefined ? null : (
-            <CopyShareLink
-              className="mt-6"
-              onCopy={() => sharePublicUrl(shareUrl, entry.title)}
+            {publicShare !== null ? (
+              <ShareActions
+                className="mt-6"
+                shareText={publicShare.shareText}
+                shareUrl={publicShare.shareUrl}
+                title={entry.title}
+              />
+            ) : shareUrl !== undefined ? (
+              <CopyShareLink
+                className="mt-6"
+                onCopy={() => {
+                  void sharePublicUrl(shareUrl, entry.title)
+                }}
+              />
+            ) : null}
+            <ContentEngagement
+              className="mt-8 min-h-32 border-t border-border/60 pt-8"
+              target={{ id: entry.id, type: 'entry' }}
             />
-          )}
-          <ContentEngagement
-            className="mt-8 min-h-32 border-t border-border/60 pt-8"
-            target={{ id: entry.id, type: 'entry' }}
-          />
-          {canManage ? (
-            photosQuery.isPending ? (
+            {photosQuery.isPending ? (
               <p className="mt-8 text-sm text-muted" role="status">
                 {t('photos.loading')}
               </p>
@@ -181,90 +368,18 @@ export function EntryPage({
                 {t('photos.error')}
               </p>
             ) : (
-              <EntryPhotoGrid
+              <PhotoGallery
                 alt={entry.title}
-                canDelete
-                canSetCover
-                creatorId={user.id}
                 entryId={entry.id}
-                {...(journeyLinkQuery.data?.journeyId !== undefined
-                  ? { journeyId: journeyLinkQuery.data.journeyId }
-                  : {})}
-                onCoverChanged={() => {
-                  void photosQuery.refetch()
-                }}
-                photos={photosQuery.data}
+                showPhotoEngagement={publicShare !== null}
               />
-            )
-          ) : (
-            <PhotoGallery
-              alt={entry.title}
-              entryId={entry.id}
-              showPhotoEngagement={publicShare !== null}
-            />
-          )}
-          <p className="mt-10 text-sm text-muted">
-            {t(`entry.sync.${entry.syncStatus}`)}
-          </p>
-          {canManage ? (
-            <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-              <Button
-                onClick={() => {
-                  setEditing(true)
-                }}
-                variant="secondary"
-              >
-                {t('entry.editAction')}
-              </Button>
-              <Button
-                disabled={deleting}
-                onClick={() => {
-                  if (!window.confirm(t('entry.deleteConfirm'))) {
-                    return
-                  }
-                  setDeleting(true)
-                  void deleteEntry(entry.id, user.id)
-                    .then(async () => {
-                      const link = await localDb.journeyLinks.get(entry.id)
-                      await invalidateAfterEntryDelete(queryClient, {
-                        entryId: entry.id,
-                        userId: user.id,
-                        ...(link?.journeyId !== undefined
-                          ? { journeyId: link.journeyId }
-                          : {}),
-                      })
-                      if (returnTo !== undefined) {
-                        await navigate({ to: returnTo })
-                        return
-                      }
-                      await navigate({ to: '/' })
-                    })
-                    .finally(() => {
-                      setDeleting(false)
-                    })
-                }}
-                variant="destructive"
-              >
-                {deleting ? t('entry.deleting') : t('entry.deleteAction')}
-              </Button>
-            </div>
-          ) : null}
-          {canManage && entry.language === 'cs' ? (
-            <EntryTranslationPanel entry={entry} />
-          ) : null}
-          {entry.syncStatus === 'synced' ? null : (
-            <Button
-              className="mt-4"
-              onClick={() => {
-                void syncPendingOperations().then(() => entryQuery.refetch())
-              }}
-              variant="secondary"
-            >
-              {t('entry.syncNow')}
-            </Button>
-          )}
-        </article>
-      )}
+            )}
+            <p className="mt-10 text-sm text-muted">
+              {t(`entry.sync.${entry.syncStatus}`)}
+            </p>
+          </>
+        )}
+      </article>
     </main>
   )
 }

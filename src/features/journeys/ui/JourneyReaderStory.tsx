@@ -1,6 +1,10 @@
 import { CalendarDays, ChevronRight, MapPin, Signpost } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
+import {
+  coverObjectPositionStyle,
+  focalFromPreview,
+} from '@/entities/photo/lib/cover-focal-point'
 import type { PhotoTagAssignment } from '@/entities/photo/model/photo-tag'
 import type {
   JourneyMoment,
@@ -154,6 +158,8 @@ export function ReaderMomentArticle({
   const urls = usePhotoObjectUrls(previewPhotos)
   const overflowCount = Math.max(0, photos.length - CARD_PHOTO_LIMIT)
   const cover = urls[0]
+  const coverSource = previewPhotos[0]
+  const coverFocal = focalFromPreview(coverSource ?? {})
   const stripPhotos = urls.slice(1)
   const titleId = `reader-moment-title-${moment.entry.id}`
   const dateLabel = formatMomentDateLabel(moment.entry.eventAt, i18n.language)
@@ -224,6 +230,11 @@ export function ReaderMomentArticle({
                 decoding="async"
                 loading="lazy"
                 src={cover.url}
+                {...(coverFocal !== null
+                  ? {
+                      style: coverObjectPositionStyle(coverFocal, 'center 32%'),
+                    }
+                  : {})}
               />
               {cover.mediaType === 'video' ? <VideoPlayOverlay /> : null}
             </button>
