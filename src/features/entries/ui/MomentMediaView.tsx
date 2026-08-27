@@ -69,10 +69,9 @@ export function MomentMediaView({
 
   const previewMeta = useMemo(
     () =>
-      viewData.displayPhotos.filter((photo) => photo.id !== coverPhotoId).slice(
-        0,
-        MOMENT_PHOTO_PREVIEW_LIMIT,
-      ),
+      viewData.displayPhotos
+        .filter((photo) => photo.id !== coverPhotoId)
+        .slice(0, MOMENT_PHOTO_PREVIEW_LIMIT),
     [coverPhotoId, viewData.displayPhotos],
   )
 
@@ -116,7 +115,9 @@ export function MomentMediaView({
           alt,
           entryId,
           id: photo.id,
-          ...(photo.mediaType === 'video' ? { mediaType: 'video' as const } : {}),
+          ...(photo.mediaType === 'video'
+            ? { mediaType: 'video' as const }
+            : {}),
           thumbUrl: displayUrl?.url ?? '',
         }
       }),
@@ -143,7 +144,9 @@ export function MomentMediaView({
   const showOverlayOnLast = hiddenCount > 0
 
   return (
-    <section aria-label={t('entry.mediaSectionTitle', { count: viewData.totalCount })}>
+    <section
+      aria-label={t('entry.mediaSectionTitle', { count: viewData.totalCount })}
+    >
       {cover !== undefined ? (
         <button
           aria-label={alt}
@@ -177,7 +180,8 @@ export function MomentMediaView({
         >
           {mosaic.map((preview, index) => {
             const meta = previewMeta.find((photo) => photo.id === preview.id)
-            const showMoreOverlay = showOverlayOnLast && index === lastMosaicIndex
+            const showMoreOverlay =
+              showOverlayOnLast && index === lastMosaicIndex
 
             return (
               <div className="moment-photo-mosaic__tile" key={preview.id}>

@@ -17,7 +17,10 @@ import { getEntryPublicShare } from '@/entities/sharing/api/public-sharing.repos
 import { sharingQueryKeys } from '@/entities/sharing/api/sharing-query-keys'
 import { useSession } from '@/features/auth/session'
 import { EntryTranslationPanel } from '@/features/entries/ui/EntryTranslationPanel'
-import { MomentDetailActions, MomentDetailHeader } from '@/features/entries/ui/MomentDetailHeader'
+import {
+  MomentDetailActions,
+  MomentDetailHeader,
+} from '@/features/entries/ui/MomentDetailHeader'
 import { MomentInlineTextFields } from '@/features/entries/ui/MomentInlineTextFields'
 import { MomentMediaEditor } from '@/features/entries/ui/MomentMediaEditor'
 import { MomentMediaView } from '@/features/entries/ui/MomentMediaView'
@@ -281,7 +284,7 @@ export function EntryPage({
     enabled:
       entryQuery.data !== undefined &&
       entryQuery.data !== null &&
-      (user === null || entryQuery.data.creatorId !== user.id),
+      entryQuery.data.creatorId !== user?.id,
     queryFn: () => getEntryPhotoPreviews(entryId),
     queryKey: entryQueryKeys.photoPreviews(entryId),
   })

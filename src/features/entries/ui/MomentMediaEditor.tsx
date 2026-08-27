@@ -187,7 +187,9 @@ export function MomentMediaEditor({
       : (urls.find((preview) => preview.id === activePhotoId) ?? null)
 
   return (
-    <section aria-label={t('entry.mediaSectionTitle', { count: photos.length })}>
+    <section
+      aria-label={t('entry.mediaSectionTitle', { count: photos.length })}
+    >
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <h2 className="reader-display text-2xl tracking-[-0.03em]">
           {t('reader.photosHeading')}
@@ -273,7 +275,8 @@ export function MomentMediaEditor({
                   aria-label={`${alt} ${String(index + 1)}`}
                   className={cn(
                     'block w-full overflow-hidden rounded-xl focus-visible:outline-offset-2',
-                    isCover && 'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
+                    isCover &&
+                      'ring-2 ring-primary/35 ring-offset-2 ring-offset-background',
                   )}
                   onClick={() => {
                     setActivePhotoId(preview.id)

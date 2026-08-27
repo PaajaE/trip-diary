@@ -461,7 +461,11 @@ describe('getEntryPhotoPreviews', () => {
       ...previewIds,
     ])
     expect(download).toHaveBeenCalledTimes(6)
-    expect(download).not.toHaveBeenCalledWith(`${hiddenIds[0]}-thumb`)
+    const [firstHiddenId] = hiddenIds
+    if (firstHiddenId === undefined) {
+      throw new Error('expected hidden photo id')
+    }
+    expect(download).not.toHaveBeenCalledWith(`${firstHiddenId}-thumb`)
   })
 })
 

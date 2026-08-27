@@ -714,7 +714,10 @@ interface PhotoLinkMeta {
 
 const VIEW_PREVIEW_LIMIT = 5
 
-function comparePhotoLinkMeta(left: PhotoLinkMeta, right: PhotoLinkMeta): number {
+function comparePhotoLinkMeta(
+  left: PhotoLinkMeta,
+  right: PhotoLinkMeta,
+): number {
   const coverDelta =
     Number(right.isCover === true) - Number(left.isCover === true)
   if (coverDelta !== 0) {
@@ -776,7 +779,9 @@ function mergePhotoLinkMeta(
   return [...metaById.values()].sort(comparePhotoLinkMeta)
 }
 
-async function getLocalPhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]> {
+async function getLocalPhotoLinkMeta(
+  entryId: string,
+): Promise<PhotoLinkMeta[]> {
   const photos = await localDb.photos
     .where('entryId')
     .equals(entryId)
@@ -789,7 +794,9 @@ async function getLocalPhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]> 
   }))
 }
 
-async function getRemotePhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]> {
+async function getRemotePhotoLinkMeta(
+  entryId: string,
+): Promise<PhotoLinkMeta[]> {
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
@@ -811,7 +818,7 @@ async function getRemotePhotoLinkMeta(entryId: string): Promise<PhotoLinkMeta[]>
     const focal = focalFieldsFromLink(link)
     return {
       id: link.photo_id,
-      isCover: link.is_cover === true,
+      isCover: link.is_cover,
       position: link.position,
       ...(focal.focalX === undefined ? {} : { focalX: focal.focalX }),
       ...(focal.focalY === undefined ? {} : { focalY: focal.focalY }),
@@ -962,13 +969,15 @@ export async function getEntryPhotoViewPreviews(
   ).filter((photo) => new Set(displayIds).has(photo.id))
 
   return {
-    allPhotos: allLinkMeta.map(({ focalX, focalY, id, isCover, mediaType }) => ({
-      id,
-      ...(focalX === undefined ? {} : { focalX }),
-      ...(focalY === undefined ? {} : { focalY }),
-      ...(isCover === undefined ? {} : { isCover }),
-      ...(mediaType === undefined ? {} : { mediaType }),
-    })),
+    allPhotos: allLinkMeta.map(
+      ({ focalX, focalY, id, isCover, mediaType }) => ({
+        id,
+        ...(focalX === undefined ? {} : { focalX }),
+        ...(focalY === undefined ? {} : { focalY }),
+        ...(isCover === undefined ? {} : { isCover }),
+        ...(mediaType === undefined ? {} : { mediaType }),
+      }),
+    ),
     displayPhotos,
     totalCount: allLinkMeta.length,
   }
