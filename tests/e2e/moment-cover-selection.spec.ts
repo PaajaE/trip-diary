@@ -127,15 +127,16 @@ test('moment cover selection persists across edit, refresh, and public page', as
 
   await openMomentEntry(page, momentTitle)
   await expect(page.locator('main img')).toHaveCount(3, { timeout: 20_000 })
-  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(0)
 
   await page.reload({ waitUntil: 'networkidle' })
   await waitForFullySynced(page)
   await expect(page.locator('main img')).toHaveCount(3, { timeout: 20_000 })
-  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Upravit' }).first().click()
   await expect(page.getByRole('button', { name: 'Hotovo' })).toBeVisible()
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
   await page.getByRole('button', { name: `${momentTitle} 2` }).click()
   await expect(page.getByRole('dialog', { name: 'Fotografie' })).toBeVisible()
   await page.getByRole('button', { name: 'Nastavit jako titulní' }).click()
@@ -151,7 +152,7 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(
     page.getByRole('button', { name: 'Upravit' }).first(),
   ).toBeVisible()
-  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
+  await expect(page.getByText('Titulní', { exact: true })).toHaveCount(0)
   await waitForFullySynced(page)
 
   const entryIdMatch = /\/e\/([^/?]+)/.exec(page.url())
