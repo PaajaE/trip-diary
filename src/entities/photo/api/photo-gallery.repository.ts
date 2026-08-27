@@ -858,7 +858,7 @@ async function getLocalPhotoPreviewsForIds(
         .where('photoId')
         .equals(photo.id)
         .toArray()
-      const variant = pickLocalThumbVariant(variants)
+      const variant = pickLocalCardVariant(variants)
       return variant === undefined
         ? null
         : previewFromVariant(photo.id, variant, {
@@ -926,7 +926,7 @@ async function getRemotePhotoThumbPreviewsForIds(
     filteredLinks.map(async (link) => {
       const match = pickRemoteStoragePath(
         rowsByPhotoId.get(link.photo_id) ?? [],
-        GRID_CONTEXT,
+        CARD_CONTEXT,
       )
       if (match === null) {
         throw new Error('missing variant')

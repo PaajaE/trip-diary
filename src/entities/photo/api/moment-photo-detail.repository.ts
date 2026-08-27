@@ -101,24 +101,47 @@ export async function getPublicMomentPhotos(
   }
 
   const photoById = new Map(photos.map((photo) => [photo.id, photo]))
-  const thumbPathByPhotoId = new Map<string, string>()
-  const preference = [
-    'thumb',
+  const variantsByPhotoId = new Map<
+    string,
+    { storage_path: string; variant: string }[]
+  >()
+  for (const variant of variants) {
+    const list = variantsByPhotoId.get(variant.photo_id) ?? []
+    list.push(variant)
+    variantsByPhotoId.set(variant.photo_id, list)
+  }
+
+  /** Mosaic tiles: prefer small (~800); never start at thumb for ~half-width tiles. */
+  const mosaicPreference = [
     'small',
+    'thumb',
     'medium',
     'full',
     'preview',
     'large',
   ] as const
-  for (const kind of preference) {
-    for (const variant of variants) {
-      if (
-        variant.variant === kind &&
-        !thumbPathByPhotoId.has(variant.photo_id)
-      ) {
-        thumbPathByPhotoId.set(variant.photo_id, variant.storage_path)
+  /** Cover blob fallback only; hero UI prefers signed srcset (small/medium/full). */
+  const coverFallbackPreference = [
+    'small',
+    'medium',
+    'full',
+    'preview',
+    'large',
+    'thumb',
+  ] as const
+
+  function pickPath(
+    photoId: string,
+    preference: readonly string[],
+  ): string | undefined {
+    const rows = variantsByPhotoId.get(photoId) ?? []
+    for (const kind of preference) {
+      const match = rows.find((row) => row.variant === kind)
+      if (match !== undefined) {
+        return match.storage_path
       }
     }
+    return undefined
   }
 
   const metas: MomentPhotoMeta[] = links
@@ -168,7 +191,10 @@ export async function getPublicMomentPhotos(
   const urlById = new Map<string, string>()
   await Promise.all(
     [...downloadIds].map(async (photoId) => {
-      const path = thumbPathByPhotoId.get(photoId)
+      const path =
+        photoId === coverMeta?.id
+          ? pickPath(photoId, coverFallbackPreference)
+          : pickPath(photoId, mosaicPreference)
       if (path === undefined) {
         return
       }

@@ -10,6 +10,7 @@ import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { listPhotoTagAssignmentsForPhotos } from '@/entities/photo/api/photo-tag.repository'
 import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import { getPublicMomentPhotos } from '@/entities/photo/api/moment-photo-detail.repository'
+import { getPhotoSrcsetSources } from '@/entities/photo/api/photo-srcset.repository'
 import {
   coverObjectPositionStyle,
   normalizeCoverFocalPoint,
@@ -151,6 +152,17 @@ export function MomentReaderPage({
       : undefined
 
   const coverUrl = photosQuery.data?.cover?.thumbUrl ?? null
+  const coverPhotoId = photosQuery.data?.cover?.id
+  const coverSrcsetQuery = useQuery({
+    enabled: coverPhotoId !== undefined,
+    queryFn: () => {
+      if (coverPhotoId === undefined) {
+        throw new Error('coverPhotoId is required')
+      }
+      return getPhotoSrcsetSources(coverPhotoId)
+    },
+    queryKey: photoQueryKeys.srcset(coverPhotoId ?? ''),
+  })
   const coverFocal = normalizeCoverFocalPoint(
     photosQuery.data?.cover?.focalX,
     photosQuery.data?.cover?.focalY,
@@ -256,7 +268,6 @@ export function MomentReaderPage({
   const previousMoment = navigation?.previous ?? null
   const nextMoment = navigation?.next ?? null
   const hasPhotos = (photosQuery.data?.totalCount ?? 0) > 0
-  const coverPhotoId = photosQuery.data?.cover?.id
   const supportingPhotos =
     photosQuery.data === undefined
       ? []
@@ -306,6 +317,10 @@ export function MomentReaderPage({
                 }
               }}
               src={coverUrl}
+              {...(coverSrcsetQuery.data !== undefined &&
+              coverSrcsetQuery.data.length > 0
+                ? { srcSetSources: coverSrcsetQuery.data }
+                : {})}
             />
           </div>
         ) : null}

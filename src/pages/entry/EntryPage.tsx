@@ -24,7 +24,10 @@ import {
 } from '@/features/entries/ui/MomentDetailHeader'
 import { MomentInlineTextFields } from '@/features/entries/ui/MomentInlineTextFields'
 import { MomentMediaEditor } from '@/features/entries/ui/MomentMediaEditor'
-import { MomentMediaView } from '@/features/entries/ui/MomentMediaView'
+import {
+  MomentMediaCover,
+  MomentMediaMosaic,
+} from '@/features/entries/ui/MomentMediaView'
 import { useMomentTextDraft } from '@/features/entries/lib/use-moment-text-draft'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { formatMomentDateLabel } from '@/features/journeys/lib/format-moment-datetime'
@@ -40,6 +43,7 @@ import {
 } from '@/features/journeys/ui/moment-editorial-layout'
 import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { localDb } from '@/shared/lib/local-db'
+import { getSupabaseClient } from '@/shared/api/supabase'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { Button } from '@/shared/ui/Button'
 import { MetadataRow } from '@/shared/ui/MetadataRow'
@@ -182,46 +186,109 @@ function OwnerEntryDetail({
     />
   )
 
+  const header = (
+    <MomentDetailHeader
+      actionsSlot={ownerActions}
+      editing={editing}
+      entry={entry}
+      onSyncRetry={onSyncRetry}
+      saveState={textDraft.saveState}
+      {...(backHref !== undefined ? { backHref } : {})}
+    />
+  )
+
+  const noticeBanner =
+    notice === 'photos_failed' ? (
+      <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
+        {t('entry.photosFailedNotice')}
+      </p>
+    ) : null
+
+  // Edit mode keeps its existing layout (TASK 2). VIEW converges to public composition.
+  if (editing) {
+    return (
+      <>
+        {noticeBanner}
+        {header}
+        <div className={momentTextColumnClass}>
+          <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
+          <MetadataRow
+            className="mt-2"
+            items={[
+              { icon: CalendarDays, label: dateLabel ?? '' },
+              { icon: MapPin, label: resolvedLocation ?? '' },
+            ]}
+          />
+          <MomentInlineTextFields
+            body={textDraft.body}
+            className="mt-4"
+            disabled={textDraft.saveState === 'saving'}
+            editing
+            onBodyChange={textDraft.setBody}
+            onTitleChange={textDraft.setTitle}
+            title={textDraft.title}
+          />
+        </div>
+        {photosPending ? (
+          <p
+            className={cn(momentMediaColumnClass, 'mt-10 text-sm text-muted')}
+            role="status"
+          >
+            {t('photos.loading')}
+          </p>
+        ) : photosError ? (
+          <p
+            className={cn(
+              momentMediaColumnClass,
+              'mt-10 text-sm text-destructive',
+            )}
+            role="alert"
+          >
+            {t('photos.error')}
+          </p>
+        ) : (
+          <div className={cn(momentMediaColumnClass, 'mt-10')}>
+            <MomentMediaEditor
+              alt={entry.title}
+              creatorId={userId}
+              entryId={entry.id}
+              {...(journeyId !== undefined ? { journeyId } : {})}
+              onPhotosChanged={invalidatePhotos}
+              photos={editPhotosQuery.data ?? []}
+            />
+          </div>
+        )}
+        <ContentEngagement
+          className={cn(
+            momentTextColumnClass,
+            'mt-8 border-t border-border/30 pt-5',
+          )}
+          compact
+          countsOnly
+          target={{ id: entry.id, type: 'entry' }}
+        />
+        {entry.language === 'cs' ? (
+          <section
+            className={cn(
+              momentTextColumnClass,
+              'mt-10 border-t border-border/30 pt-6',
+            )}
+          >
+            <EntryTranslationPanel entry={entry} variant="inline" />
+          </section>
+        ) : null}
+      </>
+    )
+  }
+
   return (
     <>
-      {notice === 'photos_failed' ? (
-        <p className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-5 py-4 text-sm text-amber-900">
-          {t('entry.photosFailedNotice')}
-        </p>
-      ) : null}
-
-      <MomentDetailHeader
-        actionsSlot={ownerActions}
-        editing={editing}
-        entry={entry}
-        onSyncRetry={onSyncRetry}
-        saveState={textDraft.saveState}
-        {...(backHref !== undefined ? { backHref } : {})}
-      />
-
-      <div className={momentTextColumnClass}>
-        <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
-        <MetadataRow
-          className="mt-2"
-          items={[
-            { icon: CalendarDays, label: dateLabel ?? '' },
-            { icon: MapPin, label: resolvedLocation ?? '' },
-          ]}
-        />
-        <MomentInlineTextFields
-          body={editing ? textDraft.body : entry.body}
-          className="mt-4"
-          disabled={textDraft.saveState === 'saving'}
-          editing={editing}
-          onBodyChange={textDraft.setBody}
-          onTitleChange={textDraft.setTitle}
-          title={editing ? textDraft.title : entry.title}
-        />
-      </div>
+      {noticeBanner}
+      {header}
 
       {photosPending ? (
         <p
-          className={cn(momentMediaColumnClass, 'mt-10 text-sm text-muted')}
+          className={cn(momentMediaColumnClass, 'mt-6 text-sm text-muted')}
           role="status"
         >
           {t('photos.loading')}
@@ -230,29 +297,51 @@ function OwnerEntryDetail({
         <p
           className={cn(
             momentMediaColumnClass,
-            'mt-10 text-sm text-destructive',
+            'mt-6 text-sm text-destructive',
           )}
           role="alert"
         >
           {t('photos.error')}
         </p>
-      ) : editing ? (
-        <div className={cn(momentMediaColumnClass, 'mt-10')}>
-          <MomentMediaEditor
-            alt={entry.title}
-            creatorId={userId}
-            entryId={entry.id}
-            {...(journeyId !== undefined ? { journeyId } : {})}
-            onPhotosChanged={invalidatePhotos}
-            photos={editPhotosQuery.data ?? []}
-          />
-        </div>
-      ) : hasViewMedia ? (
-        <MomentMediaView
+      ) : hasViewMedia && viewPhotoData !== undefined ? (
+        <MomentMediaCover
+          alt={entry.title}
+          entryId={entry.id}
+          viewData={viewPhotoData}
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          momentTextColumnClass,
+          hasViewMedia || photosPending || photosError ? 'mt-8' : 'pt-6',
+        )}
+      >
+        <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
+        <MomentInlineTextFields
+          body={entry.body}
+          editing={false}
+          metaSlot={
+            <MetadataRow
+              className="mt-4"
+              items={[
+                { icon: CalendarDays, label: dateLabel ?? '' },
+                { icon: MapPin, label: resolvedLocation ?? '' },
+              ]}
+            />
+          }
+          onBodyChange={() => undefined}
+          onTitleChange={() => undefined}
+          title={entry.title}
+        />
+      </div>
+
+      {hasViewMedia && viewPhotoData !== undefined ? (
+        <MomentMediaMosaic
           alt={entry.title}
           className="mt-10"
           entryId={entry.id}
-          showMosaicHeading
+          showHeading
           viewData={viewPhotoData}
         />
       ) : null}
@@ -260,7 +349,7 @@ function OwnerEntryDetail({
       <ContentEngagement
         className={cn(
           momentTextColumnClass,
-          'mt-8 border-t border-border/30 pt-5',
+          'mt-10 border-t border-border/30 pt-5',
         )}
         compact
         countsOnly
@@ -271,29 +360,24 @@ function OwnerEntryDetail({
         <section
           className={cn(
             momentTextColumnClass,
-            'mt-10 border-t border-border/30 pt-6',
+            'mt-8 border-t border-border/20 pt-5',
           )}
         >
-          <h2 className="text-[0.6875rem] font-semibold tracking-[0.16em] text-muted uppercase">
-            {t('entry.managementSectionTitle')}
-          </h2>
           <EntryTranslationPanel entry={entry} variant="inline" />
         </section>
       ) : null}
 
-      {editing ? null : (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:hidden">
-          <Button
-            className="min-h-11 w-full"
-            onClick={() => {
-              void toggleEditing()
-            }}
-            variant="primary"
-          >
-            {t('entry.editAction')}
-          </Button>
-        </div>
-      )}
+      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/40 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:hidden">
+        <Button
+          className="min-h-11 w-full"
+          onClick={() => {
+            void toggleEditing()
+          }}
+          variant="secondary"
+        >
+          {t('entry.editAction')}
+        </Button>
+      </div>
     </>
   )
 }
@@ -336,7 +420,25 @@ export function EntryPage({
       entryQuery.data !== null &&
       user !== null &&
       entryQuery.data.creatorId === user.id,
-    queryFn: async () => (await localDb.journeyLinks.get(entryId)) ?? null,
+    queryFn: async () => {
+      const local = (await localDb.journeyLinks.get(entryId)) ?? null
+      if (local !== null) {
+        return local
+      }
+      const { data, error } = await getSupabaseClient()
+        .from('entry_journey_links')
+        .select('journey_id')
+        .eq('entry_id', entryId)
+        .maybeSingle()
+      if (error !== null || data === null) {
+        return null
+      }
+      return {
+        entryId,
+        journeyId: data.journey_id,
+        locationTitle: null,
+      }
+    },
     queryKey: ['entry-journey-link', entryId],
   })
 
@@ -362,10 +464,15 @@ export function EntryPage({
     })
   }
 
-  const mainClassName = cn(
-    momentPageClass,
-    'min-h-svh px-5 py-8 pb-24 sm:py-16 sm:pb-16',
-  )
+  const isOwner =
+    entry !== undefined &&
+    entry !== null &&
+    user !== null &&
+    entry.creatorId === user.id
+
+  const mainClassName = isOwner
+    ? 'reader-page min-h-svh pb-24 pt-16 sm:pb-16'
+    : cn(momentPageClass, 'min-h-svh px-5 py-8 pb-24 sm:py-16 sm:pb-16')
 
   if (entry === undefined) {
     return (
@@ -393,12 +500,16 @@ export function EntryPage({
     )
   }
 
-  const isOwner = user !== null && entry.creatorId === user.id
-
   return (
     <main className={mainClassName}>
       <article
-        className={returnTo === undefined ? 'mt-4 sm:mt-10' : 'mt-2 sm:mt-6'}
+        className={
+          isOwner
+            ? cn(momentPageClass, 'px-5 sm:px-8')
+            : returnTo === undefined
+              ? 'mt-4 sm:mt-10'
+              : 'mt-2 sm:mt-6'
+        }
         data-entry-id={entry.id}
         data-sync-status={entry.syncStatus}
       >

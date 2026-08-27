@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ArrowLeft, MoreHorizontal } from 'lucide-react'
+import { MoreHorizontal } from 'lucide-react'
 import { useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Entry } from '@/entities/entry/model/entry'
@@ -46,36 +46,37 @@ export function MomentDetailHeader({
         : t(`entry.sync.${entry.syncStatus}`)
 
   return (
-    <header className="mb-8 flex items-center justify-between gap-3">
-      {backHref !== undefined ? (
-        <Link
-          className="inline-flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-          to={backHref}
-        >
-          <ArrowLeft aria-hidden="true" className="shrink-0" size={16} />
-          <span className="truncate">{t('reader.backToTrip')}</span>
-        </Link>
-      ) : (
-        <span />
-      )}
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-30 reader-chrome--toolbar px-4 py-3 sm:px-6">
+      <div className="pointer-events-auto mx-auto flex max-w-5xl items-center justify-between gap-3">
+        {backHref !== undefined ? (
+          <Link
+            className="inline-flex min-h-11 min-w-0 items-center text-sm font-semibold text-foreground hover:text-primary"
+            to={backHref}
+          >
+            <span className="truncate">{t('reader.backToTrip')}</span>
+          </Link>
+        ) : (
+          <span />
+        )}
 
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        <p
-          aria-live={editing ? 'polite' : undefined}
-          className="inline-flex min-h-8 shrink-0 items-center gap-1.5 text-xs text-muted"
-        >
-          <MomentSyncIndicator
-            {...(onSyncRetry !== undefined ? { onRetry: onSyncRetry } : {})}
-            syncStatus={entry.syncStatus}
-          />
-          <span className="hidden sm:inline">{syncLabel}</span>
-          <span className="sm:hidden">
-            {editing && saveLabel !== null ? saveLabel : null}
-          </span>
-        </p>
-        {actionsSlot}
+        <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          <p
+            aria-live={editing ? 'polite' : undefined}
+            className="inline-flex min-h-8 shrink-0 items-center gap-1.5 text-xs text-muted"
+          >
+            <MomentSyncIndicator
+              {...(onSyncRetry !== undefined ? { onRetry: onSyncRetry } : {})}
+              syncStatus={entry.syncStatus}
+            />
+            <span className="hidden sm:inline">{syncLabel}</span>
+            <span className="sm:hidden">
+              {editing && saveLabel !== null ? saveLabel : null}
+            </span>
+          </p>
+          {actionsSlot}
+        </div>
       </div>
-    </header>
+    </div>
   )
 }
 
@@ -111,17 +112,17 @@ export function MomentDetailActions({
     <div className="flex items-center gap-1 sm:gap-2">
       <Button
         className={cn(
-          'min-h-10 px-4',
+          'min-h-10 px-3 sm:px-4',
           editing ? 'inline-flex' : 'hidden sm:inline-flex',
         )}
         onClick={onEditToggle}
-        variant="primary"
+        variant={editing ? 'primary' : 'secondary'}
       >
         {editing ? t('entry.doneAction') : t('entry.editAction')}
       </Button>
       {!editing && shareUrl !== null && shareText !== null ? (
         <ShareIconButton
-          className="size-10 rounded-lg"
+          className="size-10 rounded-full text-foreground hover:bg-surface"
           shareText={shareText}
           shareUrl={shareUrl}
           title={entry.title}
@@ -133,7 +134,7 @@ export function MomentDetailActions({
           aria-expanded={menuOpen}
           aria-haspopup="menu"
           aria-label={t('journey.more')}
-          className="inline-flex size-10 items-center justify-center rounded-lg text-muted transition hover:bg-surface/80 hover:text-foreground"
+          className="inline-flex size-10 items-center justify-center rounded-full text-muted transition hover:bg-surface hover:text-foreground"
           onClick={() => {
             onMenuOpenChange(!menuOpen)
           }}

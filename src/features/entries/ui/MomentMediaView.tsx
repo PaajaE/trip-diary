@@ -1,7 +1,10 @@
+import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { EntryPhotoViewData } from '@/entities/photo/api/photo-gallery.repository'
 import { MOMENT_PHOTO_PREVIEW_LIMIT } from '@/entities/photo/api/moment-photo-detail.repository'
+import { getPhotoSrcsetSources } from '@/entities/photo/api/photo-srcset.repository'
+import { photoQueryKeys } from '@/entities/photo/api/photo-query-keys'
 import {
   coverObjectPositionStyle,
   focalFromPreview,
@@ -51,6 +54,17 @@ export function MomentMediaView({
   const cover = displayUrls[resolvedCoverIndex]
   const coverMeta = viewData.displayPhotos[resolvedCoverIndex]
   const coverPhotoId = coverMeta?.id ?? null
+
+  const coverSrcsetQuery = useQuery({
+    enabled: showCover && coverPhotoId !== null,
+    queryFn: () => {
+      if (coverPhotoId === null) {
+        throw new Error('coverPhotoId is required')
+      }
+      return getPhotoSrcsetSources(coverPhotoId)
+    },
+    queryKey: photoQueryKeys.srcset(coverPhotoId ?? ''),
+  })
 
   const previewPhotos = useMemo(
     () => displayUrls.filter((preview) => preview.id !== coverPhotoId),
@@ -134,7 +148,10 @@ export function MomentMediaView({
           }}
           showCoverBadge={false}
           src={cover.url}
-          useResponsiveImage
+          {...(coverSrcsetQuery.data !== undefined &&
+          coverSrcsetQuery.data.length > 0
+            ? { srcSetSources: coverSrcsetQuery.data }
+            : {})}
           {...(coverClassName === undefined
             ? {}
             : { className: coverClassName })}
@@ -160,7 +177,7 @@ export function MomentMediaView({
                     </h2>
                     {viewData.totalCount > mosaicTiles.length + 1 ? (
                       <button
-                        className="min-h-11 text-sm text-muted hover:text-foreground hover:underline"
+                        className="min-h-11 text-sm font-semibold text-primary hover:underline"
                         onClick={() => {
                           const first = mosaicTiles[0]
                           if (first !== undefined) {
@@ -169,7 +186,9 @@ export function MomentMediaView({
                         }}
                         type="button"
                       >
-                        {t('reader.viewAllPhotosQuiet')}
+                        {t('reader.viewAllPhotos', {
+                          count: viewData.totalCount,
+                        })}
                       </button>
                     ) : null}
                   </div>
@@ -199,16 +218,19 @@ export function MomentMediaView({
 
 export function MomentMediaCover({
   alt,
+  coverClassName = 'mt-6',
   entryId,
   viewData,
 }: {
   alt: string
+  coverClassName?: string
   entryId: string
   viewData: EntryPhotoViewData
 }) {
   return (
     <MomentMediaView
       alt={alt}
+      coverClassName={coverClassName}
       entryId={entryId}
       showMosaic={false}
       viewData={viewData}

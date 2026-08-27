@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
-import { isPublicReaderPath } from '@/features/sharing/lib/is-public-reader-path'
+import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
 import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
 
@@ -16,7 +16,7 @@ export function AppShell({ children }: PropsWithChildren) {
     select: (state) => state.location.pathname,
   })
   const minimalPublicShell = isPublicSharePath(pathname)
-  const immersiveReaderShell = isPublicReaderPath(pathname)
+  const immersiveReaderShell = isImmersiveReaderShellPath(pathname)
   const identity =
     profile?.displayName ?? profile?.username ?? user?.email ?? t('brand')
 

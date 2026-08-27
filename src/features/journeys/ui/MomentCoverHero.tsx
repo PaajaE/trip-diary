@@ -1,6 +1,7 @@
 import { Star } from 'lucide-react'
 import type { CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { PhotoSrcsetSource } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { MOMENT_COVER_SIZES } from '@/features/journeys/ui/moment-editorial-layout'
@@ -19,7 +20,7 @@ interface MomentCoverHeroProps {
   onClick: () => void
   showCoverBadge?: boolean
   src: string
-  useResponsiveImage?: boolean
+  srcSetSources?: readonly PhotoSrcsetSource[]
 }
 
 export function MomentCoverHero({
@@ -32,7 +33,7 @@ export function MomentCoverHero({
   onClick,
   showCoverBadge = false,
   src,
-  useResponsiveImage = false,
+  srcSetSources,
 }: MomentCoverHeroProps) {
   const { t } = useTranslation()
 
@@ -46,25 +47,19 @@ export function MomentCoverHero({
       onClick={onClick}
       type="button"
     >
-      {useResponsiveImage ? (
-        <ResponsivePhotoImage
-          alt={alt}
-          className={COVER_IMAGE_CLASS}
-          sizes={MOMENT_COVER_SIZES}
-          src={src}
-          {...(focalStyle === undefined ? {} : { style: focalStyle })}
-        />
-      ) : (
-        <img
-          alt=""
-          className={COVER_IMAGE_CLASS}
-          decoding="async"
-          fetchPriority={fetchPriority}
-          loading={loading}
-          src={src}
-          {...(focalStyle === undefined ? {} : { style: focalStyle })}
-        />
-      )}
+      <ResponsivePhotoImage
+        alt={alt}
+        className={COVER_IMAGE_CLASS}
+        decorative={false}
+        fetchPriority={fetchPriority}
+        loading={loading}
+        sizes={MOMENT_COVER_SIZES}
+        src={src}
+        {...(srcSetSources === undefined || srcSetSources.length === 0
+          ? {}
+          : { srcSetSources })}
+        {...(focalStyle === undefined ? {} : { style: focalStyle })}
+      />
       {mediaType === 'video' ? <VideoPlayOverlay /> : null}
       {showCoverBadge ? (
         <span className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-black/45 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white/95">
