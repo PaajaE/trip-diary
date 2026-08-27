@@ -173,9 +173,7 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(
     page.getByRole('button', { name: 'Upravit' }).first(),
   ).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: /· Titulní$/ }),
-  ).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /· Titulní$/ })).toHaveCount(0)
   await waitForFullySynced(page)
 
   const entryIdMatch = /\/e\/([^/?]+)/.exec(page.url())
