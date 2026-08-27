@@ -14,6 +14,7 @@ import { getPhotoDetailPreview } from '@/entities/photo/api/photo-gallery.reposi
 import { resolvePhotoVideoSignedUrl } from '@/entities/photo/api/signed-video-url'
 import { PhotoTagEditor } from '@/features/photos/ui/PhotoTagEditor'
 import { PhotoTagList } from '@/features/photos/ui/PhotoTagList'
+import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
 import { createPreviewUrl, revokePreviewUrl } from '@/shared/lib/preview-url'
 import { Button } from '@/shared/ui/Button'
@@ -73,6 +74,7 @@ export function PhotoLightbox({
   const [index, setIndex] = useState(initialIndex)
   const [detailUrls, setDetailUrls] = useState<Record<string, string>>({})
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({})
+  const [playingForIndex, setPlayingForIndex] = useState<number | null>(null)
   const [deleting, setDeleting] = useState(false)
   const loadedIdsRef = useRef(new Set<string>())
   const loadedVideoIdsRef = useRef(new Set<string>())
@@ -113,12 +115,6 @@ export function PhotoLightbox({
     for (const photoId of photoIds) {
       const item = photos.find((photo) => photo.id === photoId)
       if (item?.mediaType === 'video') {
-        void fetchVideoUrl(photoId).then((url) => {
-          if (url === null) {
-            return
-          }
-          setVideoUrls((previous) => ({ ...previous, [photoId]: url }))
-        })
         continue
       }
 
@@ -129,7 +125,7 @@ export function PhotoLightbox({
         setDetailUrls((previous) => ({ ...previous, [photoId]: url }))
       })
     }
-  }, [activePhoto, fetchDetailUrl, fetchVideoUrl, index, photos])
+  }, [activePhoto, fetchDetailUrl, index, photos])
 
   useEffect(() => {
     returnFocusElementRef.current =
@@ -146,6 +142,23 @@ export function PhotoLightbox({
       elementToFocus.focus()
     }
   }, [onClose])
+
+  async function playActiveVideo() {
+    if (activePhoto?.mediaType !== 'video') {
+      return
+    }
+    const existing = videoUrls[activePhoto.id]
+    if (existing !== undefined) {
+      setPlayingForIndex(index)
+      return
+    }
+    const url = await fetchVideoUrl(activePhoto.id)
+    if (url === null) {
+      return
+    }
+    setVideoUrls((previous) => ({ ...previous, [activePhoto.id]: url }))
+    setPlayingForIndex(index)
+  }
 
   useEffect(() => {
     closeButtonRef.current?.focus()
@@ -331,8 +344,11 @@ export function PhotoLightbox({
           </button>
         ) : null}
 
-        {isActiveVideo && activeVideoUrl !== undefined ? (
+        {isActiveVideo &&
+        playingForIndex === index &&
+        activeVideoUrl !== undefined ? (
           <video
+            autoPlay
             className="max-h-full max-w-full object-contain px-4"
             controls
             playsInline
@@ -342,11 +358,25 @@ export function PhotoLightbox({
             <track kind="captions" />
           </video>
         ) : (
-          <img
-            alt={activePhoto.alt}
-            className="max-h-full max-w-full object-contain px-4"
-            src={isActiveVideo ? activePhoto.thumbUrl : displayUrl}
-          />
+          <div className="relative max-h-full max-w-full">
+            <img
+              alt={activePhoto.alt}
+              className="max-h-full max-w-full object-contain px-4"
+              src={isActiveVideo ? activePhoto.thumbUrl : displayUrl}
+            />
+            {isActiveVideo ? (
+              <button
+                aria-label={t('photos.playVideo')}
+                className="absolute inset-0"
+                onClick={() => {
+                  void playActiveVideo()
+                }}
+                type="button"
+              >
+                <VideoPlayOverlay />
+              </button>
+            ) : null}
+          </div>
         )}
 
         {index < photos.length - 1 ? (

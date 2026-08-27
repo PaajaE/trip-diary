@@ -113,7 +113,7 @@ export function EntryTranslationPanel({
       aria-labelledby="entry-translation-heading"
       className={
         isInline
-          ? 'mt-4 space-y-4 border-t border-border/40 pt-4'
+          ? 'mt-4 space-y-4'
           : 'mt-8 space-y-4 rounded-2xl border border-border bg-surface p-5'
       }
     >

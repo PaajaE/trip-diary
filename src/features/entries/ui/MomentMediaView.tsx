@@ -89,6 +89,9 @@ export function MomentMediaView({
           alt,
           entryId,
           id: photo.id,
+          ...(typeof photo.caption === 'string' && photo.caption.trim() !== ''
+            ? { caption: photo.caption }
+            : {}),
           ...(photo.mediaType === 'video'
             ? { mediaType: 'video' as const }
             : {}),
@@ -151,9 +154,25 @@ export function MomentMediaView({
           {...(showMosaicHeading
             ? {
                 heading: (
-                  <h2 className="reader-display mb-0 text-2xl tracking-[-0.03em]">
-                    {t('reader.photosHeading')}
-                  </h2>
+                  <div className="mb-0 flex items-end justify-between gap-3">
+                    <h2 className="reader-display mb-0 text-2xl tracking-[-0.03em]">
+                      {t('reader.photosHeading')}
+                    </h2>
+                    {viewData.totalCount > mosaicTiles.length + 1 ? (
+                      <button
+                        className="min-h-11 text-sm text-muted hover:text-foreground hover:underline"
+                        onClick={() => {
+                          const first = mosaicTiles[0]
+                          if (first !== undefined) {
+                            openAtPhotoId(first.id)
+                          }
+                        }}
+                        type="button"
+                      >
+                        {t('reader.viewAllPhotosQuiet')}
+                      </button>
+                    ) : null}
+                  </div>
                 ),
               }
             : {})}

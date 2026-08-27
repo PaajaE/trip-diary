@@ -1,39 +1,33 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, MoreHorizontal } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Entry } from '@/entities/entry/model/entry'
-import { formatMomentDateLabel } from '@/features/journeys/lib/format-moment-datetime'
 import type { MomentTextSaveState } from '@/features/entries/lib/use-moment-text-draft'
 import { ShareIconButton } from '@/features/sharing/ui/ShareIconButton'
 import { MomentSyncIndicator } from '@/features/sync/ui/MomentSyncIndicator'
 import { syncPendingOperations } from '@/shared/sync/sync.service'
 import { Button } from '@/shared/ui/Button'
+import { cn } from '@/shared/lib/cn'
 
 interface MomentDetailHeaderProps {
+  actionsSlot?: ReactNode
+  backHref?: string
   editing: boolean
   entry: Entry
-  locationLabel?: string | null
   onSyncRetry?: () => void
-  returnTo?: string
   saveState?: MomentTextSaveState
 }
 
 export function MomentDetailHeader({
+  actionsSlot,
+  backHref,
   editing,
   entry,
-  locationLabel = null,
   onSyncRetry,
-  returnTo,
   saveState = 'idle',
 }: MomentDetailHeaderProps) {
-  const { i18n, t } = useTranslation()
-  const dateLabel = formatMomentDateLabel(entry.eventAt, i18n.language)
-  const metadataParts = [
-    t(`entry.type.${entry.type}`),
-    dateLabel,
-    locationLabel,
-  ].filter((part): part is string => part !== null && part.trim() !== '')
+  const { t } = useTranslation()
 
   const saveLabel =
     saveState === 'saving'
@@ -52,21 +46,20 @@ export function MomentDetailHeader({
         : t(`entry.sync.${entry.syncStatus}`)
 
   return (
-    <header className="space-y-5">
-      {returnTo !== undefined ? (
+    <header className="mb-8 flex items-center justify-between gap-3">
+      {backHref !== undefined ? (
         <Link
-          className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-primary hover:underline"
-          to={returnTo}
+          className="inline-flex min-h-11 min-w-0 items-center gap-2 text-sm font-semibold text-primary hover:underline"
+          to={backHref}
         >
-          <ArrowLeft aria-hidden="true" size={16} />
-          {t('entry.back')}
+          <ArrowLeft aria-hidden="true" className="shrink-0" size={16} />
+          <span className="truncate">{t('reader.backToTrip')}</span>
         </Link>
-      ) : null}
+      ) : (
+        <span />
+      )}
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <p className="min-w-0 text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
-          {metadataParts.join(' · ')}
-        </p>
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <p
           aria-live={editing ? 'polite' : undefined}
           className="inline-flex min-h-8 shrink-0 items-center gap-1.5 text-xs text-muted"
@@ -75,8 +68,12 @@ export function MomentDetailHeader({
             {...(onSyncRetry !== undefined ? { onRetry: onSyncRetry } : {})}
             syncStatus={entry.syncStatus}
           />
-          <span>{syncLabel}</span>
+          <span className="hidden sm:inline">{syncLabel}</span>
+          <span className="sm:hidden">
+            {editing && saveLabel !== null ? saveLabel : null}
+          </span>
         </p>
+        {actionsSlot}
       </div>
     </header>
   )
@@ -111,9 +108,12 @@ export function MomentDetailActions({
   const menuButtonRef = useRef<HTMLButtonElement>(null)
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-1 sm:gap-2">
       <Button
-        className="hidden min-h-10 px-4 sm:inline-flex"
+        className={cn(
+          'min-h-10 px-4',
+          editing ? 'inline-flex' : 'hidden sm:inline-flex',
+        )}
         onClick={onEditToggle}
         variant="primary"
       >

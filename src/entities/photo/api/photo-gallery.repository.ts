@@ -690,6 +690,7 @@ export async function getEntryPhotoPreviews(
 }
 
 export interface EntryPhotoListItem {
+  caption?: string | null
   focalX?: number
   focalY?: number
   id: string
@@ -704,6 +705,7 @@ export interface EntryPhotoViewData {
 }
 
 interface PhotoLinkMeta {
+  caption?: string | null
   focalX?: number
   focalY?: number
   id: string
@@ -764,6 +766,9 @@ function mergePhotoLinkMeta(
         ...(remote.isCover !== undefined || meta.isCover !== undefined
           ? { isCover: remote.isCover ?? meta.isCover }
           : {}),
+        ...(remote.caption !== undefined || meta.caption !== undefined
+          ? { caption: remote.caption ?? meta.caption }
+          : {}),
         ...(remote.focalX !== undefined || meta.focalX !== undefined
           ? { focalX: remote.focalX ?? meta.focalX }
           : {}),
@@ -800,7 +805,7 @@ async function getRemotePhotoLinkMeta(
   const client = getSupabaseClient()
   const { data: links, error: linksError } = await client
     .from('entry_photos')
-    .select('photo_id, position, is_cover, focal_x, focal_y')
+    .select('photo_id, position, is_cover, caption, focal_x, focal_y')
     .eq('entry_id', entryId)
     .order('position')
   if (linksError !== null) {
@@ -816,10 +821,15 @@ async function getRemotePhotoLinkMeta(
   return links.map((link) => {
     const mediaMeta = mediaMetaByPhotoId.get(link.photo_id)
     const focal = focalFieldsFromLink(link)
+    const caption =
+      typeof link.caption === 'string' && link.caption.trim().length > 0
+        ? link.caption.trim()
+        : null
     return {
       id: link.photo_id,
       isCover: link.is_cover,
       position: link.position,
+      ...(caption === null ? {} : { caption }),
       ...(focal.focalX === undefined ? {} : { focalX: focal.focalX }),
       ...(focal.focalY === undefined ? {} : { focalY: focal.focalY }),
       ...(mediaMeta?.mediaType === undefined
@@ -970,8 +980,9 @@ export async function getEntryPhotoViewPreviews(
 
   return {
     allPhotos: allLinkMeta.map(
-      ({ focalX, focalY, id, isCover, mediaType }) => ({
+      ({ caption, focalX, focalY, id, isCover, mediaType }) => ({
         id,
+        ...(caption === undefined ? {} : { caption }),
         ...(focalX === undefined ? {} : { focalX }),
         ...(focalY === undefined ? {} : { focalY }),
         ...(isCover === undefined ? {} : { isCover }),

@@ -289,34 +289,28 @@ a {
 }
 
 @media (max-width: 640px) {
-  .moment-photo-mosaic--2 {
-    aspect-ratio: 3 / 4;
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
-    max-height: min(32rem, 90vh);
-  }
-
-  .moment-photo-mosaic--3 {
-    aspect-ratio: 3 / 4;
+  .moment-photo-mosaic--2,
+  .moment-photo-mosaic--3,
+  .moment-photo-mosaic--4,
+  .moment-photo-mosaic--5 {
+    aspect-ratio: auto;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1.2fr 1fr;
-    max-height: min(32rem, 90vh);
+    grid-template-rows: none;
+    max-height: none;
   }
 
-  .moment-photo-mosaic--3 > .moment-photo-mosaic__tile:first-child {
-    grid-column: 1 / -1;
+  .moment-photo-mosaic--2 > .moment-photo-mosaic__tile,
+  .moment-photo-mosaic--3 > .moment-photo-mosaic__tile,
+  .moment-photo-mosaic--4 > .moment-photo-mosaic__tile,
+  .moment-photo-mosaic--5 > .moment-photo-mosaic__tile {
+    aspect-ratio: 1 / 1;
+    grid-column: auto;
     grid-row: auto;
   }
 
-  .moment-photo-mosaic--5 {
-    aspect-ratio: 3 / 4;
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1.15fr 1fr 1fr;
-    max-height: min(34rem, 92vh);
-  }
-
+  .moment-photo-mosaic--3 > .moment-photo-mosaic__tile:first-child,
   .moment-photo-mosaic--5 > .moment-photo-mosaic__tile:first-child {
-    grid-column: 1 / -1;
+    grid-column: auto;
     grid-row: auto;
   }
 }

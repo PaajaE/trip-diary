@@ -1,12 +1,5 @@
-import {
-  useEffect,
-  useId,
-  useRef,
-  type KeyboardEvent,
-  type ReactNode,
-} from 'react'
+import { useEffect, useId, useRef, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
-import { momentTextColumnClass } from '@/features/journeys/ui/moment-editorial-layout'
 import { cn } from '@/shared/lib/cn'
 
 const BODY_MIN_HEIGHT_PX = 160
@@ -15,8 +8,9 @@ const TITLE_MAX_LENGTH = 160
 const TITLE_CLASS =
   'reader-display text-[clamp(1.85rem,5vw,3.15rem)] leading-[1.05] tracking-[-0.04em]'
 
+const STORY_CLASS = 'prose-reader text-lg leading-[1.8] text-foreground/90'
+
 interface MomentInlineTextFieldsProps {
-  actionsSlot?: ReactNode
   body: string
   className?: string
   disabled?: boolean
@@ -27,7 +21,6 @@ interface MomentInlineTextFieldsProps {
 }
 
 export function MomentInlineTextFields({
-  actionsSlot,
   body,
   className,
   disabled = false,
@@ -58,38 +51,31 @@ export function MomentInlineTextFields({
 
   return (
     <div className={cn('space-y-6', className)}>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
-          {editing ? (
-            <>
-              <label className="sr-only" htmlFor={titleId}>
-                {t('entry.title')}
-              </label>
-              <input
-                autoComplete="off"
-                className={cn(
-                  TITLE_CLASS,
-                  'w-full min-w-0 bg-transparent outline-none placeholder:text-muted/70 focus:ring-0',
-                )}
-                disabled={disabled}
-                id={titleId}
-                maxLength={TITLE_MAX_LENGTH}
-                onChange={(event) => {
-                  onTitleChange(event.target.value)
-                }}
-                placeholder={t('entry.titlePlaceholder')}
-                ref={titleRef}
-                value={title}
-              />
-            </>
-          ) : (
-            <h1 className={TITLE_CLASS}>{title}</h1>
-          )}
-        </div>
-        {actionsSlot !== undefined ? (
-          <div className="shrink-0">{actionsSlot}</div>
-        ) : null}
-      </div>
+      {editing ? (
+        <>
+          <label className="sr-only" htmlFor={titleId}>
+            {t('entry.title')}
+          </label>
+          <input
+            autoComplete="off"
+            className={cn(
+              TITLE_CLASS,
+              'w-full min-w-0 rounded-md bg-transparent px-1 -mx-1 outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20',
+            )}
+            disabled={disabled}
+            id={titleId}
+            maxLength={TITLE_MAX_LENGTH}
+            onChange={(event) => {
+              onTitleChange(event.target.value)
+            }}
+            placeholder={t('entry.titlePlaceholder')}
+            ref={titleRef}
+            value={title}
+          />
+        </>
+      ) : (
+        <h1 className={TITLE_CLASS}>{title}</h1>
+      )}
 
       {editing ? (
         <>
@@ -98,7 +84,8 @@ export function MomentInlineTextFields({
           </label>
           <textarea
             className={cn(
-              'prose-reader min-h-40 w-full resize-none overflow-hidden bg-transparent text-lg leading-[1.8] outline-none placeholder:text-muted/70',
+              STORY_CLASS,
+              'min-h-40 w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-md px-1 -mx-1',
             )}
             disabled={disabled}
             id={bodyId}
@@ -113,14 +100,7 @@ export function MomentInlineTextFields({
           />
         </>
       ) : body.trim() === '' ? null : (
-        <p
-          className={cn(
-            momentTextColumnClass,
-            'prose-reader whitespace-pre-wrap text-lg leading-[1.8] text-foreground/90',
-          )}
-        >
-          {body}
-        </p>
+        <p className={cn(STORY_CLASS, 'whitespace-pre-wrap')}>{body}</p>
       )}
     </div>
   )

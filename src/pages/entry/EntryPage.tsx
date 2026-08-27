@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { CalendarDays, MapPin } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { deleteEntry } from '@/entities/entry/api/entry-mutation.repository'
@@ -23,12 +24,10 @@ import {
 } from '@/features/entries/ui/MomentDetailHeader'
 import { MomentInlineTextFields } from '@/features/entries/ui/MomentInlineTextFields'
 import { MomentMediaEditor } from '@/features/entries/ui/MomentMediaEditor'
-import {
-  MomentMediaCover,
-  MomentMediaMosaic,
-} from '@/features/entries/ui/MomentMediaView'
+import { MomentMediaView } from '@/features/entries/ui/MomentMediaView'
 import { useMomentTextDraft } from '@/features/entries/lib/use-moment-text-draft'
 import { ContentEngagement } from '@/features/engagement/ui/ContentEngagement'
+import { formatMomentDateLabel } from '@/features/journeys/lib/format-moment-datetime'
 import { PhotoGallery } from '@/features/photos/ui/PhotoGallery'
 import { buildEntryPublicShare } from '@/features/sharing/lib/build-share-messages'
 import { ShareActions } from '@/features/sharing/ui/ShareActions'
@@ -43,6 +42,8 @@ import { isRecordDeleted } from '@/shared/lib/local-deleted-records'
 import { localDb } from '@/shared/lib/local-db'
 import { shareUrl as sharePublicUrl } from '@/shared/lib/share'
 import { Button } from '@/shared/ui/Button'
+import { MetadataRow } from '@/shared/ui/MetadataRow'
+import { StoryKicker } from '@/shared/ui/StoryKicker'
 import { cn } from '@/shared/lib/cn'
 
 interface EntryPageProps {
@@ -55,6 +56,7 @@ interface EntryPageProps {
 interface OwnerEntryDetailProps {
   entry: Entry
   journeyId?: string
+  locationLabel?: string | null
   notice?: 'photos_failed'
   onEntryUpdated: (entry: Entry) => Promise<void>
   onSyncRetry: () => void
@@ -66,6 +68,7 @@ interface OwnerEntryDetailProps {
 function OwnerEntryDetail({
   entry,
   journeyId,
+  locationLabel = null,
   notice,
   onEntryUpdated,
   onSyncRetry,
@@ -73,7 +76,7 @@ function OwnerEntryDetail({
   returnTo,
   userId,
 }: OwnerEntryDetailProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [editing, setEditing] = useState(false)
@@ -150,6 +153,16 @@ function OwnerEntryDetail({
   const hasViewMedia =
     viewPhotoData !== undefined && viewPhotoData.totalCount > 0
 
+  const backHref =
+    returnTo ?? (journeyId !== undefined ? `/j/${journeyId}` : undefined)
+  const dateLabel = formatMomentDateLabel(entry.eventAt, i18n.language)
+  const resolvedLocation =
+    locationLabel !== null &&
+    locationLabel.trim() !== '' &&
+    locationLabel.trim() !== entry.title.trim()
+      ? locationLabel
+      : null
+
   const ownerActions = (
     <MomentDetailActions
       deleting={deleting}
@@ -177,32 +190,27 @@ function OwnerEntryDetail({
         </p>
       ) : null}
 
-      {!editing && hasViewMedia ? (
-        <MomentMediaCover
-          alt={entry.title}
-          entryId={entry.id}
-          viewData={viewPhotoData}
-        />
-      ) : null}
+      <MomentDetailHeader
+        actionsSlot={ownerActions}
+        editing={editing}
+        entry={entry}
+        onSyncRetry={onSyncRetry}
+        saveState={textDraft.saveState}
+        {...(backHref !== undefined ? { backHref } : {})}
+      />
 
-      <div
-        className={cn(
-          momentTextColumnClass,
-          hasViewMedia && !editing ? 'mt-8' : undefined,
-        )}
-      >
-        <MomentDetailHeader
-          editing={editing}
-          entry={entry}
-          onSyncRetry={onSyncRetry}
-          {...(returnTo !== undefined ? { returnTo } : {})}
-          saveState={textDraft.saveState}
+      <div className={momentTextColumnClass}>
+        <StoryKicker>{t(`entry.type.${entry.type}`)}</StoryKicker>
+        <MetadataRow
+          className="mt-2"
+          items={[
+            { icon: CalendarDays, label: dateLabel ?? '' },
+            { icon: MapPin, label: resolvedLocation ?? '' },
+          ]}
         />
-
         <MomentInlineTextFields
-          actionsSlot={ownerActions}
           body={editing ? textDraft.body : entry.body}
-          className="mt-6"
+          className="mt-4"
           disabled={textDraft.saveState === 'saving'}
           editing={editing}
           onBodyChange={textDraft.setBody}
@@ -211,16 +219,25 @@ function OwnerEntryDetail({
         />
       </div>
 
-      <div className={cn(momentMediaColumnClass, 'mt-10')}>
-        {photosPending ? (
-          <p className="text-sm text-muted" role="status">
-            {t('photos.loading')}
-          </p>
-        ) : photosError ? (
-          <p className="text-sm text-destructive" role="alert">
-            {t('photos.error')}
-          </p>
-        ) : editing ? (
+      {photosPending ? (
+        <p
+          className={cn(momentMediaColumnClass, 'mt-10 text-sm text-muted')}
+          role="status"
+        >
+          {t('photos.loading')}
+        </p>
+      ) : photosError ? (
+        <p
+          className={cn(
+            momentMediaColumnClass,
+            'mt-10 text-sm text-destructive',
+          )}
+          role="alert"
+        >
+          {t('photos.error')}
+        </p>
+      ) : editing ? (
+        <div className={cn(momentMediaColumnClass, 'mt-10')}>
           <MomentMediaEditor
             alt={entry.title}
             creatorId={userId}
@@ -229,14 +246,16 @@ function OwnerEntryDetail({
             onPhotosChanged={invalidatePhotos}
             photos={editPhotosQuery.data ?? []}
           />
-        ) : hasViewMedia ? (
-          <MomentMediaMosaic
-            alt={entry.title}
-            entryId={entry.id}
-            viewData={viewPhotoData}
-          />
-        ) : null}
-      </div>
+        </div>
+      ) : hasViewMedia ? (
+        <MomentMediaView
+          alt={entry.title}
+          className="mt-10"
+          entryId={entry.id}
+          showMosaicHeading
+          viewData={viewPhotoData}
+        />
+      ) : null}
 
       <ContentEngagement
         className={cn(
@@ -262,8 +281,8 @@ function OwnerEntryDetail({
         </section>
       ) : null}
 
-      {!editing ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/50 bg-background/95 p-4 backdrop-blur-sm sm:hidden">
+      {editing ? null : (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/50 bg-background/95 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] backdrop-blur-sm sm:hidden">
           <Button
             className="min-h-11 w-full"
             onClick={() => {
@@ -272,18 +291,6 @@ function OwnerEntryDetail({
             variant="primary"
           >
             {t('entry.editAction')}
-          </Button>
-        </div>
-      ) : (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border/50 bg-background/95 p-4 backdrop-blur-sm sm:hidden">
-          <Button
-            className="min-h-11 w-full"
-            onClick={() => {
-              void toggleEditing()
-            }}
-            variant="primary"
-          >
-            {t('entry.doneAction')}
           </Button>
         </div>
       )}
@@ -400,6 +407,10 @@ export function EntryPage({
             entry={entry}
             {...(journeyLinkQuery.data?.journeyId !== undefined
               ? { journeyId: journeyLinkQuery.data.journeyId }
+              : {})}
+            {...(typeof journeyLinkQuery.data?.locationTitle === 'string' &&
+            journeyLinkQuery.data.locationTitle.trim() !== ''
+              ? { locationLabel: journeyLinkQuery.data.locationTitle }
               : {})}
             {...(notice !== undefined ? { notice } : {})}
             onEntryUpdated={handleEntryUpdated}

@@ -135,7 +135,13 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(page.getByText('Titulní', { exact: true })).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Upravit' }).first().click()
-  await expect(page.getByRole('button', { name: 'Hotovo' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Hotovo' })).toHaveCount(1)
+  await expect(
+    page.getByRole('button', { name: 'Posunout dříve' }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole('button', { name: 'Posunout později' }),
+  ).toHaveCount(0)
   await expect(page.getByText('Titulní', { exact: true })).toHaveCount(1)
   await page.getByRole('button', { name: `${momentTitle} 2` }).click()
   await expect(page.getByRole('dialog', { name: 'Fotografie' })).toBeVisible()
@@ -143,6 +149,15 @@ test('moment cover selection persists across edit, refresh, and public page', as
   await expect(page.getByText('Titulní fotka byla aktualizována.')).toBeVisible(
     { timeout: 15_000 },
   )
+  await expect(page.getByRole('dialog')).toHaveCount(1)
+  await expect(
+    page.getByText('Klikněte na důležitý bod fotografie.'),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Zarámování titulní fotky' }).click()
+  await page.getByRole('button', { name: 'Uložit změny' }).click()
+  await expect(
+    page.getByText('Zarámování titulní fotky bylo uloženo.'),
+  ).toBeVisible({ timeout: 15_000 })
   await page
     .getByRole('dialog', { name: 'Fotografie' })
     .getByRole('button', { name: 'Zrušit' })

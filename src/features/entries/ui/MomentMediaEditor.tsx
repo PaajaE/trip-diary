@@ -1,11 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowDown, ArrowUp, Camera, Plus, Star } from 'lucide-react'
+import { Camera, Plus, Star } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import {
-  addPhotosToEntry,
-  reorderEntryPhotos,
-} from '@/entities/photo/api/entry-photo-mutations.repository'
+import { addPhotosToEntry } from '@/entities/photo/api/entry-photo-mutations.repository'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import { entryQueryKeys } from '@/entities/entry/api/entry-query-keys'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
@@ -21,11 +18,11 @@ import {
   supportsNativePhotoSelection,
   WEB_PHOTO_VIDEO_ACCEPT,
 } from '@/entities/photo/lib/photo-selection'
-import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
 import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
 import { MomentMediaSheet } from '@/features/photos/ui/MomentMediaSheet'
 import { usePhotoObjectUrls } from '@/features/photos/lib/use-photo-object-urls'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
+import { MOMENT_EDIT_GRID_SIZES } from '@/features/journeys/ui/moment-editorial-layout'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { Button } from '@/shared/ui/Button'
 import { useToast } from '@/shared/ui/use-toast'
@@ -91,18 +88,6 @@ export function MomentMediaEditor({
     },
   })
 
-  const reorderMutation = useMutation({
-    mutationFn: (orderedPhotoIds: string[]) =>
-      reorderEntryPhotos(entryId, creatorId, orderedPhotoIds),
-    onError: () => {
-      showToast({ message: t('entry.photoReorderFailed'), variant: 'error' })
-    },
-    onSuccess: async () => {
-      await invalidatePhotos()
-      onPhotosChanged()
-    },
-  })
-
   async function invalidatePhotos() {
     if (journeyId !== undefined) {
       await queryClient.invalidateQueries({
@@ -117,6 +102,9 @@ export function MomentMediaEditor({
     })
     await queryClient.invalidateQueries({
       queryKey: entryQueryKeys.publicMomentPhotos(entryId),
+    })
+    await queryClient.invalidateQueries({
+      queryKey: [...entryQueryKeys.detail(entryId), 'captions'],
     })
   }
 
@@ -154,27 +142,6 @@ export function MomentMediaEditor({
     }
   }
 
-  function movePhoto(photoId: string, direction: -1 | 1) {
-    const ids = photos.map((photo) => photo.id)
-    const index = ids.indexOf(photoId)
-    if (index < 0) {
-      return
-    }
-    const target = index + direction
-    if (target < 0 || target >= ids.length) {
-      return
-    }
-    const next = [...ids]
-    const current = next[index]
-    const swap = next[target]
-    if (current === undefined || swap === undefined) {
-      return
-    }
-    next[index] = swap
-    next[target] = current
-    reorderMutation.mutate(next)
-  }
-
   const coverId =
     photos.find((photo) => photo.isCover === true)?.id ?? photos[0]?.id ?? null
   const activePhoto =
@@ -192,7 +159,7 @@ export function MomentMediaEditor({
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-border/30 pb-3">
         <h2 className="reader-display text-2xl tracking-[-0.03em]">
-          {t('reader.photosHeading')}
+          {t('entry.photosEditHeading', { count: photos.length })}
         </h2>
         <div className="flex flex-wrap gap-2">
           {isNativePlatform ? (
@@ -259,7 +226,7 @@ export function MomentMediaEditor({
           {t('entry.mediaEmptyEdit')}
         </p>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-2.5">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5 lg:grid-cols-5">
           {urls.map((preview, index) => {
             const meta = photos.find((photo) => photo.id === preview.id)
             if (meta === undefined) {
@@ -270,7 +237,7 @@ export function MomentMediaEditor({
               ? coverObjectPositionStyle(focalFromPreview(meta), '50% 50%')
               : undefined
             return (
-              <div className="group relative" key={preview.id}>
+              <div className="relative" key={preview.id}>
                 <button
                   aria-label={`${alt} ${String(index + 1)}`}
                   className={cn(
@@ -287,7 +254,7 @@ export function MomentMediaEditor({
                     alt=""
                     className="aspect-square w-full object-cover"
                     decorative
-                    sizes={GALLERY_GRID_SIZES}
+                    sizes={MOMENT_EDIT_GRID_SIZES}
                     src={preview.url}
                     {...(focalStyle === undefined ? {} : { style: focalStyle })}
                   />
@@ -300,35 +267,6 @@ export function MomentMediaEditor({
                     {t('entry.coverPhoto')}
                   </span>
                 ) : null}
-
-                <div className="absolute right-1.5 top-1.5 flex flex-col gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
-                  <button
-                    aria-label={t('entry.movePhotoEarlier')}
-                    className="inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white disabled:opacity-40"
-                    disabled={index === 0 || reorderMutation.isPending}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      movePhoto(preview.id, -1)
-                    }}
-                    type="button"
-                  >
-                    <ArrowUp aria-hidden="true" size={14} />
-                  </button>
-                  <button
-                    aria-label={t('entry.movePhotoLater')}
-                    className="inline-flex size-9 items-center justify-center rounded-full bg-black/55 text-white disabled:opacity-40"
-                    disabled={
-                      index === photos.length - 1 || reorderMutation.isPending
-                    }
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      movePhoto(preview.id, 1)
-                    }}
-                    type="button"
-                  >
-                    <ArrowDown aria-hidden="true" size={14} />
-                  </button>
-                </div>
               </div>
             )
           })}

@@ -225,14 +225,12 @@ export function ContentEngagement({
             {t('engagement.heartCount', { count: engagement.heartCount })}
           </button>
         )}
-        {!countsOnly ? (
-          <span className="inline-flex min-h-9 items-center gap-1.5 text-sm text-muted">
-            <MessageCircle aria-hidden="true" size={16} />
-            {t('engagement.commentCount', {
-              count: engagement.comments.length,
-            })}
-          </span>
-        ) : null}
+        <span className="inline-flex min-h-9 items-center gap-1.5 text-sm text-muted">
+          <MessageCircle aria-hidden="true" size={16} />
+          {t('engagement.commentCount', {
+            count: engagement.comments.length,
+          })}
+        </span>
         {showComposerToggle ? (
           <button
             className="inline-flex min-h-9 items-center text-sm font-medium text-primary hover:underline"

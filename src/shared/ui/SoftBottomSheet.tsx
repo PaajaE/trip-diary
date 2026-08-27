@@ -1,12 +1,14 @@
 import { X } from 'lucide-react'
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { useBodyScrollLock } from '@/shared/lib/use-body-scroll-lock'
+import { cn } from '@/shared/lib/cn'
 
 interface SoftBottomSheetProps {
   children: ReactNode
   closeLabel: string
   onClose: () => void
   open: boolean
+  size?: 'default' | 'wide'
   title: string
 }
 
@@ -15,6 +17,7 @@ export function SoftBottomSheet({
   closeLabel,
   onClose,
   open,
+  size = 'default',
   title,
 }: SoftBottomSheetProps) {
   const titleId = useId()
@@ -45,7 +48,7 @@ export function SoftBottomSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-6">
       <button
         aria-label={closeLabel}
         className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]"
@@ -55,10 +58,13 @@ export function SoftBottomSheet({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="relative flex max-h-[min(85svh,720px)] w-full max-w-lg flex-col rounded-t-3xl border border-border bg-surface shadow-soft"
+        className={cn(
+          'relative flex max-h-[min(85svh,720px)] w-full flex-col rounded-t-3xl border border-border bg-surface shadow-soft sm:max-h-[min(85svh,40rem)] sm:rounded-3xl',
+          size === 'wide' ? 'max-w-lg sm:max-w-2xl' : 'max-w-lg',
+        )}
         role="dialog"
       >
-        <div className="flex shrink-0 justify-center pt-3">
+        <div className="flex shrink-0 justify-center pt-3 sm:hidden">
           <div aria-hidden="true" className="h-1 w-10 rounded-full bg-border" />
         </div>
         <div className="flex items-center justify-between gap-3 px-5 pb-3 pt-2">

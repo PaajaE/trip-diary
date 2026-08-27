@@ -84,19 +84,17 @@ function MosaicTile({
   }
 
   return (
-    <>
-      <button
-        aria-label={ariaLabel}
-        className="group relative block size-full overflow-hidden rounded-[inherit] focus-visible:outline-offset-2"
-        onClick={onOpen}
-        type="button"
-      >
-        {renderTileImage(photo, imageClassName, () => {
-          setBroken(true)
-        })}
-      </button>
+    <button
+      aria-label={ariaLabel}
+      className="group relative block size-full overflow-hidden rounded-[inherit] focus-visible:outline-offset-2"
+      onClick={onOpen}
+      type="button"
+    >
+      {renderTileImage(photo, imageClassName, () => {
+        setBroken(true)
+      })}
       {overlay}
-    </>
+    </button>
   )
 }
 
@@ -166,22 +164,20 @@ export function MomentPhotoMosaic({
           return (
             <div className="moment-photo-mosaic__tile" key={photo.id}>
               <MosaicTile
-                ariaLabel={photo.caption ?? String(index + 1)}
+                ariaLabel={
+                  showMoreOverlay
+                    ? morePhotosLabel(t, i18n.language, hiddenCount)
+                    : (photo.caption ?? String(index + 1))
+                }
                 imageClassName={imageClassName}
                 onOpen={() => {
                   onOpenPhoto(photo.id)
                 }}
                 overlay={
                   showMoreOverlay ? (
-                    <button
-                      className="absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/45 text-center text-base font-semibold text-white backdrop-blur-[1px] transition hover:bg-black/55"
-                      onClick={() => {
-                        onOpenPhoto(photo.id)
-                      }}
-                      type="button"
-                    >
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center rounded-[inherit] bg-black/45 text-center text-base font-semibold text-white backdrop-blur-[1px]">
                       {morePhotosLabel(t, i18n.language, hiddenCount)}
-                    </button>
+                    </span>
                   ) : (
                     renderTileOverlay?.(photo, index)
                   )
