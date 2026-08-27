@@ -25,6 +25,6 @@ export const photoQueryKeys = {
     photoIds: readonly string[],
   ) =>
     ['journey-photo-tags', journeyId, 'entry', entryId, ...photoIds] as const,
-  srcset: (photoId: string, profile: string = 'hero') =>
+  srcset: (photoId: string, profile = 'hero') =>
     ['photo-srcset', profile, photoId] as const,
 } as const

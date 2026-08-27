@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { Check, Star, Trash2 } from 'lucide-react'
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { PhotoPreview } from '@/entities/photo/api/photo-gallery.repository'
 import {
@@ -20,7 +20,10 @@ import {
   normalizeCoverFocalPoint,
   type CoverFocalPoint,
 } from '@/entities/photo/lib/cover-focal-point'
-import { buildResponsivePhotoSources, type PhotoSrcsetSource } from '@/entities/photo/lib/responsive-photo'
+import {
+  buildResponsivePhotoSources,
+  type PhotoSrcsetSource,
+} from '@/entities/photo/lib/responsive-photo'
 import { CoverFocalPicker } from '@/features/photos/ui/CoverFocalPicker'
 import { VideoPlayOverlay } from '@/features/photos/ui/VideoPlayOverlay'
 import { SoftBottomSheet } from '@/shared/ui/SoftBottomSheet'
@@ -28,8 +31,7 @@ import { useToast } from '@/shared/ui/use-toast'
 import { cn } from '@/shared/lib/cn'
 
 /** Sheet preview ~full sheet width; prefer small/medium, never force full. */
-const SHEET_PREVIEW_SIZES =
-  '(max-width: 640px) 100vw, min(42rem, 92vw)'
+const SHEET_PREVIEW_SIZES = '(max-width: 640px) 100vw, min(42rem, 92vw)'
 
 const SHEET_SRCSET_VARIANTS = ['small', 'medium'] as const
 
@@ -70,7 +72,9 @@ function SheetPreviewImage({
       sizes={SHEET_PREVIEW_SIZES}
       src={signedSrc ?? previewUrl}
       {...(style === undefined ? {} : { style })}
-      {...(responsive?.srcSet === undefined ? {} : { srcSet: responsive.srcSet })}
+      {...(responsive?.srcSet === undefined
+        ? {}
+        : { srcSet: responsive.srcSet })}
     />
   )
 }
@@ -120,6 +124,10 @@ export function MomentMediaSheet({
   const [playingVideo, setPlayingVideo] = useState(false)
   const pendingCoverRefreshRef = useRef(false)
 
+  useEffect(() => {
+    pendingCoverRefreshRef.current = false
+  }, [photo.id])
+
   const sheetSrcsetQuery = useQuery({
     enabled: open && photo.mediaType !== 'video',
     queryFn: () => getPhotoSrcsetSources(photo.id, SHEET_SRCSET_VARIANTS),
@@ -133,13 +141,11 @@ export function MomentMediaSheet({
     setSavedCaption(initialCaption)
     setCoverSelected(isCover)
     const nextFocal =
-      normalizeCoverFocalPoint(photo.focalX, photo.focalY) ??
-      COVER_FOCAL_CENTER
+      normalizeCoverFocalPoint(photo.focalX, photo.focalY) ?? COVER_FOCAL_CENTER
     setDraftFocal(nextFocal)
     setSavedFocal(nextFocal)
     setVideoUrl(null)
     setPlayingVideo(false)
-    pendingCoverRefreshRef.current = false
   }
 
   if (open && draftKey === photo.id && isCover && !coverSelected) {
@@ -255,7 +261,9 @@ export function MomentMediaSheet({
   }
 
   const previewDims = {
-    ...(typeof photo.height === 'number' ? { previewHeight: photo.height } : {}),
+    ...(typeof photo.height === 'number'
+      ? { previewHeight: photo.height }
+      : {}),
     ...(typeof photo.width === 'number' ? { previewWidth: photo.width } : {}),
   }
   const srcSetProps =
@@ -350,7 +358,10 @@ export function MomentMediaSheet({
           />
         </label>
 
-        <section className="space-y-3" aria-label={t('entry.coverSectionTitle')}>
+        <section
+          className="space-y-3"
+          aria-label={t('entry.coverSectionTitle')}
+        >
           <p className="text-sm font-semibold text-foreground">
             {t('entry.coverSectionTitle')}
           </p>

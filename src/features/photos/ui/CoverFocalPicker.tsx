@@ -51,9 +51,7 @@ export function CoverFocalPicker({
 
   const responsive =
     useSigned && srcSetSources !== undefined && srcSetSources.length > 0
-      ? buildResponsivePhotoSources(srcSetSources, {
-          ...(sizes === undefined ? {} : { sizes }),
-        })
+      ? buildResponsivePhotoSources(srcSetSources, { sizes })
       : null
 
   return (

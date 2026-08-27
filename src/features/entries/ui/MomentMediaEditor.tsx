@@ -196,7 +196,11 @@ export function MomentMediaEditor({
               >
                 <Plus aria-hidden="true" size={15} />
                 {t('entry.addMediaShort')}
-                <ChevronDown aria-hidden="true" className="opacity-60" size={14} />
+                <ChevronDown
+                  aria-hidden="true"
+                  className="opacity-60"
+                  size={14}
+                />
               </Button>
               {addMenuOpen ? (
                 <>
@@ -309,7 +313,8 @@ export function MomentMediaEditor({
                   className={cn(
                     'group block w-full overflow-hidden rounded-xl bg-surface/40 transition duration-150',
                     'hover:opacity-90 focus-visible:outline-offset-2 active:scale-[0.99]',
-                    isCover && 'ring-1 ring-primary/35 ring-offset-1 ring-offset-background',
+                    isCover &&
+                      'ring-1 ring-primary/35 ring-offset-1 ring-offset-background',
                   )}
                   onClick={() => {
                     setActivePhotoId(preview.id)

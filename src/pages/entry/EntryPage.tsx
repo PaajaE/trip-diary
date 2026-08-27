@@ -234,7 +234,7 @@ function OwnerEntryDetail({
         >
           {t('photos.error')}
         </p>
-      ) : hasViewMedia && viewPhotoData !== undefined ? (
+      ) : hasViewMedia ? (
         <MomentMediaCover
           alt={entry.title}
           entryId={entry.id}
@@ -290,7 +290,7 @@ function OwnerEntryDetail({
             />
           </div>
         )
-      ) : hasViewMedia && viewPhotoData !== undefined ? (
+      ) : hasViewMedia ? (
         <MomentMediaMosaic
           alt={entry.title}
           className="mt-10"

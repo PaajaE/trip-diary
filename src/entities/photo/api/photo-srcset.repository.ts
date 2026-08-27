@@ -14,7 +14,9 @@ export const MOMENT_HERO_SRCSET_VARIANTS = [
   'full',
 ] as const satisfies readonly CanonicalPhotoVariant[]
 
-function canonicalizeVariantName(variant: string): CanonicalPhotoVariant | null {
+function canonicalizeVariantName(
+  variant: string,
+): CanonicalPhotoVariant | null {
   if (variant === 'preview' || variant === 'large') {
     return 'full'
   }
@@ -39,7 +41,7 @@ export async function getPhotoSrcsetSources(
 ): Promise<PhotoSrcsetSource[]> {
   const allowed = new Set<CanonicalPhotoVariant>(variants)
   const client = getSupabaseClient()
-  const queryVariants: Array<CanonicalPhotoVariant | 'preview' | 'large'> = [
+  const queryVariants: (CanonicalPhotoVariant | 'preview' | 'large')[] = [
     ...allowed,
   ]
   if (allowed.has('full')) {
@@ -68,7 +70,10 @@ export async function getPhotoSrcsetSources(
     }
     const isCanonicalRow = row.variant === canonical
     const existing = bestByVariant.get(canonical)
-    if (existing === undefined || (isCanonicalRow && !existing.isCanonicalRow)) {
+    if (
+      existing === undefined ||
+      (isCanonicalRow && !existing.isCanonicalRow)
+    ) {
       bestByVariant.set(canonical, {
         isCanonicalRow,
         storagePath: row.storage_path,
