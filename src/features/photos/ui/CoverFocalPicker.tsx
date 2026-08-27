@@ -1,11 +1,14 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   coverObjectPositionStyle,
   type CoverFocalPoint,
 } from '@/entities/photo/lib/cover-focal-point'
-import { GALLERY_GRID_SIZES } from '@/entities/photo/lib/responsive-photo'
-import { ResponsivePhotoImage } from '@/entities/photo/ui/ResponsivePhotoImage'
+import {
+  buildResponsivePhotoSources,
+  GALLERY_GRID_SIZES,
+  type PhotoSrcsetSource,
+} from '@/entities/photo/lib/responsive-photo'
 
 interface CoverFocalPickerProps {
   alt: string
@@ -14,6 +17,8 @@ interface CoverFocalPickerProps {
   previewHeight?: number
   previewUrl: string
   previewWidth?: number
+  sizes?: string
+  srcSetSources?: readonly PhotoSrcsetSource[]
 }
 
 export function CoverFocalPicker({
@@ -23,9 +28,12 @@ export function CoverFocalPicker({
   previewHeight,
   previewUrl,
   previewWidth,
+  sizes = GALLERY_GRID_SIZES,
+  srcSetSources,
 }: CoverFocalPickerProps) {
   const { t } = useTranslation()
   const frameRef = useRef<HTMLButtonElement>(null)
+  const [useSigned, setUseSigned] = useState(true)
 
   function updateFocalFromPointer(clientX: number, clientY: number) {
     const frame = frameRef.current
@@ -40,6 +48,13 @@ export function CoverFocalPicker({
     const y = Math.min(1, Math.max(0, (clientY - rect.top) / rect.height))
     onChange({ x, y })
   }
+
+  const responsive =
+    useSigned && srcSetSources !== undefined && srcSetSources.length > 0
+      ? buildResponsivePhotoSources(srcSetSources, {
+          ...(sizes === undefined ? {} : { sizes }),
+        })
+      : null
 
   return (
     <button
@@ -61,18 +76,25 @@ export function CoverFocalPicker({
       ref={frameRef}
       type="button"
     >
-      <ResponsivePhotoImage
+      <img
         alt={alt}
         className="aspect-[16/10] w-full object-cover"
-        decorative={false}
+        decoding="async"
         draggable={false}
+        loading="eager"
+        onError={() => {
+          setUseSigned(false)
+        }}
+        sizes={sizes}
+        src={responsive?.src ?? previewUrl}
+        style={coverObjectPositionStyle(draftFocal, '50% 50%')}
         {...(typeof previewHeight === 'number'
           ? { height: previewHeight }
           : {})}
-        sizes={GALLERY_GRID_SIZES}
-        src={previewUrl}
-        style={coverObjectPositionStyle(draftFocal, '50% 50%')}
         {...(typeof previewWidth === 'number' ? { width: previewWidth } : {})}
+        {...(responsive?.srcSet === undefined
+          ? {}
+          : { srcSet: responsive.srcSet })}
       />
       <span
         aria-hidden="true"

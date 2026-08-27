@@ -59,7 +59,7 @@ export function SoftBottomSheet({
         aria-labelledby={titleId}
         aria-modal="true"
         className={cn(
-          'relative flex max-h-[min(85svh,720px)] w-full flex-col rounded-t-3xl border border-border bg-surface shadow-soft sm:max-h-[min(85svh,40rem)] sm:rounded-3xl',
+          'relative flex max-h-[min(92svh,48rem)] w-full flex-col rounded-t-3xl border border-border bg-surface shadow-soft sm:max-h-[min(90svh,48rem)] sm:rounded-3xl',
           size === 'wide' ? 'max-w-lg sm:max-w-2xl' : 'max-w-lg',
         )}
         role="dialog"

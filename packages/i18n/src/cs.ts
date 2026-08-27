@@ -230,6 +230,8 @@ export const cs: TranslationResources = {
     filePickerLoading: 'Otevírám soubory…',
     photosSelected: 'Vybráno fotografií: {{count}}',
     coverPhoto: 'Titulní',
+    coverSectionTitle: 'Titulní fotografie',
+    coverPhotoConfirmed: 'Aktuální titulní',
     setCoverPhoto: 'Nastavit jako titulní',
     coverUpdated: 'Titulní fotka byla aktualizována.',
     coverUpdateFailed: 'Titulní fotku se nepodařilo aktualizovat.',

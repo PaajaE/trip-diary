@@ -227,6 +227,8 @@ export const en = {
     filePickerLoading: 'Opening files…',
     photosSelected: '{{count}} photos selected',
     coverPhoto: 'Cover',
+    coverSectionTitle: 'Cover photo',
+    coverPhotoConfirmed: 'Current cover',
     setCoverPhoto: 'Set as cover',
     coverUpdated: 'Cover photo updated.',
     coverUpdateFailed: 'Could not update the cover photo.',
