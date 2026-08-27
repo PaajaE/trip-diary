@@ -59,7 +59,7 @@ export function CoverFocalPicker({
   return (
     <button
       aria-label={t('entry.coverFocalTitle')}
-      className="relative block w-full overflow-hidden rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      className="relative block w-full touch-none overflow-hidden rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
       onClick={(event) => {
         updateFocalFromPointer(event.clientX, event.clientY)
       }}
@@ -71,6 +71,22 @@ export function CoverFocalPicker({
             rect.left + rect.width / 2,
             rect.top + rect.height / 2,
           )
+        }
+      }}
+      onPointerDown={(event) => {
+        // Keep the sheet from scrolling while placing the focal point on touch.
+        if (event.pointerType === 'touch') {
+          event.preventDefault()
+          event.currentTarget.setPointerCapture(event.pointerId)
+          updateFocalFromPointer(event.clientX, event.clientY)
+        }
+      }}
+      onPointerMove={(event) => {
+        if (
+          event.pointerType === 'touch' &&
+          event.currentTarget.hasPointerCapture(event.pointerId)
+        ) {
+          updateFocalFromPointer(event.clientX, event.clientY)
         }
       }}
       ref={frameRef}
@@ -98,7 +114,7 @@ export function CoverFocalPicker({
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow-soft"
+        className="pointer-events-none absolute size-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-primary shadow-soft sm:size-4"
         style={{
           left: `${String(draftFocal.x * 100)}%`,
           top: `${String(draftFocal.y * 100)}%`,

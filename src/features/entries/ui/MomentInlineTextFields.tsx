@@ -67,13 +67,19 @@ export function MomentInlineTextFields({
         autoComplete="off"
         className={cn(
           TITLE_CLASS,
-          'w-full min-w-0 rounded-md bg-transparent px-1 -mx-1 outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20',
+          'w-full min-w-0 scroll-mt-[calc(4.75rem+env(safe-area-inset-top))] rounded-md bg-transparent px-1 -mx-1 outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20',
         )}
         disabled={disabled}
         id={titleId}
         maxLength={TITLE_MAX_LENGTH}
         onChange={(event) => {
           onTitleChange(event.target.value)
+        }}
+        onFocus={(event) => {
+          const field = event.currentTarget
+          window.setTimeout(() => {
+            field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          }, 50)
         }}
         placeholder={t('entry.titlePlaceholder')}
         ref={titleRef}
@@ -92,13 +98,19 @@ export function MomentInlineTextFields({
       <textarea
         className={cn(
           STORY_CLASS,
-          'min-h-40 w-full resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-md px-1 -mx-1',
+          'min-h-40 w-full scroll-mt-[calc(4.75rem+env(safe-area-inset-top))] resize-none overflow-hidden bg-transparent outline-none placeholder:text-muted/70 focus-visible:ring-2 focus-visible:ring-primary/20 rounded-md px-1 -mx-1',
         )}
         disabled={disabled}
         id={bodyId}
         onChange={(event) => {
           onBodyChange(event.target.value)
           autosizeTextarea(event.currentTarget, BODY_MIN_HEIGHT_PX)
+        }}
+        onFocus={(event) => {
+          const field = event.currentTarget
+          window.setTimeout(() => {
+            field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+          }, 50)
         }}
         onKeyDown={handleBodyKeyDown}
         placeholder={t('entry.bodyPlaceholder')}

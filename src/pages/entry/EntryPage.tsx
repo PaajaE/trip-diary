@@ -427,8 +427,11 @@ export function EntryPage({
     entry.creatorId === user.id
 
   const mainClassName = isOwner
-    ? 'reader-page min-h-svh pb-24 pt-16 sm:pb-16'
-    : cn(momentPageClass, 'min-h-svh px-5 py-8 pb-24 sm:py-16 sm:pb-16')
+    ? 'reader-page min-h-svh pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))] sm:pb-16'
+    : cn(
+        momentPageClass,
+        'min-h-svh px-5 py-8 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:py-16 sm:pb-16',
+      )
 
   if (entry === undefined) {
     return (

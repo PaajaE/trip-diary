@@ -271,7 +271,7 @@ export function MomentMediaSheet({
       size="wide"
       title={t('entry.mediaSheetTitle')}
     >
-      <div className="flex flex-col gap-6 pb-1 pt-1">
+      <div className="flex flex-col gap-4 pb-1 pt-1 sm:gap-6">
         <div className="space-y-2">
           {isCoverState ? (
             <>
@@ -333,10 +333,16 @@ export function MomentMediaSheet({
             {t('entry.photoCaption')}
           </span>
           <textarea
-            className="min-h-[5.5rem] w-full resize-y rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-base leading-relaxed outline-none transition placeholder:text-muted/70 focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/15"
+            className="min-h-[5.5rem] w-full scroll-mt-24 resize-y rounded-2xl border border-border/70 bg-background px-3.5 py-3 text-base leading-relaxed outline-none transition placeholder:text-muted/70 focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/15"
             maxLength={PHOTO_CAPTION_MAX_LENGTH}
             onChange={(event) => {
               setCaption(event.target.value)
+            }}
+            onFocus={(event) => {
+              const field = event.currentTarget
+              window.setTimeout(() => {
+                field.scrollIntoView({ block: 'center', behavior: 'smooth' })
+              }, 50)
             }}
             placeholder={t('entry.photoCaptionPlaceholder')}
             rows={3}
@@ -359,7 +365,7 @@ export function MomentMediaSheet({
                 {t('entry.coverPhotoConfirmed')}
               </p>
               <button
-                className="min-h-9 rounded-lg px-2.5 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground disabled:opacity-60"
+                className="min-h-10 rounded-lg px-2.5 text-sm font-medium text-muted transition hover:bg-background hover:text-foreground disabled:opacity-60"
                 disabled={saving || sameFocal(draftFocal, COVER_FOCAL_CENTER)}
                 onClick={() => {
                   setDraftFocal(COVER_FOCAL_CENTER)
@@ -384,23 +390,23 @@ export function MomentMediaSheet({
           )}
         </section>
 
-        <button
-          className={cn(
-            'inline-flex min-h-11 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:opacity-60',
-            dirty
-              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-              : 'border border-border/70 bg-background text-foreground hover:bg-surface',
-          )}
-          disabled={saving || !dirty}
-          onClick={() => {
-            void saveChanges()
-          }}
-          type="button"
-        >
-          {saving ? t('entry.saving') : t('entry.saveChanges')}
-        </button>
+        <div className="sticky bottom-0 z-10 -mx-5 space-y-3 border-t border-border/40 bg-surface/95 px-5 pb-1 pt-3 backdrop-blur-sm">
+          <button
+            className={cn(
+              'inline-flex min-h-11 w-full items-center justify-center rounded-2xl px-4 text-sm font-semibold transition disabled:opacity-60',
+              dirty
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'border border-border/70 bg-background text-foreground hover:bg-surface',
+            )}
+            disabled={saving || !dirty}
+            onClick={() => {
+              void saveChanges()
+            }}
+            type="button"
+          >
+            {saving ? t('entry.saving') : t('entry.saveChanges')}
+          </button>
 
-        <div className="border-t border-border/40 pt-4">
           <button
             className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold text-destructive transition hover:bg-destructive/5 disabled:opacity-60"
             disabled={saving}

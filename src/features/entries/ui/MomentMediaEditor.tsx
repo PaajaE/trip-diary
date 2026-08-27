@@ -202,14 +202,14 @@ export function MomentMediaEditor({
                 <>
                   <button
                     aria-label={t('journey.manageClose')}
-                    className="fixed inset-0 z-10 cursor-default bg-transparent"
+                    className="fixed inset-0 z-20 cursor-default bg-transparent"
                     onClick={() => {
                       setAddMenuOpen(false)
                     }}
                     type="button"
                   />
                   <div
-                    className="absolute right-0 top-[calc(100%+0.25rem)] z-20 min-w-[13.5rem] overflow-hidden rounded-xl border border-border/50 bg-surface shadow-soft"
+                    className="absolute right-0 top-[calc(100%+0.25rem)] z-30 min-w-[13.5rem] overflow-hidden rounded-xl border border-border/50 bg-surface shadow-soft"
                     role="menu"
                   >
                     <button
@@ -288,7 +288,7 @@ export function MomentMediaEditor({
           {t('entry.mediaEmptyEdit')}
         </p>
       ) : (
-        <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-2.5 lg:grid-cols-5">
           {urls.map((preview, index) => {
             const meta = photos.find((photo) => photo.id === preview.id)
             if (meta === undefined) {

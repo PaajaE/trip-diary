@@ -59,7 +59,7 @@ export function SoftBottomSheet({
         aria-labelledby={titleId}
         aria-modal="true"
         className={cn(
-          'relative flex max-h-[min(92svh,48rem)] w-full flex-col rounded-t-3xl border border-border bg-surface shadow-soft sm:max-h-[min(90svh,48rem)] sm:rounded-3xl',
+          'relative flex max-h-[min(94svh,48rem)] w-full flex-col rounded-t-3xl border border-border bg-surface shadow-soft sm:max-h-[min(90svh,48rem)] sm:rounded-3xl',
           size === 'wide' ? 'max-w-lg sm:max-w-2xl' : 'max-w-lg',
         )}
         role="dialog"
@@ -81,7 +81,7 @@ export function SoftBottomSheet({
             <X aria-hidden="true" size={18} />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
           {children}
         </div>
       </div>

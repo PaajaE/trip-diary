@@ -46,7 +46,7 @@ export function MomentDetailHeader({
         : t(`entry.sync.${entry.syncStatus}`)
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 top-0 z-30 reader-chrome--toolbar px-4 py-3 sm:px-6">
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-30 reader-chrome--toolbar px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-3 sm:px-6">
       <div className="pointer-events-auto mx-auto flex max-w-5xl items-center justify-between gap-3">
         {backHref !== undefined ? (
           <Link
@@ -113,7 +113,7 @@ export function MomentDetailActions({
       <Button
         className={cn(
           editing
-            ? 'inline-flex min-h-8 rounded-lg border border-border/50 bg-background/85 px-2.5 text-sm font-semibold shadow-none backdrop-blur-sm sm:min-h-9 sm:px-3'
+            ? 'inline-flex min-h-9 rounded-lg border border-border/50 bg-background/90 px-3 text-sm font-semibold shadow-none backdrop-blur-sm sm:min-h-9 sm:px-3'
             : 'hidden min-h-10 px-3 sm:inline-flex sm:px-4',
         )}
         onClick={onEditToggle}
