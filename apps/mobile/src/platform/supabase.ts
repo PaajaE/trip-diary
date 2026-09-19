@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createTripDiaryClient, type SupabaseClient } from '@trip-diary/api'
 import { mobilePublicEnv } from '@/platform/env'
 
 let client: SupabaseClient | null = null
@@ -16,13 +16,15 @@ export function getSupabaseClient(): SupabaseClient {
     )
   }
 
-  client = createClient(supabaseUrl, supabaseAnonKey, {
+  client = createTripDiaryClient({
     auth: {
       autoRefreshToken: true,
       detectSessionInUrl: false,
       persistSession: true,
       storage: AsyncStorage,
     },
+    supabaseAnonKey,
+    supabaseUrl,
   })
 
   return client

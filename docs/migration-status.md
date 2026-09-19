@@ -1,6 +1,6 @@
 # Migration Status
 
-**Last updated:** 2026-07-10  
+**Last updated:** 2026-09-19  
 **Reference plan:** [expo-mobile-implementation-plan.md](./expo-mobile-implementation-plan.md)  
 **Product polish:** [stage-4-roadmap.md](./stage-4-roadmap.md)
 
@@ -30,7 +30,7 @@
 
 ---
 
-## Product Stage 4 — Product polish: **In progress**
+## Product Stage 4 — Product polish: **Complete** (hardware validation still pending)
 
 Cross-platform polish tracked in [stage-4-roadmap.md](./stage-4-roadmap.md).
 
@@ -54,6 +54,11 @@ Cross-platform polish tracked in [stage-4-roadmap.md](./stage-4-roadmap.md).
 | 3    | M16 Translation status polling         | ✅ Complete |
 | 3    | M9 ESLint for packages + mobile        | ✅ Complete |
 | 3    | H9 Centralized web query-key factories | ✅ Complete |
+| 4    | M11 Translation Playwright e2e         | ✅ Complete |
+| 3    | M5 Shared normalizeCapturedAt in utils | ✅ Complete |
+| 4    | M12 Mobile useJourneyQuery hook tests  | ✅ Complete |
+| 3    | H8 Translation pure logic consolidation | ✅ Complete |
+| 4    | M7 Scaffold `@trip-diary/api`            | ✅ Complete |
 
 ---
 

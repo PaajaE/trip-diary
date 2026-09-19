@@ -18,7 +18,7 @@ Expo Router app for the Trip Diary mobile client.
 | `network/`        | NetInfo-backed `NetworkProvider`, conservative online/offline/unknown semantics          |
 | `sync/`           | Sync lifecycle coordinator, drain requests, observable snapshot for future UI            |
 | `sqlite/`         | Numbered SQL migration runner used by `platform/storage/database.ts`                     |
-| `test-utils/`     | `renderWithProviders()` helper for Vitest component tests                                |
+| `test-utils/`     | `renderWithProviders()` + `renderHook()` / `waitForHook()` for Vitest                  |
 | `theme/`          | Shared color and spacing tokens                                                          |
 
 ### Startup wiring

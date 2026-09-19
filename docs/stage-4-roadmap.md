@@ -1,6 +1,6 @@
 # Stage 4 — Product Polish Roadmap
 
-**Last updated:** 2026-07-10  
+**Last updated:** 2026-09-19  
 **Status doc:** [migration-status.md](./migration-status.md)  
 **Stage numbering:** see [Stage numbering](#stage-numbering) below
 
@@ -92,10 +92,10 @@ Status values: `pending` · `in progress` · `complete` · `deferred`
 | --- | ---------------------------------------------- | -------- | ------------ |
 | H6  | Translation React Query integration (web)      | High     | **complete** |
 | H7  | Extend `@trip-diary/core` with journey schemas | High     | **complete** |
-| H8  | Consolidate translation pure logic in package  | High     | pending      |
+| H8  | Consolidate translation pure logic in package  | High     | **complete** | Pure helpers in `_shared/translation`, re-exported by `@trip-diary/translation` |
 | H9  | Centralized query-key factories (web)          | High     | **complete** |
 | M4  | Move translation repo to entities layer        | Medium   | **complete** |
-| M5  | Extract `normalizeCapturedAt` to utils         | Medium   | pending      |
+| M5  | Extract `normalizeCapturedAt` to utils         | Medium   | **complete** | `@trip-diary/utils` `normalizePhotoCapturedAt` |
 | M16 | Translation status polling                     | Medium   | **complete** |
 
 ### Wave 4 — Depth
@@ -104,10 +104,10 @@ Status values: `pending` · `in progress` · `complete` · `deferred`
 | --- | ----------------------------------- | -------- | ------------ |
 | M1  | Offline journey list cache (mobile) | Medium   | **complete** |
 | M3  | Map journey geography on mobile     | Medium   | **complete** |
-| M7  | Scaffold `@trip-diary/api`          | Medium   | pending      |
+| M7  | Scaffold `@trip-diary/api`          | Medium   | **complete** | Client factory + `invokeTranslateEntry`; web/mobile thin wrappers |
 | M9  | ESLint for packages + mobile        | Medium   | **complete** |
-| M11 | Translation Playwright e2e          | Medium   | pending      |
-| M12 | Mobile hook/screen tests            | Medium   | pending      |
+| M11 | Translation Playwright e2e          | Medium   | **complete** | `tests/e2e/entry-translation.spec.ts` |
+| M12 | Mobile hook/screen tests            | Medium   | **complete** | `renderHook` harness + `useJourneyQuery` cache-then-network |
 
 ### Deferred / not recommended in Stage 4
 
@@ -123,4 +123,4 @@ Status values: `pending` · `in progress` · `complete` · `deferred`
 
 ## Next slice after Wave 1
 
-**Wave 2A (H1) complete.** **Wave 2C (H3 + H4) complete.** **Wave 2D (M2) complete.** **Wave 2E (M1) complete.** **Wave 3A (H7) complete.** **Wave 3B (M3) complete.** **Wave 3C (H6 + M4 + M16) complete.** **Wave 3D (M9) complete.** **Wave 3E (H9) complete.** Next isolated slice: **M11** — Translation Playwright E2E (recommended) or **M12** — Mobile screen/hook integration tests.
+**Wave 2A (H1) complete.** **Wave 2C (H3 + H4) complete.** **Wave 2D (M2) complete.** **Wave 2E (M1) complete.** **Wave 3A (H7) complete.** **Wave 3B (M3) complete.** **Wave 3C (H6 + M4 + M16) complete.** **Wave 3D (M9) complete.** **Wave 3E (H9) complete.** **M11 complete.** **M5 complete.** **M12 complete.** **H8 complete.** **M7 complete.** Product Stage 4 Wave 3–4 tracked items are complete; hardware validation (L10) remains intentionally pending.

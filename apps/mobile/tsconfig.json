@@ -8,6 +8,7 @@
     "typeRoots": ["./node_modules/@types"],
     "paths": {
       "@/*": ["./src/*"],
+      "@trip-diary/api": ["../../packages/api/src/index.ts"],
       "@trip-diary/core/journey": ["../../packages/core/src/journey.ts"]
     }
   },

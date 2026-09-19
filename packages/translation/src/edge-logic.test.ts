@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  computeSourceContentHash,
   hashSourceContent,
   MockTranslationProvider,
   parseAuthorizationHeader,
   parseTranslationRequest,
   resolveTranslationProvider,
   shouldReturnCachedTranslation,
-} from '../../../supabase/functions/translate-entry/logic.ts'
-import { computeSourceContentHash } from './source-hash.ts'
+} from './index.ts'
 
 const validEntryId = '550e8400-e29b-41d4-a716-446655440000'
 
@@ -123,7 +123,7 @@ describe('parseTranslationRequest', () => {
 })
 
 describe('hashSourceContent', () => {
-  it('matches computeSourceContentHash from @trip-diary/translation', () => {
+  it('aliases computeSourceContentHash', () => {
     const cases: [string | null, string][] = [
       [null, ''],
       ['Hello', 'World'],

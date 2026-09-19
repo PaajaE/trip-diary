@@ -1,11 +1,14 @@
-import { createClient } from '@supabase/supabase-js'
+import { createTripDiaryClient } from '@trip-diary/api'
 import type { Database } from '@/shared/api/database.types'
 import { publicEnv } from '@/shared/config/env'
 
 const supabase =
   publicEnv.supabaseUrl === undefined || publicEnv.supabaseAnonKey === undefined
     ? null
-    : createClient<Database>(publicEnv.supabaseUrl, publicEnv.supabaseAnonKey)
+    : createTripDiaryClient<Database>({
+        supabaseAnonKey: publicEnv.supabaseAnonKey,
+        supabaseUrl: publicEnv.supabaseUrl,
+      })
 
 export function getSupabaseClient() {
   if (supabase === null) {

@@ -31,6 +31,7 @@
 
     "paths": {
       "@/*": ["./src/*"],
+      "@trip-diary/api": ["./packages/api/src/index.ts"],
       "@trip-diary/config": ["./packages/config/src/index.ts"],
       "@trip-diary/i18n": ["./packages/i18n/src/index.ts"],
       "@trip-diary/core/entry": ["./packages/core/src/entry.ts"],

@@ -2,6 +2,8 @@
 
 Trip Diary translates Czech entry content to English through the `translate-entry` Supabase Edge Function. The web client never talks to a paid translation API directly.
 
+Gateway JWT verification for `translate-entry` is disabled (`[functions.translate-entry] verify_jwt = false` in `supabase/config.toml`) because local edge-runtime JWT checks break on ES256 user tokens. The function still authenticates callers via `supabase.auth.getUser()` on the `Authorization` header.
+
 ## Server secret: `TRANSLATION_API_KEY`
 
 - Set `TRANSLATION_API_KEY` only in Supabase Edge Function secrets (or local `supabase/functions/.env` for development).
@@ -10,7 +12,11 @@ Trip Diary translates Czech entry content to English through the `translate-entr
 
 ## Provider interface
 
-Shared contract lives in `@trip-diary/translation` (`TranslationProvider`) and is mirrored in `supabase/functions/translate-entry/logic.ts` for Deno execution.
+Shared contract is exported from `@trip-diary/translation`. Pure edge helpers
+(request parsing, mock provider, cache policy, source hash) live once under
+`supabase/functions/_shared/translation/` so the Deno edge runtime can load them;
+the package re-exports those modules for web and Vitest.
+`supabase/functions/translate-entry/logic.ts` is a thin re-export of that shared module.
 
 ```ts
 interface TranslationProviderInput {
@@ -57,7 +63,7 @@ Turning on a paid provider requires an explicit product decision:
 
 1. Choose the vendor and billing model.
 2. Store credentials in Supabase secrets as `TRANSLATION_API_KEY`.
-3. Wire the real provider inside `resolveTranslationProvider()` in `supabase/functions/translate-entry/logic.ts`.
+3. Wire the real provider inside `resolveTranslationProvider()` in `supabase/functions/_shared/translation/mock-provider.ts`.
 4. Deploy the edge function and verify RLS, stale detection, and manual-edit behavior in staging before enabling for users.
 
 Until that wiring lands, setting `TRANSLATION_API_KEY` still resolves to the mock provider to prevent accidental paid calls.
@@ -86,4 +92,8 @@ Known edge-function error codes (`translation_failed`, `unauthorized`, `entry_no
 
 **Deprecated import:** `@/features/entries/api/translation.repository` re-exports the entity repository for compatibility.
 
-**Deferred:** Supabase Realtime, mobile translation UI, paid provider wiring, global web query-key refactor (H9).
+**Deferred:** Supabase Realtime, mobile translation UI, paid provider wiring.
+
+**E2E:** `tests/e2e/entry-translation.spec.ts` covers translate → mock English fields → manual edit save (CI desktop Chromium).
+
+**Shared invoke:** `invokeTranslateEntry()` in `@trip-diary/api` is the single client-side edge invoke helper; web `translation.repository` delegates to it.

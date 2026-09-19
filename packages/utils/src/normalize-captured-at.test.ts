@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizePhotoCapturedAt } from './normalize-captured-at'
+import { normalizePhotoCapturedAt } from './normalize-captured-at.ts'
 
 describe('normalizePhotoCapturedAt', () => {
   it('returns null for missing values', () => {

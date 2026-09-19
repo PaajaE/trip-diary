@@ -1,5 +1,7 @@
 # Offline Hardening Plan
 
+**Status:** Complete (Slices A–E) — see [implementation-plan.md](./implementation-plan.md) Stage 9.
+
 ## Problem
 
 The product is marketed as offline-ready, and capture writes already go through
@@ -28,7 +30,7 @@ remain out of scope for the first slices.
 
 ## Delivery Slices
 
-### Slice A: Journey read cache (P0)
+### Slice A: Journey read cache (P0) ✅
 
 - Persist the last successful `JourneyDetail` snapshot in IndexedDB
 - `getJourney()` falls back to the snapshot when offline or remote fetch fails
@@ -41,7 +43,7 @@ Acceptance:
 - Add moment offline -> appears in story/map/gallery from local data
 - Badge shows pending/offline, not “synchronized”
 
-### Slice B: Publishing space cache (P0)
+### Slice B: Publishing space cache (P0) ✅
 
 - Persist the last `listMySpaces()` result per user in IndexedDB
 - `useActiveSpace()` resolves from cache when offline
@@ -51,7 +53,7 @@ Acceptance:
 
 - Open create-memory once online, go offline -> form still loads with cached space
 
-### Slice C: Resilient session and queries (P1)
+### Slice C: Resilient session and queries (P1) ✅
 
 - Keep Supabase session from local storage when offline
 - Do not treat profile fetch failure as a hard signed-out state while offline
@@ -62,7 +64,7 @@ Acceptance:
 
 - Refresh app offline while signed in -> shell and account menu remain usable
 
-### Slice D: Offline create trip (P2)
+### Slice D: Offline create trip (P2) ✅
 
 - Queue `journey.create` in the sync outbox (like `entry.create`)
 - Dashboard shows locally created trips with pending state
@@ -71,7 +73,7 @@ Acceptance:
 
 - Create trip offline -> appears in dashboard and opens from local snapshot
 
-### Slice E: PWA and production verification (P2)
+### Slice E: PWA and production verification (P2) ✅
 
 - Precache app shell in production build
 - Add Playwright offline smoke: open trip -> go offline -> add moment -> badge pending

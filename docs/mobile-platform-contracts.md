@@ -245,7 +245,11 @@ getSyncOperation(operationId): Promise<SyncOperation | null>
 
 **Bucket file size limit:** `8_388_608` bytes (8 MiB) from `supabase/migrations/20260609000300_create_photos.sql`, exported as `PHOTOS_BUCKET_FILE_SIZE_LIMIT_BYTES` in `photo-storage-limits.ts`. Mobile checks persisted file size **before** reading into a `Blob`; oversize failures are terminal (`retryable: false`).
 
-### `capturedAt` normalization (`normalize-captured-at.ts`)
+### `capturedAt` normalization (`@trip-diary/utils` `normalizePhotoCapturedAt`)
+
+Shared by web and mobile. Mobile re-exports from
+`apps/mobile/src/platform/media/normalize-captured-at.ts`; web uses it from
+`src/entities/photo/lib/photo-selection.ts`.
 
 | Input                               | Output                                                                                                    |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------- |
@@ -253,7 +257,7 @@ getSyncOperation(operationId): Promise<SyncOperation | null>
 | EXIF `YYYY:MM:DD HH:mm:ss`          | Local wall-clock components → `Date` → `toISOString()` (aligned with web `new Date(value).toISOString()`) |
 | Missing / invalid / impossible date | `null` (upload continues)                                                                                 |
 
-No fabricated timezone: EXIF strings without offset are interpreted as device-local wall clock, then stored as UTC ISO — same semantics as web `normalizeCapturedAt`.
+No fabricated timezone: EXIF strings without offset are interpreted as device-local wall clock, then stored as UTC ISO — same semantics on both platforms.
 
 ### Stale `processing` recovery
 
@@ -282,7 +286,7 @@ On each `processNextSyncOperation()` call, operations in `processing` with `stat
 | Status        | Android (2026-07-10)                                                        |
 | ------------- | --------------------------------------------------------------------------- |
 | Implemented   | ✅ Real Storage upload via sync queue + hardening                           |
-| Auto-tested   | ✅ `photo-upload.test.ts`, `queue.test.ts`, `normalize-captured-at.test.ts` |
+| Auto-tested   | ✅ `photo-upload.test.ts`, `queue.test.ts`, `@trip-diary/utils` `normalize-captured-at.test.ts` |
 | Device-tested | ☐ Requires physical device + online Supabase                                |
 
 ## Maps (`@trip-diary/maps` + `MapViewScreen.tsx`)

@@ -65,6 +65,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@trip-diary/api': fileURLToPath(
+        new URL('./packages/api/src/index.ts', import.meta.url),
+      ),
       '@trip-diary/config': fileURLToPath(
         new URL('./packages/config/src/index.ts', import.meta.url),
       ),

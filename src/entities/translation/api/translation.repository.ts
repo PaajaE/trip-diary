@@ -1,7 +1,6 @@
+import { invokeTranslateEntry } from '@trip-diary/api'
 import {
   entryTranslationSchema,
-  translateEntryErrorSchema,
-  translateEntryResponseSchema,
   type EntryTranslation,
   type TranslateEntryResponse,
   type TranslationLocale,
@@ -64,29 +63,7 @@ export async function saveEntryTranslationEdits(
 export async function requestEntryTranslation(
   request: TranslationRequest,
 ): Promise<TranslateEntryResponse> {
-  const result = await getSupabaseClient().functions.invoke('translate-entry', {
-    body: request,
-  })
-
-  if (result.error !== null) {
-    const message =
-      result.error instanceof Error
-        ? result.error.message
-        : 'translation_invoke_failed'
-    throw new Error(message)
-  }
-
-  const response = translateEntryResponseSchema.safeParse(result.data)
-  if (response.success) {
-    return response.data
-  }
-
-  const error = translateEntryErrorSchema.safeParse(result.data)
-  if (error.success) {
-    throw new Error(error.data.error)
-  }
-
-  throw new Error('invalid_translation_response')
+  return invokeTranslateEntry(getSupabaseClient(), request)
 }
 
 export async function refreshEntryTranslation(

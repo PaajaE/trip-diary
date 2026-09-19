@@ -350,6 +350,11 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+# Local edge-runtime JWT gate breaks on ES256 user tokens (CryptoKey vs Uint8Array).
+# translate-entry authenticates via supabase.auth.getUser() on the Authorization header.
+[functions.translate-entry]
+verify_jwt = false
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

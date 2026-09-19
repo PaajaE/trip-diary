@@ -9,6 +9,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(dirname, 'src'),
+      '@trip-diary/api': path.resolve(
+        workspaceRoot,
+        'packages/api/src/index.ts',
+      ),
       '@trip-diary/i18n': path.resolve(
         workspaceRoot,
         'packages/i18n/src/index.ts',
