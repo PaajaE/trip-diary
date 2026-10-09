@@ -13,8 +13,10 @@ concurrency:
 
 # Services the app and tests never use. Skipping them saves pulling several
 # large images on every run (CLI still needs kong, postgrest, storage, auth).
+# E2E additionally needs edge-runtime (translate-entry edge function).
 env:
   SUPABASE_EXCLUDE: studio,imgproxy,mailpit,realtime,edge-runtime,logflare,vector,supavisor
+  SUPABASE_EXCLUDE_E2E: studio,imgproxy,mailpit,realtime,logflare,vector,supavisor
 
 jobs:
   changes:
@@ -84,7 +86,7 @@ jobs:
         with:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
-      - run: supabase start -x "$SUPABASE_EXCLUDE"
+      - run: supabase start -x "$SUPABASE_EXCLUDE_E2E"
       - name: Configure local Supabase env
         run: |
           supabase status --output json > /tmp/supabase-status.json

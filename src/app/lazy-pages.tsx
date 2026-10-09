@@ -117,3 +117,11 @@ export const LazyPublicJourneyEntryRoutePage = lazy(() =>
     }),
   ),
 )
+
+export const LazyMediaLibraryDiagnosticsPage = lazy(() =>
+  import('@/pages/dev/MediaLibraryDiagnosticsPage').then(
+    ({ MediaLibraryDiagnosticsPage }) => ({
+      default: MediaLibraryDiagnosticsPage,
+    }),
+  ),
+)

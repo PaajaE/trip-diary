@@ -14,7 +14,14 @@ const SyncManager = lazy(() =>
   })),
 )
 
-function DeferredSyncManager() {
+// Native deep links; Capacitor retains the launch URL until a listener attaches.
+const DeepLinkHandler = lazy(() =>
+  import('@/app/DeepLinkHandler').then(({ DeepLinkHandler }) => ({
+    default: DeepLinkHandler,
+  })),
+)
+
+function DeferredBackgroundServices() {
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -36,6 +43,7 @@ function DeferredSyncManager() {
   return ready ? (
     <Suspense fallback={null}>
       <SyncManager />
+      <DeepLinkHandler />
     </Suspense>
   ) : null
 }
@@ -46,7 +54,7 @@ export function App() {
       <SessionProvider>
         <ToastProvider>
           <LocaleSync />
-          <DeferredSyncManager />
+          <DeferredBackgroundServices />
           <RouterProvider router={router} />
         </ToastProvider>
       </SessionProvider>

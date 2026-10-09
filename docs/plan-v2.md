@@ -257,6 +257,13 @@ alternativě dřív, než se napíše produkční kód.
 - **Úložiště:** přehled obsazení R2 vůči limitu 10 GB.
 - **Časová pásma:** `captured_tz` z EXIF offsetu, jinak z GPS (offline knihovna pro
   hledání pásma podle souřadnic, např. `tz-lookup`), jinak `home_tz`.
+  - Zjištěno ve spiku A: bez EXIF offsetu PhotoKit vyloží čas v pásmu zařízení
+    (`PHAsset.creationDate` je pak špatně). U takových médií se okamžik přepočítá
+    z `DateTimeOriginal` a pásma odvozeného z GPS. Fotky z iPhonu offset mají,
+    týká se to hlavně importů z jiných fotoaparátů.
+- **Oprávnění:** plný přístup ke knihovně je pro automatický import nutný. Při
+  omezeném přístupu aplikace vidí jen vybrané fotky, takže UI musí upozornit
+  a nabídnout rozšíření výběru (`presentLimitedLibraryPicker`).
 - Fronta uploadu přežije restart aplikace a ukazuje průběh. Upload jen na Wi-Fi je
   nastavitelný.
 - **Brána:**

@@ -4,6 +4,7 @@ import {
   createRouter,
   Outlet,
 } from '@tanstack/react-router'
+import { Capacitor } from '@capacitor/core'
 import { Suspense } from 'react'
 import {
   LazyAuthPage,
@@ -14,6 +15,7 @@ import {
   LazyEntryRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
+  LazyMediaLibraryDiagnosticsPage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
   LazySpacesRoutePage,
@@ -182,6 +184,14 @@ const acceptJourneyInviteRoute = createRoute({
   component: LazyAcceptJourneyInviteRoutePage,
 })
 
+// Developer diagnostics exist only in the native app (opened via
+// tripdiary://app/dev/media-library); on the web the path is not routed.
+const mediaLibraryDiagnosticsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/media-library',
+  component: LazyMediaLibraryDiagnosticsPage,
+})
+
 const publicSpaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle',
@@ -226,6 +236,7 @@ const routeTree = rootRoute.addChildren([
   spaceMembersRoute,
   acceptInviteRoute,
   acceptJourneyInviteRoute,
+  ...(Capacitor.isNativePlatform() ? [mediaLibraryDiagnosticsRoute] : []),
   publicSpaceRoute,
   publicJourneyRoute,
   publicStandaloneEntryRoute,
