@@ -4,8 +4,35 @@ on:
   pull_request:
   push:
     branches: [main]
+  workflow_dispatch:
+
+# A newer push to the same PR cancels the older run; main runs always finish.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+# Services the app and tests never use. Skipping them saves pulling several
+# large images on every run (CLI still needs kong, postgrest, storage, auth).
+env:
+  SUPABASE_EXCLUDE: studio,imgproxy,mailpit,realtime,edge-runtime,logflare,vector,supavisor
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      database: ${{ steps.filter.outputs.database }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            database:
+              - 'supabase/**'
+              - 'src/shared/api/database.types.ts'
+              - 'scripts/patch-database-types.mjs'
+              - '.github/workflows/ci.yml'
+
   quality:
     runs-on: ubuntu-latest
     steps:
@@ -19,7 +46,10 @@ jobs:
       - run: pnpm test:packages
       - run: pnpm check
 
+  # Database checks run on every push to main and on PRs that touch the database.
   database-security:
+    needs: changes
+    if: github.event_name != 'pull_request' || needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,13 +62,16 @@ jobs:
         with:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm supabase:start
+      - run: supabase start -x "$SUPABASE_EXCLUDE"
       - run: pnpm db:lint
       - run: pnpm db:test
       - run: pnpm db:types
       - run: git diff --exit-code -- src/shared/api/database.types.ts
 
+  # End-to-end tests cover v1 screens that v2 replaces; they gate main and can be
+  # run on demand (Actions → CI → Run workflow) instead of blocking every PR.
   e2e:
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -51,7 +84,7 @@ jobs:
         with:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm supabase:start
+      - run: supabase start -x "$SUPABASE_EXCLUDE"
       - name: Configure local Supabase env
         run: |
           supabase status --output json > /tmp/supabase-status.json
