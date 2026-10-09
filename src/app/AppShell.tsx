@@ -1,13 +1,25 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { LogOut, MapPinned } from 'lucide-react'
-import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '@/app/LanguageSwitcher'
 import { useSession } from '@/features/auth/session'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
-import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
+
+const SyncStatusControl = lazy(() =>
+  import('@/features/sync/ui/SyncStatusControl').then(
+    ({ SyncStatusControl }) => ({ default: SyncStatusControl }),
+  ),
+)
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation()
@@ -33,18 +45,10 @@ export function AppShell({ children }: PropsWithChildren) {
               aria-label={t('navigation.account')}
               className="flex min-w-0 items-center gap-1 sm:gap-2"
             >
-              {minimalPublicShell ? null : (
-                // Signed-out visitors have nothing to sync; on phones the label
-                // would push the language switcher out of the header.
-                <span
-                  className={
-                    user === null && !loading
-                      ? 'hidden sm:contents'
-                      : 'contents'
-                  }
-                >
+              {minimalPublicShell || (user === null && !loading) ? null : (
+                <Suspense fallback={null}>
                   <SyncStatusControl />
-                </span>
+                </Suspense>
               )}
               {loading ? (
                 <span
