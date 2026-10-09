@@ -9,3 +9,4 @@ android/app/src/main/assets/capacitor.plugins.json
 android/capacitor-cordova-android-plugins
 ios/App/App/capacitor.config.json
 .claude
+.mcp.json
