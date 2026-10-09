@@ -1,17 +1,15 @@
 # Linting
 
 Trip Diary uses ESLint 9 flat config from the repository root (`eslint.config.js`).
-One `pnpm lint` run covers the web app, shared packages, and the Expo mobile app.
+One `pnpm lint` run covers the web app and shared packages.
 
 ## Commands
 
-| Command                     | Scope                                         |
-| --------------------------- | --------------------------------------------- |
-| `pnpm lint`                 | All supported workspaces (CI default)         |
-| `pnpm lint:web`             | `src/**`, root `vite.config.ts`               |
-| `pnpm lint:packages`        | `packages/*/src/**`, package Vitest configs   |
-| `pnpm lint:mobile`          | `apps/mobile/**` production + tests + tooling |
-| `pnpm --filter mobile lint` | Same as `lint:mobile` via workspace script    |
+| Command              | Scope                                       |
+| -------------------- | ------------------------------------------- |
+| `pnpm lint`          | All supported workspaces (CI default)       |
+| `pnpm lint:web`      | `src/**`, root `vite.config.ts`             |
+| `pnpm lint:packages` | `packages/*/src/**`, package Vitest configs |
 
 Runtime: ~21s locally with type-aware rules (project service).
 
@@ -28,42 +26,28 @@ Runtime: ~21s locally with type-aware rules (project service).
 ### Shared packages (`packages/*/src/**`)
 
 - Type-aware strict rules without React/DOM plugins
-- `@trip-diary/core` boundary: no React, Expo, Supabase, Dexie, or SQLite imports
+- `@trip-diary/core` boundary: no React, Supabase, or Dexie imports
 - Tests: relaxed `any` / non-null assertions; `require-await` off
-
-### Mobile (`apps/mobile/**`)
-
-- Type-aware strict rules + React Hooks
-- **No** jsx-a11y (DOM rules) or React Refresh (Vite-only)
-- Globals: ES2021 + `__DEV__`
-- Browser globals (`window`, `document`, `localStorage`) rejected via `no-restricted-globals`
-- Boundary restrictions:
-  - `openDatabaseAsync` only in `platform/storage/database.ts`
-  - `@react-native-community/netinfo` only in `foundation/network/**`
-- Compatibility barrel `features/journeys/index.ts`: `@typescript-eslint/no-deprecated` off for intentional deprecated re-exports
-- Tests / test-utils: relaxed unsafe-any, empty functions, deprecated React test renderer
 
 ### Tooling (no type-aware lint)
 
 Plain `eslint.config.js` recommended rules for:
 
 - `scripts/*.mjs`
-- `apps/mobile/{babel,metro,react-native}.config.js`, `vitest.config.ts`, `scripts/*.mjs`
 - `packages/*/vitest.config.ts`
 
 ## Explicitly not linted
 
-| Path                                           | Reason                                  |
-| ---------------------------------------------- | --------------------------------------- |
-| `src/shared/api/database.types.ts`             | Generated Supabase types                |
-| `supabase/functions/**`                        | Deno Edge Functions (different runtime) |
-| `apps/mobile/ios/**`, `android/**`, `.expo/**` | Native/generated Expo output            |
-| `dist`, `coverage`, lockfiles                  | Build artifacts                         |
+| Path                               | Reason                                  |
+| ---------------------------------- | --------------------------------------- |
+| `src/shared/api/database.types.ts` | Generated Supabase types                |
+| `supabase/functions/**`            | Deno Edge Functions (different runtime) |
+| `dist`, `coverage`, lockfiles      | Build artifacts                         |
 
 ## Justified exceptions
 
 - `sync-coordinator.ts`: one `no-unnecessary-condition` disable on the follow-up drain loop — concurrent drain requests set the flag mid-await.
-- Deprecated compatibility shims remain in source; lint blocks **new** imports of deprecated web translation paths and documents mobile deprecated exports in the journeys barrel.
+- Deprecated compatibility shims remain in source; lint blocks **new** imports of deprecated web translation paths.
 
 ## Adding an exception
 

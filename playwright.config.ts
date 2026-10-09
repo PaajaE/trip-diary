@@ -39,6 +39,8 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['html']] : 'html',
   use: {
     baseURL: 'http://127.0.0.1:5173',
+    // The specs assert Czech UI text; without this the browser language (en-US) wins.
+    locale: 'cs-CZ',
     trace: 'on-first-retry',
   },
   webServer: {

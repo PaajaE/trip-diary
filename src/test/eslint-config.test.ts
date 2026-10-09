@@ -50,51 +50,6 @@ describe('eslint workspace coverage', () => {
     expect(results[0]?.errorCount).toBe(0)
   })
 
-  it('lints mobile TSX source', async () => {
-    const eslint = new ESLint()
-    const results = await eslint.lintFiles([
-      'apps/mobile/src/features/journeys/ui/JourneyMapSection.tsx',
-    ])
-
-    expect(results).toHaveLength(1)
-    expect(results[0]?.errorCount).toBe(0)
-  }, 30_000)
-
-  it('applies mobile browser-global restrictions', async () => {
-    const eslint = new ESLint()
-    const config = await eslint.calculateConfigForFile(
-      'apps/mobile/src/platform/maps/MapViewScreen.tsx',
-    )
-
-    expectRuleEnabled(asRulesRecord(config.rules), 'no-restricted-globals')
-  })
-
-  it('restricts openDatabaseAsync outside database bootstrap', async () => {
-    const eslint = new ESLint()
-    const featureConfig = await eslint.calculateConfigForFile(
-      'apps/mobile/src/features/journeys/api/journeys.repository.ts',
-    )
-    const databaseConfig = await eslint.calculateConfigForFile(
-      'apps/mobile/src/platform/storage/database.ts',
-    )
-
-    const featureRules = asRulesRecord(featureConfig.rules)
-    const databaseRules = asRulesRecord(databaseConfig.rules)
-
-    expectRuleEnabled(featureRules, 'no-restricted-imports')
-    expect(
-      restrictedImportPaths(featureRules).some((entry) =>
-        entry.importNames?.includes('openDatabaseAsync'),
-      ),
-    ).toBe(true)
-
-    expect(
-      restrictedImportPaths(databaseRules).some((entry) =>
-        entry.importNames?.includes('openDatabaseAsync'),
-      ),
-    ).toBe(false)
-  })
-
   it('restricts deprecated web translation repository imports', async () => {
     const eslint = new ESLint()
     const config = await eslint.calculateConfigForFile(

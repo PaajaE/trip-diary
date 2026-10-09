@@ -5,7 +5,6 @@ import {
   Outlet,
 } from '@tanstack/react-router'
 import { Suspense } from 'react'
-import { z } from 'zod'
 import {
   LazyAuthPage,
   LazyCreateEntryPage,
@@ -27,6 +26,12 @@ import {
   LazyPublicStandaloneEntryRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
+import {
+  optionalEnum,
+  optionalString,
+  optionalUuid,
+  searchSchema,
+} from '@/app/search-params'
 import { requireAuth } from '@/features/auth/routing/require-auth'
 import { HomePage } from '@/pages/home/HomePage'
 
@@ -99,13 +104,10 @@ const createEntryRoute = createRoute({
 const entryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/e/$entryId',
-  validateSearch: (search) =>
-    z
-      .object({
-        notice: z.enum(['photos_failed']).optional(),
-        returnTo: z.string().optional(),
-      })
-      .parse(search),
+  validateSearch: searchSchema({
+    notice: optionalEnum(['photos_failed']),
+    returnTo: optionalString(),
+  }),
   component: LazyEntryRoutePage,
 })
 
@@ -119,18 +121,20 @@ const createJourneyRoute = createRoute({
 const journeyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId',
-  validateSearch: (search) =>
-    z
-      .object({
-        highlight: z.uuid().optional(),
-        natureGoalId: z.uuid().optional(),
-        naturePrompt: z.uuid().optional(),
-        notice: z.enum(['photos_failed', 'template_failed']).optional(),
-        section: z
-          .enum(['story', 'map', 'gallery', 'overview', 'more', 'guides'])
-          .optional(),
-      })
-      .parse(search),
+  validateSearch: searchSchema({
+    highlight: optionalUuid(),
+    natureGoalId: optionalUuid(),
+    naturePrompt: optionalUuid(),
+    notice: optionalEnum(['photos_failed', 'template_failed']),
+    section: optionalEnum([
+      'story',
+      'map',
+      'gallery',
+      'overview',
+      'more',
+      'guides',
+    ]),
+  }),
   component: LazyJourneyRoutePage,
 })
 
@@ -138,13 +142,10 @@ const createJourneyMemoryRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/memory/new',
-  validateSearch: (search) =>
-    z
-      .object({
-        focus: z.enum(['note']).optional(),
-        natureGoalId: z.uuid().optional(),
-      })
-      .parse(search),
+  validateSearch: searchSchema({
+    focus: optionalEnum(['note']),
+    natureGoalId: optionalUuid(),
+  }),
   component: LazyCreateJourneyMemoryRoutePage,
 })
 
@@ -191,10 +192,8 @@ const publicJourneyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle/$journeySlug',
   component: LazyPublicJourneyRoutePage,
-  validateSearch: z.object({
-    section: z
-      .enum(['story', 'map', 'gallery', 'collections', 'guides'])
-      .optional(),
+  validateSearch: searchSchema({
+    section: optionalEnum(['story', 'map', 'gallery', 'collections', 'guides']),
   }),
 })
 

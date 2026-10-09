@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { TRANSLATION_LOCALES } from './locale.ts'
 
 export const TRANSLATION_STATUSES = [
   'pending',
@@ -12,9 +13,9 @@ export const translationStatusSchema = z.enum(TRANSLATION_STATUSES)
 
 export type TranslationStatus = z.infer<typeof translationStatusSchema>
 
-export const translationLocaleSchema = z.enum(['cs', 'en'])
+export const translationLocaleSchema = z.enum(TRANSLATION_LOCALES)
 
-export type TranslationLocale = z.infer<typeof translationLocaleSchema>
+export type { TranslationLocale } from './locale.ts'
 
 const dateTimeSchema = z.iso.datetime({ offset: true })
 

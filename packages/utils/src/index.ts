@@ -23,6 +23,7 @@ export {
   parseNativeExifGps,
   type ParsedPhotoGps,
 } from './photo-exif-gps.ts'
+export { normalizePhotoCapturedAt } from './normalize-captured-at.ts'
 export {
   isHeicLikeImageInput,
   looksLikeHeicBytes,

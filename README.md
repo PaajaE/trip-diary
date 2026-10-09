@@ -6,7 +6,7 @@ photo spotting, regional species guide (GBIF + Wikipedia), and photo bubble map 
 
 ## Requirements
 
-- Node.js 22
+- Node.js 24
 - pnpm 11
 - Supabase CLI
 - Docker Desktop for local Supabase
@@ -26,7 +26,7 @@ Copy `.env.example` to `.env.local` after starting or linking Supabase.
 pnpm check
 ```
 
-This runs formatting, lint (web + shared packages + mobile), strict TypeScript
+This runs formatting, lint (web + shared packages), strict TypeScript
 checks, unit tests, and the production build.
 
 Focused lint scopes:
@@ -34,8 +34,6 @@ Focused lint scopes:
 ```bash
 pnpm lint:web
 pnpm lint:packages
-pnpm lint:mobile
-pnpm --filter mobile lint
 ```
 
 See [docs/linting.md](docs/linting.md) for platform-specific rule sets and justified exceptions.
@@ -58,6 +56,11 @@ Database migrations are the source of truth. The generated
 ## Architecture
 
 See [docs/architecture.md](docs/architecture.md).
+
+## Roadmap
+
+The v2 rebuild plan is [docs/plan-v2.md](docs/plan-v2.md). Older plans and
+reports live in [docs/archive/](docs/archive/).
 
 ## Native applications
 

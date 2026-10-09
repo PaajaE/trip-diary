@@ -2,6 +2,7 @@ import { Camera, MediaType, MediaTypeSelection } from '@capacitor/camera'
 import { Capacitor } from '@capacitor/core'
 import { FilePicker, type PickedFile } from '@capawesome/capacitor-file-picker'
 import exifr from 'exifr'
+import { normalizePhotoCapturedAt } from '@trip-diary/utils'
 import {
   getMeaningfulGpsCoordinates,
   isMeaningfulGpsCoordinate,
@@ -511,8 +512,7 @@ function normalizeCapturedAt(value: string | undefined) {
     return undefined
   }
 
-  const date = new Date(value)
-  return Number.isNaN(date.valueOf()) ? null : date.toISOString()
+  return normalizePhotoCapturedAt(value)
 }
 
 function parseCapturedAt(value: string | undefined) {

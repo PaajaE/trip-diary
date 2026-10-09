@@ -5,7 +5,7 @@ import type {
   Session,
   Subscription,
 } from '@supabase/supabase-js'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import { loadCurrentProfile } from '@/features/auth/session/load-current-profile'
 import { SessionProvider } from '@/features/auth/session/SessionProvider'
@@ -74,6 +74,22 @@ describe('SessionProvider', () => {
   beforeEach(() => {
     vi.mocked(loadCurrentProfile).mockReset()
     vi.mocked(getSupabaseClient).mockReset()
+    // A persisted session makes the provider load the auth runtime straight away.
+    window.localStorage.setItem('sb-test-auth-token', '{}')
+  })
+
+  afterEach(() => {
+    window.localStorage.clear()
+  })
+
+  it('renders signed out immediately when no session is persisted', () => {
+    window.localStorage.clear()
+    createAuthClient(null)
+
+    const { result } = renderHook(() => useSession(), { wrapper })
+
+    expect(result.current.loading).toBe(false)
+    expect(result.current.user).toBeNull()
   })
 
   it('falls back to a signed-out state when Supabase is not configured', async () => {

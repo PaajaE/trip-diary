@@ -89,14 +89,157 @@ export const en = {
     tryAgain: 'Try again',
   },
   home: {
-    eyebrow: 'Your journeys, clearly remembered',
-    title: 'A calm place for every road you take.',
+    meta: {
+      title: 'Trip Diary – every journey on the map and in the story',
+      description:
+        'Photos and videos fall into place on a map and a timeline, you add the story. A travel diary for family and friends, on phone and desktop.',
+    },
+    eyebrow: 'A travel diary for family and friends',
+    title: 'Every journey, on the map and in the story.',
     description:
-      'Capture photos and stories in seconds. Organize them into journeys whenever it suits you.',
+      'Photos and videos find their place on the map and the timeline almost by themselves. You add how it really felt, then send a link to the people who matter.',
     primaryAction: 'Create a trip',
-    secondaryAction: 'Quick note',
+    myTrips: 'My trips',
     signIn: 'Sign in',
-    status: 'Offline-ready foundation',
+    demo: 'Sample trip',
+    soon: 'Coming soon',
+    soonNote:
+      'Anything marked “Coming soon” does not work yet. The rest you can use today.',
+    illustrationLabel:
+      'Illustration of a route across a map with points where photos and moments were taken',
+    how: {
+      title: 'How it works',
+      intro: 'Three steps, no forms to fill in.',
+      steps: {
+        capture: {
+          title: 'Shoot as you go',
+          body: 'Your phone gathers photos and videos along the way, even without signal. No typing on the trail, just living it.',
+        },
+        place: {
+          title: 'The app lays it out',
+          body: 'Time and location are read straight from your photos. Media settle onto the map and the timeline, and clusters turn into moments and trips.',
+        },
+        share: {
+          title: 'Write the story, share it',
+          body: 'On a computer you can take your time with the long texts. Then send a link to family and friends.',
+        },
+      },
+    },
+    structure: {
+      title: 'Order that builds itself',
+      intro:
+        'Every journey has the same simple shape. A photo or video is the foundation; moments, trips and stages grow on top of it. A manual edit always beats the automation.',
+      exampleLabel: 'Fictional example',
+      exampleLabelFor: 'Example structure of a journey',
+      autoNote: 'The app suggests moments and trips; you just confirm them.',
+      kinds: {
+        journey: 'Journey',
+        stage: 'Stage',
+        trip: 'Trip',
+        moment: 'Moment',
+        media: 'Photo / Video',
+      },
+      tripTypes: {
+        trek: 'trek',
+        day: 'day trip',
+        transfer: 'transfer',
+        stay: 'stay',
+      },
+      example: {
+        journey: 'Summer in Canada',
+        okanagan: 'Okanagan',
+        workaway: 'Workaway near Vernon',
+        north: 'Heading north',
+        cassiar: 'Cassiar Highway',
+        salmon: 'Salmon Glacier',
+        rockies: 'Back in the Rockies',
+        magog: 'Lake Magog, 6 days',
+        dusk: 'Dusk over the lake',
+        media: '12 photos and 1 video',
+      },
+    },
+    map: {
+      title: 'The map is the base, time is the axis',
+      body: 'Every photo with a location gets a point on the map. The route emerges from where you walked, and the timeline shows when things happened. No pinning by hand.',
+      points: {
+        exif: 'Time and location come from your photos',
+        timezone: 'The right time zone, even across a continent',
+        manual: 'Your manual edits are never overwritten',
+      },
+      illustrationLabel:
+        'Illustration: points on a map linked to the timeline of a day',
+      axisStart: '9:10 am',
+      axisMid: '12:40 pm',
+      axisEnd: '5:25 pm',
+    },
+    gallery: {
+      note: 'Illustrative photos.',
+      road: {
+        alt: 'A road winding through a forest towards the mountains',
+        caption: 'Transfer: the road is part of the trip',
+      },
+      lake: {
+        alt: 'A turquoise mountain lake below rocky peaks',
+        caption: 'Trek: six days to a single lake',
+      },
+      desk: {
+        alt: 'A map, a camera and a bunch of wildflowers on a table',
+        caption: 'At home: writing down how it really was',
+      },
+    },
+    audience: {
+      title: 'Who it is for',
+      intro: 'For people who like to return to what they lived through.',
+      family: {
+        title: 'Family',
+        body: 'Grandparents can see where you are right now, without installing anything.',
+      },
+      friends: {
+        title: 'Friends',
+        body: 'Instead of a hundred photos in a chat, send one link with a map and a story.',
+      },
+      long: {
+        title: 'Long journeys',
+        body: 'Months on the road fall into stages and trips you will still find your way around a year later.',
+      },
+      treks: {
+        title: 'Treks',
+        body: 'A six-day crossing or an afternoon hike. Route, views and words in one place.',
+      },
+      extras: {
+        title: 'And on top',
+        publicPage: {
+          title: 'A public page for each journey',
+          body: 'A beautiful page with a map. Guests can leave hearts and comments without signing up.',
+        },
+        tips: {
+          title: 'Practical tips',
+          body: 'Notes about places that do not belong to one journey: where to find water, where not to go.',
+        },
+        tags: {
+          title: 'Tags',
+          body: 'Fauna, flora and more. Find every bear across all your journeys.',
+        },
+      },
+    },
+    closing: {
+      title: 'Start with your first journey.',
+      body: 'A name is enough to begin. The rest fills in as the road goes on.',
+    },
+    footer: {
+      tagline:
+        'The map, the photos and videos, and the story of every journey.',
+      navigation: 'Footer links',
+      how: 'How it works',
+      structure: 'Structure',
+      audience: 'Who it is for',
+      rights: 'All rights reserved.',
+    },
+  },
+  language: {
+    label: 'Language',
+    cs: 'Čeština',
+    en: 'English',
   },
   navigation: {
     account: 'Account',

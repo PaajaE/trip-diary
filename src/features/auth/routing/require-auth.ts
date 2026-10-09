@@ -1,12 +1,12 @@
 import { redirect } from '@tanstack/react-router'
 import { storeAuthReturnPath } from '@/features/auth/session/auth-return'
-import { getSupabaseClient } from '@/shared/api/supabase'
 
 export async function requireAuth({
   location,
 }: {
   location: { pathname: string; searchStr: string }
 }): Promise<void> {
+  const { getSupabaseClient } = await import('@/shared/api/supabase')
   let client: ReturnType<typeof getSupabaseClient>
   try {
     client = getSupabaseClient()
