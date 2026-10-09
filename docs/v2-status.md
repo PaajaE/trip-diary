@@ -170,3 +170,19 @@ Poznámky:
   `media.cestovni-denik.cz`, R2 API token (Object Read & Write na bucket) →
   `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` do
   Supabase secrets.
+
+## Fáze 2 — nahrávání (2026-10-09, rozpracováno)
+
+Větev `v2/phase-2-upload` (nad Fází 3).
+
+- R2: CORS ověřen (`https://cestovni-denik.cz` dostane hlavičky, cizí původ ne),
+  `media.cestovni-denik.cz` odpovídá přes Cloudflare.
+- **Rozhodnutí 2026-10-09: čtení médií přes veřejné, neuhodnutelné URL**
+  (`<userId>/<mediaId>/<kind>.<ext>` na `media.cestovni-denik.cz`). Ve v1 byl
+  bucket soukromý; při potřebě lze doplnit Cloudflare Worker s podpisy.
+- `media-upload` edge funkce: podepsaný PUT pro varianty fotek (Content-Type v
+  podpisu, max 20 MB), multipart pro video (díly 8 MB, max 120 MB), klíče jen ve
+  složce přihlášeného uživatele. Čistá logika v `_shared/media/upload.ts`,
+  testy v `@trip-diary/core` (`media-upload`).
+- Zbývá: ověřit proti skutečnému R2, web klient (zpracování fotek z PC →
+  varianty → upload → záznam v `media`), iOS nativní pipeline (iPhone).
