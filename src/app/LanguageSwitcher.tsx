@@ -20,7 +20,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
           <button
             aria-pressed={active}
             className={cn(
-              'inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center rounded-full px-3 text-xs font-semibold tracking-wide uppercase transition-colors',
+              'inline-flex min-h-11 min-w-10 cursor-pointer items-center justify-center rounded-full px-2 text-xs font-semibold tracking-wide uppercase transition-colors',
               active
                 ? 'text-primary underline decoration-2 underline-offset-8'
                 : 'text-muted hover:text-foreground',

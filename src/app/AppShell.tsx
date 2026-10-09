@@ -31,9 +31,21 @@ export function AppShell({ children }: PropsWithChildren) {
             </Link>
             <nav
               aria-label={t('navigation.account')}
-              className="flex items-center gap-2"
+              className="flex min-w-0 items-center gap-1 sm:gap-2"
             >
-              {minimalPublicShell ? null : <SyncStatusControl />}
+              {minimalPublicShell ? null : (
+                // Signed-out visitors have nothing to sync; on phones the label
+                // would push the language switcher out of the header.
+                <span
+                  className={
+                    user === null && !loading
+                      ? 'hidden sm:contents'
+                      : 'contents'
+                  }
+                >
+                  <SyncStatusControl />
+                </span>
+              )}
               {loading ? (
                 <span
                   aria-label={t('navigation.loading')}
