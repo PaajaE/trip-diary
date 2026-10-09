@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./entry": "./src/entry.ts",
-    "./journey": "./src/journey.ts"
+    "./journey": "./src/journey.ts",
+    "./public-journey": "./src/public-journey.ts"
   },
   "scripts": {
     "test": "vitest run",
