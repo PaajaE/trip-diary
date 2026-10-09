@@ -25,6 +25,11 @@ export {
 } from './photo-exif-gps.ts'
 export { normalizePhotoCapturedAt } from './normalize-captured-at.ts'
 export {
+  parseExifCaptureInstant,
+  parseExifOffsetMinutes,
+  type ExifCaptureInstant,
+} from './exif-datetime.ts'
+export {
   isHeicLikeImageInput,
   looksLikeHeicBytes,
   looksLikeJpegBytes,
