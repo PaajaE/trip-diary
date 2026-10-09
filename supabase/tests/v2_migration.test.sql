@@ -39,7 +39,7 @@ insert into public.photos (id, creator_id, captured_at, latitude, longitude, med
 insert into public.photo_variants (photo_id, creator_id, variant, storage_path, width, height, byte_size, mime_type) values
 ('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','thumb','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/thumb.webp',220,165,9000,'image/webp'),
 ('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','small','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/small.webp',800,600,60000,'image/webp'),
-('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','preview','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/preview.webp',1000,750,80000,'image/webp'),
+('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','preview','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/preview.webp',2400,1800,400000,'image/webp'),
 ('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','large','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/large.webp',1600,1200,200000,'image/webp'),
 ('b4000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000081','full','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/full.webp',2400,1800,400000,'image/webp'),
 ('b4000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000081','thumb','00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000002/thumb.jpg',220,124,8000,'image/jpeg'),
@@ -102,7 +102,7 @@ select results_eq(
      ('thumb'::text, '00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/thumb.webp'::text),
      ('small', '00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/small.webp'),
      ('large', '00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/full.webp') $$,
-  'variants collapse to the v2 set, preferring small over preview and full over large'
+  'variants collapse to the v2 set; full wins over large and the legacy full-size preview'
 );
 select results_eq(
   $$ select kind::text, duration_ms, width, height from public.media
@@ -170,12 +170,12 @@ select results_eq(
   $$ select array_agg(id order by id) from public.places
      where id in ('b2000000-0000-4000-8000-000000000001','b2000000-0000-4000-8000-000000000002') $$,
   $$ values (array['b2000000-0000-4000-8000-000000000001'::uuid]) $$,
-  'visited stop becomes a place, planned stop does not'
+  'stop used by an entry becomes a place, bare stop does not'
 );
 select results_eq(
-  $$ select (public.v2_migrate_from_v1() ->> 'skipped_planned_stops')::int $$,
+  $$ select (public.v2_migrate_from_v1() ->> 'skipped_stops')::int $$,
   $$ values (1) $$,
-  'planned stops are reported as skipped'
+  'stops without entries are reported as skipped'
 );
 
 -- ------------------------------------------------------------------ idempotence

@@ -89,7 +89,36 @@ Ověření:
 - `supabase test db`: ✅ 394 testů (z toho 71 nových: `v2_schema_rls`, `v2_migration`)
 - `pnpm check` ✅, `pnpm test:packages` ✅, `db:lint` bez nových nálezů, `db:types` přegenerováno
 
-Zbývá do brány Fáze 1:
+### Brána Fáze 1 — zkouška na kopii produkce (2026-10-09) ✅
 
-- Spustit migraci na kopii produkční databáze (`pg_dump` → lokálně →
-  `v2_migrate_from_v1()` → `v2_verify_migration()`). Potřebuje přístup k produkci.
+Data z produkce načtena jen `SELECT` dotazy (Supabase MCP), nahrána do lokální
+databáze a ověřena kontrolními součty (5/5 shodných md5 přes fotky, varianty,
+přiřazení, zastávky a záznamy). Texty záznamů nahrazeny zástupným textem, bez
+e-mailů a přihlašovacích údajů. Po zkoušce lokální kopie i pomocné soubory smazány.
+
+| Výsledek                   | Hodnota                                        |
+| -------------------------- | ---------------------------------------------- |
+| `v2_verify_migration()`    | 9/9 kontrol ✅                                 |
+| media / varianty           | 56 / 203 (z 252; `preview` = `full`, sloučeno) |
+| momenty                    | 5, datum z fotek (Yoho 1.–2. 6. místo 26. 8.)  |
+| místa                      | 5 (3 zastávky bez záznamu přeskočeny)          |
+| inbox (fotky mimo záznamy) | 7                                              |
+| možné duplicity            | 11 skupin                                      |
+| `get_public_journey`       | 2,4 ms, 57 kB, 49 médií                        |
+
+Úpravy migrace vynucené reálnými daty:
+
+- v1 `preview` je ve skutečnosti originál (stejné bajty jako `full`) → mapuje se na
+  `large` s nižší prioritou než `full`.
+- Místa jen ze zastávek, na které odkazuje záznam (ne z holých značek na mapě).
+- Výstup hlásí `possible_duplicate_media`.
+
+Datové problémy v produkci (řešit při přepnutí / ve v2 UI):
+
+- Zastávka „Calgary“ má kladnou zeměpisnou délku (114.06 → leží ve Střední Asii).
+  Ve v2 se nepřenese.
+- Duplicitní fotky: stejné fotky nahrané do více záznamů (např. Rocky Mountains vs.
+  inbox a Sálal). Ve v2 nabídnout sloučení duplicit.
+- Momenty z v1 se časově překrývají (Sálal, Yoho, Jéje 31. 5.–3. 6.) a jsou
+  zamčené (`locked`). Ve Fázi 3 rozhodnout, zda je automatika smí přeskupit.
+- Fotky z mezipřistání v Dublinu jsou v momentu „Welcome to Calgary“.

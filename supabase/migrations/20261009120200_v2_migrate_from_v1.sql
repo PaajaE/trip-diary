@@ -12,9 +12,9 @@
 --   entries outside journeys    -> posts (tip -> tip, others -> article)
 --   journey_guide_sections      -> posts (tip, linked to the journey)
 --   photos / photo_variants     -> media / media_variants (same ids, same keys)
---   stops used by entries or visited -> places (same id)
+--   stops used by entries   -> places (same id)
 --   journey_photo_tags          -> tags (free) + taggings on media
--- Not migrated (frozen, see plan chapter 9): planned stops, checklists,
+-- Not migrated (frozen, see plan chapter 9): stops without entries, checklists,
 -- translations, nature observations; hearts/comments move in phase 5.
 
 create or replace function public.v2_map_variant_kind(p_variant text)
@@ -26,7 +26,8 @@ as $$
   select case p_variant
     when 'thumb' then 'thumb'::public.media_variant_kind
     when 'small' then 'small'::public.media_variant_kind
-    when 'preview' then 'small'::public.media_variant_kind
+    -- v1 'preview' holds the full-resolution upload (same bytes as 'full').
+    when 'preview' then 'large'::public.media_variant_kind
     when 'medium' then 'medium'::public.media_variant_kind
     when 'full' then 'large'::public.media_variant_kind
     when 'large' then 'large'::public.media_variant_kind
@@ -43,9 +44,8 @@ set search_path = ''
 as $$
   select case p_variant
     when 'full' then 0
-    when 'small' then 0
     when 'large' then 1
-    when 'preview' then 1
+    when 'preview' then 2
     else 0
   end
 $$;
@@ -59,16 +59,14 @@ declare
   v_counts jsonb := '{}'::jsonb;
   v_rows bigint;
 begin
-  -- 1. Places from stops that carry real memories (visited or used by entries).
+  -- 1. Places from stops that carry real memories (used by an entry). Bare
+  --    map markers are skipped: in v2 places are derived from media.
   insert into public.places (id, name, latitude, longitude, geocode_source, created_at)
   select st.id, st.title, st.latitude, st.longitude, 'v1-stop', st.created_at
   from public.journey_stops st
   where st.latitude is not null
     and char_length(st.title) between 1 and 200
-    and (
-      st.status = 'visited'
-      or exists (select 1 from public.entry_journey_links l where l.stop_id = st.id)
-    )
+    and exists (select 1 from public.entry_journey_links l where l.stop_id = st.id)
   on conflict (id) do nothing;
   get diagnostics v_rows = row_count;
   v_counts := v_counts || jsonb_build_object('places', v_rows);
@@ -333,7 +331,7 @@ begin
 
   -- Frozen / deferred data, reported so nothing disappears silently.
   v_counts := v_counts || jsonb_build_object(
-    'skipped_planned_stops', (
+    'skipped_stops', (
       select count(*) from public.journey_stops st
       where not exists (select 1 from public.places p where p.id = st.id)
     ),
@@ -341,7 +339,17 @@ begin
     'frozen_translations', (select count(*) from public.entry_translations),
     'frozen_nature_observations', (select count(*) from public.nature_observations),
     'deferred_hearts', (select count(*) from public.content_hearts),
-    'deferred_comments', (select count(*) from public.content_comments)
+    'deferred_comments', (select count(*) from public.content_comments),
+    -- Same owner, capture time and position: most likely the same photo
+    -- uploaded twice into different v1 entries. Kept; deduplicate in the UI.
+    'possible_duplicate_media', (
+      select count(*) from (
+        select 1 from public.media m
+        where m.captured_at is not null
+        group by m.owner_id, m.captured_at, m.latitude, m.longitude
+        having count(*) > 1
+      ) d
+    )
   );
 
   return v_counts;
