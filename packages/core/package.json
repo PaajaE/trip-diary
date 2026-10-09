@@ -6,7 +6,8 @@
   "exports": {
     "./entry": "./src/entry.ts",
     "./journey": "./src/journey.ts",
-    "./public-journey": "./src/public-journey.ts"
+    "./public-journey": "./src/public-journey.ts",
+    "./automation": "./src/automation/index.ts"
   },
   "scripts": {
     "test": "vitest run",
