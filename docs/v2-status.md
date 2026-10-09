@@ -149,7 +149,24 @@ Poznámky:
 - Testovací data: souřadnice posunuté o konstantu, syntetická ID (repozitář je
   veřejný).
 
+### Názvy míst — rozhodnutí
+
+- **Mapy.com nelze**: podmínky zakazují ukládat výsledky API (čl. 4.6.2).
+- **OSM Nominatim** (rozhodnuto 2026-10-09) podle
+  [zásad použití](https://operations.osmfoundation.org/policies/nominatim/):
+  max 1 požadavek/s za celou aplikaci (`claim_geocoder_slot`), vlastní User-Agent,
+  povinné ukládání výsledků (`place_lookups`, `places.source_ref`), jen použití
+  vyvolané uživatelem při mírném počtu uživatelů. Při otevření veřejnosti přejít
+  na vlastní instanci nebo placenou službu.
+- **Atribuce**: všude, kde se zobrazují názvy míst, uvést „© OpenStreetMap
+  contributors“ (Fáze 4/5).
+- Volat jen pro momenty bez místa (ne pro každou fotku).
+
 ## Cloudflare R2 (2026-10-09)
 
-- Konektor Cloudflare připojen; R2 v účtu zatím **není zapnuté** (chyba 10042).
-  Zapnout v dashboardu (R2 Object Storage, vyžaduje platební metodu).
+- Bucket `trip-diary-media` vytvořen (ENAM, Standard). Doména `cestovni-denik.cz`
+  je na Cloudflare DNS.
+- Zbývá v dashboardu: CORS (JSON v konverzaci), vlastní doména
+  `media.cestovni-denik.cz`, R2 API token (Object Read & Write na bucket) →
+  `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` do
+  Supabase secrets.
