@@ -16,6 +16,11 @@ const STEPS = [
 ] as const
 
 const AUDIENCE = ['family', 'friends', 'long', 'treks'] as const
+const PHOTOS = [
+  { key: 'road', src: '/landing/road.webp' },
+  { key: 'lake', src: '/landing/lake.webp' },
+  { key: 'desk', src: '/landing/desk.webp' },
+] as const
 const EXTRAS = ['publicPage', 'tips', 'tags'] as const
 
 const sectionClass = 'scroll-mt-20 px-5 py-16 sm:px-8 sm:py-24'
@@ -160,6 +165,32 @@ export function HomePage() {
                 <SoonBadge />
               </p>
             </div>
+          </div>
+        </section>
+
+        <section className="px-5 pt-4 pb-4 sm:px-8">
+          <div className="mx-auto max-w-5xl">
+            <ul className="grid gap-5 md:grid-cols-3">
+              {PHOTOS.map(({ key, src }) => (
+                <li key={key}>
+                  <figure>
+                    <img
+                      alt={t(`home.gallery.${key}.alt`)}
+                      className="aspect-[4/3] w-full rounded-3xl object-cover"
+                      decoding="async"
+                      height={600}
+                      loading="lazy"
+                      src={src}
+                      width={800}
+                    />
+                    <figcaption className="mt-3 text-sm text-muted">
+                      {t(`home.gallery.${key}.caption`)}
+                    </figcaption>
+                  </figure>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-xs text-muted">{t('home.gallery.note')}</p>
           </div>
         </section>
 

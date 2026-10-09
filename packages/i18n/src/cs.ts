@@ -174,6 +174,21 @@ export const cs: TranslationResources = {
       axisMid: '12:40',
       axisEnd: '17:25',
     },
+    gallery: {
+      note: 'Ilustrační fotografie.',
+      road: {
+        alt: 'Silnice vinoucí se lesem směrem k horám',
+        caption: 'Přesun: i cesta je zážitek',
+      },
+      lake: {
+        alt: 'Tyrkysové horské jezero pod skalnatými štíty',
+        caption: 'Trek: šest dní k jednomu jezeru',
+      },
+      desk: {
+        alt: 'Mapa, fotoaparát a kytice polních květin na stole',
+        caption: 'Doma: dopsat, jak to bylo',
+      },
+    },
     audience: {
       title: 'Pro koho to je',
       intro: 'Pro lidi, kteří se rádi vracejí k tomu, co zažili.',

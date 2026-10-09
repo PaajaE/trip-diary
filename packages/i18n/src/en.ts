@@ -172,6 +172,21 @@ export const en = {
       axisMid: '12:40 pm',
       axisEnd: '5:25 pm',
     },
+    gallery: {
+      note: 'Illustrative photos.',
+      road: {
+        alt: 'A road winding through a forest towards the mountains',
+        caption: 'Transfer: the road is part of the trip',
+      },
+      lake: {
+        alt: 'A turquoise mountain lake below rocky peaks',
+        caption: 'Trek: six days to a single lake',
+      },
+      desk: {
+        alt: 'A map, a camera and a bunch of wildflowers on a table',
+        caption: 'At home: writing down how it really was',
+      },
+    },
     audience: {
       title: 'Who it is for',
       intro: 'For people who like to return to what they lived through.',
