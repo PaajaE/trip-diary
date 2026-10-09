@@ -1,12 +1,25 @@
 import { Link, useNavigate, useRouterState } from '@tanstack/react-router'
 import { LogOut, MapPinned } from 'lucide-react'
-import { useEffect, useRef, useState, type PropsWithChildren } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+} from 'react'
 import { useTranslation } from 'react-i18next'
+import { LanguageSwitcher } from '@/app/LanguageSwitcher'
 import { useSession } from '@/features/auth/session'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
-import { SyncStatusControl } from '@/features/sync/ui/SyncStatusControl'
 import { Avatar } from '@/shared/ui/Avatar'
+
+const SyncStatusControl = lazy(() =>
+  import('@/features/sync/ui/SyncStatusControl').then(
+    ({ SyncStatusControl }) => ({ default: SyncStatusControl }),
+  ),
+)
 
 export function AppShell({ children }: PropsWithChildren) {
   const { t } = useTranslation()
@@ -23,28 +36,35 @@ export function AppShell({ children }: PropsWithChildren) {
   return (
     <>
       {immersiveReaderShell ? null : (
-        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 px-5 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:pr-[max(2rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))]">
           <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
             <Link className="text-sm font-semibold tracking-wide" to="/">
               {t('brand')}
             </Link>
             <nav
               aria-label={t('navigation.account')}
-              className="flex items-center gap-2"
+              className="flex min-w-0 items-center gap-1 sm:gap-2"
             >
-              {minimalPublicShell ? null : <SyncStatusControl />}
+              {minimalPublicShell || (user === null && !loading) ? null : (
+                <Suspense fallback={null}>
+                  <SyncStatusControl />
+                </Suspense>
+              )}
               {loading ? (
                 <span
                   aria-label={t('navigation.loading')}
                   className="size-10 animate-pulse rounded-full bg-surface"
                 />
               ) : user === null ? (
-                <Link
-                  className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
-                  to="/sign-in"
-                >
-                  {t('home.signIn')}
-                </Link>
+                <>
+                  <LanguageSwitcher />
+                  <Link
+                    className="inline-flex min-h-11 items-center rounded-md px-3 text-sm font-semibold text-primary hover:bg-surface"
+                    to="/sign-in"
+                  >
+                    {t('home.signIn')}
+                  </Link>
+                </>
               ) : (
                 <>
                   <Link

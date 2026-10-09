@@ -85,21 +85,162 @@ export const cs: TranslationResources = {
       title: 'Něco se nepovedlo',
     },
   },
-  brand: 'Trip Diary',
+  brand: 'Cestovní deník',
   common: {
     cancel: 'Zrušit',
     loading: 'Načítání…',
     tryAgain: 'Zkusit znovu',
   },
   home: {
-    eyebrow: 'Vaše cesty, uchované s lehkostí',
-    title: 'Klidné místo pro každou cestu.',
+    meta: {
+      title: 'Cestovní deník – mapa, fotky a příběh každé cesty',
+      description:
+        'Fotky a videa se řadí na mapu a do času, vy dopíšete příběh. Cestovní deník pro rodinu a přátele, na mobilu i na počítači.',
+    },
+    eyebrow: 'Cestovní deník pro rodinu a přátele',
+    title: 'Každá cesta, na mapě i v příběhu.',
     description:
-      'Zachyťte fotky a příběhy během pár sekund. Do cest je uspořádáte, až budete chtít.',
+      'Fotky a videa se řadí na mapu a do času skoro samy. Vy k nim dopíšete, jak to opravdu bylo, a pošlete odkaz těm, na kterých vám záleží.',
     primaryAction: 'Vytvořit cestu',
-    secondaryAction: 'Rychlá poznámka',
+    myTrips: 'Moje cesty',
     signIn: 'Přihlásit se',
-    status: 'Připraveno pro práci offline',
+    demo: 'Ukázková cesta',
+    soon: 'Připravujeme',
+    soonNote:
+      'Co je označené „Připravujeme“, ještě nefunguje. Zbytek můžete používat už dnes.',
+    illustrationLabel:
+      'Ilustrace trasy po mapě s body, kde vznikly fotky a momenty',
+    how: {
+      title: 'Jak to funguje',
+      intro: 'Tři kroky a žádné vyplňování formulářů.',
+      steps: {
+        capture: {
+          title: 'Fotíš a natáčíš',
+          body: 'Telefon sbírá fotky a videa po cestě, i bez signálu. Na mobilu nic nepíšeš, jen zažíváš.',
+        },
+        place: {
+          title: 'Aplikace to rozloží',
+          body: 'Čas a poloha se čtou přímo z fotek. Média si sama najdou místo na mapě a v časové ose a ze shluků vznikají momenty a výlety.',
+        },
+        share: {
+          title: 'Dopíšeš příběh a sdílíš',
+          body: 'Na počítači si v klidu dopíšeš dlouhé texty. Pak pošleš odkaz rodině a přátelům.',
+        },
+      },
+    },
+    structure: {
+      title: 'Pořádek, který se skládá sám',
+      intro:
+        'Každá cesta má stejnou jednoduchou stavbu. Základem je fotka nebo video, nad nimi vznikají momenty, výlety a etapy. Ruční úprava má vždy přednost před automatikou.',
+      exampleLabel: 'Ukázka (smyšlená)',
+      exampleLabelFor: 'Ukázka struktury cesty',
+      autoNote: 'Momenty a výlety aplikace navrhne, vy je jen potvrdíte.',
+      kinds: {
+        journey: 'Cesta',
+        stage: 'Etapa',
+        trip: 'Výlet',
+        moment: 'Moment',
+        media: 'Fotka / Video',
+      },
+      tripTypes: {
+        trek: 'trek',
+        day: 'výlet',
+        transfer: 'přesun',
+        stay: 'pobyt',
+      },
+      example: {
+        journey: 'Léto v Kanadě',
+        okanagan: 'Okanagan',
+        workaway: 'Workaway u Vernonu',
+        north: 'Na sever',
+        cassiar: 'Cassiar Highway',
+        salmon: 'Salmon Glacier',
+        rockies: 'Zpět v Rockies',
+        magog: 'Lake Magog, 6 dní',
+        dusk: 'Soumrak nad jezerem',
+        media: '12 fotek a 1 video',
+      },
+    },
+    map: {
+      title: 'Mapa je základ, čas je osa',
+      body: 'Každá fotka s polohou má na mapě svůj bod. Trasa vznikne z míst, kudy jste šli, a časová osa ukáže, kdy se co stalo. Žádné ruční připínání špendlíků.',
+      points: {
+        exif: 'Čas a poloha se berou z fotek',
+        timezone: 'Správné časové pásmo i napříč kontinentem',
+        manual: 'Ruční úprava se nikdy nepřepíše',
+      },
+      illustrationLabel: 'Ilustrace: body na mapě propojené s časovou osou dne',
+      axisStart: '9:10',
+      axisMid: '12:40',
+      axisEnd: '17:25',
+    },
+    gallery: {
+      note: 'Ilustrační fotografie.',
+      road: {
+        alt: 'Silnice vinoucí se lesem směrem k horám',
+        caption: 'Přesun: i cesta je zážitek',
+      },
+      lake: {
+        alt: 'Tyrkysové horské jezero pod skalnatými štíty',
+        caption: 'Trek: šest dní k jednomu jezeru',
+      },
+      desk: {
+        alt: 'Mapa, fotoaparát a kytice polních květin na stole',
+        caption: 'Doma: dopsat, jak to bylo',
+      },
+    },
+    audience: {
+      title: 'Pro koho to je',
+      intro: 'Pro lidi, kteří se rádi vracejí k tomu, co zažili.',
+      family: {
+        title: 'Rodina',
+        body: 'Babičky a dědové uvidí, kde právě jste, a nemusí k tomu nic instalovat.',
+      },
+      friends: {
+        title: 'Přátelé',
+        body: 'Místo stovky fotek v chatu pošlete jeden odkaz s mapou a příběhem.',
+      },
+      long: {
+        title: 'Dlouhé cesty',
+        body: 'Měsíce na cestě se složí do etap a výletů, ve kterých se vyznáte i za rok.',
+      },
+      treks: {
+        title: 'Treky',
+        body: 'Šestidenní přechod i odpolední výlet. Trasa, výhledy a texty na jednom místě.',
+      },
+      extras: {
+        title: 'A k tomu',
+        publicPage: {
+          title: 'Veřejná stránka cesty',
+          body: 'Krásná stránka s mapou. Srdíčka a komentáře mohou přidat i hosté bez registrace.',
+        },
+        tips: {
+          title: 'Praktické tipy',
+          body: 'Zápisky o místech, které nepatří ke konkrétní cestě: kde sehnat vodu, kudy se nechodí.',
+        },
+        tags: {
+          title: 'Tagy',
+          body: 'Fauna, flóra a další. Podle tagů najdete třeba všechny medvědy napříč cestami.',
+        },
+      },
+    },
+    closing: {
+      title: 'Začněte první cestou.',
+      body: 'Nejdřív stačí název. Zbytek se doplní, jak půjde cesta.',
+    },
+    footer: {
+      tagline: 'Mapa, fotky a videa a příběh každé cesty.',
+      navigation: 'Odkazy v patičce',
+      how: 'Jak to funguje',
+      structure: 'Struktura',
+      audience: 'Pro koho',
+      rights: 'Všechna práva vyhrazena.',
+    },
+  },
+  language: {
+    label: 'Jazyk',
+    cs: 'Čeština',
+    en: 'English',
   },
   navigation: {
     account: 'Účet',

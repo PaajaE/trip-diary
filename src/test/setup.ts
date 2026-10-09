@@ -2,6 +2,12 @@ import '@testing-library/jest-dom/vitest'
 import 'fake-indexeddb/auto'
 import { Buffer } from 'node:buffer'
 
+// Tests assume the Czech UI unless a test opts into another language.
+Object.defineProperty(navigator, 'languages', {
+  configurable: true,
+  value: ['cs-CZ'],
+})
+
 Object.defineProperty(window, 'scrollTo', {
   configurable: true,
   value: () => undefined,

@@ -4,7 +4,7 @@ test('shows the primary capture action', async ({ page }) => {
   await page.goto('/')
 
   await expect(
-    page.getByRole('main').getByRole('link', { name: 'Rychlá poznámka' }),
+    page.getByRole('main').getByRole('link', { name: 'Přihlásit se' }),
   ).toBeVisible()
 })
 

@@ -16,3 +16,14 @@ Plán: [plan-v2.md](plan-v2.md)
 
 - `pnpm check`: ✅ (116 testovacích souborů, 358 testů + 2 očekávaně selhávající)
 - `pnpm test:packages`: ✅
+
+## Landing page: zdroje fotografií
+
+Ilustrační fotky v `public/landing/` jsou z Pexels (licence Pexels, bez povinné
+atribuce, bez lidí). Autor je může kdykoli nahradit vlastními.
+
+| Soubor      | Zdroj                                 |
+| ----------- | ------------------------------------- |
+| `road.webp` | https://www.pexels.com/photo/3266523/ |
+| `lake.webp` | https://www.pexels.com/photo/7054237/ |
+| `desk.webp` | https://www.pexels.com/photo/7235808/ |
