@@ -88,9 +88,7 @@ test('Czech moment can be translated to English with mock provider', async ({
 
   await translationPanel.getByLabel('Anglický název').fill(editedTitle)
   await translationPanel.getByLabel('Anglický text').fill(editedBody)
-  await translationPanel
-    .getByRole('button', { name: 'Uložit úpravy' })
-    .click()
+  await translationPanel.getByRole('button', { name: 'Uložit úpravy' }).click()
 
   await expect(
     translationPanel.getByText(

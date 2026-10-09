@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@11.5.2",
   "scripts": {
     "test:packages": "pnpm -r --filter './packages/*' test",
     "dev": "vite",
@@ -19,7 +20,6 @@
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "lint:packages": "eslint \"packages/*/src/**/*.{ts,tsx}\" \"packages/*/vitest.config.ts\"",
-    "lint:mobile": "eslint \"apps/mobile/**/*.{ts,tsx,js,mjs}\"",
     "lint:web": "eslint \"src/**/*.{ts,tsx}\" vite.config.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

@@ -32,10 +32,7 @@ export {
   MockTranslationProvider,
   resolveTranslationProvider,
 } from './mock-provider.ts'
-export {
-  parseAuthorizationHeader,
-  parseTranslationRequest,
-} from './request.ts'
+export { parseAuthorizationHeader, parseTranslationRequest } from './request.ts'
 export {
   shouldReturnCachedTranslation,
   type ExistingTranslationSnapshot,

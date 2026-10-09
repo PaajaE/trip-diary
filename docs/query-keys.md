@@ -59,6 +59,5 @@ Translation keys (`entry-translations`) were not changed.
 
 ## Not linted / out of scope
 
-- Mobile query keys (`apps/mobile`) — separate slice
 - Supabase Edge Functions
 - Inline keys in test mocks that assert query-key behavior directly
