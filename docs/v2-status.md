@@ -122,3 +122,34 @@ Datové problémy v produkci (řešit při přepnutí / ve v2 UI):
 - Momenty z v1 se časově překrývají (Sálal, Yoho, Jéje 31. 5.–3. 6.) a jsou
   zamčené (`locked`). Ve Fázi 3 rozhodnout, zda je automatika smí přeskupit.
 - Fotky z mezipřistání v Dublinu jsou v momentu „Welcome to Calgary“.
+
+## Fáze 3 — automatika (2026-10-09, rozpracováno)
+
+Větev `v2/phase-3-automation`. Čisté funkce v `@trip-diary/core/automation`
+(bez databáze, běží v prohlížeči, aplikaci i edge funkcích), 72 testů.
+
+| Funkce                                                                                        | Stav | Ověření                                                               |
+| --------------------------------------------------------------------------------------------- | ---- | --------------------------------------------------------------------- |
+| `clusterMoments` (pauza 90 min, skok 1,5 km, zamčené momenty, stabilní kotva)                 | ✅   | anonymizovaný reálný vzorek (56 fotek, 9 dní) + syntetika             |
+| `findDuplicateGroups` (±1 s, ≤ 10 m)                                                          | ✅   | 12 skupin ve vzorku                                                   |
+| `summarizeDays` (místní den v pásmu cesty)                                                    | ✅   | fotka ve 23:30 Whitehorse                                             |
+| `suggestStageBoundaries` (posun těžiště dne ≥ 80 km)                                          | ✅   | Dublin → Calgary, Calgary → Rockies                                   |
+| `suggestTrips` (základna, den / trek / přesun)                                                | ✅   | Moraine Lake (den), 6denní Magog (trek), Whitehorse → Dawson (přesun) |
+| `resolveCaptureZone`, `wallClockToInstant` (pásmo z GPS, offline `@photostructure/tz-lookup`) | ✅   | Yoho = `America/Edmonton`, Skagway = `America/Juneau`, DST            |
+| `summarizeTrack`, `parseGpxTrackPoints`, `deriveTrackFromMedia`                               | ✅   | vzdálenost, převýšení, Douglas–Peucker                                |
+| Místa (reverzní geokódování, edge funkce + cache v `places`)                                  | ⏳   | —                                                                     |
+
+Poznámky:
+
+- Vzorek z produkce je ručně vybraných 56 fotek, proto vychází hodně
+  jednofotkových momentů. Při importu celé knihovny budou momenty hustší;
+  duplicity se musí odstranit před shlukováním.
+- Brána fáze (≥ 90 % médií ve správném výletu) potřebuje celou knihovnu z
+  Kanady s ručně označenými výlety — po zprovoznění importu na iPhonu.
+- Testovací data: souřadnice posunuté o konstantu, syntetická ID (repozitář je
+  veřejný).
+
+## Cloudflare R2 (2026-10-09)
+
+- Konektor Cloudflare připojen; R2 v účtu zatím **není zapnuté** (chyba 10042).
+  Zapnout v dashboardu (R2 Object Storage, vyžaduje platební metodu).
