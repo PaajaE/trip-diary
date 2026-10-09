@@ -49,3 +49,26 @@ atribuce, bez lidí). Autor je může kdykoli nahradit vlastními.
 | `road.webp` | https://www.pexels.com/photo/3266523/ |
 | `lake.webp` | https://www.pexels.com/photo/7054237/ |
 | `desk.webp` | https://www.pexels.com/photo/7235808/ |
+
+## Fáze 1 — rozpracováno (2026-10-09)
+
+Větev `v2/phase-1-model` (zatím bez kódu). Rozhodnutí z analýzy schématu v1:
+
+- **Ponechat a rozšířit:** `profiles`, `spaces`, `space_members`, `space_invites`,
+  `journeys` (+ `home_tz`, `cover_media_id`), `journey_members`, `journey_invites`.
+  Veřejné URL `/{space handle}/{journey slug}` zůstávají.
+- **Nové tabulky:** `segments`, `moments`, `media`, `media_variants`, `places`,
+  `tracks`, `posts`, `tags`, `taggings`. Konvence v1 zachovat: ID generuje klient
+  (offline), granty po sloupcích, `security definer` helpery, pgTAP.
+- **Oprávnění:** nový helper `can_edit_journey()` = role `owner|editor`. Editoři
+  upravují veškerý obsah cesty, role `member` jen čte. Médium bez cesty vidí jen
+  jeho vlastník.
+- **Veřejnost (anon) nemá přímý přístup k tabulkám v2.** Čte jen přes RPC
+  `get_public_journey(handle, slug)`, které vrátí celý strom jedním dotazem a
+  zároveň řeší soukromí polohy.
+- **Srdíčka a komentáře** přesunout do Fáze 5. Ve v1 jsou na produkci prázdné,
+  takže není co migrovat.
+- **Migrace dat v1 → v2** jako SQL funkce spouštěná ručně při přepnutí, ne
+  automaticky v migraci. Workflow `pages.yml` totiž pouští migrace na produkci
+  při merge do `main`. K ní patří ověřovací funkce (počty, vazby).
+- Docker Desktop byl vypnutý. Pro `db:reset` a `db:test` je potřeba ho spustit.
