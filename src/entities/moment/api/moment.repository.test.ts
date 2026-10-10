@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   deleteMoment,
   listJourneyMoments,
+  mergeMoments,
+  splitMoment,
   updateMoment,
 } from '@/entities/moment/api/moment.repository'
 
@@ -42,8 +44,13 @@ const from = vi.fn((table: string) => {
   void table
   return chain
 })
+const rpc = vi.fn((name: string, args: unknown) => {
+  void name
+  void args
+  return Promise.resolve(result)
+})
 vi.mock('@/shared/api/supabase', () => ({
-  getSupabaseClient: () => ({ from }),
+  getSupabaseClient: () => ({ from, rpc }),
 }))
 
 beforeEach(() => {
@@ -91,5 +98,43 @@ describe('moment repository', () => {
     await expect(deleteMoment(M)).rejects.toMatchObject({
       code: 'delete_failed',
     })
+  })
+
+  it('merges via RPC with target and source', async () => {
+    result = { data: M, error: null }
+    await expect(mergeMoments(M, J)).resolves.toBe(M)
+    expect(rpc).toHaveBeenCalledWith('merge_moments', {
+      p_source: J,
+      p_target: M,
+    })
+  })
+
+  it('splits via RPC and generates a new id unless given', async () => {
+    result = { data: J, error: null }
+    await expect(splitMoment(M, '2026-01-01T10:30:00+00:00', J)).resolves.toBe(
+      J,
+    )
+    expect(rpc).toHaveBeenCalledWith('split_moment', {
+      p_at: '2026-01-01T10:30:00+00:00',
+      p_moment: M,
+      p_new_id: J,
+    })
+    await splitMoment(M, '2026-01-01T10:30:00+00:00')
+    const args = rpc.mock.calls[1]?.[1] as { p_new_id: string }
+    expect(args.p_new_id).toMatch(/^[0-9a-f-]{36}$/)
+  })
+
+  it.each([
+    ['P0002', 'not_found'],
+    ['42501', 'forbidden'],
+    ['22023', 'invalid_input'],
+    ['23505', 'conflict'],
+    ['XX000', 'update_failed'],
+  ])('maps RPC error %s to %s', async (pgCode, code) => {
+    result = { data: null, error: { code: pgCode, message: 'x' } }
+    await expect(mergeMoments(M, J)).rejects.toMatchObject({ code })
+    await expect(
+      splitMoment(M, '2026-01-01T10:30:00+00:00', J),
+    ).rejects.toMatchObject({ code })
   })
 })

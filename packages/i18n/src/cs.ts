@@ -590,7 +590,7 @@ export const cs: TranslationResources = {
     noMapPoints: 'Žádný moment nemá polohu, na mapě proto není co zobrazit.',
     showOnMap: 'Zobrazit na mapě',
     subtitle:
-      'Přehled etap, výletů a momentů. Označuj hvězdičkou, nastavuj obálky a upravuj popisky.',
+      'Přehled etap, výletů a momentů. Označuj hvězdičkou, nastavuj obálky, upravuj popisky, posuzuj návrhy, slučuj a rozděluj momenty a posouvej hranice.',
     timeline: 'Časová osa',
     title: 'Pracovní prostor cesty',
     unassigned: 'Nezařazená média',
@@ -613,6 +613,40 @@ export const cs: TranslationResources = {
     undo: 'Vrátit zpět',
     undoFailed: 'Vrácení změny se nepodařilo.',
     undone: 'Změna vrácena',
+    suggestedBadge: 'Návrh',
+    acceptSuggestion: 'Přijmout',
+    rejectSuggestion: 'Zamítnout',
+    segmentAccepted: 'Návrh přijat',
+    segmentRejected: 'Návrh zamítnut',
+    mergeWithPrevious: 'Sloučit s předchozím',
+    mergeWithNext: 'Sloučit s následujícím',
+    mergeTitle: 'Sloučit momenty',
+    mergeBody:
+      'Sloučit „{{source}}“ do „{{target}}“? Název a text momentu „{{target}}“ zůstanou, časový rozsah pokryje oba, všechna média se přesunou sem a „{{source}}“ se smaže. Výsledek je zamčený proti automatickým změnám.',
+    mergeNoUndo:
+      'Tento krok nelze vrátit zpět, protože název a text smazaného momentu nejdou obnovit.',
+    mergeConfirm: 'Sloučit',
+    momentsMerged: 'Momenty sloučeny',
+    splitMoment: 'Rozdělit moment',
+    splitTitle: 'Rozdělit moment',
+    splitHint:
+      'Vyber, kde začne nový moment. Média od tohoto okamžiku se přesunou do něj, ostatní zůstanou. Média bez času pořízení zůstanou v tomto momentu.',
+    splitOption:
+      'Nový moment začíná v {{time}} (zůstane {{keep}}, přesune se {{move}})',
+    splitNone:
+      'Tento moment nelze rozdělit: potřebuje alespoň dvě média s různým časem pořízení.',
+    splitConfirm: 'Rozdělit',
+    momentSplit: 'Moment rozdělen',
+    moveBoundary: 'Posunout hranici',
+    boundaryTitle: 'Posunout hranici',
+    boundaryHint:
+      'Vyber novou hranici mezi „{{before}}“ a „{{after}}“. Nabízí se jen časy, které neprotínají žádný moment.',
+    boundaryCurrent: 'Současná hranice: {{time}}',
+    boundaryNone:
+      'Nenašel se vhodný čas: uvnitř obou úseků není žádná hrana momentu ani média.',
+    boundaryConfirm: 'Posunout',
+    boundaryMoved: 'Hranice posunuta',
+    dialogChoice: 'Vyber jednu možnost',
     useAsCover: 'Použít jako obálku: {{level}}',
   },
   moment: {

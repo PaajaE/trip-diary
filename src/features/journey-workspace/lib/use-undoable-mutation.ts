@@ -15,8 +15,11 @@ export interface UndoableEdit {
    */
   optimistic?: (direction: 'apply' | 'undo') => () => void
   successMessage: string
-  /** Restores the previous value through the same repository call. */
-  undo: () => Promise<unknown>
+  /**
+   * Restores the previous value through the same repository call. Omit when
+   * the edit cannot be reversed; the toast then has no Undo action.
+   */
+  undo?: () => Promise<unknown>
 }
 
 interface Labels {
@@ -51,13 +54,17 @@ export function useUndoableMutation(journeyId: string, labels: Labels) {
         return false
       }
       await refresh().catch(() => undefined)
+      const undoEdit = edit.undo
+      if (undoEdit === undefined) {
+        showToast({ duration: 6000, message: edit.successMessage })
+        return true
+      }
       showToast({
         action: {
           label: labels.undo,
           onClick: () => {
             const undoRollback = edit.optimistic?.('undo')
-            edit
-              .undo()
+            undoEdit()
               .then(() => {
                 showToast({ message: labels.undone })
               })

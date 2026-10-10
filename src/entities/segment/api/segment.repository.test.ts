@@ -4,6 +4,9 @@ import {
   createSegment,
   deleteSegment,
   listJourneySegments,
+  moveSegmentBoundary,
+  rejectSuggestedSegment,
+  restoreSuggestedSegment,
   updateSegment,
 } from '@/entities/segment/api/segment.repository'
 import { SegmentError } from '@/entities/segment/model/segment'
@@ -39,6 +42,8 @@ for (const name of [
   'update',
   'delete',
   'eq',
+  'neq',
+  'in',
   'order',
   'single',
   'maybeSingle',
@@ -55,8 +60,14 @@ const from = vi.fn((table: string) => {
   return chain
 })
 
+const rpc = vi.fn((name: string, args: unknown) => {
+  void name
+  void args
+  return Promise.resolve(result)
+})
+
 vi.mock('@/shared/api/supabase', () => ({
-  getSupabaseClient: () => ({ from }),
+  getSupabaseClient: () => ({ from, rpc }),
 }))
 
 beforeEach(() => {
@@ -71,6 +82,7 @@ describe('segment repository', () => {
     const segments = await listJourneySegments(J)
     expect(from).toHaveBeenCalledWith('segments')
     expect(calls).toContain(`eq:${JSON.stringify(['journey_id', J])}`)
+    expect(calls).toContain(`neq:${JSON.stringify(['origin', 'rejected'])}`)
     expect(segments[0]).toMatchObject({
       kind: 'stage',
       title: 'Alps',
@@ -161,5 +173,58 @@ describe('segment repository', () => {
     await expect(deleteSegment(S)).rejects.toMatchObject({
       code: 'delete_failed',
     })
+  })
+
+  it('rejects only suggested segments', async () => {
+    result = { data: { ...row, origin: 'rejected' }, error: null }
+    const rejected = await rejectSuggestedSegment(S)
+    expect(rejected.origin).toBe('rejected')
+    expect(chain.update).toHaveBeenCalledWith({ origin: 'rejected' })
+    expect(calls).toContain(`eq:${JSON.stringify(['origin', 'suggested'])}`)
+    result = { data: null, error: null }
+    await expect(rejectSuggestedSegment(S)).rejects.toMatchObject({
+      code: 'not_found',
+    })
+  })
+
+  it('restores accepted or rejected segments to suggested', async () => {
+    result = { data: row, error: null }
+    const restored = await restoreSuggestedSegment(S)
+    expect(restored.origin).toBe('suggested')
+    expect(chain.update).toHaveBeenCalledWith({ origin: 'suggested' })
+    expect(calls).toContain(
+      `in:${JSON.stringify(['origin', ['accepted', 'rejected']])}`,
+    )
+    result = { data: null, error: null }
+    await expect(restoreSuggestedSegment(S)).rejects.toMatchObject({
+      code: 'not_found',
+    })
+  })
+
+  it('parses rejected rows', async () => {
+    result = { data: [{ ...row, origin: 'rejected' }], error: null }
+    expect((await listJourneySegments(J))[0]?.origin).toBe('rejected')
+  })
+
+  it('moves a boundary through the RPC', async () => {
+    result = { data: null, error: null }
+    await moveSegmentBoundary(S, J, '2026-01-02T00:00:00+00:00')
+    expect(rpc).toHaveBeenCalledWith('move_segment_boundary', {
+      p_after: J,
+      p_at: '2026-01-02T00:00:00+00:00',
+      p_before: S,
+    })
+  })
+
+  it.each([
+    ['P0002', 'not_found'],
+    ['42501', 'forbidden'],
+    ['22023', 'invalid_input'],
+    ['XX000', 'update_failed'],
+  ])('maps boundary RPC error %s to %s', async (pgCode, code) => {
+    result = { data: null, error: { code: pgCode, message: 'x' } }
+    await expect(
+      moveSegmentBoundary(S, J, '2026-01-02T00:00:00+00:00'),
+    ).rejects.toMatchObject({ code })
   })
 })

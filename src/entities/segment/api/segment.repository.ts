@@ -4,6 +4,7 @@ import {
   type NewSegment,
   type Segment,
   SegmentError,
+  type SegmentErrorCode,
   type SegmentPatch,
   segmentSchema,
 } from '@/entities/segment/model/segment'
@@ -76,6 +77,8 @@ export async function listJourneySegments(
     .from('segments')
     .select('*')
     .eq('journey_id', journeyId)
+    // Rejected suggestions keep their row but are never shown or used.
+    .neq('origin', 'rejected')
     .order('starts_at', { ascending: true })
     .order('position', { ascending: true })
   if (error !== null) {
@@ -158,6 +161,72 @@ export async function acceptSuggestedSegment(
     throw new SegmentError('not_found', 'no suggested segment with this id')
   }
   return toSegment(data)
+}
+
+/** Declines a suggested segment (origin suggested -> rejected); row is kept. */
+export async function rejectSuggestedSegment(
+  segmentId: string,
+): Promise<Segment> {
+  const { data, error } = await getSupabaseClient()
+    .from('segments')
+    .update({ origin: 'rejected' })
+    .eq('id', segmentId)
+    .eq('origin', 'suggested')
+    .select('*')
+    .maybeSingle()
+  if (error !== null) {
+    throw new SegmentError('update_failed', error.message, error)
+  }
+  if (data === null) {
+    throw new SegmentError('not_found', 'no suggested segment with this id')
+  }
+  return toSegment(data)
+}
+
+/** Undo of accept/reject: puts an accepted or rejected segment back to suggested. */
+export async function restoreSuggestedSegment(
+  segmentId: string,
+): Promise<Segment> {
+  const { data, error } = await getSupabaseClient()
+    .from('segments')
+    .update({ origin: 'suggested' })
+    .eq('id', segmentId)
+    .in('origin', ['accepted', 'rejected'])
+    .select('*')
+    .maybeSingle()
+  if (error !== null) {
+    throw new SegmentError('update_failed', error.message, error)
+  }
+  if (data === null) {
+    throw new SegmentError('not_found', 'no accepted or rejected segment')
+  }
+  return toSegment(data)
+}
+
+function boundaryErrorCode(code: string | undefined): SegmentErrorCode {
+  if (code === 'P0002') return 'not_found'
+  if (code === '42501') return 'forbidden'
+  if (code === '22023') return 'invalid_input'
+  return 'update_failed'
+}
+
+/**
+ * Moves the shared edge of two adjacent same-kind segments (atomic RPC).
+ * `at` is a UTC instant strictly inside both segments.
+ */
+export async function moveSegmentBoundary(
+  beforeId: string,
+  afterId: string,
+  at: string,
+): Promise<void> {
+  const { error } = await getSupabaseClient().rpc('move_segment_boundary', {
+    p_after: afterId,
+    p_at: at,
+    p_before: beforeId,
+  })
+  if (error !== null) {
+    throw new SegmentError(boundaryErrorCode(error.code), error.message, error)
+  }
 }
 
 export async function deleteSegment(segmentId: string): Promise<void> {

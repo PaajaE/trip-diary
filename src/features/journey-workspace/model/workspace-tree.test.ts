@@ -126,3 +126,12 @@ describe('buildWorkspaceTree', () => {
     ])
   })
 })
+
+describe('rejected segments', () => {
+  it('are left out of the tree even if passed in', () => {
+    const kept = seg(1)
+    const rejected = seg(2, { origin: 'rejected' })
+    const tree = buildWorkspaceTree([kept, rejected], [], [])
+    expect(tree.roots.map((r) => r.segment.id)).toEqual([kept.id])
+  })
+})

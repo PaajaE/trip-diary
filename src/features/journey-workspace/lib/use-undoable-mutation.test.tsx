@@ -59,6 +59,17 @@ describe('useUndoableMutation', () => {
     expect(toasts[0]?.action?.label).toBe('Undo')
   })
 
+  it('shows a toast without an Undo action for irreversible edits', async () => {
+    const { result, toasts } = setup()
+    const { undo, ...rest } = edit()
+    void undo
+    await act(async () => {
+      await result.current(rest)
+    })
+    expect(toasts[0]).toMatchObject({ message: 'saved' })
+    expect(toasts[0]?.action).toBeUndefined()
+  })
+
   it('undo calls the inverse repository call and confirms', async () => {
     const { result, toasts } = setup()
     const e = edit()

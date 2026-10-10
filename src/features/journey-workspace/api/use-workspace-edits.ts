@@ -7,10 +7,20 @@ import { updateMediaMeta } from '@/entities/media/api/media-library.repository'
 import { mediaQueryKeys } from '@/entities/media/api/media-query-keys'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { momentQueryKeys } from '@/entities/moment/api/moment-query-keys'
-import { updateMoment } from '@/entities/moment/api/moment.repository'
+import {
+  mergeMoments,
+  splitMoment,
+  updateMoment,
+} from '@/entities/moment/api/moment.repository'
 import type { Moment } from '@/entities/moment/model/moment'
 import { segmentQueryKeys } from '@/entities/segment/api/segment-query-keys'
-import { updateSegment } from '@/entities/segment/api/segment.repository'
+import {
+  acceptSuggestedSegment,
+  moveSegmentBoundary,
+  rejectSuggestedSegment,
+  restoreSuggestedSegment,
+  updateSegment,
+} from '@/entities/segment/api/segment.repository'
 import type { Segment } from '@/entities/segment/model/segment'
 import {
   normalizeCaption,
@@ -24,8 +34,20 @@ import { useUndoableMutation } from '@/features/journey-workspace/lib/use-undoab
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
 
 export interface WorkspaceEdits {
+  acceptSegment: (segment: Segment) => Promise<boolean>
+  /** Moves the shared edge of two adjacent segments; Undo moves it back. */
+  moveBoundary: (
+    before: Segment,
+    after: Segment,
+    at: string,
+  ) => Promise<boolean>
+  /** Folds source into target. Not undoable (the source title/body are lost). */
+  mergeMoments: (targetId: string, sourceId: string) => Promise<boolean>
+  rejectSegment: (segment: Segment) => Promise<boolean>
   /** Validates, then saves; returns the validation failure without saving. */
   saveCaption: (item: MediaItem, raw: string) => Promise<CaptionResult>
+  /** Splits at the instant; Undo merges the new moment back. */
+  splitMoment: (momentId: string, at: string) => Promise<boolean>
   setCover: (mediaId: string, target: CoverTarget) => Promise<boolean>
   toggleStar: (item: MediaItem) => Promise<boolean>
 }
@@ -53,7 +75,69 @@ export function useWorkspaceEdits(journeyId: string): WorkspaceEdits {
       )
     }
 
+    function segmentOrigin(
+      segmentId: string,
+      origin: Segment['origin'],
+    ): () => void {
+      return optimisticUpdate<Segment[]>(
+        queryClient,
+        segmentQueryKeys.journey(journeyId),
+        (list) => patchListItem(list, segmentId, { origin }),
+      )
+    }
+
     return {
+      acceptSegment: (segment) =>
+        run({
+          apply: () => acceptSuggestedSegment(segment.id),
+          errorMessage,
+          optimistic: (direction) =>
+            segmentOrigin(
+              segment.id,
+              direction === 'apply' ? 'accepted' : 'suggested',
+            ),
+          successMessage: t('workspace.segmentAccepted'),
+          undo: () => restoreSuggestedSegment(segment.id),
+        }),
+      mergeMoments: (targetId, sourceId) =>
+        run({
+          apply: () => mergeMoments(targetId, sourceId),
+          errorMessage,
+          successMessage: t('workspace.momentsMerged'),
+        }),
+      moveBoundary: (before, after, at) => {
+        const oldAt = before.endsAt
+        return run({
+          apply: () => moveSegmentBoundary(before.id, after.id, at),
+          errorMessage,
+          successMessage: t('workspace.boundaryMoved'),
+          undo: () => moveSegmentBoundary(before.id, after.id, oldAt),
+        })
+      },
+      rejectSegment: (segment) =>
+        run({
+          apply: () => rejectSuggestedSegment(segment.id),
+          errorMessage,
+          optimistic: (direction) =>
+            direction === 'apply'
+              ? optimisticUpdate<Segment[]>(
+                  queryClient,
+                  segmentQueryKeys.journey(journeyId),
+                  (list) => list.filter((s) => s.id !== segment.id),
+                )
+              : () => undefined,
+          successMessage: t('workspace.segmentRejected'),
+          undo: () => restoreSuggestedSegment(segment.id),
+        }),
+      splitMoment: (momentId, at) => {
+        const newId = crypto.randomUUID()
+        return run({
+          apply: () => splitMoment(momentId, at, newId),
+          errorMessage,
+          successMessage: t('workspace.momentSplit'),
+          undo: () => mergeMoments(momentId, newId),
+        })
+      },
       saveCaption: async (item, raw) => {
         const result = normalizeCaption(raw)
         if (!result.ok || result.value === item.caption) return result

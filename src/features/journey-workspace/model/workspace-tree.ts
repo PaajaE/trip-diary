@@ -72,10 +72,12 @@ function countKinds(media: MediaItem[]): { photos: number; videos: number } {
  * becomes a root. Moments go to the tightest segment containing their start.
  */
 export function buildWorkspaceTree(
-  segments: Segment[],
+  allSegments: Segment[],
   moments: Moment[],
   media: MediaItem[],
 ): WorkspaceTree {
+  // Rejected suggestions keep their row but never take part in the tree.
+  const segments = allSegments.filter((s) => s.origin !== 'rejected')
   const segmentById = new Map(segments.map((s) => [s.id, s]))
   const mediaById = new Map(media.map((m) => [m.id, m]))
 

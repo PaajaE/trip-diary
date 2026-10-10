@@ -589,7 +589,7 @@ export const en = {
       'No moment has a location, so there is nothing to show on the map.',
     showOnMap: 'Show on map',
     subtitle:
-      'Overview of stages, trips and moments. Star media, set covers and edit captions.',
+      'Overview of stages, trips and moments. Star media, set covers, edit captions, review suggestions, merge or split moments and move boundaries.',
     timeline: 'Timeline',
     title: 'Journey workspace',
     unassigned: 'Unassigned media',
@@ -612,6 +612,39 @@ export const en = {
     undo: 'Undo',
     undoFailed: 'The change could not be undone.',
     undone: 'Change undone',
+    suggestedBadge: 'Suggested',
+    acceptSuggestion: 'Accept',
+    rejectSuggestion: 'Reject',
+    segmentAccepted: 'Suggestion accepted',
+    segmentRejected: 'Suggestion rejected',
+    mergeWithPrevious: 'Merge with previous',
+    mergeWithNext: 'Merge with next',
+    mergeTitle: 'Merge moments',
+    mergeBody:
+      'Merge "{{source}}" into "{{target}}"? The title and text of "{{target}}" are kept, the time range covers both, all media move here and "{{source}}" is deleted. The result is locked against automatic changes.',
+    mergeNoUndo:
+      'This cannot be undone, because the title and text of the deleted moment cannot be restored.',
+    mergeConfirm: 'Merge',
+    momentsMerged: 'Moments merged',
+    splitMoment: 'Split moment',
+    splitTitle: 'Split moment',
+    splitHint:
+      'Choose where the new moment starts. Media from that point on move to it; the rest stays. Media without a capture time stay in this moment.',
+    splitOption: 'New moment starts at {{time}} ({{keep}} stay, {{move}} move)',
+    splitNone:
+      'This moment cannot be split: it needs at least two media with different capture times.',
+    splitConfirm: 'Split',
+    momentSplit: 'Moment split',
+    moveBoundary: 'Move boundary',
+    boundaryTitle: 'Move boundary',
+    boundaryHint:
+      'Choose a new boundary between "{{before}}" and "{{after}}". Only times that do not cut through a moment are offered.',
+    boundaryCurrent: 'Current boundary: {{time}}',
+    boundaryNone:
+      'No suitable time found: there is no moment or media edge inside both segments.',
+    boundaryConfirm: 'Move',
+    boundaryMoved: 'Boundary moved',
+    dialogChoice: 'Choose one',
     useAsCover: 'Use as cover of: {{level}}',
   },
   moment: {

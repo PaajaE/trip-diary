@@ -18,6 +18,18 @@ import {
 } from '@/features/journey-workspace/lib/format-range'
 import { DEFAULT_MEDIA_BASE_URL } from '@/features/journey-workspace/lib/media-thumb'
 import {
+  adjacentSegmentPairs,
+  boundaryCandidates,
+  findAdjacentMoments,
+  splitCandidates,
+  type SegmentPair,
+} from '@/features/journey-workspace/model/edit-candidates'
+import {
+  BoundaryDialog,
+  MergeDialog,
+  SplitDialog,
+} from '@/features/journey-workspace/ui/EditDialogs'
+import {
   collectMoments,
   isWorkspaceEmpty,
   type WorkspaceMoment,
@@ -33,8 +45,17 @@ import { publicEnv } from '@/shared/config/env'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 
+const ACTION_BUTTON =
+  'min-h-10 min-w-10 rounded-md border border-border px-3 py-1.5 text-sm font-semibold'
+
 interface EditingContext {
   edits: WorkspaceEdits
+  /** Every moment of the journey in start order. */
+  moments: WorkspaceMoment[]
+  /** Adjacent same-kind segment pairs keyed by the earlier segment id. */
+  pairs: Map<string, SegmentPair>
+  /** Media outside any moment (candidate instants for boundaries). */
+  unassigned: MediaItem[]
   targets: Map<string, CoverTarget[]>
 }
 
@@ -98,8 +119,21 @@ function MomentCard({
   selected: boolean
 }) {
   const { t } = useTranslation()
+  const [dialog, setDialog] = useState<'next' | 'previous' | 'split' | null>(
+    null,
+  )
   const hasPoint =
     entry.moment.latitude !== null && entry.moment.longitude !== null
+  const neighbours = findAdjacentMoments(editing.moments, entry.moment.id)
+  const other =
+    dialog === 'next'
+      ? neighbours.next
+      : dialog === 'previous'
+        ? neighbours.previous
+        : null
+  const close = () => {
+    setDialog(null)
+  }
   return (
     <li
       className={`rounded-lg border p-3 ${selected ? 'border-primary bg-surface' : 'border-border'}`}
@@ -139,6 +173,62 @@ function MomentCard({
       </button>
       {entry.media.length > 0 ? (
         <MediaTiles editing={editing} items={entry.media} />
+      ) : null}
+      <div className="mt-2 flex flex-wrap gap-2">
+        {neighbours.previous !== null ? (
+          <button
+            className={ACTION_BUTTON}
+            type="button"
+            onClick={() => {
+              setDialog('previous')
+            }}
+          >
+            {t('workspace.mergeWithPrevious')}
+          </button>
+        ) : null}
+        {neighbours.next !== null ? (
+          <button
+            className={ACTION_BUTTON}
+            type="button"
+            onClick={() => {
+              setDialog('next')
+            }}
+          >
+            {t('workspace.mergeWithNext')}
+          </button>
+        ) : null}
+        <button
+          className={ACTION_BUTTON}
+          type="button"
+          onClick={() => {
+            setDialog('split')
+          }}
+        >
+          {t('workspace.splitMoment')}
+        </button>
+      </div>
+      {other !== null ? (
+        <MergeDialog
+          sourceLabel={momentTitle(other, t, locale)}
+          targetLabel={momentTitle(entry, t, locale)}
+          onClose={close}
+          onConfirm={() => {
+            void editing.edits
+              .mergeMoments(entry.moment.id, other.moment.id)
+              .then(close)
+          }}
+        />
+      ) : null}
+      {dialog === 'split' ? (
+        <SplitDialog
+          candidates={splitCandidates(entry)}
+          locale={locale}
+          tz={entry.tz}
+          onClose={close}
+          onConfirm={(at) => {
+            void editing.edits.splitMoment(entry.moment.id, at).then(close)
+          }}
+        />
       ) : null}
     </li>
   )
@@ -185,6 +275,31 @@ function SegmentBlock({
             })}
           </p>
           <Counts photos={node.photoCount} videos={node.videoCount} />
+          {segment.origin === 'suggested' ? (
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">
+                {t('workspace.suggestedBadge')}
+              </span>
+              <button
+                className={ACTION_BUTTON}
+                type="button"
+                onClick={() => {
+                  void editing.edits.acceptSegment(segment)
+                }}
+              >
+                {t('workspace.acceptSuggestion')}
+              </button>
+              <button
+                className={ACTION_BUTTON}
+                type="button"
+                onClick={() => {
+                  void editing.edits.rejectSegment(segment)
+                }}
+              >
+                {t('workspace.rejectSuggestion')}
+              </button>
+            </div>
+          ) : null}
         </div>
       </header>
       {node.moments.length > 0 ? (
@@ -203,19 +318,102 @@ function SegmentBlock({
       ) : null}
       {node.children.length > 0 ? (
         <div className="mt-3 space-y-3 border-l border-border pl-3">
-          {node.children.map((child) => (
-            <SegmentBlock
-              editing={editing}
-              key={child.segment.id}
-              locale={locale}
-              node={child}
-              selectedId={selectedId}
-              onSelect={onSelect}
-            />
-          ))}
+          <SegmentList
+            editing={editing}
+            locale={locale}
+            nodes={node.children}
+            selectedId={selectedId}
+            onSelect={onSelect}
+          />
         </div>
       ) : null}
     </section>
+  )
+}
+
+function BoundaryControl({
+  editing,
+  locale,
+  pair,
+}: {
+  editing: EditingContext
+  locale: string
+  pair: SegmentPair
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const before = pair.before.segment
+  const after = pair.after.segment
+  const close = () => {
+    setOpen(false)
+  }
+  return (
+    <div className="flex justify-center">
+      <button
+        aria-label={`${t('workspace.moveBoundary')}: ${before.title} / ${after.title}`}
+        className={ACTION_BUTTON}
+        type="button"
+        onClick={() => {
+          setOpen(true)
+        }}
+      >
+        {t('workspace.moveBoundary')}
+      </button>
+      {open ? (
+        <BoundaryDialog
+          afterTitle={after.title}
+          beforeTitle={before.title}
+          candidates={boundaryCandidates(
+            before,
+            after,
+            editing.moments,
+            editing.unassigned,
+          )}
+          current={{ at: before.endsAt, tz: before.tz ?? after.tz }}
+          locale={locale}
+          onClose={close}
+          onConfirm={(at) => {
+            void editing.edits.moveBoundary(before, after, at).then(close)
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function SegmentList({
+  editing,
+  locale,
+  nodes,
+  onSelect,
+  selectedId,
+}: {
+  editing: EditingContext
+  locale: string
+  nodes: WorkspaceSegment[]
+  onSelect: (id: string) => void
+  selectedId: string | null
+}) {
+  return (
+    <>
+      {nodes.map((node) => {
+        const pair = editing.pairs.get(node.segment.id)
+        return (
+          <div className="space-y-3" key={node.segment.id}>
+            <SegmentBlock
+              editing={editing}
+              locale={locale}
+              node={node}
+              selectedId={selectedId}
+              onSelect={onSelect}
+            />
+            {pair !== undefined ? (
+              <BoundaryControl editing={editing} locale={locale} pair={pair} />
+            ) : null}
+          </div>
+        )
+      })}
+    </>
   )
 }
 
@@ -256,7 +454,12 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
         ? null
         : {
             edits,
+            moments: collectMoments(tree),
+            pairs: new Map(
+              adjacentSegmentPairs(tree).map((p) => [p.before.segment.id, p]),
+            ),
             targets: buildCoverTargetIndex(tree, journeyId, journeyCoverId),
+            unassigned: tree.unassigned,
           },
     [edits, tree, journeyId, journeyCoverId],
   )
@@ -299,16 +502,13 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     body = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div aria-label={t('workspace.timeline')} className="space-y-4">
-          {ready.roots.map((node) => (
-            <SegmentBlock
-              editing={editing}
-              key={node.segment.id}
-              locale={locale}
-              node={node}
-              selectedId={selectedId}
-              onSelect={select}
-            />
-          ))}
+          <SegmentList
+            editing={editing}
+            locale={locale}
+            nodes={ready.roots}
+            selectedId={selectedId}
+            onSelect={select}
+          />
           {ready.looseMoments.length > 0 ? (
             <section className="rounded-xl border border-border p-4">
               <h2 className="font-semibold">{t('workspace.looseMoments')}</h2>

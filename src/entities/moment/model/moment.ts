@@ -41,7 +41,9 @@ export interface MomentPatch {
 }
 
 export type MomentErrorCode =
+  | 'conflict'
   | 'delete_failed'
+  | 'forbidden'
   | 'invalid_input'
   | 'invalid_row'
   | 'list_failed'

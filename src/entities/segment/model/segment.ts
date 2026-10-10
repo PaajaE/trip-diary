@@ -9,7 +9,12 @@ export type SegmentKind = z.infer<typeof segmentKindSchema>
 export const tripTypeSchema = z.enum(['trek', 'day', 'transfer', 'stay'])
 export type TripType = z.infer<typeof tripTypeSchema>
 
-export const segmentOriginSchema = z.enum(['manual', 'suggested', 'accepted'])
+export const segmentOriginSchema = z.enum([
+  'manual',
+  'suggested',
+  'accepted',
+  'rejected',
+])
 export type SegmentOrigin = z.infer<typeof segmentOriginSchema>
 
 /** A stage (weeks/months) or a trip (hours/days, may nest under a stage or trip). */
@@ -67,7 +72,9 @@ export interface SegmentPatch {
 
 export type SegmentErrorCode =
   | 'create_failed'
+  | 'conflict'
   | 'delete_failed'
+  | 'forbidden'
   | 'invalid_input'
   | 'invalid_row'
   | 'list_failed'

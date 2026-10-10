@@ -2,6 +2,7 @@ import type { Database } from '@/shared/api/database.types'
 import {
   type Moment,
   MomentError,
+  type MomentErrorCode,
   type MomentPatch,
   momentSchema,
 } from '@/entities/moment/model/moment'
@@ -84,6 +85,53 @@ export async function updateMoment(
     throw new MomentError('not_found')
   }
   return toMoment(data)
+}
+
+function rpcErrorCode(code: string | undefined): MomentErrorCode {
+  if (code === 'P0002') return 'not_found'
+  if (code === '42501') return 'forbidden'
+  if (code === '22023') return 'invalid_input'
+  if (code === '23505') return 'conflict'
+  return 'update_failed'
+}
+
+/**
+ * Folds `sourceId` into `targetId` (atomic RPC): the target keeps its
+ * title/body, the range becomes the union, media move, the source is deleted
+ * and the result is locked. Returns the target id.
+ */
+export async function mergeMoments(
+  targetId: string,
+  sourceId: string,
+): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('merge_moments', {
+    p_source: sourceId,
+    p_target: targetId,
+  })
+  if (error !== null) {
+    throw new MomentError(rpcErrorCode(error.code), error.message, error)
+  }
+  return data
+}
+
+/**
+ * Splits a moment at `at` (atomic RPC). Media captured at or after `at` move
+ * to the new moment, whose id is generated here. Returns the new moment id.
+ */
+export async function splitMoment(
+  momentId: string,
+  at: string,
+  newId: string = crypto.randomUUID(),
+): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('split_moment', {
+    p_at: at,
+    p_moment: momentId,
+    p_new_id: newId,
+  })
+  if (error !== null) {
+    throw new MomentError(rpcErrorCode(error.code), error.message, error)
+  }
+  return data
 }
 
 export async function deleteMoment(momentId: string): Promise<void> {
