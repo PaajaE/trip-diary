@@ -15,7 +15,9 @@ import {
   partCount,
   publicUrl,
   r2Endpoint,
+  VIDEO_DURATION_TOLERANCE_MS,
   VIDEO_MAX_BYTES,
+  VIDEO_MAX_DURATION_MS,
 } from './media-upload.ts'
 
 const USER = '2f84d109-3eaf-404a-9e1a-496c1d89e4a4'
@@ -81,6 +83,46 @@ describe('parseUploadRequest', () => {
         mediaId: MEDIA,
       },
       'invalid_size',
+    ],
+    [
+      { action: 'multipart-create', byteSize: 1000, mediaId: MEDIA },
+      'invalid_duration',
+    ],
+    [
+      {
+        action: 'multipart-create',
+        byteSize: 1000,
+        durationMs: 0,
+        mediaId: MEDIA,
+      },
+      'invalid_duration',
+    ],
+    [
+      {
+        action: 'multipart-create',
+        byteSize: 1000,
+        durationMs: 1.5,
+        mediaId: MEDIA,
+      },
+      'invalid_duration',
+    ],
+    [
+      {
+        action: 'multipart-create',
+        byteSize: 1000,
+        durationMs: '5000',
+        mediaId: MEDIA,
+      },
+      'invalid_duration',
+    ],
+    [
+      {
+        action: 'multipart-create',
+        byteSize: 1000,
+        durationMs: VIDEO_MAX_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS + 1,
+        mediaId: MEDIA,
+      },
+      'video_too_long',
     ],
     [{ action: 'sign-put', mediaId: '../etc/passwd' }, 'invalid_media_id'],
     [
@@ -351,5 +393,33 @@ describe('deleteMediaObjects', () => {
     await expect(
       deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
     ).rejects.toBeInstanceOf(DeleteMediaError)
+  })
+})
+
+describe('video duration limit', () => {
+  it('accepts a 60 s video and the rounding tolerance, rejects beyond it', () => {
+    for (const durationMs of [
+      1,
+      VIDEO_MAX_DURATION_MS,
+      VIDEO_MAX_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS,
+    ]) {
+      expect(
+        parseUploadRequest({
+          action: 'multipart-create',
+          byteSize: 5_000_000,
+          durationMs,
+          mediaId: MEDIA,
+        }),
+      ).toEqual({
+        ok: true,
+        value: {
+          action: 'multipart-create',
+          byteSize: 5_000_000,
+          durationMs,
+          mediaId: MEDIA.toLowerCase(),
+        },
+      })
+    }
+    expect(VIDEO_MAX_DURATION_MS).toBe(60_000)
   })
 })

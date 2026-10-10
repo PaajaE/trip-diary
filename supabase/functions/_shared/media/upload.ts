@@ -8,6 +8,13 @@
 
 export const IMAGE_MAX_BYTES = 20 * 1024 * 1024
 export const VIDEO_MAX_BYTES = 120 * 1024 * 1024
+/**
+ * v2 video limit (docs/plan-v2.md): 60 s. The client declares the duration;
+ * the API enforces it but cannot verify it from the file. A small tolerance
+ * absorbs container rounding (e.g. 60.04 s clips).
+ */
+export const VIDEO_MAX_DURATION_MS = 60_000
+export const VIDEO_DURATION_TOLERANCE_MS = 500
 /** R2/S3 minimum for every part but the last is 5 MiB. */
 export const MULTIPART_PART_BYTES = 8 * 1024 * 1024
 export const PUT_URL_TTL_SECONDS = 15 * 60
@@ -39,6 +46,7 @@ export type UploadRequest =
   | {
       action: 'multipart-create'
       byteSize: number
+      durationMs: number
       mediaId: string
     }
   | {
@@ -130,11 +138,17 @@ export function parseUploadRequest(body: unknown): ParseResult<UploadRequest> {
       }
     }
     case 'multipart-create': {
-      const { byteSize } = body
+      const { byteSize, durationMs } = body
       if (!isPositiveInteger(byteSize) || byteSize > VIDEO_MAX_BYTES) {
         return { error: 'invalid_size', ok: false }
       }
-      return { ok: true, value: { action, byteSize, mediaId: id } }
+      if (!isPositiveInteger(durationMs)) {
+        return { error: 'invalid_duration', ok: false }
+      }
+      if (durationMs > VIDEO_MAX_DURATION_MS + VIDEO_DURATION_TOLERANCE_MS) {
+        return { error: 'video_too_long', ok: false }
+      }
+      return { ok: true, value: { action, byteSize, durationMs, mediaId: id } }
     }
     case 'multipart-sign-parts': {
       const { partNumbers, uploadId } = body
