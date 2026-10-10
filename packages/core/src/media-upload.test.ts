@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   completeMultipartXml,
+  DeleteMediaError,
+  deleteMediaObjects,
   IMAGE_MAX_BYTES,
+  mediaPrefix,
   MULTIPART_PART_BYTES,
   objectKey,
   objectUrl,
+  type ObjectStore,
+  parseListPage,
   parseUploadIdXml,
   parseUploadRequest,
   partCount,
@@ -189,5 +194,162 @@ describe('R2 helpers', () => {
     ).toBe(
       '<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"e1"</ETag></Part><Part><PartNumber>2</PartNumber><ETag>"e2"</ETag></Part></CompleteMultipartUpload>',
     )
+  })
+})
+
+describe('media deletion', () => {
+  it('accepts a delete request for one media item', () => {
+    expect(
+      parseUploadRequest({ action: 'delete-media', mediaId: MEDIA }),
+    ).toEqual({
+      ok: true,
+      value: { action: 'delete-media', mediaId: MEDIA.toLowerCase() },
+    })
+  })
+
+  it('scopes deletion to the user folder of that media', () => {
+    expect(mediaPrefix(USER, MEDIA)).toBe(`${USER}/${MEDIA.toLowerCase()}/`)
+    expect(() => mediaPrefix(USER, '*')).toThrow()
+  })
+
+  it('rejects a delete request without a valid media id', () => {
+    expect(parseUploadRequest({ action: 'delete-media' })).toEqual({
+      error: 'invalid_media_id',
+      ok: false,
+    })
+    expect(
+      parseUploadRequest({ action: 'delete-media', mediaId: '../x' }),
+    ).toEqual({ error: 'invalid_media_id', ok: false })
+  })
+
+  it('refuses a prefix built from a non-UUID user id', () => {
+    expect(() => mediaPrefix('not-a-uuid', MEDIA)).toThrow()
+  })
+
+  it('reads keys and the continuation token from a list page', () => {
+    expect(
+      parseListPage(
+        '<ListBucketResult><IsTruncated>true</IsTruncated><Contents><Key>u/m/small.webp</Key></Contents><Contents><Key>u/m/a&amp;b.mp4</Key></Contents><NextContinuationToken>tok1</NextContinuationToken></ListBucketResult>',
+      ),
+    ).toEqual({ keys: ['u/m/small.webp', 'u/m/a&b.mp4'], nextToken: 'tok1' })
+    expect(
+      parseListPage(
+        '<ListBucketResult><IsTruncated>false</IsTruncated></ListBucketResult>',
+      ),
+    ).toEqual({ keys: [], nextToken: null })
+  })
+})
+
+describe('deleteMediaObjects', () => {
+  const ENDPOINT = 'https://acc.r2.cloudflarestorage.com'
+  const PREFIX = mediaPrefix(USER, MEDIA)
+
+  function listXml(keys: string[], next?: string): string {
+    const items = keys.map((key) => `<Contents><Key>${key}</Key></Contents>`)
+    const tail =
+      next === undefined
+        ? '<IsTruncated>false</IsTruncated>'
+        : `<IsTruncated>true</IsTruncated><NextContinuationToken>${next}</NextContinuationToken>`
+    return `<ListBucketResult>${items.join('')}${tail}</ListBucketResult>`
+  }
+
+  function fakeStore(options: {
+    deleteStatus?: (key: string) => number
+    pages: (Response | string)[]
+  }): { calls: string[]; store: ObjectStore } {
+    const calls: string[] = []
+    const pages = [...options.pages]
+    const store: ObjectStore = {
+      fetch: (url, init) => {
+        calls.push(`${init?.method ?? 'GET'} ${url}`)
+        if (init?.method === 'DELETE') {
+          const key = decodeURIComponent(new URL(url).pathname).split(
+            '/bucket/',
+          )[1]
+          return Promise.resolve(
+            new Response(null, {
+              status: options.deleteStatus?.(key ?? '') ?? 204,
+            }),
+          )
+        }
+        const page = pages.shift()
+        return Promise.resolve(
+          page instanceof Response ? page : new Response(page ?? listXml([])),
+        )
+      },
+    }
+    return { calls, store }
+  }
+
+  const KEY_A = `${PREFIX}small.webp`
+  const KEY_B = `${PREFIX}large.webp`
+
+  it('follows continuation tokens and deletes every page', async () => {
+    const { calls, store } = fakeStore({
+      pages: [listXml([KEY_A], 'next-1'), listXml([KEY_B])],
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).resolves.toBe(2)
+    const lists = calls.filter((call) => call.startsWith('GET'))
+    expect(lists).toHaveLength(2)
+    expect(lists[1]).toContain('continuation-token=next-1')
+    expect(calls.filter((call) => call.startsWith('DELETE'))).toHaveLength(2)
+  })
+
+  it('never deletes keys outside the media folder', async () => {
+    const { calls, store } = fakeStore({
+      pages: [listXml([KEY_A, `${USER}/other/small.webp`])],
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).resolves.toBe(1)
+    expect(calls.filter((call) => call.startsWith('DELETE'))).toHaveLength(1)
+  })
+
+  it('succeeds with zero deletions for an empty folder (repeat delete)', async () => {
+    const { store } = fakeStore({ pages: [listXml([])] })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).resolves.toBe(0)
+  })
+
+  it('treats a 404 on delete as already deleted, not as removed', async () => {
+    const { store } = fakeStore({
+      deleteStatus: (key) => (key === KEY_B ? 404 : 204),
+      pages: [listXml([KEY_A, KEY_B])],
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).resolves.toBe(1)
+  })
+
+  it('fails when the listing fails', async () => {
+    const { calls, store } = fakeStore({
+      pages: [new Response('boom', { status: 500 })],
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).rejects.toBeInstanceOf(DeleteMediaError)
+    expect(calls.some((call) => call.startsWith('DELETE'))).toBe(false)
+  })
+
+  it('fails instead of reporting success when a delete fails', async () => {
+    const { store } = fakeStore({
+      deleteStatus: (key) => (key === KEY_B ? 500 : 204),
+      pages: [listXml([KEY_A, KEY_B])],
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).rejects.toBeInstanceOf(DeleteMediaError)
+  })
+
+  it('fails when the listing never ends', async () => {
+    const { store } = fakeStore({
+      pages: Array.from({ length: 20 }, () => listXml([KEY_A], 'again')),
+    })
+    await expect(
+      deleteMediaObjects(store, ENDPOINT, 'bucket', PREFIX),
+    ).rejects.toBeInstanceOf(DeleteMediaError)
   })
 })

@@ -58,6 +58,10 @@ export type UploadRequest =
       mediaId: string
       uploadId: string
     }
+  | {
+      action: 'delete-media'
+      mediaId: string
+    }
 
 export type ParseResult<T> =
   | { ok: true; value: T }
@@ -192,6 +196,8 @@ export function parseUploadRequest(body: unknown): ParseResult<UploadRequest> {
       }
       return { ok: true, value: { action, mediaId: id, uploadId } }
     }
+    case 'delete-media':
+      return { ok: true, value: { action, mediaId: id } }
     default:
       return { error: 'invalid_action', ok: false }
   }
@@ -261,4 +267,120 @@ export function completeMultipartXml(
     })
     .join('')
   return `<CompleteMultipartUpload>${items}</CompleteMultipartUpload>`
+}
+
+/** Folder holding every object of one media item. */
+export function mediaPrefix(userId: string, mediaId: string): string {
+  if (!UUID.test(userId) || !UUID.test(mediaId)) {
+    throw new Error('invalid ids')
+  }
+  return `${userId.toLowerCase()}/${mediaId.toLowerCase()}/`
+}
+
+const XML_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&apos;': "'",
+  '&gt;': '>',
+  '&lt;': '<',
+  '&quot;': '"',
+}
+
+function xmlText(value: string): string {
+  return value.replace(
+    /&(?:amp|apos|gt|lt|quot);/g,
+    (entity) => XML_ENTITIES[entity] ?? entity,
+  )
+}
+
+/** Reads one ListObjectsV2 page: keys plus the next continuation token. */
+export function parseListPage(xml: string): {
+  keys: string[]
+  nextToken: string | null
+} {
+  const keys = [...xml.matchAll(/<Key>([^<]+)<\/Key>/g)].flatMap((match) =>
+    match[1] === undefined ? [] : [xmlText(match[1])],
+  )
+  const truncated = /<IsTruncated>true<\/IsTruncated>/.test(xml)
+  const token = /<NextContinuationToken>([^<]+)<\/NextContinuationToken>/.exec(
+    xml,
+  )?.[1]
+  return {
+    keys,
+    nextToken: truncated && token !== undefined ? xmlText(token) : null,
+  }
+}
+
+/** The R2 operations needed to delete a media folder (signed fetch). */
+export interface ObjectStore {
+  fetch(url: string, init?: { method: string }): Promise<Response>
+}
+
+/** Raised when a media folder could not be listed or fully deleted. */
+export class DeleteMediaError extends Error {}
+
+const LIST_PAGE_LIMIT = 10
+const DELETE_CONCURRENCY = 20
+
+/**
+ * Deletes every object under `prefix`. Missing objects (404) count as
+ * already deleted. Throws DeleteMediaError unless the whole folder is gone,
+ * so a truncated listing or a failed delete never reports success.
+ * Returns the number of objects actually removed.
+ */
+export async function deleteMediaObjects(
+  store: ObjectStore,
+  endpoint: string,
+  bucket: string,
+  prefix: string,
+): Promise<number> {
+  const keys: string[] = []
+  let token: string | null = null
+  for (let page = 0; ; page += 1) {
+    if (page >= LIST_PAGE_LIMIT) {
+      throw new DeleteMediaError('listing too long')
+    }
+    const list = new URL(`${endpoint}/${encodeURIComponent(bucket)}`)
+    list.searchParams.set('list-type', '2')
+    list.searchParams.set('prefix', prefix)
+    if (token !== null) {
+      list.searchParams.set('continuation-token', token)
+    }
+    const response = await store.fetch(list.toString())
+    if (!response.ok) {
+      throw new DeleteMediaError(`list objects ${String(response.status)}`)
+    }
+    const parsed = parseListPage(await response.text())
+    keys.push(...parsed.keys.filter((key) => key.startsWith(prefix)))
+    if (parsed.nextToken === null) {
+      break
+    }
+    token = parsed.nextToken
+  }
+
+  let removed = 0
+  let failed = 0
+  for (let start = 0; start < keys.length; start += DELETE_CONCURRENCY) {
+    const results = await Promise.allSettled(
+      keys.slice(start, start + DELETE_CONCURRENCY).map(async (key) => {
+        const response = await store.fetch(objectUrl(endpoint, bucket, key), {
+          method: 'DELETE',
+        })
+        if (!response.ok && response.status !== 404) {
+          throw new Error(`delete object ${String(response.status)}`)
+        }
+        return response.ok
+      }),
+    )
+    for (const result of results) {
+      if (result.status === 'rejected') {
+        failed += 1
+      } else if (result.value) {
+        removed += 1
+      }
+    }
+  }
+  if (failed > 0) {
+    throw new DeleteMediaError(`${String(failed)} objects not deleted`)
+  }
+  return removed
 }

@@ -12,6 +12,9 @@ import { createClient } from 'npm:@supabase/supabase-js@2.49.1'
 import { handleOptions, jsonResponse } from '../_shared/http.ts'
 import {
   completeMultipartXml,
+  DeleteMediaError,
+  deleteMediaObjects,
+  mediaPrefix,
   MULTIPART_PART_BYTES,
   objectKey,
   objectUrl,
@@ -161,6 +164,23 @@ Deno.serve(async (request) => {
           return jsonResponse({ error: 'complete_failed' }, 409)
         }
         return jsonResponse({ key, publicUrl: publicUrl(publicBase, key) })
+      }
+      case 'delete-media': {
+        try {
+          const deleted = await deleteMediaObjects(
+            client,
+            endpoint,
+            bucket,
+            mediaPrefix(userId, body.mediaId),
+          )
+          return jsonResponse({ deleted })
+        } catch (error) {
+          if (error instanceof DeleteMediaError) {
+            console.error('media-upload delete failed', error)
+            return jsonResponse({ error: 'delete_failed' }, 502)
+          }
+          throw error
+        }
       }
       case 'multipart-abort': {
         const key = objectKey(userId, body.mediaId, 'video', 'video/mp4')
