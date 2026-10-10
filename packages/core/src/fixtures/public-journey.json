@@ -1,0 +1,143 @@
+{
+  "media": [
+    {
+      "id": "b4000000-0000-4000-8000-000000000001",
+      "kind": "photo",
+      "width": 2400,
+      "focalX": 0.4,
+      "focalY": 0.6,
+      "height": 1800,
+      "caption": "Ráno u jezera",
+      "starred": false,
+      "latitude": 50.8722,
+      "momentId": "b3000000-0000-4000-8000-000000000001",
+      "variants": [
+        {
+          "kind": "thumb",
+          "width": 220,
+          "height": 165,
+          "mimeType": "image/webp",
+          "storageKey": "00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/thumb.webp"
+        },
+        {
+          "kind": "small",
+          "width": 800,
+          "height": 600,
+          "mimeType": "image/webp",
+          "storageKey": "00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/small.webp"
+        },
+        {
+          "kind": "large",
+          "width": 2400,
+          "height": 1800,
+          "mimeType": "image/webp",
+          "storageKey": "00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000001/full.webp"
+        }
+      ],
+      "longitude": -115.6458,
+      "capturedAt": "2026-06-03T14:30:00+00:00",
+      "capturedTz": null,
+      "durationMs": null,
+      "segmentOverrideId": null
+    },
+    {
+      "id": "b4000000-0000-4000-8000-000000000002",
+      "kind": "video",
+      "width": 220,
+      "focalX": null,
+      "focalY": null,
+      "height": 124,
+      "caption": null,
+      "starred": false,
+      "latitude": null,
+      "momentId": "b3000000-0000-4000-8000-000000000001",
+      "variants": [
+        {
+          "kind": "thumb",
+          "width": 220,
+          "height": 124,
+          "mimeType": "image/jpeg",
+          "storageKey": "00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000002/thumb.jpg"
+        },
+        {
+          "kind": "video",
+          "width": 1920,
+          "height": 1080,
+          "mimeType": "video/mp4",
+          "storageKey": "00000000-0000-4000-8000-000000000081/b4000000-0000-4000-8000-000000000002/video.mp4"
+        }
+      ],
+      "longitude": null,
+      "capturedAt": "2026-06-03T15:10:00+00:00",
+      "capturedTz": null,
+      "durationMs": 42000,
+      "segmentOverrideId": null
+    }
+  ],
+  "places": [
+    {
+      "id": "b2000000-0000-4000-8000-000000000001",
+      "name": "Lake Magog",
+      "region": null,
+      "latitude": 50.8722,
+      "longitude": -115.6458,
+      "countryCode": null
+    }
+  ],
+  "tracks": [],
+  "journey": {
+    "id": "b0000000-0000-4000-8000-000000000001",
+    "space": {
+      "name": "Cestovatel",
+      "handle": "traveler-00000000"
+    },
+    "title": "Kanada 2026",
+    "endsAt": null,
+    "homeTz": null,
+    "status": "planning",
+    "summary": "",
+    "startsAt": null,
+    "coverMediaId": null
+  },
+  "moments": [
+    {
+      "id": "b3000000-0000-4000-8000-000000000001",
+      "body": "Jarní tání.",
+      "title": "Národní park Yoho",
+      "endsAt": "2026-06-03T15:10:00+00:00",
+      "placeId": "b2000000-0000-4000-8000-000000000001",
+      "latitude": 50.8722,
+      "startsAt": "2026-06-03T14:30:00+00:00",
+      "longitude": -115.6458,
+      "coverMediaId": "b4000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "segments": [
+    {
+      "id": "b1000000-0000-4000-8000-000000000001",
+      "tz": null,
+      "body": "Měsíc v horách",
+      "kind": "stage",
+      "title": "Rockies",
+      "endsAt": "2026-06-26T00:00:00+00:00",
+      "parentId": null,
+      "position": 0,
+      "startsAt": "2026-05-25T00:00:00+00:00",
+      "tripType": null,
+      "coverMediaId": null
+    },
+    {
+      "id": "b1000000-0000-4000-8000-000000000002",
+      "tz": null,
+      "body": "",
+      "kind": "stage",
+      "title": "Na sever",
+      "endsAt": "2026-07-10T18:00:01+00:00",
+      "parentId": null,
+      "position": 1,
+      "startsAt": "2026-07-10T18:00:00+00:00",
+      "tripType": null,
+      "coverMediaId": null
+    }
+  ]
+}

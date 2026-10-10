@@ -11,6 +11,7 @@ import {
   listMediaLibraryAssets,
   readMediaLibraryEmbeddedMetadata,
   requestMediaLibraryAccess,
+  type MediaLibraryEmbeddedMetadata,
   type MediaLibraryStatus,
 } from '@/shared/lib/media-library'
 
@@ -21,9 +22,16 @@ import {
 
 const METADATA_CONCURRENCY = 4
 
+interface MetadataFailure {
+  id: string
+  message: string
+}
+
 interface RunResult {
   diagnostics: AssetDiagnostic[]
+  icloudDownload: boolean
   listMs: number
+  metadataFailures: MetadataFailure[]
   metadataMs: number
   summary: LibraryDiagnosticsSummary
 }
@@ -33,6 +41,11 @@ export function MediaLibraryDiagnosticsPage() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<RunResult | null>(null)
+  const [allowNetwork, setAllowNetwork] = useState(true)
+  const [progress, setProgress] = useState<{
+    done: number
+    total: number
+  } | null>(null)
   const available = isMediaLibraryAvailable()
 
   async function handleRequestAccess() {
@@ -51,20 +64,38 @@ export function MediaLibraryDiagnosticsPage() {
       setStatus(await getMediaLibraryStatus())
       const listed = await listMediaLibraryAssets()
       const started = performance.now()
+      const metadataFailures: MetadataFailure[] = []
+      let done = 0
+      setProgress({ done, total: listed.assets.length })
       const diagnostics = await mapWithConcurrency(
         listed.assets,
         METADATA_CONCURRENCY,
-        async (asset) =>
-          diagnoseAsset(
-            asset,
-            asset.mediaType === 'image'
-              ? await readMediaLibraryEmbeddedMetadata(asset.id)
-              : null,
-          ),
+        async (asset) => {
+          let metadata: MediaLibraryEmbeddedMetadata | null = null
+          if (asset.mediaType === 'image') {
+            try {
+              metadata = await readMediaLibraryEmbeddedMetadata(asset.id, {
+                allowNetwork,
+              })
+            } catch (caught) {
+              // One unreadable asset (e.g. iCloud download failed) must not
+              // abort the whole run; it is counted and reported instead.
+              metadataFailures.push({
+                id: asset.id,
+                message: describeError(caught),
+              })
+            }
+          }
+          done += 1
+          setProgress({ done, total: listed.assets.length })
+          return diagnoseAsset(asset, metadata)
+        },
       )
       setResult({
         diagnostics,
+        icloudDownload: allowNetwork,
         listMs: listed.elapsedMs,
+        metadataFailures,
         metadataMs: Math.round(performance.now() - started),
         summary: summarizeDiagnostics(diagnostics),
       })
@@ -72,6 +103,7 @@ export function MediaLibraryDiagnosticsPage() {
       setError(describeError(caught))
     } finally {
       setRunning(false)
+      setProgress(null)
     }
   }
 
@@ -106,6 +138,30 @@ export function MediaLibraryDiagnosticsPage() {
         </div>
       )}
 
+      {available && (
+        <label className="mt-3 flex items-center gap-2">
+          <input
+            checked={allowNetwork}
+            disabled={running}
+            onChange={(event) => {
+              setAllowNetwork(event.target.checked)
+            }}
+            type="checkbox"
+          />
+          Stahovat z iCloudu
+        </label>
+      )}
+      {running && (
+        <p className="mt-2" data-testid="media-library-progress">
+          {allowNetwork
+            ? 'Stahování originálů z iCloudu může trvat déle. '
+            : ''}
+          {progress === null
+            ? 'Načítám výpis…'
+            : `Zpracováno ${String(progress.done)}/${String(progress.total)}`}
+        </p>
+      )}
+
       {status !== null && (
         <p className="mt-3" data-testid="media-library-status">
           Přístup: <strong>{status}</strong>
@@ -126,7 +182,12 @@ export function MediaLibraryDiagnosticsPage() {
             {JSON.stringify(
               {
                 ...result.summary,
+                icloudDownload: result.icloudDownload,
                 listMs: result.listMs,
+                metadataErrors: result.metadataFailures.length,
+                metadataErrorSamples: result.metadataFailures
+                  .slice(0, 5)
+                  .map((failure) => failure.message),
                 metadataMs: result.metadataMs,
               },
               null,

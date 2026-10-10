@@ -84,6 +84,16 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: supabase functions deploy translate-entry --project-ref "$SUPABASE_PROJECT_ID"
+      - name: Deploy resolve-place edge function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy resolve-place --project-ref "$SUPABASE_PROJECT_ID"
+      - name: Deploy media-upload edge function
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: supabase functions deploy media-upload --project-ref "$SUPABASE_PROJECT_ID"
 
   deploy:
     needs: [ci-gate, migrate]

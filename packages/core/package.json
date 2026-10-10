@@ -5,13 +5,17 @@
   "type": "module",
   "exports": {
     "./entry": "./src/entry.ts",
-    "./journey": "./src/journey.ts"
+    "./journey": "./src/journey.ts",
+    "./public-journey": "./src/public-journey.ts",
+    "./automation": "./src/automation/index.ts",
+    "./media-upload": "./src/media-upload.ts"
   },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@photostructure/tz-lookup": "11.7.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {

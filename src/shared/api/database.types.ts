@@ -355,6 +355,21 @@ export type Database = {
           },
         ]
       }
+      geocoder_throttle: {
+        Row: {
+          id: number
+          next_slot_at: string
+        }
+        Insert: {
+          id?: number
+          next_slot_at?: string
+        }
+        Update: {
+          id?: number
+          next_slot_at?: string
+        }
+        Relationships: []
+      }
       journey_checklist_items: {
         Row: {
           category: Database['public']['Enums']['checklist_item_category']
@@ -701,9 +716,11 @@ export type Database = {
       }
       journeys: {
         Row: {
+          cover_media_id: string | null
           created_at: string
           creator_id: string
           ends_at: string | null
+          home_tz: string | null
           id: string
           slug: string
           space_id: string
@@ -715,9 +732,11 @@ export type Database = {
           visibility: Database['public']['Enums']['journey_visibility']
         }
         Insert: {
+          cover_media_id?: string | null
           created_at?: string
           creator_id: string
           ends_at?: string | null
+          home_tz?: string | null
           id: string
           slug: string
           space_id: string
@@ -729,9 +748,11 @@ export type Database = {
           visibility?: Database['public']['Enums']['journey_visibility']
         }
         Update: {
+          cover_media_id?: string | null
           created_at?: string
           creator_id?: string
           ends_at?: string | null
+          home_tz?: string | null
           id?: string
           slug?: string
           space_id?: string
@@ -744,10 +765,240 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: 'journeys_cover_media_fk'
+            columns: ['cover_media_id']
+            isOneToOne: false
+            referencedRelation: 'media'
+            referencedColumns: ['id']
+          },
+          {
             foreignKeyName: 'journeys_space_id_fkey'
             columns: ['space_id']
             isOneToOne: false
             referencedRelation: 'spaces'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      media: {
+        Row: {
+          altitude: number | null
+          caption: string | null
+          captured_at: string | null
+          captured_tz: string | null
+          content_hash: string | null
+          created_at: string
+          duration_ms: number | null
+          focal_x: number | null
+          focal_y: number | null
+          height: number | null
+          hide_location: boolean
+          id: string
+          journey_id: string | null
+          kind: Database['public']['Enums']['media_kind']
+          latitude: number | null
+          longitude: number | null
+          moment_id: string | null
+          owner_id: string
+          segment_override_id: string | null
+          source_asset_id: string | null
+          starred: boolean
+          status: Database['public']['Enums']['media_status']
+          updated_at: string
+          width: number | null
+        }
+        Insert: {
+          altitude?: number | null
+          caption?: string | null
+          captured_at?: string | null
+          captured_tz?: string | null
+          content_hash?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
+          height?: number | null
+          hide_location?: boolean
+          id: string
+          journey_id?: string | null
+          kind?: Database['public']['Enums']['media_kind']
+          latitude?: number | null
+          longitude?: number | null
+          moment_id?: string | null
+          owner_id: string
+          segment_override_id?: string | null
+          source_asset_id?: string | null
+          starred?: boolean
+          status?: Database['public']['Enums']['media_status']
+          updated_at?: string
+          width?: number | null
+        }
+        Update: {
+          altitude?: number | null
+          caption?: string | null
+          captured_at?: string | null
+          captured_tz?: string | null
+          content_hash?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          focal_x?: number | null
+          focal_y?: number | null
+          height?: number | null
+          hide_location?: boolean
+          id?: string
+          journey_id?: string | null
+          kind?: Database['public']['Enums']['media_kind']
+          latitude?: number | null
+          longitude?: number | null
+          moment_id?: string | null
+          owner_id?: string
+          segment_override_id?: string | null
+          source_asset_id?: string | null
+          starred?: boolean
+          status?: Database['public']['Enums']['media_status']
+          updated_at?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'media_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'media_moment_fk'
+            columns: ['moment_id', 'journey_id']
+            isOneToOne: false
+            referencedRelation: 'moments'
+            referencedColumns: ['id', 'journey_id']
+          },
+          {
+            foreignKeyName: 'media_segment_override_fk'
+            columns: ['segment_override_id', 'journey_id']
+            isOneToOne: false
+            referencedRelation: 'segments'
+            referencedColumns: ['id', 'journey_id']
+          },
+        ]
+      }
+      media_variants: {
+        Row: {
+          byte_size: number
+          created_at: string
+          height: number
+          kind: Database['public']['Enums']['media_variant_kind']
+          media_id: string
+          mime_type: string
+          storage_key: string
+          width: number
+        }
+        Insert: {
+          byte_size: number
+          created_at?: string
+          height: number
+          kind: Database['public']['Enums']['media_variant_kind']
+          media_id: string
+          mime_type: string
+          storage_key: string
+          width: number
+        }
+        Update: {
+          byte_size?: number
+          created_at?: string
+          height?: number
+          kind?: Database['public']['Enums']['media_variant_kind']
+          media_id?: string
+          mime_type?: string
+          storage_key?: string
+          width?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'media_variants_media_id_fkey'
+            columns: ['media_id']
+            isOneToOne: false
+            referencedRelation: 'media'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      moments: {
+        Row: {
+          body: string
+          cover_media_id: string | null
+          created_at: string
+          created_by: string
+          ends_at: string
+          id: string
+          journey_id: string
+          latitude: number | null
+          locked: boolean
+          longitude: number | null
+          origin: Database['public']['Enums']['content_origin']
+          place_id: string | null
+          published: boolean
+          starts_at: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          cover_media_id?: string | null
+          created_at?: string
+          created_by: string
+          ends_at: string
+          id: string
+          journey_id: string
+          latitude?: number | null
+          locked?: boolean
+          longitude?: number | null
+          origin?: Database['public']['Enums']['content_origin']
+          place_id?: string | null
+          published?: boolean
+          starts_at: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          cover_media_id?: string | null
+          created_at?: string
+          created_by?: string
+          ends_at?: string
+          id?: string
+          journey_id?: string
+          latitude?: number | null
+          locked?: boolean
+          longitude?: number | null
+          origin?: Database['public']['Enums']['content_origin']
+          place_id?: string | null
+          published?: boolean
+          starts_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'moments_cover_media_fk'
+            columns: ['cover_media_id']
+            isOneToOne: false
+            referencedRelation: 'media'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'moments_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'moments_place_id_fkey'
+            columns: ['place_id']
+            isOneToOne: false
+            referencedRelation: 'places'
             referencedColumns: ['id']
           },
         ]
@@ -963,6 +1214,184 @@ export type Database = {
         }
         Relationships: []
       }
+      place_lookups: {
+        Row: {
+          created_at: string
+          grid_key: string
+          place_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          grid_key: string
+          place_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          grid_key?: string
+          place_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'place_lookups_place_id_fkey'
+            columns: ['place_id']
+            isOneToOne: false
+            referencedRelation: 'places'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      places: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          geocode_source: string
+          id: string
+          latitude: number
+          longitude: number
+          name: string
+          region: string | null
+          source_ref: string | null
+          updated_at: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          geocode_source: string
+          id?: string
+          latitude: number
+          longitude: number
+          name: string
+          region?: string | null
+          source_ref?: string | null
+          updated_at?: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          geocode_source?: string
+          id?: string
+          latitude?: number
+          longitude?: number
+          name?: string
+          region?: string | null
+          source_ref?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      post_media: {
+        Row: {
+          media_id: string
+          position: number
+          post_id: string
+        }
+        Insert: {
+          media_id: string
+          position: number
+          post_id: string
+        }
+        Update: {
+          media_id?: string
+          position?: number
+          post_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'post_media_media_id_fkey'
+            columns: ['media_id']
+            isOneToOne: false
+            referencedRelation: 'media'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'post_media_post_id_fkey'
+            columns: ['post_id']
+            isOneToOne: false
+            referencedRelation: 'posts'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      posts: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          journey_id: string | null
+          kind: Database['public']['Enums']['post_kind']
+          place_id: string | null
+          published_at: string | null
+          segment_id: string | null
+          slug: string | null
+          space_id: string
+          title: string
+          updated_at: string
+          visibility: Database['public']['Enums']['journey_visibility']
+        }
+        Insert: {
+          author_id: string
+          body?: string
+          created_at?: string
+          id: string
+          journey_id?: string | null
+          kind?: Database['public']['Enums']['post_kind']
+          place_id?: string | null
+          published_at?: string | null
+          segment_id?: string | null
+          slug?: string | null
+          space_id: string
+          title: string
+          updated_at?: string
+          visibility?: Database['public']['Enums']['journey_visibility']
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          journey_id?: string | null
+          kind?: Database['public']['Enums']['post_kind']
+          place_id?: string | null
+          published_at?: string | null
+          segment_id?: string | null
+          slug?: string | null
+          space_id?: string
+          title?: string
+          updated_at?: string
+          visibility?: Database['public']['Enums']['journey_visibility']
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'posts_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'posts_place_id_fkey'
+            columns: ['place_id']
+            isOneToOne: false
+            referencedRelation: 'places'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'posts_segment_id_fkey'
+            columns: ['segment_id']
+            isOneToOne: false
+            referencedRelation: 'segments'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'posts_space_id_fkey'
+            columns: ['space_id']
+            isOneToOne: false
+            referencedRelation: 'spaces'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -995,6 +1424,85 @@ export type Database = {
           username?: string | null
         }
         Relationships: []
+      }
+      segments: {
+        Row: {
+          body: string
+          cover_media_id: string | null
+          created_at: string
+          created_by: string
+          ends_at: string
+          id: string
+          journey_id: string
+          kind: Database['public']['Enums']['segment_kind']
+          origin: Database['public']['Enums']['content_origin']
+          parent_id: string | null
+          position: number
+          starts_at: string
+          title: string
+          trip_type: Database['public']['Enums']['trip_type'] | null
+          tz: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          cover_media_id?: string | null
+          created_at?: string
+          created_by: string
+          ends_at: string
+          id: string
+          journey_id: string
+          kind: Database['public']['Enums']['segment_kind']
+          origin?: Database['public']['Enums']['content_origin']
+          parent_id?: string | null
+          position?: number
+          starts_at: string
+          title: string
+          trip_type?: Database['public']['Enums']['trip_type'] | null
+          tz?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          cover_media_id?: string | null
+          created_at?: string
+          created_by?: string
+          ends_at?: string
+          id?: string
+          journey_id?: string
+          kind?: Database['public']['Enums']['segment_kind']
+          origin?: Database['public']['Enums']['content_origin']
+          parent_id?: string | null
+          position?: number
+          starts_at?: string
+          title?: string
+          trip_type?: Database['public']['Enums']['trip_type'] | null
+          tz?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'segments_cover_media_fk'
+            columns: ['cover_media_id']
+            isOneToOne: false
+            referencedRelation: 'media'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'segments_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'segments_parent_fk'
+            columns: ['parent_id', 'journey_id']
+            isOneToOne: false
+            referencedRelation: 'segments'
+            referencedColumns: ['id', 'journey_id']
+          },
+        ]
       }
       space_invites: {
         Row: {
@@ -1114,6 +1622,123 @@ export type Database = {
         }
         Relationships: []
       }
+      taggings: {
+        Row: {
+          created_at: string
+          created_by: string
+          tag_id: string
+          target_id: string
+          target_type: Database['public']['Enums']['tagging_target']
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          tag_id: string
+          target_id: string
+          target_type: Database['public']['Enums']['tagging_target']
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          tag_id?: string
+          target_id?: string
+          target_type?: Database['public']['Enums']['tagging_target']
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'taggings_tag_id_fkey'
+            columns: ['tag_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          gbif_taxon_id: number | null
+          id: string
+          kind: Database['public']['Enums']['tag_kind']
+          label: string
+          parent_id: string | null
+          slug: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          gbif_taxon_id?: number | null
+          id?: string
+          kind: Database['public']['Enums']['tag_kind']
+          label: string
+          parent_id?: string | null
+          slug: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          gbif_taxon_id?: number | null
+          id?: string
+          kind?: Database['public']['Enums']['tag_kind']
+          label?: string
+          parent_id?: string | null
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tags_parent_id_fkey'
+            columns: ['parent_id']
+            isOneToOne: false
+            referencedRelation: 'tags'
+            referencedColumns: ['id']
+          },
+        ]
+      }
+      tracks: {
+        Row: {
+          ascent_m: number | null
+          created_at: string
+          distance_m: number | null
+          geojson: Json
+          id: string
+          journey_id: string
+          segment_id: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          ascent_m?: number | null
+          created_at?: string
+          distance_m?: number | null
+          geojson: Json
+          id: string
+          journey_id: string
+          segment_id: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          ascent_m?: number | null
+          created_at?: string
+          distance_m?: number | null
+          geojson?: Json
+          id?: string
+          journey_id?: string
+          segment_id?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'tracks_segment_fk'
+            columns: ['segment_id', 'journey_id']
+            isOneToOne: false
+            referencedRelation: 'segments'
+            referencedColumns: ['id', 'journey_id']
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -1121,11 +1746,26 @@ export type Database = {
     Functions: {
       accept_journey_invite: { Args: { p_raw_token: string }; Returns: string }
       accept_space_invite: { Args: { p_raw_token: string }; Returns: string }
+      can_edit_journey: { Args: { p_journey_id: string }; Returns: boolean }
+      can_edit_tagging_target: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database['public']['Enums']['tagging_target']
+        }
+        Returns: boolean
+      }
       can_moderate_target: {
         Args: {
           p_target_id: string
           p_target_type: Database['public']['Enums']['content_target_type']
           p_user_id: string
+        }
+        Returns: boolean
+      }
+      can_read_tagging_target: {
+        Args: {
+          p_target_id: string
+          p_target_type: Database['public']['Enums']['tagging_target']
         }
         Returns: boolean
       }
@@ -1137,6 +1777,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      claim_geocoder_slot: { Args: { p_interval_ms?: number }; Returns: number }
       compute_source_content_hash: {
         Args: { p_body: string; p_title: string }
         Returns: string
@@ -1187,6 +1828,10 @@ export type Database = {
           journey_title: string
         }[]
       }
+      get_public_journey: {
+        Args: { p_journey_slug: string; p_space_handle: string }
+        Returns: Json
+      }
       get_space_invite_preview: {
         Args: { p_raw_token: string }
         Returns: {
@@ -1209,6 +1854,7 @@ export type Database = {
       is_public_photo: { Args: { p_photo_id: string }; Returns: boolean }
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
+      is_time_zone_name: { Args: { p_value: string }; Returns: boolean }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
       list_journey_pending_invites: {
         Args: { p_journey_id: string }
@@ -1251,9 +1897,11 @@ export type Database = {
       move_journey_to_space: {
         Args: { p_journey_id: string; p_slug?: string; p_space_id: string }
         Returns: {
+          cover_media_id: string | null
           created_at: string
           creator_id: string
           ends_at: string | null
+          home_tz: string | null
           id: string
           slug: string
           space_id: string
@@ -1350,6 +1998,21 @@ export type Database = {
         }
         Returns: string
       }
+      v2_map_variant_kind: {
+        Args: { p_variant: string }
+        Returns: Database['public']['Enums']['media_variant_kind']
+      }
+      v2_migrate_from_v1: { Args: never; Returns: Json }
+      v2_variant_priority: { Args: { p_variant: string }; Returns: number }
+      v2_verify_migration: {
+        Args: never
+        Returns: {
+          actual: number
+          check_name: string
+          expected: number
+          ok: boolean
+        }[]
+      }
     }
     Enums: {
       checklist_item_category:
@@ -1358,6 +2021,7 @@ export type Database = {
         | 'geology'
         | 'landmark'
         | 'general'
+      content_origin: 'manual' | 'suggested' | 'accepted' | 'auto'
       content_target_type: 'journey' | 'entry' | 'photo'
       entry_language: 'cs' | 'en'
       entry_status: 'draft' | 'published'
@@ -1367,6 +2031,15 @@ export type Database = {
       journey_status: 'planning' | 'active' | 'completed'
       journey_stop_status: 'planned' | 'visited'
       journey_visibility: 'public' | 'private'
+      media_kind: 'photo' | 'video'
+      media_status: 'pending' | 'uploading' | 'ready' | 'failed'
+      media_variant_kind:
+        | 'thumb'
+        | 'small'
+        | 'medium'
+        | 'large'
+        | 'video'
+        | 'poster'
       observation_confidence: 'seen' | 'heard' | 'unsure'
       photo_variant_type:
         | 'thumb'
@@ -1376,14 +2049,19 @@ export type Database = {
         | 'medium'
         | 'full'
         | 'video'
+      post_kind: 'tip' | 'article'
+      segment_kind: 'stage' | 'trip'
       space_kind: 'personal' | 'family'
       space_role: 'owner' | 'editor' | 'member'
+      tag_kind: 'category' | 'free' | 'species'
+      tagging_target: 'media' | 'moment' | 'post'
       translation_status:
         | 'pending'
         | 'processing'
         | 'succeeded'
         | 'failed'
         | 'stale'
+      trip_type: 'trek' | 'day' | 'transfer' | 'stay'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1521,6 +2199,7 @@ export const Constants = {
         'landmark',
         'general',
       ],
+      content_origin: ['manual', 'suggested', 'accepted', 'auto'],
       content_target_type: ['journey', 'entry', 'photo'],
       entry_language: ['cs', 'en'],
       entry_status: ['draft', 'published'],
@@ -1530,6 +2209,16 @@ export const Constants = {
       journey_status: ['planning', 'active', 'completed'],
       journey_stop_status: ['planned', 'visited'],
       journey_visibility: ['public', 'private'],
+      media_kind: ['photo', 'video'],
+      media_status: ['pending', 'uploading', 'ready', 'failed'],
+      media_variant_kind: [
+        'thumb',
+        'small',
+        'medium',
+        'large',
+        'video',
+        'poster',
+      ],
       observation_confidence: ['seen', 'heard', 'unsure'],
       photo_variant_type: [
         'thumb',
@@ -1540,8 +2229,12 @@ export const Constants = {
         'full',
         'video',
       ],
+      post_kind: ['tip', 'article'],
+      segment_kind: ['stage', 'trip'],
       space_kind: ['personal', 'family'],
       space_role: ['owner', 'editor', 'member'],
+      tag_kind: ['category', 'free', 'species'],
+      tagging_target: ['media', 'moment', 'post'],
       translation_status: [
         'pending',
         'processing',
@@ -1549,6 +2242,7 @@ export const Constants = {
         'failed',
         'stale',
       ],
+      trip_type: ['trek', 'day', 'transfer', 'stay'],
     },
   },
 } as const

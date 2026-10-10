@@ -16,6 +16,7 @@ import {
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
   LazyMediaLibraryDiagnosticsPage,
+  LazyMediaUploadDevPage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
   LazySpacesRoutePage,
@@ -192,6 +193,13 @@ const mediaLibraryDiagnosticsRoute = createRoute({
   component: LazyMediaLibraryDiagnosticsPage,
 })
 
+// Phase 2 upload harness: web dev builds only (never routed in production).
+const mediaUploadDevRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/media-upload',
+  component: LazyMediaUploadDevPage,
+})
+
 const publicSpaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle',
@@ -237,6 +245,9 @@ const routeTree = rootRoute.addChildren([
   acceptInviteRoute,
   acceptJourneyInviteRoute,
   ...(Capacitor.isNativePlatform() ? [mediaLibraryDiagnosticsRoute] : []),
+  ...(import.meta.env.DEV && !Capacitor.isNativePlatform()
+    ? [mediaUploadDevRoute]
+    : []),
   publicSpaceRoute,
   publicJourneyRoute,
   publicStandaloneEntryRoute,
