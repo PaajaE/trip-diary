@@ -2,13 +2,17 @@ import {
   MediaUploadError,
   type NewMediaVariant,
   type NewPhotoMedia,
+  type NewVideoMedia,
 } from '@/entities/media/model/media'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
 const UNIQUE_VIOLATION = '23505'
 
 /** Inserts the media row in status 'uploading' (owner_id must be auth.uid()). */
-export async function createMedia(input: NewPhotoMedia): Promise<void> {
+export async function createMedia(
+  input: NewPhotoMedia | NewVideoMedia,
+): Promise<void> {
+  const video = 'kind' in input
   const { error } = await getSupabaseClient()
     .from('media')
     .insert({
@@ -17,7 +21,8 @@ export async function createMedia(input: NewPhotoMedia): Promise<void> {
       content_hash: input.contentHash,
       height: input.height,
       id: input.id,
-      kind: 'photo',
+      kind: video ? 'video' : 'photo',
+      ...(video ? { duration_ms: input.durationMs } : {}),
       latitude: input.latitude,
       longitude: input.longitude,
       owner_id: input.ownerId,

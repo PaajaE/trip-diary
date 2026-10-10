@@ -16,6 +16,7 @@ import {
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
   LazyMediaLibraryDiagnosticsPage,
+  LazyVideoUploadDevPage,
   LazyMediaUploadDevPage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
@@ -193,6 +194,13 @@ const mediaLibraryDiagnosticsRoute = createRoute({
   component: LazyMediaLibraryDiagnosticsPage,
 })
 
+// Native-only video upload harness (T7b); never routed on the web.
+const videoUploadDevRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/video-upload',
+  component: LazyVideoUploadDevPage,
+})
+
 // Phase 2 upload harness: web dev builds only (never routed in production).
 const mediaUploadDevRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -244,7 +252,9 @@ const routeTree = rootRoute.addChildren([
   spaceMembersRoute,
   acceptInviteRoute,
   acceptJourneyInviteRoute,
-  ...(Capacitor.isNativePlatform() ? [mediaLibraryDiagnosticsRoute] : []),
+  ...(Capacitor.isNativePlatform()
+    ? [mediaLibraryDiagnosticsRoute, videoUploadDevRoute]
+    : []),
   ...(import.meta.env.DEV && !Capacitor.isNativePlatform()
     ? [mediaUploadDevRoute]
     : []),
