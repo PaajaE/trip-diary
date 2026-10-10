@@ -57,6 +57,19 @@ Závěry:
 
 Neověřeno: videa (13 z 50 se nečetla), Live Photos zvlášť, celá knihovna (velikost a čas výpisu jsou jen z vzorku 50), mobilní data.
 
+## Video z iPhonu — výsledky (2026-10-09)
+
+Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build. Dev stránka `/dev/video-upload` (jen nativní aplikace).
+
+| Měření                                        | Výsledek                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Export svislého videa 19,1 s                  | 3,8 s, výstup 1080×1920 (orientace zachována), 32,5 MB, poster 720×1280 98 kB       |
+| Upload do produkčního R2 (background session) | 100 %, 32 539 146 B; řádky `media` (`ready`) a `media_variants` (`video`, `poster`) |
+| Veřejný soubor                                | 200, `video/mp4`, `accept-ranges: bytes`, H.264 + AAC, `moov` na začátku            |
+| Úklid (`delete-media` + smazání řádku)        | DB 0 řádků, R2 objekty pryč; Cloudflare cache dál servíruje starou kopii            |
+
+Neověřeno: výpadek sítě během uploadu, 60 s klip u limitu 120 MiB (export má vysoký bitrate), zdroj 4K HEVC, přehrání v Chrome a Firefoxu, obnovení po zabití aplikace.
+
 ## Ověření
 
 - `pnpm check`: ✅ (118 testovacích souborů, 372 testů + 2 očekávaně selhávající)
