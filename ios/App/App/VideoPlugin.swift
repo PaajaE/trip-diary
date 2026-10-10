@@ -124,21 +124,13 @@ public class VideoPlugin: CAPPlugin, CAPBridgedPlugin {
         let posterUrl = Self.exportDirectory.appendingPathComponent("\(name).jpg")
 
         do {
-            // AVAssetExportPreset1920x1080 always produces H.264 (HEVC needs the
-            // explicit HEVC presets) and never upscales smaller sources, so HEVC 4K
-            // input is transcoded down to 1080p H.264. The preferred transform is
-            // carried over, preserving orientation.
-            let compatible = AVAssetExportSession.exportPresets(compatibleWith: asset)
-            let preset = [AVAssetExportPreset1920x1080, AVAssetExportPreset1280x720, AVAssetExportPresetMediumQuality]
-                .first(where: compatible.contains)
-            guard let preset, let session = AVAssetExportSession(asset: asset, presetName: preset) else {
-                throw PluginFailure(code: "EXPORT_FAILED", message: "No compatible export preset")
+            // AVAssetReader/Writer pipeline: H.264 High, <= 1920x1080 box, ~8 Mb/s,
+            // AAC 128 kbps. Bitrate cannot be controlled with export presets.
+            let transcoder = VideoTranscoder(asset: asset, outputURL: videoUrl) { [weak self] progress in
+                self?.notifyListeners("exportProgress", data: ["progress": progress])
             }
-            session.outputURL = videoUrl
-            session.outputFileType = .mp4
-            session.shouldOptimizeForNetworkUse = true
-
-            try await run(session)
+            try await transcoder.run()
+            notifyListeners("exportProgress", data: ["progress": 1.0])
 
             let byteSize = try Self.fileSize(videoUrl)
             if VideoLimits.isTooLarge(byteSize: byteSize) {
@@ -168,25 +160,6 @@ public class VideoPlugin: CAPPlugin, CAPBridgedPlugin {
             try? FileManager.default.removeItem(at: posterUrl)
             throw error
         }
-    }
-
-    private func run(_ session: AVAssetExportSession) async throws {
-        let poll = Task {
-            while !Task.isCancelled {
-                self.notifyListeners("exportProgress", data: ["progress": Double(session.progress)])
-                try? await Task.sleep(nanoseconds: 250_000_000)
-            }
-        }
-        defer { poll.cancel() }
-
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-            session.exportAsynchronously { continuation.resume() }
-        }
-        guard session.status == .completed else {
-            let reason = session.error?.localizedDescription ?? "status \(session.status.rawValue)"
-            throw PluginFailure(code: "EXPORT_FAILED", message: "Export failed: \(reason)")
-        }
-        notifyListeners("exportProgress", data: ["progress": 1.0])
     }
 
     private static func fileSize(_ url: URL) throws -> Int64 {
@@ -294,5 +267,220 @@ public class VideoPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         VideoUploadManager.shared.cancel(uploadKey: uploadKey)
         call.resolve()
+    }
+}
+
+
+// MARK: - Transcoder
+
+/// Re-encodes an asset with AVAssetReader/AVAssetWriter so the bitrate is controlled.
+/// Single use. Cancelling the surrounding Task cancels reading and writing; the
+/// caller deletes the partial output file on any thrown error.
+final class VideoTranscoder: @unchecked Sendable {
+    private struct Failure: LocalizedError {
+        let message: String
+        var errorDescription: String? { message }
+    }
+
+    private let asset: AVAsset
+    private let outputURL: URL
+    private let onProgress: @Sendable (Double) -> Void
+    private let lock = NSLock()
+    private var cancelled = false
+    private var failure: Error?
+    private var reader: AVAssetReader?
+    private var lastProgressAt = Date.distantPast
+
+    init(asset: AVAsset, outputURL: URL, onProgress: @escaping @Sendable (Double) -> Void) {
+        self.asset = asset
+        self.outputURL = outputURL
+        self.onProgress = onProgress
+    }
+
+    private var isStopped: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return cancelled || failure != nil
+    }
+
+    private func snapshot() -> (cancelled: Bool, failure: Error?) {
+        lock.lock(); defer { lock.unlock() }
+        return (cancelled, failure)
+    }
+
+    private func fail(_ error: Error) {
+        lock.lock()
+        if failure == nil { failure = error }
+        lock.unlock()
+        reader?.cancelReading()
+    }
+
+    private func cancel() {
+        lock.lock(); cancelled = true; lock.unlock()
+        reader?.cancelReading()
+    }
+
+    private func report(_ pts: CMTime, duration: Double) {
+        let now = Date()
+        lock.lock()
+        let due = now.timeIntervalSince(lastProgressAt) >= 0.25
+        if due { lastProgressAt = now }
+        lock.unlock()
+        guard due else { return }
+        // Leave 1.0 for the caller, after the file is finalised.
+        onProgress(min(0.99, VideoExportSettings.progress(presentationSeconds: pts.seconds, durationSeconds: duration)))
+    }
+
+    func run() async throws {
+        try await withTaskCancellationHandler {
+            try await transcode()
+        } onCancel: {
+            self.cancel()
+        }
+    }
+
+    private func transcode() async throws {
+        guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
+            throw Failure(message: "Source has no video track")
+        }
+        let audioTrack = try await asset.loadTracks(withMediaType: .audio).first
+        let duration = try await asset.load(.duration).seconds
+        let (naturalSize, transform, nominalRate) = try await videoTrack.load(
+            .naturalSize, .preferredTransform, .nominalFrameRate)
+
+        let size = VideoExportSettings.fitDimensions(
+            width: Int(naturalSize.width.rounded()), height: Int(naturalSize.height.rounded()))
+        let frameRate = VideoExportSettings.expectedFrameRate(nominal: nominalRate)
+        let bitrate = VideoExportSettings.videoBitrate(width: size.width, height: size.height)
+
+        let reader = try AVAssetReader(asset: asset)
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+        writer.shouldOptimizeForNetworkUse = true
+        self.reader = reader
+
+        // Decode to 8-bit 4:2:0; this also makes the writer scale to the target size.
+        let videoOutput = AVAssetReaderTrackOutput(track: videoTrack, outputSettings: [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        ])
+        videoOutput.alwaysCopiesSampleData = false
+        guard reader.canAdd(videoOutput) else { throw Failure(message: "Cannot read video track") }
+        reader.add(videoOutput)
+
+        let videoInput = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: size.width,
+            AVVideoHeightKey: size.height,
+            AVVideoScalingModeKey: AVVideoScalingModeResizeAspect,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: bitrate,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel,
+                AVVideoMaxKeyFrameIntervalKey: VideoExportSettings.maxKeyFrameInterval(frameRate: frameRate),
+                AVVideoExpectedSourceFrameRateKey: frameRate,
+                AVVideoAllowFrameReorderingKey: true
+            ] as [String: Any]
+        ])
+        videoInput.expectsMediaDataInRealTime = false
+        // Frames are read untransformed, so carry the orientation as metadata.
+        videoInput.transform = transform
+        guard writer.canAdd(videoInput) else { throw Failure(message: "Cannot write video track") }
+        writer.add(videoInput)
+
+        var audioOutput: AVAssetReaderAudioMixOutput?
+        var audioInput: AVAssetWriterInput?
+        if let audioTrack {
+            let sourceRate = (try? await Self.sampleRate(of: audioTrack)) ?? 48_000
+            let rate = VideoExportSettings.audioSampleRate(source: sourceRate)
+            // The reader converts to stereo PCM at the target rate; the writer encodes AAC.
+            let out = AVAssetReaderAudioMixOutput(audioTracks: [audioTrack], audioSettings: [
+                AVFormatIDKey: kAudioFormatLinearPCM,
+                AVSampleRateKey: rate,
+                AVNumberOfChannelsKey: VideoExportSettings.audioChannels
+            ])
+            let input = AVAssetWriterInput(mediaType: .audio, outputSettings: [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVSampleRateKey: rate,
+                AVNumberOfChannelsKey: VideoExportSettings.audioChannels,
+                AVEncoderBitRateKey: VideoExportSettings.audioBitrate
+            ])
+            input.expectsMediaDataInRealTime = false
+            if reader.canAdd(out), writer.canAdd(input) {
+                reader.add(out)
+                writer.add(input)
+                audioOutput = out
+                audioInput = input
+            }
+        }
+
+        guard writer.startWriting() else {
+            throw Failure(message: writer.error?.localizedDescription ?? "Writer failed to start")
+        }
+        guard reader.startReading() else {
+            writer.cancelWriting()
+            throw Failure(message: reader.error?.localizedDescription ?? "Reader failed to start")
+        }
+        writer.startSession(atSourceTime: .zero)
+        if isStopped { reader.cancelReading() }
+
+        let group = DispatchGroup()
+        pump(output: videoOutput, input: videoInput, writer: writer, reader: reader, group: group,
+             queue: DispatchQueue(label: "video.export.video"), duration: duration, reportsProgress: true)
+        if let audioOutput, let audioInput {
+            pump(output: audioOutput, input: audioInput, writer: writer, reader: reader, group: group,
+                 queue: DispatchQueue(label: "video.export.audio"), duration: duration, reportsProgress: false)
+        }
+
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            group.notify(queue: .global()) { continuation.resume() }
+        }
+
+        let (wasCancelled, recorded) = snapshot()
+        if wasCancelled || recorded != nil || reader.status == .failed || writer.status == .failed {
+            writer.cancelWriting()
+            if wasCancelled { throw Failure(message: "Export cancelled") }
+            if let recorded { throw recorded }
+            let reason = reader.error ?? writer.error
+            throw Failure(message: reason?.localizedDescription ?? "Transcoding failed")
+        }
+
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw Failure(message: writer.error?.localizedDescription ?? "Writer status \(writer.status.rawValue)")
+        }
+    }
+
+    private func pump(
+        output: AVAssetReaderOutput, input: AVAssetWriterInput, writer: AVAssetWriter,
+        reader: AVAssetReader, group: DispatchGroup, queue: DispatchQueue,
+        duration: Double, reportsProgress: Bool
+    ) {
+        group.enter()
+        var finished = false
+        input.requestMediaDataWhenReady(on: queue) { [self] in
+            while input.isReadyForMoreMediaData && !finished {
+                if isStopped {
+                    input.markAsFinished(); finished = true; group.leave(); return
+                }
+                guard let sample = output.copyNextSampleBuffer() else {
+                    if reader.status == .failed {
+                        fail(reader.error ?? Failure(message: "Reader failed"))
+                    }
+                    input.markAsFinished(); finished = true; group.leave(); return
+                }
+                if reportsProgress {
+                    report(CMSampleBufferGetPresentationTimeStamp(sample), duration: duration)
+                }
+                if !input.append(sample) {
+                    fail(writer.error ?? Failure(message: "Writer rejected a sample"))
+                    input.markAsFinished(); finished = true; group.leave(); return
+                }
+            }
+        }
+    }
+
+    private static func sampleRate(of track: AVAssetTrack) async throws -> Double {
+        let descriptions = try await track.load(.formatDescriptions)
+        guard let description = descriptions.first,
+              let basic = CMAudioFormatDescriptionGetStreamBasicDescription(description)
+        else { return 48_000 }
+        return basic.pointee.mSampleRate
     }
 }

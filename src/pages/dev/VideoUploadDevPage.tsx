@@ -33,6 +33,7 @@ export function VideoUploadDevPage() {
   // Safe default: only export (local, no network, nothing written to Supabase or R2).
   const [exportOnly, setExportOnly] = useState(true)
   const [deleted, setDeleted] = useState<string | null>(null)
+  const [deleteId, setDeleteId] = useState('')
   const [exportResult, setExportResult] = useState<Record<
     string,
     unknown
@@ -85,13 +86,12 @@ export function VideoUploadDevPage() {
   }
 
   /** Test cleanup: removes the R2 objects first, the row only if that worked. */
-  async function handleDeleteUploaded() {
-    if (result === null) return
+  async function deleteById(mediaId: string) {
     setBusy(true)
     setError(null)
     try {
-      const removed = await deleteMediaObjectsRemote(result.mediaId)
-      await deleteMedia(result.mediaId)
+      const removed = await deleteMediaObjectsRemote(mediaId)
+      await deleteMedia(mediaId)
       setResult(null)
       setProgress(null)
       setDeleted(`Deleted ${String(removed)} objects and the media row`)
@@ -100,6 +100,24 @@ export function VideoUploadDevPage() {
     } finally {
       setBusy(false)
     }
+  }
+
+  async function handleDeleteUploaded() {
+    if (result === null) return
+    await deleteById(result.mediaId)
+  }
+
+  async function handleDeleteTyped() {
+    const id = deleteId.trim()
+    if (
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        id,
+      )
+    ) {
+      setError('Enter a valid media id (UUID).')
+      return
+    }
+    await deleteById(id)
   }
 
   async function handleUpload(asset: MediaLibraryAsset) {
@@ -200,6 +218,25 @@ export function VideoUploadDevPage() {
         </pre>
       )}
       {error === null ? null : <p role="alert">{error}</p>}
+      <div className="space-y-2">
+        <input
+          className="w-full rounded-lg border border-border px-3 py-2 font-mono text-xs"
+          disabled={busy}
+          onChange={(event) => {
+            setDeleteId(event.target.value)
+          }}
+          placeholder="Media id to delete (UUID)"
+          value={deleteId}
+        />
+        <button
+          className="rounded-lg border border-border px-3 py-2 disabled:opacity-50"
+          disabled={busy || user === null || deleteId.trim() === ''}
+          onClick={() => void handleDeleteTyped()}
+          type="button"
+        >
+          Delete by media id (R2 objects + row)
+        </button>
+      </div>
       {deleted === null ? null : <p>{deleted}</p>}
       {result === null ? null : (
         <button

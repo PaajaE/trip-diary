@@ -18,6 +18,63 @@ enum VideoLimits {
     }
 }
 
+/// Export encoding settings and the pure math behind them.
+enum VideoExportSettings {
+    static let maxLongSide = 1920
+    static let maxShortSide = 1080
+    /// Average video bitrate at full 1080p; smaller outputs scale down with pixel count.
+    static let maxVideoBitrate = 8_000_000
+    static let minVideoBitrate = 1_500_000
+    static let audioBitrate = 128_000
+    static let audioChannels = 2
+    static let keyFrameSeconds = 2
+
+    private static func even(_ value: Double) -> Int {
+        max(2, Int((value / 2).rounded(.down)) * 2)
+    }
+
+    /// Fits the (storage, i.e. untransformed) size into a 1920x1080 box regardless
+    /// of orientation (long side <= 1920, short side <= 1080). Never upscales.
+    /// Result dimensions are even, as H.264 4:2:0 requires.
+    static func fitDimensions(width: Int, height: Int) -> (width: Int, height: Int) {
+        guard width > 0, height > 0 else { return (2, 2) }
+        let w = Double(width), h = Double(height)
+        let long = max(w, h), short = min(w, h)
+        let scale = min(1.0, Double(maxLongSide) / long, Double(maxShortSide) / short)
+        return (even(w * scale), even(h * scale))
+    }
+
+    /// 8 Mb/s at 1080p pixel count, scaled linearly below it, never below the floor.
+    static func videoBitrate(width: Int, height: Int) -> Int {
+        let full = Double(maxLongSide * maxShortSide)
+        let ratio = min(1.0, Double(width * height) / full)
+        return max(minVideoBitrate, Int((Double(maxVideoBitrate) * ratio).rounded()))
+    }
+
+    static func expectedFrameRate(nominal: Float) -> Int {
+        guard nominal.isFinite, nominal > 0 else { return 30 }
+        return min(60, max(1, Int(nominal.rounded())))
+    }
+
+    static func maxKeyFrameInterval(frameRate: Int) -> Int {
+        max(1, frameRate * keyFrameSeconds)
+    }
+
+    static func audioSampleRate(source: Double) -> Double {
+        source >= 48_000 ? 48_000 : 44_100
+    }
+
+    /// Rough output size (container overhead ignored) for planning/tests.
+    static func estimatedBytes(durationSeconds: Double, videoBitrate: Int, audioBitrate: Int) -> Int64 {
+        Int64((durationSeconds * Double(videoBitrate + audioBitrate) / 8).rounded())
+    }
+
+    static func progress(presentationSeconds: Double, durationSeconds: Double) -> Double {
+        guard durationSeconds > 0, presentationSeconds.isFinite else { return 0 }
+        return min(1, max(0, presentationSeconds / durationSeconds))
+    }
+}
+
 enum VideoPipelineError: Error {
     case slice(String)
 }
