@@ -580,6 +580,22 @@ export const en = {
       count_other: '{{count}} tips',
     },
   },
+  workspace: {
+    emptyJourney: 'This journey has no stages, moments or media yet.',
+    loadError: 'The journey could not be loaded.',
+    looseMoments: 'Moments outside any stage or trip',
+    map: 'Map of moments',
+    noMapPoints:
+      'No moment has a location, so there is nothing to show on the map.',
+    showOnMap: 'Show on map',
+    subtitle: 'Read-only overview of stages, trips and moments.',
+    timeline: 'Timeline',
+    title: 'Journey workspace',
+    unassigned: 'Unassigned media',
+    unassignedHint: 'Media that is not part of any moment.',
+    untitledMoment: 'Moment at {{time}}',
+    video: 'Video',
+  },
   moment: {
     collapse: 'Collapse moment',
     expand: 'Expand moment',

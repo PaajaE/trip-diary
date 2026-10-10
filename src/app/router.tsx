@@ -15,6 +15,7 @@ import {
   LazyEntryRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
+  LazyJourneyWorkspaceRoutePage,
   LazyMediaLibraryDiagnosticsPage,
   LazyVideoUploadDevPage,
   LazyMediaUploadDevPage,
@@ -160,6 +161,14 @@ const journeyMembersRoute = createRoute({
   component: LazyJourneyMembersRoutePage,
 })
 
+// v2 read-only workspace (timeline + map); v1 journey routes are untouched.
+const journeyWorkspaceRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/workspace',
+  component: LazyJourneyWorkspaceRoutePage,
+})
+
 const spacesRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -248,6 +257,7 @@ const routeTree = rootRoute.addChildren([
   journeyRoute,
   createJourneyMemoryRoute,
   journeyMembersRoute,
+  journeyWorkspaceRoute,
   spacesRoute,
   spaceMembersRoute,
   acceptInviteRoute,
