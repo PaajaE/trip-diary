@@ -12,6 +12,9 @@
 		50379B232058CBB4000EE86E /* capacitor.config.json in Resources */ = {isa = PBXBuildFile; fileRef = 50379B222058CBB4000EE86E /* capacitor.config.json */; };
 		504EC3081FED79650016851F /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 504EC3071FED79650016851F /* AppDelegate.swift */; };
 		PHOT00011FED79650016851F /* PhotoMetadataPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = PHOT00021FED79650016851F /* PhotoMetadataPlugin.swift */; };
+		7A1C00051FED79650016851F /* VideoPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00061FED79650016851F /* VideoPlugin.swift */; };
+		7A1C00071FED79650016851F /* VideoPipelineSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00081FED79650016851F /* VideoPipelineSupport.swift */; };
+		7A1C00091FED79650016851F /* VideoUploadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C000A1FED79650016851F /* VideoUploadManager.swift */; };
 		7A1C00031FED79650016851F /* MediaLibraryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */; };
 		7A1C00011FED79650016851F /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00021FED79650016851F /* MainViewController.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
@@ -26,6 +29,9 @@
 		504EC3041FED79650016851F /* App.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = App.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		504EC3071FED79650016851F /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		PHOT00021FED79650016851F /* PhotoMetadataPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMetadataPlugin.swift; sourceTree = "<group>"; };
+		7A1C00061FED79650016851F /* VideoPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlugin.swift; sourceTree = "<group>"; };
+		7A1C00081FED79650016851F /* VideoPipelineSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPipelineSupport.swift; sourceTree = "<group>"; };
+		7A1C000A1FED79650016851F /* VideoUploadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoUploadManager.swift; sourceTree = "<group>"; };
 		7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryPlugin.swift; sourceTree = "<group>"; };
 		7A1C00021FED79650016851F /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -72,6 +78,9 @@
 				504EC3071FED79650016851F /* AppDelegate.swift */,
 				PHOT00021FED79650016851F /* PhotoMetadataPlugin.swift */,
 				7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */,
+				7A1C000A1FED79650016851F /* VideoUploadManager.swift */,
+				7A1C00081FED79650016851F /* VideoPipelineSupport.swift */,
+				7A1C00061FED79650016851F /* VideoPlugin.swift */,
 				7A1C00021FED79650016851F /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
@@ -167,6 +176,9 @@
 				504EC3081FED79650016851F /* AppDelegate.swift in Sources */,
 				PHOT00011FED79650016851F /* PhotoMetadataPlugin.swift in Sources */,
 				7A1C00031FED79650016851F /* MediaLibraryPlugin.swift in Sources */,
+				7A1C00091FED79650016851F /* VideoUploadManager.swift in Sources */,
+				7A1C00071FED79650016851F /* VideoPipelineSupport.swift in Sources */,
+				7A1C00051FED79650016851F /* VideoPlugin.swift in Sources */,
 				7A1C00011FED79650016851F /* MainViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
