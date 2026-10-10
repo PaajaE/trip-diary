@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react'
 import type { PropsWithChildren } from 'react'
 
 const FOCUSABLE =
-  'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+  'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
 
 /**
  * Minimal modal: labelled dialog, focus moves in on open and returns to the

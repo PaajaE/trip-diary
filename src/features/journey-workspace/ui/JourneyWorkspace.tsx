@@ -41,6 +41,12 @@ import {
   WorkspaceMap,
   type WorkspaceMapPoint,
 } from '@/features/journey-workspace/ui/WorkspaceMap'
+import {
+  ClampedBody,
+  MomentTextEditor,
+  SegmentTextEditor,
+} from '@/features/journey-workspace/ui/TextEditing'
+import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import { publicEnv } from '@/shared/config/env'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
@@ -171,10 +177,16 @@ function MomentCard({
           <Counts photos={entry.photoCount} videos={entry.videoCount} />
         </span>
       </button>
+      <ClampedBody body={entry.moment.body} />
       {entry.media.length > 0 ? (
         <MediaTiles editing={editing} items={entry.media} />
       ) : null}
       <div className="mt-2 flex flex-wrap gap-2">
+        <MomentTextEditor
+          edits={editing.edits}
+          moment={entry.moment}
+          name={momentTitle(entry, t, locale)}
+        />
         {neighbours.previous !== null ? (
           <button
             className={ACTION_BUTTON}
@@ -275,6 +287,10 @@ function SegmentBlock({
             })}
           </p>
           <Counts photos={node.photoCount} videos={node.videoCount} />
+          <ClampedBody body={segment.body} />
+          <div className="mt-2">
+            <SegmentTextEditor edits={editing.edits} segment={segment} />
+          </div>
           {segment.origin === 'suggested' ? (
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">
@@ -558,7 +574,10 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
 
   return (
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
-      <h1 className="text-2xl font-semibold">{t('workspace.title')}</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="text-2xl font-semibold">{t('workspace.title')}</h1>
+        <OrganizeJourneyButton journeyId={journeyId} />
+      </div>
       <p className="mb-6 text-sm text-muted">{t('workspace.subtitle')}</p>
       {body}
     </main>

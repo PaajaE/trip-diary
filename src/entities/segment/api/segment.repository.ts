@@ -87,6 +87,78 @@ export async function listJourneySegments(
   return data.map(toSegment)
 }
 
+/**
+ * Like listJourneySegments but also returns rejected suggestions. Only the
+ * automation needs them (to avoid suggesting the same thing again).
+ */
+export async function listJourneySegmentsIncludingRejected(
+  journeyId: string,
+): Promise<Segment[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('segments')
+    .select('*')
+    .eq('journey_id', journeyId)
+    .order('starts_at', { ascending: true })
+    .order('position', { ascending: true })
+  if (error !== null) {
+    throw new SegmentError('list_failed', error.message, error)
+  }
+  return data.map(toSegment)
+}
+
+function segmentInsertRow(input: NewSegment) {
+  return {
+    ends_at: input.endsAt,
+    id: input.id,
+    journey_id: input.journeyId,
+    kind: input.kind,
+    starts_at: input.startsAt,
+    title: input.title,
+    created_by: input.createdBy,
+    ...(input.body === undefined ? {} : { body: input.body }),
+    ...(input.coverMediaId === undefined
+      ? {}
+      : { cover_media_id: input.coverMediaId }),
+    ...(input.origin === undefined ? {} : { origin: input.origin }),
+    ...(input.parentId === undefined ? {} : { parent_id: input.parentId }),
+    ...(input.position === undefined ? {} : { position: input.position }),
+    ...(input.tripType === undefined ? {} : { trip_type: input.tripType }),
+    ...(input.tz === undefined ? {} : { tz: input.tz }),
+  }
+}
+
+/** Inserts many segments in one request (all or nothing). */
+export async function createSegments(inputs: NewSegment[]): Promise<void> {
+  if (inputs.length === 0) return
+  for (const input of inputs) {
+    const shape = newSegmentShapeSchema.safeParse(input)
+    if (!shape.success) {
+      throw new SegmentError('invalid_input', shape.error.message, shape.error)
+    }
+  }
+  const { error } = await getSupabaseClient()
+    .from('segments')
+    .insert(inputs.map(segmentInsertRow))
+  if (error !== null) {
+    throw new SegmentError('create_failed', error.message, error)
+  }
+}
+
+/** Deletes still-suggested segments by id; accepted/manual rows are never matched. */
+export async function deleteSuggestedSegments(
+  segmentIds: string[],
+): Promise<void> {
+  if (segmentIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('segments')
+    .delete()
+    .in('id', segmentIds)
+    .eq('origin', 'suggested')
+  if (error !== null) {
+    throw new SegmentError('delete_failed', error.message, error)
+  }
+}
+
 export async function createSegment(input: NewSegment): Promise<Segment> {
   const shape = newSegmentShapeSchema.safeParse(input)
   if (!shape.success) {

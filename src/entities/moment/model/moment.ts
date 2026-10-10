@@ -40,8 +40,41 @@ export interface MomentPatch {
   title?: string | null
 }
 
+/** Insert shape; only columns granted for INSERT on public.moments. */
+export interface NewMoment {
+  createdBy: string
+  endsAt: string
+  id: string
+  journeyId: string
+  latitude: number | null
+  locked?: boolean
+  longitude: number | null
+  origin?: MomentOrigin
+  startsAt: string
+}
+
+export const newMomentSchema = z
+  .object({
+    createdBy: z.uuid(),
+    endsAt: instantSchema,
+    id: z.uuid(),
+    journeyId: z.uuid(),
+    latitude: z.number().min(-90).max(90).nullable(),
+    locked: z.boolean().optional(),
+    longitude: z.number().min(-180).max(180).nullable(),
+    origin: momentOriginSchema.optional(),
+    startsAt: instantSchema,
+  })
+  .refine((value) => (value.latitude === null) === (value.longitude === null), {
+    message: 'latitude and longitude come as a pair',
+  })
+  .refine((value) => Date.parse(value.endsAt) >= Date.parse(value.startsAt), {
+    message: 'endsAt must not be before startsAt',
+  })
+
 export type MomentErrorCode =
   | 'conflict'
+  | 'create_failed'
   | 'delete_failed'
   | 'forbidden'
   | 'invalid_input'

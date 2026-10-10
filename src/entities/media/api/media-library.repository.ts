@@ -117,3 +117,18 @@ export function assignMediaToMoment(
 ): Promise<MediaItem> {
   return updateMedia(mediaId, { moment_id: momentId })
 }
+
+/** Moves many media into one moment with a single update. */
+export async function assignMediaBatchToMoment(
+  mediaIds: string[],
+  momentId: string,
+): Promise<void> {
+  if (mediaIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('media')
+    .update({ moment_id: momentId })
+    .in('id', mediaIds)
+  if (error !== null) {
+    throw new MediaLibraryError('update_failed', error.message, error)
+  }
+}

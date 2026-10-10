@@ -5,6 +5,8 @@ import {
   type MomentErrorCode,
   type MomentPatch,
   momentSchema,
+  newMomentSchema,
+  type NewMoment,
 } from '@/entities/moment/model/moment'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
@@ -139,6 +141,52 @@ export async function deleteMoment(momentId: string): Promise<void> {
     .from('moments')
     .delete()
     .eq('id', momentId)
+  if (error !== null) {
+    throw new MomentError('delete_failed', error.message, error)
+  }
+}
+
+/**
+ * Inserts many moments in one request (all or nothing). Defaults to
+ * origin auto and unlocked, as automatic clustering produces them.
+ */
+export async function createMoments(inputs: NewMoment[]): Promise<void> {
+  if (inputs.length === 0) return
+  const rows = inputs.map((input) => {
+    const parsed = newMomentSchema.safeParse(input)
+    if (!parsed.success) {
+      throw new MomentError('invalid_input', parsed.error.message, parsed.error)
+    }
+    return {
+      created_by: input.createdBy,
+      ends_at: input.endsAt,
+      id: input.id,
+      journey_id: input.journeyId,
+      latitude: input.latitude,
+      locked: input.locked ?? false,
+      longitude: input.longitude,
+      origin: input.origin ?? 'auto',
+      starts_at: input.startsAt,
+    }
+  })
+  const { error } = await getSupabaseClient().from('moments').insert(rows)
+  if (error !== null) {
+    throw new MomentError('create_failed', error.message, error)
+  }
+}
+
+/**
+ * Deletes automatic, unlocked moments by id. The filters are a guard: hand
+ * edited moments are never removed even if the caller's data was stale.
+ */
+export async function deleteAutoMoments(momentIds: string[]): Promise<void> {
+  if (momentIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('moments')
+    .delete()
+    .in('id', momentIds)
+    .eq('origin', 'auto')
+    .eq('locked', false)
   if (error !== null) {
     throw new MomentError('delete_failed', error.message, error)
   }

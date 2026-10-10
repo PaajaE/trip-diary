@@ -33,6 +33,16 @@ import {
 import { useUndoableMutation } from '@/features/journey-workspace/lib/use-undoable-mutation'
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
 
+export interface SegmentText {
+  body: string
+  title: string
+}
+
+export interface MomentText {
+  body: string
+  title: string | null
+}
+
 export interface WorkspaceEdits {
   acceptSegment: (segment: Segment) => Promise<boolean>
   /** Moves the shared edge of two adjacent segments; Undo moves it back. */
@@ -48,6 +58,9 @@ export interface WorkspaceEdits {
   saveCaption: (item: MediaItem, raw: string) => Promise<CaptionResult>
   /** Splits at the instant; Undo merges the new moment back. */
   splitMoment: (momentId: string, at: string) => Promise<boolean>
+  /** Saves already-normalized texts; Undo restores the previous ones. */
+  saveMomentText: (moment: Moment, text: MomentText) => Promise<boolean>
+  saveSegmentText: (segment: Segment, text: SegmentText) => Promise<boolean>
   setCover: (mediaId: string, target: CoverTarget) => Promise<boolean>
   toggleStar: (item: MediaItem) => Promise<boolean>
 }
@@ -154,6 +167,43 @@ export function useWorkspaceEdits(journeyId: string): WorkspaceEdits {
           undo: () => updateMediaMeta(item.id, { caption: previous }),
         })
         return result
+      },
+      saveMomentText: (moment, text) => {
+        const previous: MomentText = { body: moment.body, title: moment.title }
+        const cache = (value: MomentText): (() => void) =>
+          optimisticUpdate<Moment[]>(
+            queryClient,
+            momentQueryKeys.journey(journeyId),
+            (list) => patchListItem(list, moment.id, value),
+          )
+        return run({
+          apply: () => updateMoment(moment.id, text),
+          errorMessage,
+          optimistic: (direction) =>
+            cache(direction === 'apply' ? text : previous),
+          successMessage: t('workspace.textSaved'),
+          undo: () => updateMoment(moment.id, previous),
+        })
+      },
+      saveSegmentText: (segment, text) => {
+        const previous: SegmentText = {
+          body: segment.body,
+          title: segment.title,
+        }
+        const cache = (value: SegmentText): (() => void) =>
+          optimisticUpdate<Segment[]>(
+            queryClient,
+            segmentQueryKeys.journey(journeyId),
+            (list) => patchListItem(list, segment.id, value),
+          )
+        return run({
+          apply: () => updateSegment(segment.id, text),
+          errorMessage,
+          optimistic: (direction) =>
+            cache(direction === 'apply' ? text : previous),
+          successMessage: t('workspace.textSaved'),
+          undo: () => updateSegment(segment.id, previous),
+        })
       },
       setCover: (mediaId, target) => {
         const previous = target.currentCoverId

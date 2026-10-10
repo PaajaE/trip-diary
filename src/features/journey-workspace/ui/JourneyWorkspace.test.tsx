@@ -132,7 +132,9 @@ describe('JourneyWorkspace', () => {
     render(<JourneyWorkspace journeyId="j" />)
     const map = screen.getByTestId('map')
     expect(map.dataset.selected).toBe('')
-    fireEvent.click(screen.getByRole('button', { name: /Moment at 11:00/ }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /^Moment\s*Moment at 11:00/ }),
+    )
     expect(map.dataset.selected).toMatch(/10$/)
     fireEvent.click(screen.getByRole('button', { name: 'pin-10' }))
     expect(map.dataset.selected).toMatch(/10$/)
