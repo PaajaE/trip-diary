@@ -23,12 +23,15 @@ describe('timeZoneAt', () => {
 
 describe('zoneOffsetMinutes', () => {
   it('follows daylight saving time', () => {
+    // Europe/Prague has stable DST rules. Do not use zones whose rules are
+    // being changed by law (America/Edmonton moves to permanent -06 in
+    // tzdata 2026c, so winter offsets depend on the Node/ICU version).
     expect(
-      zoneOffsetMinutes('America/Edmonton', Date.parse('2026-07-01T12:00:00Z')),
-    ).toBe(-360)
+      zoneOffsetMinutes('Europe/Prague', Date.parse('2026-07-01T12:00:00Z')),
+    ).toBe(120)
     expect(
-      zoneOffsetMinutes('America/Edmonton', Date.parse('2026-12-01T12:00:00Z')),
-    ).toBe(-420)
+      zoneOffsetMinutes('Europe/Prague', Date.parse('2026-12-01T12:00:00Z')),
+    ).toBe(60)
   })
 
   it('handles zones without daylight saving time', () => {
