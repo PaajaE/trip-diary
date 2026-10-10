@@ -355,6 +355,21 @@ export type Database = {
           },
         ]
       }
+      geocoder_throttle: {
+        Row: {
+          id: number
+          next_slot_at: string
+        }
+        Insert: {
+          id?: number
+          next_slot_at?: string
+        }
+        Update: {
+          id?: number
+          next_slot_at?: string
+        }
+        Relationships: []
+      }
       journey_checklist_items: {
         Row: {
           category: Database['public']['Enums']['checklist_item_category']
@@ -1199,6 +1214,32 @@ export type Database = {
         }
         Relationships: []
       }
+      place_lookups: {
+        Row: {
+          created_at: string
+          grid_key: string
+          place_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          grid_key: string
+          place_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          grid_key?: string
+          place_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'place_lookups_place_id_fkey'
+            columns: ['place_id']
+            isOneToOne: false
+            referencedRelation: 'places'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       places: {
         Row: {
           country_code: string | null
@@ -1209,6 +1250,7 @@ export type Database = {
           longitude: number
           name: string
           region: string | null
+          source_ref: string | null
           updated_at: string
         }
         Insert: {
@@ -1220,6 +1262,7 @@ export type Database = {
           longitude: number
           name: string
           region?: string | null
+          source_ref?: string | null
           updated_at?: string
         }
         Update: {
@@ -1231,6 +1274,7 @@ export type Database = {
           longitude?: number
           name?: string
           region?: string | null
+          source_ref?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1733,6 +1777,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      claim_geocoder_slot: { Args: { p_interval_ms?: number }; Returns: number }
       compute_source_content_hash: {
         Args: { p_body: string; p_title: string }
         Returns: string
