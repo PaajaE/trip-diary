@@ -22,6 +22,7 @@ export async function createMedia(
       height: input.height,
       id: input.id,
       kind: video ? 'video' : 'photo',
+      ...(input.journeyId === undefined ? {} : { journey_id: input.journeyId }),
       ...(video ? { duration_ms: input.durationMs } : {}),
       latitude: input.latitude,
       longitude: input.longitude,
@@ -87,4 +88,32 @@ export async function deleteMedia(mediaId: string): Promise<void> {
   if (error !== null) {
     throw new MediaUploadError('finalize_failed', error.message, error)
   }
+}
+
+const SOURCE_ID_BATCH = 100
+
+/**
+ * Which of `sourceIds` already exist as media.source_asset_id for this owner.
+ * Batched `in` queries (ids are short strings; 100 per request keeps URLs small).
+ */
+export async function listExistingSourceAssetIds(
+  ownerId: string,
+  sourceIds: readonly string[],
+): Promise<Set<string>> {
+  const found = new Set<string>()
+  for (let start = 0; start < sourceIds.length; start += SOURCE_ID_BATCH) {
+    const batch = sourceIds.slice(start, start + SOURCE_ID_BATCH)
+    const { data, error } = await getSupabaseClient()
+      .from('media')
+      .select('source_asset_id')
+      .eq('owner_id', ownerId)
+      .in('source_asset_id', batch)
+    if (error !== null) {
+      throw new MediaUploadError('create_failed', error.message, error)
+    }
+    for (const row of data) {
+      if (row.source_asset_id !== null) found.add(row.source_asset_id)
+    }
+  }
+  return found
 }

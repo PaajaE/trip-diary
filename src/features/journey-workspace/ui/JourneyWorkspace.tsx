@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import type { TFunction } from 'i18next'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -576,7 +577,16 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('workspace.title')}</h1>
-        <OrganizeJourneyButton journeyId={journeyId} />
+        <div className="flex flex-wrap gap-2">
+          <Link
+            className="inline-flex min-h-10 items-center rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
+            params={{ journeyId }}
+            to="/j/$journeyId/import"
+          >
+            {t('mediaImport.link')}
+          </Link>
+          <OrganizeJourneyButton journeyId={journeyId} />
+        </div>
       </div>
       <p className="mb-6 text-sm text-muted">{t('workspace.subtitle')}</p>
       {body}

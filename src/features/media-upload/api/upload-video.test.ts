@@ -183,6 +183,19 @@ describe('resolveVideoCaptureTime', () => {
 })
 
 describe('uploadVideo', () => {
+  it('passes journeyId to createMedia when given', async () => {
+    const deps = makeDeps([])
+    await uploadVideo({
+      assetId: 'asset-1',
+      deps,
+      journeyId: 'J1',
+      ownerId: OWNER,
+    })
+    expect(deps.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ journeyId: 'J1' }),
+    )
+  })
+
   it('runs the steps in order and records variants with keys and mimes', async () => {
     const calls: string[] = []
     const phases: VideoUploadProgress['phase'][] = []

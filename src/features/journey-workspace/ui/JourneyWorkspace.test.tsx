@@ -5,7 +5,7 @@ import {
   render as rtlRender,
   screen,
 } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
@@ -19,6 +19,12 @@ import {
 } from '@/features/journey-workspace/test-fixtures'
 import { JourneyWorkspace } from '@/features/journey-workspace/ui/JourneyWorkspace'
 
+// The header links to the import page; no router is mounted in these tests.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children: ReactNode }) => (
+    <a href="/import">{children}</a>
+  ),
+}))
 vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
   useJourneyCoverQuery: () => ({ data: null }),
 }))

@@ -66,6 +66,8 @@ export interface UploadVideoOptions {
   assetId: string
   assetMetadata?: VideoAssetMetadata
   deps?: Partial<UploadVideoDeps>
+  /** Journey to attach the media to (media.journey_id). */
+  journeyId?: string
   onProgress?: (progress: VideoUploadProgress) => void
   /** auth.uid() of the signed-in user; must match the session. */
   ownerId: string
@@ -307,6 +309,9 @@ async function uploadExported(
     durationMs: exported.durationMs,
     height: exported.height,
     id: mediaId,
+    ...(options.journeyId === undefined
+      ? {}
+      : { journeyId: options.journeyId }),
     kind: 'video',
     latitude: options.assetMetadata?.latitude ?? null,
     longitude: options.assetMetadata?.longitude ?? null,

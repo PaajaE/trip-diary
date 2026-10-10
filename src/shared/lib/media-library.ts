@@ -62,9 +62,66 @@ export interface ListMediaLibraryAssetsOptions {
   to?: string
 }
 
+export interface ExportMediaLibraryPhotoOptions {
+  /** Allow downloading the original from iCloud (default false). */
+  allowNetwork?: boolean
+  id: string
+  /** Longest edge of the exported JPEG in pixels (native clamps it). */
+  maxLongEdge?: number
+}
+
+export const exportedPhotoSchema = z.object({
+  byteSize: z.number().int().positive(),
+  fileUrl: z.string().min(1),
+  hasExif: z.boolean(),
+  height: z.number().int().positive(),
+  mimeType: z.literal('image/jpeg'),
+  width: z.number().int().positive(),
+})
+export type ExportedMediaLibraryPhoto = z.infer<typeof exportedPhotoSchema>
+
+export type MediaLibraryErrorCode =
+  | 'ASSET_UNAVAILABLE'
+  | 'EXPORT_FAILED'
+  | 'NOT_AUTHORIZED'
+  | 'NOT_FOUND'
+  | 'UNKNOWN'
+
+const MEDIA_LIBRARY_ERROR_CODES: readonly MediaLibraryErrorCode[] = [
+  'ASSET_UNAVAILABLE',
+  'EXPORT_FAILED',
+  'NOT_AUTHORIZED',
+  'NOT_FOUND',
+]
+
+export class MediaLibraryError extends Error {
+  readonly code: MediaLibraryErrorCode
+
+  constructor(code: MediaLibraryErrorCode, message: string) {
+    super(message)
+    this.name = 'MediaLibraryError'
+    this.code = code
+  }
+}
+
+/** Maps a rejection from the native plugin to a typed error. */
+export function toMediaLibraryError(error: unknown): MediaLibraryError {
+  if (error instanceof MediaLibraryError) return error
+  const parsed = z
+    .object({ code: z.string().optional(), message: z.string().optional() })
+    .safeParse(error)
+  const code = parsed.success ? parsed.data.code : undefined
+  const message =
+    (parsed.success ? parsed.data.message : undefined) ?? 'Media library error'
+  const known = MEDIA_LIBRARY_ERROR_CODES.find((item) => item === code)
+  return new MediaLibraryError(known ?? 'UNKNOWN', message)
+}
+
 interface MediaLibraryPlugin {
   getAuthorizationStatus(): Promise<unknown>
   listAssets(options: ListMediaLibraryAssetsOptions): Promise<unknown>
+  deletePhotoExports(options: { fileUrls: string[] }): Promise<unknown>
+  exportPhoto(options: ExportMediaLibraryPhotoOptions): Promise<unknown>
   readEmbeddedMetadata(options: {
     allowNetwork?: boolean
     id: string
@@ -106,4 +163,32 @@ export async function readMediaLibraryEmbeddedMetadata(
 ): Promise<MediaLibraryEmbeddedMetadata> {
   const result = await MediaLibrary.readEmbeddedMetadata({ id, ...options })
   return embeddedMetadataSchema.parse(result)
+}
+
+/**
+ * Renders one image asset to a temporary JPEG (EXIF kept when the original
+ * has it). The caller must delete the file with `deleteMediaLibraryPhotoExports`.
+ */
+export async function exportMediaLibraryPhoto(
+  options: ExportMediaLibraryPhotoOptions,
+): Promise<ExportedMediaLibraryPhoto> {
+  try {
+    return exportedPhotoSchema.parse(await MediaLibrary.exportPhoto(options))
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new MediaLibraryError('EXPORT_FAILED', 'Invalid export result')
+    }
+    throw toMediaLibraryError(error)
+  }
+}
+
+/** Removes files produced by `exportMediaLibraryPhoto`. */
+export async function deleteMediaLibraryPhotoExports(
+  fileUrls: string[],
+): Promise<void> {
+  try {
+    await MediaLibrary.deletePhotoExports({ fileUrls })
+  } catch (error) {
+    throw toMediaLibraryError(error)
+  }
 }

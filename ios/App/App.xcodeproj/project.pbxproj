@@ -14,6 +14,7 @@
 		PHOT00011FED79650016851F /* PhotoMetadataPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = PHOT00021FED79650016851F /* PhotoMetadataPlugin.swift */; };
 		7A1C00051FED79650016851F /* VideoPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00061FED79650016851F /* VideoPlugin.swift */; };
 		7A1C00071FED79650016851F /* VideoPipelineSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00081FED79650016851F /* VideoPipelineSupport.swift */; };
+		PHEX00011FED79650016851F /* PhotoExportSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = PHEX00021FED79650016851F /* PhotoExportSupport.swift */; };
 		7A1C00091FED79650016851F /* VideoUploadManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C000A1FED79650016851F /* VideoUploadManager.swift */; };
 		7A1C00031FED79650016851F /* MediaLibraryPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */; };
 		7A1C00011FED79650016851F /* MainViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A1C00021FED79650016851F /* MainViewController.swift */; };
@@ -31,6 +32,7 @@
 		PHOT00021FED79650016851F /* PhotoMetadataPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoMetadataPlugin.swift; sourceTree = "<group>"; };
 		7A1C00061FED79650016851F /* VideoPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlugin.swift; sourceTree = "<group>"; };
 		7A1C00081FED79650016851F /* VideoPipelineSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPipelineSupport.swift; sourceTree = "<group>"; };
+		PHEX00021FED79650016851F /* PhotoExportSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoExportSupport.swift; sourceTree = "<group>"; };
 		7A1C000A1FED79650016851F /* VideoUploadManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoUploadManager.swift; sourceTree = "<group>"; };
 		7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryPlugin.swift; sourceTree = "<group>"; };
 		7A1C00021FED79650016851F /* MainViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainViewController.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 				7A1C00041FED79650016851F /* MediaLibraryPlugin.swift */,
 				7A1C000A1FED79650016851F /* VideoUploadManager.swift */,
 				7A1C00081FED79650016851F /* VideoPipelineSupport.swift */,
+				PHEX00021FED79650016851F /* PhotoExportSupport.swift */,
 				7A1C00061FED79650016851F /* VideoPlugin.swift */,
 				7A1C00021FED79650016851F /* MainViewController.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
@@ -178,6 +181,7 @@
 				7A1C00031FED79650016851F /* MediaLibraryPlugin.swift in Sources */,
 				7A1C00091FED79650016851F /* VideoUploadManager.swift in Sources */,
 				7A1C00071FED79650016851F /* VideoPipelineSupport.swift in Sources */,
+				PHEX00011FED79650016851F /* PhotoExportSupport.swift in Sources */,
 				7A1C00051FED79650016851F /* VideoPlugin.swift in Sources */,
 				7A1C00011FED79650016851F /* MainViewController.swift in Sources */,
 			);

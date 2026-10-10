@@ -138,6 +138,12 @@ export const LazyMediaUploadDevPage = lazy(() =>
   })),
 )
 
+export const LazyJourneyImportRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyImportRoutePage').then(
+    ({ JourneyImportRoutePage }) => ({ default: JourneyImportRoutePage }),
+  ),
+)
+
 export const LazyJourneyWorkspaceRoutePage = lazy(() =>
   import('@/pages/journey/JourneyWorkspaceRoutePage').then(
     ({ JourneyWorkspaceRoutePage }) => ({

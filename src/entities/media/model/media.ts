@@ -85,6 +85,8 @@ export interface NewPhotoMedia {
   contentHash: string
   height: number | null
   id: string
+  /** Journey the media is imported into (needs can_edit_journey). */
+  journeyId?: string
   latitude: number | null
   longitude: number | null
   ownerId: string
@@ -100,6 +102,7 @@ export interface NewVideoMedia {
   durationMs: number
   height: number
   id: string
+  journeyId?: string
   kind: 'video'
   latitude: number | null
   longitude: number | null

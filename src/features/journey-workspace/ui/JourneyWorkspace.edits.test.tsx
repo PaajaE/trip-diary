@@ -7,7 +7,7 @@ import {
   waitFor,
   within,
 } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import type { ReactElement, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
@@ -25,6 +25,12 @@ const edits = vi.hoisted(() => ({
   setCover: vi.fn(),
   splitMoment: vi.fn(),
   toggleStar: vi.fn(),
+}))
+// The header links to the import page; no router is mounted in these tests.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children }: { children: ReactNode }) => (
+    <a href="/import">{children}</a>
+  ),
 }))
 vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
   useJourneyCoverQuery: () => ({ data: null }),
