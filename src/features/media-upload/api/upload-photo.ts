@@ -1,3 +1,4 @@
+import { resolveCaptureZone } from '@trip-diary/core/automation'
 import type {
   ImageContentType,
   ImageVariantKind,
@@ -39,8 +40,23 @@ export interface UploadProgress {
   totalVariants: number
 }
 
+/**
+ * Metadata from the source (PhotoKit) used only when the file itself has none,
+ * for example a re-encoded JPEG without EXIF. creationDate is an exact UTC
+ * instant; the zone comes only from GPS (never the device zone).
+ */
+export interface PhotoFallbackCapture {
+  creationDate?: string
+  latitude?: number
+  longitude?: number
+}
+
 export interface UploadPhotoOptions {
+  /** Used when the file has no capture time / GPS of its own. */
+  fallbackCapture?: PhotoFallbackCapture
   deps?: Partial<UploadPhotoDeps>
+  /** Journey to attach the media to (media.journey_id). */
+  journeyId?: string
   onProgress?: (progress: UploadProgress) => void
   /** auth.uid() of the signed-in user; must match the session. */
   ownerId: string
@@ -151,6 +167,22 @@ export async function uploadPhoto(
     throw new MediaUploadError('processing_failed', undefined, error)
   }
 
+  const fallback = options.fallbackCapture
+  const latitude = processed.latitude ?? fallback?.latitude ?? null
+  const longitude = processed.longitude ?? fallback?.longitude ?? null
+  let { capturedAt, capturedTz } = captureTime
+  if (capturedAt === null && fallback?.creationDate !== undefined) {
+    capturedAt = fallback.creationDate
+    capturedTz =
+      resolveCaptureZone({
+        capturedAt,
+        exifOffsetMinutes: null,
+        homeTimeZone: null,
+        latitude,
+        longitude,
+      })?.timeZone ?? null
+  }
+
   const variants = processed.variants.map((variant) => {
     const kind = toV2VariantKind(variant.kind)
     if (kind === null || variant.mimeType === 'video/mp4') {
@@ -166,13 +198,16 @@ export async function uploadPhoto(
 
   const mediaId = deps.newId()
   await deps.createMedia({
-    capturedAt: captureTime.capturedAt,
-    capturedTz: captureTime.capturedTz,
+    capturedAt,
+    capturedTz,
     contentHash,
     height: largest?.height ?? null,
     id: mediaId,
-    latitude: processed.latitude,
-    longitude: processed.longitude,
+    ...(options.journeyId === undefined
+      ? {}
+      : { journeyId: options.journeyId }),
+    latitude,
+    longitude,
     ownerId: options.ownerId,
     width: largest?.width ?? null,
     ...(options.sourceAssetId === undefined

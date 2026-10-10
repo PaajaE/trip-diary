@@ -15,11 +15,12 @@ vi.mock('@/shared/lib/media-library', () => ({
   requestMediaLibraryAccess: () => Promise.resolve('authorized'),
 }))
 
-function asset(id: string) {
+function asset(id: string, isFavorite = true) {
   return {
     creationDate: '2026-01-01T10:00:00.000Z',
     height: 3000,
     id,
+    isFavorite,
     mediaType: 'image',
     subtypes: [],
     width: 4000,
@@ -43,9 +44,9 @@ beforeEach(() => {
 })
 
 describe('MediaLibraryDiagnosticsPage iCloud download', () => {
-  it('downloads from iCloud by default and passes allowNetwork: true', async () => {
+  it('does not download from iCloud by default (allowNetwork: false)', async () => {
     render(<MediaLibraryDiagnosticsPage />)
-    expect(screen.getByRole('checkbox', { name: /iCloud/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /iCloud/ })).not.toBeChecked()
     await userEvent.click(
       screen.getByRole('button', { name: 'Spustit diagnostiku' }),
     )
@@ -54,15 +55,15 @@ describe('MediaLibraryDiagnosticsPage iCloud download', () => {
     })
     expect(readMetadata).toHaveBeenCalledTimes(3)
     for (const call of readMetadata.mock.calls) {
-      expect(call[1]).toEqual({ allowNetwork: true })
+      expect(call[1]).toEqual({ allowNetwork: false })
     }
     expect(summaryJson()).toMatchObject({
-      icloudDownload: true,
+      icloudDownload: false,
       metadataErrors: 0,
     })
   })
 
-  it('passes allowNetwork: false when the toggle is switched off', async () => {
+  it('passes allowNetwork: true only when the toggle is switched on', async () => {
     render(<MediaLibraryDiagnosticsPage />)
     await userEvent.click(screen.getByRole('checkbox', { name: /iCloud/ }))
     await userEvent.click(
@@ -72,9 +73,9 @@ describe('MediaLibraryDiagnosticsPage iCloud download', () => {
       expect(screen.getByTestId('media-library-summary')).toBeInTheDocument()
     })
     for (const call of readMetadata.mock.calls) {
-      expect(call[1]).toEqual({ allowNetwork: false })
+      expect(call[1]).toEqual({ allowNetwork: true })
     }
-    expect(summaryJson()).toMatchObject({ icloudDownload: false })
+    expect(summaryJson()).toMatchObject({ icloudDownload: true })
   })
 
   it('shows a slower-operation hint while downloading from iCloud', async () => {
@@ -88,6 +89,7 @@ describe('MediaLibraryDiagnosticsPage iCloud download', () => {
         }),
     )
     render(<MediaLibraryDiagnosticsPage />)
+    await userEvent.click(screen.getByRole('checkbox', { name: /iCloud/ }))
     await userEvent.click(
       screen.getByRole('button', { name: 'Spustit diagnostiku' }),
     )
@@ -126,5 +128,31 @@ describe('MediaLibraryDiagnosticsPage iCloud download', () => {
       metadataErrorSamples: ['iCloud download failed'],
       metadataErrors: 1,
     })
+  })
+})
+
+describe('MediaLibraryDiagnosticsPage sampling', () => {
+  it('reads metadata only for favorites, capped at the sample size', async () => {
+    listAssets.mockResolvedValue({
+      assets: [
+        ...Array.from({ length: 80 }, (_, i) => asset(`fav${String(i)}`)),
+        ...Array.from({ length: 20 }, (_, i) =>
+          asset(`plain${String(i)}`, false),
+        ),
+      ],
+      elapsedMs: 1,
+    })
+    render(<MediaLibraryDiagnosticsPage />)
+    expect(screen.getByRole('checkbox', { name: /oblíbené/ })).toBeChecked()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Spustit diagnostiku' }),
+    )
+    await waitFor(() => {
+      expect(screen.getByTestId('media-library-summary')).toBeInTheDocument()
+    })
+    expect(readMetadata).toHaveBeenCalledTimes(50)
+    const ids = readMetadata.mock.calls.map((call) => String(call[0]))
+    expect(ids.every((id) => id.startsWith('fav'))).toBe(true)
+    expect(summaryJson()).toMatchObject({ favoritesOnly: true, sampled: 50 })
   })
 })

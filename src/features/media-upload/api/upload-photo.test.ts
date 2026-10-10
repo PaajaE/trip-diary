@@ -122,6 +122,69 @@ describe('uploadPhoto', () => {
     )
   })
 
+  it('passes journeyId to createMedia only when given', async () => {
+    const withJourney = makeDeps([])
+    await uploadPhoto(file, {
+      deps: withJourney,
+      journeyId: 'J1',
+      ownerId: OWNER,
+    })
+    expect(withJourney.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ journeyId: 'J1' }),
+    )
+    const without = makeDeps([])
+    await uploadPhoto(file, { deps: without, ownerId: OWNER })
+    expect(
+      vi.mocked(without.createMedia).mock.calls[0]?.[0],
+    ).not.toHaveProperty('journeyId')
+  })
+
+  it('falls back to source metadata only when the file has no capture time', async () => {
+    const noExif = makeDeps([], {
+      processPhoto: vi.fn(() =>
+        Promise.resolve({
+          capturedAt: null,
+          latitude: null,
+          longitude: null,
+          variants: [variant('full', 3)],
+        }),
+      ),
+      readExifTime: vi.fn(() =>
+        Promise.resolve({
+          dateTimeOriginal: null,
+          offsetTimeOriginal: null,
+          subsecTimeOriginal: null,
+        }),
+      ),
+    })
+    await uploadPhoto(file, {
+      deps: noExif,
+      fallbackCapture: {
+        creationDate: '2026-09-11T10:00:00.000Z',
+        latitude: 50.08,
+        longitude: 14.42,
+      },
+      ownerId: OWNER,
+    })
+    expect(noExif.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({
+        capturedAt: '2026-09-11T10:00:00.000Z',
+        capturedTz: 'Europe/Prague',
+        latitude: 50.08,
+      }),
+    )
+    // The file's own EXIF wins over the fallback.
+    const withExif = makeDeps([])
+    await uploadPhoto(file, {
+      deps: withExif,
+      fallbackCapture: { creationDate: '2020-01-01T00:00:00.000Z' },
+      ownerId: OWNER,
+    })
+    expect(withExif.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ capturedAt: '2026-09-11T10:00:00.000Z' }),
+    )
+  })
+
   it('reports progress', async () => {
     const onProgress = vi.fn()
     await uploadPhoto(file, {

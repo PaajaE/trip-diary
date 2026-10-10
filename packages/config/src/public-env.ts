@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const publicEnvSchema = z.object({
   mapyApiKey: z.string().min(1).optional(),
+  mediaBaseUrl: z.url().optional(),
   siteUrl: z.url().optional(),
   supabaseAnonKey: z.string().min(1).optional(),
   supabaseUrl: z.url().optional(),
@@ -19,6 +20,7 @@ function blankToUndefined(value: unknown): unknown {
 export function parsePublicEnv(raw: Record<string, unknown>): PublicEnv {
   return publicEnvSchema.parse({
     mapyApiKey: blankToUndefined(raw.mapyApiKey),
+    mediaBaseUrl: blankToUndefined(raw.mediaBaseUrl),
     siteUrl: blankToUndefined(raw.siteUrl),
     supabaseAnonKey: blankToUndefined(raw.supabaseAnonKey),
     supabaseUrl: blankToUndefined(raw.supabaseUrl),

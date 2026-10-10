@@ -16,7 +16,9 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getAuthorizationStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "listAssets", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "readEmbeddedMetadata", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "readEmbeddedMetadata", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "exportPhoto", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deletePhotoExports", returnType: CAPPluginReturnPromise)
     ]
 
     private static let isoFormatter: ISO8601DateFormatter = {
@@ -119,6 +121,138 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
             }
             let inCloud = (info?[PHImageResultIsInCloudKey] as? Bool) ?? false
             call.resolve(["available": false, "reason": inCloud ? "in-cloud" : "no-data"])
+        }
+    }
+
+    /// Exports an image asset as an upright JPEG (EXIF/GPS kept) into
+    /// Caches/photo-export. Works for HEIC, Live Photo stills, screenshots and
+    /// RAW+JPEG. Rejects: NOT_AUTHORIZED, NOT_FOUND, ASSET_UNAVAILABLE, EXPORT_FAILED.
+    @objc func exportPhoto(_ call: CAPPluginCall) {
+        guard let id = call.getString("id"), !id.isEmpty else {
+            call.reject("id is required", "EXPORT_FAILED")
+            return
+        }
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .authorized || status == .limited else {
+            call.reject("Photo library access not granted", "NOT_AUTHORIZED")
+            return
+        }
+        let longEdge = PhotoExport.clampLongEdge(call.getInt("maxLongEdge"))
+        let allowNetwork = call.getBool("allowNetwork") ?? false
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let fetch = PHAsset.fetchAssets(withLocalIdentifiers: [id], options: nil)
+            guard let asset = fetch.firstObject else {
+                call.reject("Asset not found", "NOT_FOUND")
+                return
+            }
+            guard asset.mediaType == .image else {
+                call.reject("Only images can be exported as photos (asset is not an image)", "EXPORT_FAILED")
+                return
+            }
+
+            let options = PHImageRequestOptions()
+            options.isNetworkAccessAllowed = allowNetwork
+            options.deliveryMode = .highQualityFormat
+            options.version = .current
+            options.isSynchronous = false
+
+            // The handler may fire more than once; settle the call exactly once.
+            let lock = NSLock()
+            var settled = false
+            let claim: () -> Bool = {
+                lock.lock()
+                defer { lock.unlock() }
+                if settled { return false }
+                settled = true
+                return true
+            }
+
+            PHImageManager.default().requestImageDataAndOrientation(for: asset, options: options) { data, _, _, info in
+                let degraded = (info?[PHImageResultIsDegradedKey] as? Bool) ?? false
+                let cancelled = (info?[PHImageCancelledKey] as? Bool) ?? false
+                let error = info?[PHImageErrorKey] as? NSError
+                let inCloud = (info?[PHImageResultIsInCloudKey] as? Bool) ?? false
+
+                if let data, !degraded {
+                    guard claim() else { return }
+                    // Decode/encode off the PhotoKit callback queue.
+                    DispatchQueue.global(qos: .userInitiated).async {
+                        Self.finishExport(call: call, data: data, longEdge: longEdge)
+                    }
+                    return
+                }
+                if data != nil && degraded {
+                    return // wait for the final delivery
+                }
+                guard claim() else { return }
+                if cancelled {
+                    call.reject("Photo request was cancelled", "EXPORT_FAILED")
+                } else if error != nil || inCloud {
+                    let detail = error?.localizedDescription ?? "asset is stored in iCloud"
+                    call.reject(
+                        allowNetwork
+                            ? "Photo could not be downloaded: \(detail)"
+                            : "Photo is only in iCloud and network access is off",
+                        "ASSET_UNAVAILABLE")
+                } else {
+                    call.reject("Photo data is unavailable", "ASSET_UNAVAILABLE")
+                }
+            }
+        }
+    }
+
+    private static func finishExport(call: CAPPluginCall, data: Data, longEdge: Int) {
+        let url: URL
+        do {
+            url = try PhotoExport.exportDirectory()
+                .appendingPathComponent(UUID().uuidString.lowercased())
+                .appendingPathExtension("jpg")
+        } catch {
+            call.reject("Cannot create export directory: \(error.localizedDescription)", "EXPORT_FAILED")
+            return
+        }
+        do {
+            let output = try PhotoExport.reencode(data: data, longEdgeLimit: longEdge, to: url)
+            call.resolve([
+                "fileUrl": url.absoluteString,
+                "width": output.width,
+                "height": output.height,
+                "byteSize": output.byteSize,
+                "mimeType": "image/jpeg",
+                "hasExif": output.hasExif
+            ])
+        } catch {
+            try? FileManager.default.removeItem(at: url)
+            call.reject("JPEG export failed: \(error)", "EXPORT_FAILED")
+        }
+    }
+
+    /// Deletes exported files. Only files inside Caches/photo-export are removed;
+    /// anything else (including symlink escapes) is ignored.
+    @objc func deletePhotoExports(_ call: CAPPluginCall) {
+        guard let urls = call.getArray("fileUrls", String.self) else {
+            call.reject("fileUrls is required")
+            return
+        }
+        DispatchQueue.global(qos: .utility).async {
+            guard let directory = try? PhotoExport.exportDirectory() else {
+                call.resolve(["deleted": 0])
+                return
+            }
+            var deleted = 0
+            for value in urls {
+                let url = value.hasPrefix("file://") ? URL(string: value) : URL(fileURLWithPath: value)
+                guard let url, url.isFileURL, PhotoExport.isInside(url, directory: directory) else { continue }
+                let resolved = url.resolvingSymlinksInPath()
+                var isDirectory: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: resolved.path, isDirectory: &isDirectory),
+                      !isDirectory.boolValue else { continue }
+                if (try? FileManager.default.removeItem(at: resolved)) != nil {
+                    deleted += 1
+                }
+            }
+            call.resolve(["deleted": deleted])
         }
     }
 

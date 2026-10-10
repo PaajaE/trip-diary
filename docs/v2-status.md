@@ -4,13 +4,13 @@ Plán: [plan-v2.md](plan-v2.md)
 
 ## Fáze 0 — Úklid a ověření předpokladů
 
-| Krok                          | Stav                       | Poznámka                                                                                                                                                                                       |
-| ----------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.1 Úklid                     | ✅ hotovo (2026-10-09)     | WIP → `archive/v1-video-wip`, Expo → `archive/expo` a odstraněno z `main`, staré plány → `docs/archive/`, `CLAUDE.md`, pnpm připnuté přes `packageManager`, opraven formát z commitu `6b7f012` |
-| 0.2 Testovací dataset         | ⏳ čeká                    | Potřebuje export metadat z knihovny fotek (iPhone)                                                                                                                                             |
-| 0.3 Spike A — PhotoKit import | 🟡 simulátor ✅, iPhone ⏳ | Viz níže. Na iPhonu zbývá ověřit iCloud (originály jen v cloudu), Live Photos, reálné fotky a velkou knihovnu.                                                                                 |
-| 0.4 Spike B — video + R2      | ⏳ čeká                    | Část R2 + edge funkce jde udělat bez iPhonu, potřebuje Cloudflare účet                                                                                                                         |
-| 0.5 Infrastruktura            | ⏳ čeká                    |                                                                                                                                                                                                |
+| Krok                          | Stav                                 | Poznámka                                                                                                                                                                                       |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.1 Úklid                     | ✅ hotovo (2026-10-09)               | WIP → `archive/v1-video-wip`, Expo → `archive/expo` a odstraněno z `main`, staré plány → `docs/archive/`, `CLAUDE.md`, pnpm připnuté přes `packageManager`, opraven formát z commitu `6b7f012` |
+| 0.2 Testovací dataset         | ⏳ čeká                              | Potřebuje export metadat z knihovny fotek (iPhone)                                                                                                                                             |
+| 0.3 Spike A — PhotoKit import | 🟡 simulátor ✅, iPhone ✅ na vzorku | Viz níže. Na iPhonu ověřeno na 50 oblíbených (poloha, čas, offset, iCloud). Zbývá: videa, Live Photos zvlášť, celá velká knihovna.                                                             |
+| 0.4 Spike B — video + R2      | ⏳ čeká                              | Část R2 + edge funkce jde udělat bez iPhonu, potřebuje Cloudflare účet                                                                                                                         |
+| 0.5 Infrastruktura            | ⏳ čeká                              |                                                                                                                                                                                                |
 
 ## Spike A — výsledky v simulátoru (2026-10-09)
 
@@ -33,6 +33,42 @@ Další zjištění:
   `MainViewController`.
 - Hlavička aplikace na iOS se překrývá se stavovým řádkem (chybí safe-area
   odsazení). Řešit v novém UI (Fáze 4).
+
+## Spike A — výsledky na iPhonu (2026-10-09)
+
+Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build `cz.tripdiary.app` nainstalovaný přes `xcodebuild` + `devicectl`.
+Vzorek: **50 oblíbených** položek rovnoměrně rozložených přes knihovnu (37 fotek, 13 videí). Diagnostika: `tripdiary://app/dev/media-library`.
+
+| Měření                        | iCloud vypnutý | iCloud zapnutý (jen vzorek) |
+| ----------------------------- | -------------- | --------------------------- |
+| Fotky s porovnaným časem      | 3              | **35 z 37**, 0 neshod       |
+| Fotky s porovnanou polohou    | 3              | **32**, 0 neshod            |
+| Fotky s EXIF offsetem         | 3              | 35                          |
+| Položky s polohou v PhotoKitu | 42 z 50        | 42 z 50                     |
+| `metadataErrors`              | 0              | 0                           |
+| Čtení metadat vzorku          | 0,3 s          | 43,8 s (asi 1,2 s na fotku) |
+| Výpis celé knihovny           | 3,1 s          | 3,1 s                       |
+
+Závěry:
+
+- Bez iCloudu se EXIF přečetl jen u 3 fotek, takže většina originálů je jen v cloudu; s iCloudem se načetl u 35 z 37. Čtení EXIF z iCloud-only originálů tedy funguje a PhotoKit čas i poloha sedí s EXIF (0 neshod).
+- 2 z 37 fotek nemají porovnatelný čas ani offset (pravděpodobně bez EXIF data, např. screenshoty); nezjišťováno.
+- Import musí počítat se stahováním originálů: asi 1,2 s na fotku při souběhu 4.
+
+Neověřeno: videa (13 z 50 se nečetla), Live Photos zvlášť, celá knihovna (velikost a čas výpisu jsou jen z vzorku 50), mobilní data.
+
+## Video z iPhonu — výsledky (2026-10-09)
+
+Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build. Dev stránka `/dev/video-upload` (jen nativní aplikace).
+
+| Měření                                        | Výsledek                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Export svislého videa 19,1 s                  | 3,8 s, výstup 1080×1920 (orientace zachována), 32,5 MB, poster 720×1280 98 kB       |
+| Upload do produkčního R2 (background session) | 100 %, 32 539 146 B; řádky `media` (`ready`) a `media_variants` (`video`, `poster`) |
+| Veřejný soubor                                | 200, `video/mp4`, `accept-ranges: bytes`, H.264 + AAC, `moov` na začátku            |
+| Úklid (`delete-media` + smazání řádku)        | DB 0 řádků, R2 objekty pryč; Cloudflare cache dál servíruje starou kopii            |
+
+Výpadek sítě (2026-10-10, 32,6 s, 62 MB, opakovaně letadlový režim): upload po obnovení sítě sám dokončen. Export přepsán s cílem 8 Mb/s: 42,8 s video → 43,6 MB (1920×1080), export 8,2 s. Neověřeno: upload nového exportu, HDR a 4K60 HEVC, přehrání v Chrome a Firefoxu, obnovení po zabití aplikace.
 
 ## Ověření
 
