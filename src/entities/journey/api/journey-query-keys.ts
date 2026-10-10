@@ -1,5 +1,6 @@
 export const journeyQueryKeys = {
   all: ['journeys'] as const,
+  cover: (journeyId: string) => ['journeys', journeyId, 'cover'] as const,
   detail: (journeyId: string) => ['journeys', journeyId] as const,
   detailLocal: (journeyId: string) => ['journeys', journeyId, 'local'] as const,
   publicAll: ['public-journeys'] as const,

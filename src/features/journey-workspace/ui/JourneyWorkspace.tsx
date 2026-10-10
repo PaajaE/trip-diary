@@ -1,6 +1,16 @@
 import type { TFunction } from 'i18next'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useJourneyCoverQuery } from '@/entities/journey/api/use-journey-cover-query'
+import {
+  useWorkspaceEdits,
+  type WorkspaceEdits,
+} from '@/features/journey-workspace/api/use-workspace-edits'
+import {
+  buildCoverTargetIndex,
+  type CoverTarget,
+} from '@/features/journey-workspace/model/cover-targets'
+import { EditableMediaTile } from '@/features/journey-workspace/ui/EditableMediaTile'
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
 import {
   formatInstantTime,
@@ -13,6 +23,7 @@ import {
   type WorkspaceMoment,
   type WorkspaceSegment,
 } from '@/features/journey-workspace/model/workspace-tree'
+import type { MediaItem } from '@/entities/media/model/media-library'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import {
   WorkspaceMap,
@@ -21,6 +32,33 @@ import {
 import { publicEnv } from '@/shared/config/env'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
+
+interface EditingContext {
+  edits: WorkspaceEdits
+  targets: Map<string, CoverTarget[]>
+}
+
+function MediaTiles({
+  editing,
+  items,
+}: {
+  editing: EditingContext
+  items: MediaItem[]
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {items.map((item) => (
+        <EditableMediaTile
+          baseUrl={BASE_URL}
+          edits={editing.edits}
+          item={item}
+          key={item.id}
+          targets={editing.targets.get(item.id) ?? []}
+        />
+      ))}
+    </div>
+  )
+}
 
 function Counts({ photos, videos }: { photos: number; videos: number }) {
   const { t } = useTranslation()
@@ -47,11 +85,13 @@ function momentTitle(
 }
 
 function MomentCard({
+  editing,
   entry,
   locale,
   onSelect,
   selected,
 }: {
+  editing: EditingContext
   entry: WorkspaceMoment
   locale: string
   onSelect: (id: string) => void
@@ -97,28 +137,21 @@ function MomentCard({
           <Counts photos={entry.photoCount} videos={entry.videoCount} />
         </span>
       </button>
-      {entry.media.length > 1 ? (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {entry.media.map((item) => (
-            <MediaThumb
-              baseUrl={BASE_URL}
-              className="h-12 w-12"
-              item={item}
-              key={item.id}
-            />
-          ))}
-        </div>
+      {entry.media.length > 0 ? (
+        <MediaTiles editing={editing} items={entry.media} />
       ) : null}
     </li>
   )
 }
 
 function SegmentBlock({
+  editing,
   locale,
   node,
   onSelect,
   selectedId,
 }: {
+  editing: EditingContext
   locale: string
   node: WorkspaceSegment
   onSelect: (id: string) => void
@@ -158,6 +191,7 @@ function SegmentBlock({
         <ul className="mt-3 space-y-2">
           {node.moments.map((entry) => (
             <MomentCard
+              editing={editing}
               entry={entry}
               key={entry.moment.id}
               locale={locale}
@@ -171,6 +205,7 @@ function SegmentBlock({
         <div className="mt-3 space-y-3 border-l border-border pl-3">
           {node.children.map((child) => (
             <SegmentBlock
+              editing={editing}
               key={child.segment.id}
               locale={locale}
               node={child}
@@ -201,6 +236,8 @@ function Skeleton() {
 export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   const { i18n, t } = useTranslation()
   const state = useJourneyWorkspace(journeyId)
+  const edits = useWorkspaceEdits(journeyId)
+  const journeyCover = useJourneyCoverQuery(journeyId)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const locale = i18n.language
 
@@ -212,6 +249,17 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   }, [])
 
   const tree = state.status === 'ready' ? state.tree : null
+  const journeyCoverId = journeyCover.data ?? null
+  const editing = useMemo<EditingContext | null>(
+    () =>
+      tree === null
+        ? null
+        : {
+            edits,
+            targets: buildCoverTargetIndex(tree, journeyId, journeyCoverId),
+          },
+    [edits, tree, journeyId, journeyCoverId],
+  )
   const points = useMemo<WorkspaceMapPoint[]>(() => {
     if (tree === null) return []
     const out: WorkspaceMapPoint[] = []
@@ -228,7 +276,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     return out
   }, [tree, t, locale])
 
-  let body: React.ReactNode
+  let body: React.ReactNode = null
   if (state.status === 'loading') {
     body = <Skeleton />
   } else if (state.status === 'error') {
@@ -246,13 +294,14 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     )
   } else if (isWorkspaceEmpty(state.tree)) {
     body = <p className="text-muted">{t('workspace.emptyJourney')}</p>
-  } else {
+  } else if (editing !== null) {
     const ready = state.tree
     body = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div aria-label={t('workspace.timeline')} className="space-y-4">
           {ready.roots.map((node) => (
             <SegmentBlock
+              editing={editing}
               key={node.segment.id}
               locale={locale}
               node={node}
@@ -266,6 +315,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               <ul className="mt-3 space-y-2">
                 {ready.looseMoments.map((entry) => (
                   <MomentCard
+                    editing={editing}
                     entry={entry}
                     key={entry.moment.id}
                     locale={locale}
@@ -285,16 +335,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               <p className="text-sm text-muted">
                 {t('workspace.unassignedHint')}
               </p>
-              <div className="mt-3 flex flex-wrap gap-1">
-                {ready.unassigned.map((item) => (
-                  <MediaThumb
-                    baseUrl={BASE_URL}
-                    className="h-16 w-16"
-                    item={item}
-                    key={item.id}
-                  />
-                ))}
-              </div>
+              <MediaTiles editing={editing} items={ready.unassigned} />
             </section>
           ) : null}
         </div>

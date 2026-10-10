@@ -1,4 +1,11 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  cleanup,
+  fireEvent,
+  render as rtlRender,
+  screen,
+} from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
@@ -11,6 +18,23 @@ import {
   variant,
 } from '@/features/journey-workspace/test-fixtures'
 import { JourneyWorkspace } from '@/features/journey-workspace/ui/JourneyWorkspace'
+
+vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
+  useJourneyCoverQuery: () => ({ data: null }),
+}))
+vi.mock('@/features/journey-workspace/api/use-workspace-edits', () => ({
+  useWorkspaceEdits: () => ({
+    saveCaption: vi.fn(),
+    setCover: vi.fn(),
+    toggleStar: vi.fn(),
+  }),
+}))
+
+function render(ui: ReactElement) {
+  return rtlRender(
+    <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>,
+  )
+}
 
 let state: JourneyWorkspaceState = { status: 'loading' }
 vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
