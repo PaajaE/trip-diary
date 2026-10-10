@@ -1,0 +1,120 @@
+# REFACTOR_PLAN — předání do nové session
+
+**Stav k:** 2026-10-09 · **Větev k pokračování:** `v2/phase-2-upload` (HEAD `2c1700d` + 4 necommitnuté soubory)
+**Zdroje pravdy, které se nekopírují sem:** [docs/plan-v2.md](docs/plan-v2.md) (cíl, model, fáze, rozhodnutí v kap. 9) a [docs/v2-status.md](docs/v2-status.md) (výsledky po fázích). Tento soubor je jen přehled stavu a postupu; po dokončení refaktoru ho smazat.
+
+Legenda: ✅ ověřeno v této session (příkaz/výsledek uveden) · 🟡 provedeno, neověřeno · 📝 jen navrženo · ⏳ nedokončeno
+
+---
+
+## A. Cíl refaktoru
+
+Přestavba Trip Diary na v2 (detail v `docs/plan-v2.md`): médium (fotka/video s časem, GPS, pásmem) je základ cesty; nad ním etapy, výlety a automaticky tvořené momenty; jeden kód pro web a iOS (Capacitor, bez Expa); soubory v Cloudflare R2, databáze a přihlášení v Supabase (free); web jako špičková prezentační vrstva. Hotovo je, když projde brána každé fáze z plánu a produkce je přepnutá na v2.
+
+## B. Aktuální stav
+
+| Fáze                                          | Stav                                               | Poznámka                                                                 |
+| --------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ |
+| 0 Úklid, CI, landing page                     | ✅ na `main` a v produkci                          | PR #4, #5, #6; CI na `main` success, web nasazen (titulek ověřen `curl`) |
+| Spike A (PhotoKit)                            | ✅ na `main` (PR #7), jen simulátor                | iPhone ⏳                                                                |
+| 1 Datový model                                | ✅ hotovo, **není na `main`**                      | větev `v2/phase-1-model`                                                 |
+| 3 Automatika                                  | ✅ kód a testy, **není na `main`**; brána ⏳       | větev `v2/phase-3-automation`                                            |
+| 2 Nahrávání                                   | 🟡 první část (`media-upload`), **není na `main`** | větev `v2/phase-2-upload`; proti reálnému R2 neověřeno                   |
+| 4 Psaní (owner UI), 5 Prezentace, 6 Rozšíření | 📝 nezačato                                        |                                                                          |
+
+Řetěz větví (každá stojí na předchozí, žádný otevřený PR): `main` (`621b1a8`) ← `v2/phase-1-model` (`2db0535`) ← `v2/phase-3-automation` (`17e5664`) ← `v2/phase-2-upload` (`2c1700d`). Všechny čtyři jsou pushnuté na `origin`. Lokální `main` je zastaralý (`badc853`) — pracovat z `origin/main`.
+
+## C. Potvrzené změny (commitnuto)
+
+**Databáze** (`supabase/migrations/`, všechny jen přidávají, v1 tabulky se nemění):
+
+- `20261009120000_v2_core_schema.sql` — `segments`, `moments`, `media`, `media_variants`, `places`, `tracks`, `posts`, `post_media`, `tags` (7 kategorií), `taggings`; `journeys.home_tz`, `cover_media_id`; RLS, granty po sloupcích, `can_edit_journey()`, trigger odpojení médií před smazáním cesty.
+- `20261009120100_v2_public_journey.sql` — `get_public_journey(handle, slug)` (jediný přístup anonů k v2 obsahu).
+- `20261009120200_v2_migrate_from_v1.sql` — `v2_migrate_from_v1()`, `v2_verify_migration()` (jen definice; spouští se ručně při přepnutí).
+- `20261009120300_v2_place_geocoding.sql` — `places.source_ref`, `place_lookups`, `geocoder_throttle`, `claim_geocoder_slot()` (jen `service_role`).
+- Testy: `supabase/tests/v2_schema_rls.test.sql`, `v2_migration.test.sql`, `v2_place_geocoding.test.sql`.
+
+**Edge funkce** (`supabase/functions/`): `resolve-place` (OSM Nominatim, cache, slot 1,1 s), `media-upload` (presigned PUT pro varianty fotek, multipart pro video, klíče jen pod složkou uživatele); sdílená logika v `_shared/places/nominatim.ts`, `_shared/media/upload.ts`. Deploy kroky přidány do `.github/workflows/pages.yml`.
+
+**Sdílené balíčky:** `packages/core/src/public-journey.ts` (+ `fixtures/public-journey.json` = reálný výstup RPC), `automation/` (shlukování momentů, duplicity, dny, návrhy etap a výletů, pásma z GPS, trasy, názvy míst), `media-upload.ts`; `packages/utils/src/exif-datetime.ts`; závislost `@photostructure/tz-lookup@11.7.0`.
+
+**Web / iOS:** `ios/App/App/MediaLibraryPlugin.swift`, `MainViewController.swift` (registrace pluginů — `PhotoMetadataPlugin` se dřív neregistroval), deep linky `tripdiary://app/...` (`src/app/deep-link.ts`, `DeepLinkHandler.tsx`), diagnostika `/dev/media-library` jen v nativní aplikaci (`src/pages/dev/`, `src/features/media-import/`), nová landing page (cs/en).
+
+**Infrastruktura:** CI zrychleno (`.github/workflows/ci.yml`: DB job jen při změně databáze, e2e jen na `main`/ručně, štíhlý `supabase start`, `edge-runtime` ponechán pro e2e). Expo odstraněno (archiv: větev `archive/expo`, rozpracované video: `archive/v1-video-wip`). Cloudflare: bucket `trip-diary-media` vytvořen (konektor).
+
+## D. Necommitnuté změny (🟡 rozpracováno, neověřeno)
+
+`git status` na `v2/phase-2-upload`: 4 upravené soubory, +78 řádků, vše akce **`delete-media`** (smaže všechny objekty jednoho média v R2):
+`supabase/functions/_shared/media/upload.ts`, `supabase/functions/media-upload/index.ts`, `packages/core/src/media-upload.ts`, `packages/core/src/media-upload.test.ts`.
+Po review (T1) doplněno: stránkování výpisu R2, chyba `delete_failed` (502), testy chybových cest (`deleteMediaObjects` ve `supabase/functions/_shared/media/upload.ts`). Předchozí stav: proběhlo jen: `@trip-diary/core` testy (109 ✅), `eslint packages/core/src` ✅, `pnpm typecheck` ✅, prettier na dotčených složkách. **Neproběhlo:** `pnpm check`, spuštění funkce, volání proti R2 (akce `delete-media` nebyla nikdy vykonána).
+
+## E. Závislosti a kompatibilita
+
+- Pořadí merge do `main`: `phase-1-model` → `phase-3-automation` → `phase-2-upload` (kvůli řetězu větví). Po merge `pages.yml` **sám pošle migrace na produkci** (`supabase db push`) a nasadí všechny edge funkce včetně `resolve-place` a `media-upload`. Migrace jsou jen aditivní; převod dat v1 → v2 se tím nespustí.
+- `resolve-place` potřebuje migraci `…120300`; `media-upload` potřebuje secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` v produkčním Supabase (volitelně `R2_PUBLIC_BASE_URL`, výchozí `https://media.cestovni-denik.cz`).
+- Převod dat v1 → v2 musí předcházet přepnutí UI; soubory variant se musí zkopírovat ze Supabase Storage do R2 (klíče zůstávají stejné) — dosud nenapsáno.
+- Klient (web i iOS) musí volat `media-upload` a pak zapisovat `media` + `media_variants`; čas médií jen jako okamžik + IANA pásmo (`resolveCaptureZone`, `wallClockToInstant`).
+- Veřejné čtení médií = veřejné neuhodnutelné URL na `media.cestovni-denik.cz` (rozhodnuto 2026-10-09).
+
+## F. Testy a ověření (skutečně spuštěno)
+
+| Co                                                   | Výsledek                                                                                                                                 | Kdy / kde                                                       |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `supabase test db` (pgTAP)                           | ✅ 402 testů PASS, 20 souborů                                                                                                            | po migraci `…120300`, před změnou `delete-media` (ta DB nemění) |
+| `pnpm check` (format, lint, typecheck, testy, build) | ✅ 121 souborů, 384 testů + 2 očekávané fail                                                                                             | po commitu `2c1700d`; **po `delete-media` neopakováno**         |
+| `pnpm test:packages`                                 | ✅ (naposledy před `delete-media`; core samotné 109 ✅ po něm)                                                                           |                                                                 |
+| Zkouška migrace na kopii produkce                    | ✅ `v2_verify_migration()` 9/9                                                                                                           | 2026-10-09, lokálně; produkce jen `SELECT` přes MCP             |
+| PhotoKit v simulátoru iOS 26.5                       | ✅ poloha 318/318, čas 313/313 na 320 fotkách                                                                                            | jen simulátor                                                   |
+| `resolve-place` lokálně proti živému Nominatim       | ✅ Lake Magog → Mount Assiniboine, Calgary → Calgary, 2. dotaz z cache, bez tokenu 401                                                   |                                                                 |
+| `media-upload` lokálně **bez** R2 klíčů              | ✅ 401 bez tokenu, `invalid_media_id` pro chybné ID, čitelná chyba bez klíčů                                                             |                                                                 |
+| R2 doména a CORS                                     | ✅ `curl`: `media.cestovni-denik.cz` odpovídá (404 pro neexistující objekt), CORS pro `https://cestovni-denik.cz` ano, pro cizí původ ne |                                                                 |
+| CI na `main` po PR #6/#7                             | ✅ CI i Deploy success                                                                                                                   |                                                                 |
+
+**Neověřeno / nespuštěno:**
+
+- `media-upload` proti skutečnému R2 (upload, multipart, `delete-media`); `supabase/functions/.env` obsahuje všechny čtyři klíče (hodnoty nečteny), ale funkce s nimi nikdy nebyla spuštěna.
+- Že jsou R2 secrets uloženy v **produkčním** Supabase (uživatel tvrdí „uloženo“, já neověřil).
+- Nasazení nových funkcí přes `pages.yml` (kroky nikdy neproběhly).
+- iPhone: PhotoKit na skutečném zařízení (iCloud-only originály, Live Photos, reálná knihovna), jakékoli video.
+- Brána Fáze 3 (≥ 90 % médií ve správném výletu) — chybí celá knihovna z Kanady s ručně označenými výlety. Dosavadní testy jsou na 56 anonymizovaných fotkách a syntetických scénářích.
+- Lokální Supabase stack: `supabase status` při poslední kontrole nehlásil API URL (nejspíš zastaven).
+
+## G. Rizika a otevřené otázky
+
+1. **🔴 Zastaralé databázové typy.** `src/shared/api/database.types.ts` naposledy změněn commitem `199f819`; `grep` nenašel `place_lookups`, `geocoder_throttle`, `source_ref`, `claim_geocoder_slot`. CI job `database-security` (`db:types` + `git diff --exit-code`) tedy pravděpodobně **selže** u PR obsahujícího migraci `…120300` (neověřeno spuštěním CI). Nutno přegenerovat (`pnpm db:types`, potřebuje běžící lokální Supabase).
+2. **Merge do `main` = změna produkce** (migrace + nasazení funkcí). Vyžaduje tvé schválení a ověřené secrets (G.3).
+3. Supabase MCP konektor má **plná práva k zápisu** na produkci — doporučeno omezit na čtení nebo odpojit (zatím jsem na produkci pouštěl jen `SELECT`).
+4. Limity videa: plán říká ≤ 60 s / 1080p, kód omezuje jen velikost (`VIDEO_MAX_BYTES` 120 MB); délka se nikde nevynucuje.
+5. Nominatim je v pořádku jen pro rodinu/známé (max 1 req/s, vlastní User-Agent, ukládání, atribuce „© OpenStreetMap contributors“). Při otevření veřejnosti nutná vlastní instance nebo placená služba. **Atribuce zatím není v žádném UI.**
+6. Veřejné URL médií nechrání soukromé cesty před někým, kdo URL zná. Rozhodnuto, ale držet na vědomí.
+7. Data v produkci k rozhodnutí: zastávka „Calgary“ má chybné znaménko délky (ve v2 se nepřenáší); 11 skupin duplicitních fotek; momenty z v1 jsou `locked` a časově se překrývají — rozhodnout, zda je automatika smí přeskupit.
+8. Repozitář je **veřejný**: žádné skutečné GPS/fotky v testech (fixture je posunutá o konstantu, ID syntetická); `supabase/functions/.env` je v `.gitignore`.
+
+## H. Další kroky (podle závislostí)
+
+| ID  | Úkol                                                                                                                        | Oblast         | Závisí na         | Hotovo, když                                                                                                                                                                                                                                                                                              | Stav |
+| --- | --------------------------------------------------------------------------------------------------------------------------- | -------------- | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- |
+| T1  | Ověřit a commitnout `delete-media`: `pnpm check`, přečíst diff                                                              | media-upload   | —                 | opravy po review hotové (stránkování, `delete_failed`, 9 nových testů); core 118 ✅, typecheck ✅, lint ✅, prettier ✅; **zbývá `pnpm check` a commit se souhlasem uživatele**. Rozhodnutí 2026-10-09: kontrola řádku `media` v DB se **nepřidává** (úklid po nedokončeném nahrávání ji nesmí vyžadovat) | 🟡   |
+| T2  | Přegenerovat `database.types.ts` po migraci `…120300`                                                                       | typy, CI       | lokální Supabase  | `pnpm db:types` → diff commitnut; `db:types` pak nic nemění                                                                                                                                                                                                                                               | ⏳   |
+| T3  | Test `media-upload` proti reálnému R2 (PUT malé fotky, multipart, čtení z `media.cestovni-denik.cz`, `delete-media`, úklid) | edge, R2       | T1, `.env`        | všechny akce projdou, bucket po testu prázdný                                                                                                                                                                                                                                                             | ⏳   |
+| T4  | Ověřit R2 secrets v produkčním Supabase (jen názvy, např. `supabase secrets list`)                                          | infra          | —                 | čtyři názvy přítomny                                                                                                                                                                                                                                                                                      | ⏳   |
+| T5  | Web klient nahrávání: varianty v prohlížeči → `sign-put` → PUT → zápis `media`, `media_variants`                            | web            | T3                | fotka z PC se objeví jako `media` ve stavu `ready`                                                                                                                                                                                                                                                        | ⏳   |
+| T6  | iPhone: spustit `/dev/media-library` na skutečné knihovně                                                                   | iOS (uživatel) | zařízení          | výsledky zapsané do `docs/v2-status.md`                                                                                                                                                                                                                                                                   | ⏳   |
+| T7  | iOS nativní video (převod H.264 + multipart na pozadí)                                                                      | iOS            | T3, T6            | minutové 4K HEVC video projde výpadkem sítě, přehraje se v Chrome/Firefoxu                                                                                                                                                                                                                                | ⏳   |
+| T8  | Brána Fáze 3 na celé knihovně                                                                                               | automatika     | T5/T6             | ≥ 90 % médií ve správném výletu, 100 % ve správné etapě                                                                                                                                                                                                                                                   | ⏳   |
+| T9  | Rozhodnutí o merge řetězu do `main` (pořadí 1 → 3 → 2) a spuštění převodu dat v1 → v2 + kopie souborů do R2                 | produkce       | T2, T4, schválení | `v2_verify_migration()` na produkci všude `ok`                                                                                                                                                                                                                                                            | 📝   |
+| T10 | Fáze 4 (owner UI, názvosloví, atribuce OSM), Fáze 5 (prezentace přes RPC, srdíčka/komentáře)                                | web            | T9                | brány z plánu                                                                                                                                                                                                                                                                                             | 📝   |
+
+**Doporučený další krok: T1 → T2 → T3 v tomto pořadí, začít T1.** T1 je malé a uzavírá rozpracovanou změnu; T2 odstraní známý blokátor CI dřív, než někdo otevře PR; T3 je jediný krok, který mění „první část Fáze 2“ z neověřené na ověřenou a odblokuje web klient (T5).
+
+## I. Instrukce pro novou session
+
+1. Přečíst jen: tento soubor, `CLAUDE.md`, `docs/v2-status.md` (a `docs/plan-v2.md` kap. 4 a 9 podle potřeby). Nepouštět novou analýzu repozitáře.
+2. `git fetch`, přepnout na `v2/phase-2-upload`, `git status` — očekávány právě 4 soubory z oddílu D. Nic z toho nevracet.
+3. Nástroje: `pnpm` je připnuté (`packageManager`), lokální stack `supabase start`; konektory Supabase MCP (projekt `lmemzjjmuuexxzzhktdn`, jen čtení!) a Cloudflare MCP (R2 bucket `trip-diary-media`) mohou být po restartu nutné znovu načíst přes `ToolSearch`.
+4. Nedotýkat se `main`, produkce ani secrets bez výslovného souhlasu uživatele. Klíče nikdy nevypisovat ani necommitovat.
+5. Po každém kroku aktualizovat `docs/v2-status.md` (ne nové soubory v `docs/`).
+
+## J. Pravidla práce (orchestrace)
+
+Postup a role jsou v `CLAUDE.md` (sekce Orchestration) a ve skillu `.claude/skills/refactor-task/`. Stavové značky: ✅ VERIFIED/TESTED · 🟡 IMPLEMENTED · 📝 PROPOSED · ⏳ otevřeno · UNVERIFIED · BLOCKED · DEFERRED. Před úkoly T2/T3 musí běžet Docker (při poslední kontrole neběžel).
