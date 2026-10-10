@@ -68,7 +68,7 @@ Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build. Dev stránka `/dev/video
 | Veřejný soubor                                | 200, `video/mp4`, `accept-ranges: bytes`, H.264 + AAC, `moov` na začátku            |
 | Úklid (`delete-media` + smazání řádku)        | DB 0 řádků, R2 objekty pryč; Cloudflare cache dál servíruje starou kopii            |
 
-Neověřeno: výpadek sítě během uploadu, 60 s klip u limitu 120 MiB (export má vysoký bitrate), zdroj 4K HEVC, přehrání v Chrome a Firefoxu, obnovení po zabití aplikace.
+Výpadek sítě (2026-10-10, 32,6 s, 62 MB, opakovaně letadlový režim): upload po obnovení sítě sám dokončen. Export přepsán s cílem 8 Mb/s: 42,8 s video → 43,6 MB (1920×1080), export 8,2 s. Neověřeno: upload nového exportu, HDR a 4K60 HEVC, přehrání v Chrome a Firefoxu, obnovení po zabití aplikace.
 
 ## Ověření
 
