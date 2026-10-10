@@ -125,3 +125,9 @@ export const LazyMediaLibraryDiagnosticsPage = lazy(() =>
     }),
   ),
 )
+
+export const LazyMediaUploadDevPage = lazy(() =>
+  import('@/pages/dev/MediaUploadDevPage').then(({ MediaUploadDevPage }) => ({
+    default: MediaUploadDevPage,
+  })),
+)
