@@ -19,6 +19,9 @@ Lint and tests cover query-key factories and invalidation helpers. Run `pnpm tes
 | Space       | `spaceQueryKeys`       | User spaces, members, invite preview                  |
 | Profile     | `profileQueryKeys`     | Current + public profile                              |
 | Sharing     | `sharingQueryKeys`     | Public routes, entry public share metadata            |
+| Segment     | `segmentQueryKeys`     | v2 stages and trips per journey                       |
+| Moment      | `momentQueryKeys`      | v2 moments per journey                                |
+| Media       | `mediaQueryKeys`       | v2 media library per journey (with variants), detail  |
 | Translation | `translationQueryKeys` | Unchanged from Wave 3C                                |
 | Engagement  | `engagementQueryKeys`  | Feature-local (`features/engagement`)                 |
 
@@ -41,6 +44,9 @@ Local/offline variants use an explicit `'local'` segment on the same resource fa
   - `invalidateJourneyAfterEntryMutation`
   - `invalidateAfterEntryDelete` / `invalidateAfterEntryUpdate`
   - `invalidateAfterPhotoDelete` / `invalidateAfterPhotoTagChange`
+  - `invalidateJourneyTree` (segments + moments + media of one journey; aliased as
+    `invalidateAfterSegmentMutation` / `invalidateAfterMomentMutation` /
+    `invalidateAfterMediaMutation` in `entities/journey/api/invalidate-journey-tree.ts`)
   - `invalidateAfterManualSync` (domain roots, not unfiltered `invalidateQueries()`)
 - Entry delete resolves `journeyId` from `localDb.journeyLinks` when available.
 

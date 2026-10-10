@@ -1,0 +1,97 @@
+import type { Database } from '@/shared/api/database.types'
+import {
+  type Moment,
+  MomentError,
+  type MomentPatch,
+  momentSchema,
+} from '@/entities/moment/model/moment'
+import { getSupabaseClient } from '@/shared/api/supabase'
+
+type MomentRow = Database['public']['Tables']['moments']['Row']
+type MomentUpdate = Database['public']['Tables']['moments']['Update']
+
+function toMoment(row: MomentRow): Moment {
+  const parsed = momentSchema.safeParse({
+    body: row.body,
+    coverMediaId: row.cover_media_id,
+    createdAt: row.created_at,
+    endsAt: row.ends_at,
+    id: row.id,
+    journeyId: row.journey_id,
+    latitude: row.latitude,
+    locked: row.locked,
+    longitude: row.longitude,
+    origin: row.origin,
+    placeId: row.place_id,
+    published: row.published,
+    startsAt: row.starts_at,
+    title: row.title,
+    updatedAt: row.updated_at,
+  })
+  if (!parsed.success) {
+    throw new MomentError('invalid_row', parsed.error.message, parsed.error)
+  }
+  return parsed.data
+}
+
+function toUpdate(patch: MomentPatch): MomentUpdate {
+  const update: MomentUpdate = {}
+  if (patch.body !== undefined) update.body = patch.body
+  if (patch.coverMediaId !== undefined)
+    update.cover_media_id = patch.coverMediaId
+  if (patch.endsAt !== undefined) update.ends_at = patch.endsAt
+  if (patch.latitude !== undefined) update.latitude = patch.latitude
+  if (patch.locked !== undefined) update.locked = patch.locked
+  if (patch.longitude !== undefined) update.longitude = patch.longitude
+  if (patch.origin !== undefined) update.origin = patch.origin
+  if (patch.placeId !== undefined) update.place_id = patch.placeId
+  if (patch.published !== undefined) update.published = patch.published
+  if (patch.startsAt !== undefined) update.starts_at = patch.startsAt
+  if (patch.title !== undefined) update.title = patch.title
+  return update
+}
+
+export async function listJourneyMoments(journeyId: string): Promise<Moment[]> {
+  const { data, error } = await getSupabaseClient()
+    .from('moments')
+    .select('*')
+    .eq('journey_id', journeyId)
+    .order('starts_at', { ascending: true })
+  if (error !== null) {
+    throw new MomentError('list_failed', error.message, error)
+  }
+  return data.map(toMoment)
+}
+
+export async function updateMoment(
+  momentId: string,
+  patch: MomentPatch,
+): Promise<Moment> {
+  const update = toUpdate(patch)
+  if (Object.keys(update).length === 0) {
+    throw new MomentError('invalid_input', 'empty patch')
+  }
+  const { data, error } = await getSupabaseClient()
+    .from('moments')
+    .update(update)
+    .eq('id', momentId)
+    .select('*')
+    .maybeSingle()
+  if (error !== null) {
+    throw new MomentError('update_failed', error.message, error)
+  }
+  if (data === null) {
+    throw new MomentError('not_found')
+  }
+  return toMoment(data)
+}
+
+export async function deleteMoment(momentId: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('moments')
+    .delete()
+    .eq('id', momentId)
+  if (error !== null) {
+    throw new MomentError('delete_failed', error.message, error)
+  }
+}

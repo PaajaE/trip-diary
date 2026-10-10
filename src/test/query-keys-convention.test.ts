@@ -16,6 +16,9 @@ const guardedRoots = [
   "'spaces'",
   "'engagement'",
   "'entry-translations'",
+  "'segments'",
+  "'moments'",
+  "'media'",
 ] as const
 
 const allowedSuffixes = ['query-keys.ts', 'query-keys.test.ts']

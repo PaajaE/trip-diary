@@ -520,6 +520,66 @@ export const en = {
     supabaseNotConfigured:
       'Supabase is not configured in this build. Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to load your journeys.',
   },
+  // v2 terminology: Journey > Stage > Trip > Moment > Photo/Video, Tip.
+  // Use t('terms.<name>.count', { count }) for pluralised labels.
+  terms: {
+    journey: {
+      singular: 'Journey',
+      plural: 'Journeys',
+      count_one: '{{count}} journey',
+      count_few: '{{count}} journeys',
+      count_many: '{{count}} journeys',
+      count_other: '{{count}} journeys',
+    },
+    stage: {
+      singular: 'Stage',
+      plural: 'Stages',
+      count_one: '{{count}} stage',
+      count_few: '{{count}} stages',
+      count_many: '{{count}} stages',
+      count_other: '{{count}} stages',
+    },
+    trip: {
+      singular: 'Trip',
+      plural: 'Trips',
+      count_one: '{{count}} trip',
+      count_few: '{{count}} trips',
+      count_many: '{{count}} trips',
+      count_other: '{{count}} trips',
+    },
+    moment: {
+      singular: 'Moment',
+      plural: 'Moments',
+      count_one: '{{count}} moment',
+      count_few: '{{count}} moments',
+      count_many: '{{count}} moments',
+      count_other: '{{count}} moments',
+    },
+    photo: {
+      singular: 'Photo',
+      plural: 'Photos',
+      count_one: '{{count}} photo',
+      count_few: '{{count}} photos',
+      count_many: '{{count}} photos',
+      count_other: '{{count}} photos',
+    },
+    video: {
+      singular: 'Video',
+      plural: 'Videos',
+      count_one: '{{count}} video',
+      count_few: '{{count}} videos',
+      count_many: '{{count}} videos',
+      count_other: '{{count}} videos',
+    },
+    tip: {
+      singular: 'Tip',
+      plural: 'Tips',
+      count_one: '{{count}} tip',
+      count_few: '{{count}} tips',
+      count_many: '{{count}} tips',
+      count_other: '{{count}} tips',
+    },
+  },
   moment: {
     collapse: 'Collapse moment',
     expand: 'Expand moment',

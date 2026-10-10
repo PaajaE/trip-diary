@@ -522,6 +522,66 @@ export const cs: TranslationResources = {
     supabaseNotConfigured:
       'Supabase není v tomto buildu nakonfigurován. Pro načtení cest doplňte EXPO_PUBLIC_SUPABASE_URL a EXPO_PUBLIC_SUPABASE_ANON_KEY.',
   },
+  // v2 terminology: Journey > Stage > Trip > Moment > Photo/Video, Tip.
+  // Use t('terms.<name>.count', { count }) for pluralised labels.
+  terms: {
+    journey: {
+      singular: 'Cesta',
+      plural: 'Cesty',
+      count_one: '{{count}} cesta',
+      count_few: '{{count}} cesty',
+      count_many: '{{count}} cesty',
+      count_other: '{{count}} cest',
+    },
+    stage: {
+      singular: 'Etapa',
+      plural: 'Etapy',
+      count_one: '{{count}} etapa',
+      count_few: '{{count}} etapy',
+      count_many: '{{count}} etapy',
+      count_other: '{{count}} etap',
+    },
+    trip: {
+      singular: 'Výlet',
+      plural: 'Výlety',
+      count_one: '{{count}} výlet',
+      count_few: '{{count}} výlety',
+      count_many: '{{count}} výletu',
+      count_other: '{{count}} výletů',
+    },
+    moment: {
+      singular: 'Moment',
+      plural: 'Momenty',
+      count_one: '{{count}} moment',
+      count_few: '{{count}} momenty',
+      count_many: '{{count}} momentu',
+      count_other: '{{count}} momentů',
+    },
+    photo: {
+      singular: 'Fotka',
+      plural: 'Fotky',
+      count_one: '{{count}} fotka',
+      count_few: '{{count}} fotky',
+      count_many: '{{count}} fotky',
+      count_other: '{{count}} fotek',
+    },
+    video: {
+      singular: 'Video',
+      plural: 'Videa',
+      count_one: '{{count}} video',
+      count_few: '{{count}} videa',
+      count_many: '{{count}} videa',
+      count_other: '{{count}} videí',
+    },
+    tip: {
+      singular: 'Tip',
+      plural: 'Tipy',
+      count_one: '{{count}} tip',
+      count_few: '{{count}} tipy',
+      count_many: '{{count}} tipu',
+      count_other: '{{count}} tipů',
+    },
+  },
   moment: {
     collapse: 'Sbalit moment',
     expand: 'Rozbalit moment',
