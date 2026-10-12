@@ -32,6 +32,14 @@ vi.mock('@tanstack/react-router', () => ({
     <a href="/import">{children}</a>
   ),
 }))
+vi.mock('@/features/moment-tags/api/use-moment-tags', () => ({
+  useJourneyMomentTags: () => ({
+    byMoment: new Map(),
+    catalog: [],
+    edits: { addFree: vi.fn(), addSpecies: vi.fn(), toggle: vi.fn() },
+    loadFailed: false,
+  }),
+}))
 vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
   useJourneyCoverQuery: () => ({ data: null }),
 }))

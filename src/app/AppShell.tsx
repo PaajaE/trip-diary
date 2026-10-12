@@ -193,6 +193,15 @@ function AccountMenu({
           >
             {t('navigation.spaces')}
           </Link>
+          <Link
+            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
+            onClick={() => {
+              setOpen(false)
+            }}
+            to="/tips"
+          >
+            {t('navigation.tips')}
+          </Link>
           <button
             className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
             onClick={() => {

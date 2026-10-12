@@ -47,6 +47,14 @@ import {
   MomentTextEditor,
   SegmentTextEditor,
 } from '@/features/journey-workspace/ui/TextEditing'
+import {
+  useJourneyMomentTags,
+  type JourneyMomentTags,
+} from '@/features/moment-tags/api/use-moment-tags'
+import {
+  MomentTagsEditor,
+  TagChips,
+} from '@/features/moment-tags/ui/MomentTags'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import { publicEnv } from '@/shared/config/env'
 
@@ -57,6 +65,7 @@ const ACTION_BUTTON =
 
 interface EditingContext {
   edits: WorkspaceEdits
+  tags: JourneyMomentTags
   /** Every moment of the journey in start order. */
   moments: WorkspaceMoment[]
   /** Adjacent same-kind segment pairs keyed by the earlier segment id. */
@@ -179,6 +188,7 @@ function MomentCard({
         </span>
       </button>
       <ClampedBody body={entry.moment.body} />
+      <TagChips tags={editing.tags.byMoment.get(entry.moment.id) ?? []} />
       {entry.media.length > 0 ? (
         <MediaTiles editing={editing} items={entry.media} />
       ) : null}
@@ -187,6 +197,11 @@ function MomentCard({
           edits={editing.edits}
           moment={entry.moment}
           name={momentTitle(entry, t, locale)}
+        />
+        <MomentTagsEditor
+          momentId={entry.moment.id}
+          momentName={momentTitle(entry, t, locale)}
+          tags={editing.tags}
         />
         {neighbours.previous !== null ? (
           <button
@@ -465,6 +480,11 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
 
   const tree = state.status === 'ready' ? state.tree : null
   const journeyCoverId = journeyCover.data ?? null
+  const momentIds = useMemo(
+    () => (tree === null ? [] : collectMoments(tree).map((m) => m.moment.id)),
+    [tree],
+  )
+  const tags = useJourneyMomentTags(journeyId, momentIds)
   const editing = useMemo<EditingContext | null>(
     () =>
       tree === null
@@ -472,13 +492,14 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
         : {
             edits,
             moments: collectMoments(tree),
+            tags,
             pairs: new Map(
               adjacentSegmentPairs(tree).map((p) => [p.before.segment.id, p]),
             ),
             targets: buildCoverTargetIndex(tree, journeyId, journeyCoverId),
             unassigned: tree.unassigned,
           },
-    [edits, tree, journeyId, journeyCoverId],
+    [edits, tags, tree, journeyId, journeyCoverId],
   )
   const points = useMemo<WorkspaceMapPoint[]>(() => {
     if (tree === null) return []

@@ -151,3 +151,9 @@ export const LazyJourneyWorkspaceRoutePage = lazy(() =>
     }),
   ),
 )
+
+export const LazyTipsRoutePage = lazy(() =>
+  import('@/pages/tips/TipsRoutePage').then(({ TipsRoutePage }) => ({
+    default: TipsRoutePage,
+  })),
+)
