@@ -291,5 +291,13 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   přeskočeny, 11 možných duplicit. `v2_verify_migration()`: **9/9 ok** (shoda se
   zkouškou na kopii).
 - Následek: těch 7 médií je ve v2 `ready` s variantou `large`, ale soubor v R2 neexistuje
-  (404). Rozhodnutí: čeká na uživatele (označit `failed` / smazat řádky ve v2 / ponechat).
-- Zbývá: ruční kontrola ve v2 UI, přepnutí vstupů (dashboard → v2), smazání v1 kódu.
+  (404). Rozhodnuto uživatelem: smazat. 7 řádků `media` ve v2 smazáno (jen v2 kopie, v1 `photos`
+  zůstávají), ověřeno, že žádný nebyl v momentu.
+- Kontrola dat v produkci pod přihlášeným vlastníkem (RLS, jen čtení): cesta Kanada 2026,
+  5 momentů, 49 médií (všechna `ready`, všechna v momentech, 0 bez cesty), 0 etap (zatím
+  se nepouštělo „Uspořádat automaticky“). Zastávka Calgary má správnou délku (−114,06).
+  Momenty z v1 se stále překrývají a jsou zamčené (viz Brána Fáze 1).
+- Přepnutí vstupů: `/j/$journeyId` přesměruje na pracovní plochu, dashboard vede na rychlý
+  zápis místo v1 „přidat moment“, z menu zmizela v1 „Rychlá poznámka“. v1 stránky a
+  kód zůstávají v repu (nedostupné ze vstupů) do smazání.
+- Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).
