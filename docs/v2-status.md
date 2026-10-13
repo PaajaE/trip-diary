@@ -300,4 +300,7 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
 - Přepnutí vstupů: `/j/$journeyId` přesměruje na pracovní plochu, dashboard vede na rychlý
   zápis místo v1 „přidat moment“, z menu zmizela v1 „Rychlá poznámka“. v1 stránky a
   kód zůstávají v repu (nedostupné ze vstupů) do smazání.
+- Brána `media-upload` v produkci (2026-10-13, přihlášený vlastník): bez tokenu 401,
+  `sign-put` 200 s klíčem pod ID uživatele, PUT do R2 200, `delete-media` smazal 1 objekt,
+  opakované smazání 0. Uživatelský JWT gateway přijímá (dřívější UNVERIFIED odpadá).
 - Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).
