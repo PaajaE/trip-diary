@@ -22,6 +22,7 @@ import {
   LazyMediaUploadDevPage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
+  LazyJourneyQuickNoteRoutePage,
   LazySpacesRoutePage,
   LazyTipsRoutePage,
   LazySpaceMembersRoutePage,
@@ -185,6 +186,13 @@ const tipsRoute = createRoute({
   component: LazyTipsRoutePage,
 })
 
+const journeyQuickNoteRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/quick',
+  component: LazyJourneyQuickNoteRoutePage,
+})
+
 const spacesRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -275,6 +283,7 @@ const routeTree = rootRoute.addChildren([
   journeyMembersRoute,
   journeyWorkspaceRoute,
   journeyImportRoute,
+  journeyQuickNoteRoute,
   spacesRoute,
   tipsRoute,
   spaceMembersRoute,

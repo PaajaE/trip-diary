@@ -606,6 +606,13 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           >
             {t('mediaImport.link')}
           </Link>
+          <Link
+            className="inline-flex min-h-10 items-center rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
+            params={{ journeyId }}
+            to="/j/$journeyId/quick"
+          >
+            {t('quickNote.title')}
+          </Link>
           <OrganizeJourneyButton journeyId={journeyId} />
         </div>
       </div>

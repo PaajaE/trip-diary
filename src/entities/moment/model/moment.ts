@@ -42,6 +42,7 @@ export interface MomentPatch {
 
 /** Insert shape; only columns granted for INSERT on public.moments. */
 export interface NewMoment {
+  body?: string
   createdBy: string
   endsAt: string
   id: string
@@ -51,10 +52,12 @@ export interface NewMoment {
   longitude: number | null
   origin?: MomentOrigin
   startsAt: string
+  title?: string
 }
 
 export const newMomentSchema = z
   .object({
+    body: z.string().max(100_000).optional(),
     createdBy: z.uuid(),
     endsAt: instantSchema,
     id: z.uuid(),
@@ -64,6 +67,7 @@ export const newMomentSchema = z
     longitude: z.number().min(-180).max(180).nullable(),
     origin: momentOriginSchema.optional(),
     startsAt: instantSchema,
+    title: z.string().min(1).max(160).optional(),
   })
   .refine((value) => (value.latitude === null) === (value.longitude === null), {
     message: 'latitude and longitude come as a pair',

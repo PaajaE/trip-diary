@@ -722,6 +722,23 @@ export const cs: TranslationResources = {
     speciesHint: 'Hledání v databázi GBIF (alespoň 3 znaky).',
     speciesPlaceholder: 'Např. medvěd grizzly',
   },
+  quickNote: {
+    addPhotos: 'Přidat fotky',
+    empty: 'Napište nejdřív alespoň pár slov.',
+    label: 'Co se právě děje?',
+    locationHint:
+      'Použije se jen pro tento zápis. Bez polohy se zápis uloží také.',
+    save: 'Uložit zápis',
+    saveFailed:
+      'Zápis se nepodařilo uložit. Text zůstal zachován, zkuste to znovu, až bude signál.',
+    saved: 'Zápis uložen i s polohou.',
+    savedNoLocation: 'Zápis uložen, polohu se zjistit nepodařilo.',
+    saving: 'Ukládám…',
+    showInWorkspace: 'Zobrazit v cestě',
+    subtitle: 'Okamžitý zápis s časem a polohou. Fotky přidáte zvlášť.',
+    title: 'Rychlý zápis',
+    useLocation: 'Přidat moji polohu',
+  },
   tips: {
     created: 'Tip uložen',
     delete: 'Smazat',

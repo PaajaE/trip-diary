@@ -719,6 +719,23 @@ export const en = {
     speciesHint: 'Search in the GBIF database (at least 3 characters).',
     speciesPlaceholder: 'E.g. grizzly bear',
   },
+  quickNote: {
+    addPhotos: 'Add photos',
+    empty: 'Write at least a few words first.',
+    label: 'What is happening right now?',
+    locationHint:
+      'Used for this note only. Without a position the note is saved too.',
+    save: 'Save note',
+    saveFailed:
+      'The note could not be saved. Your text is kept, try again when you have signal.',
+    saved: 'Note saved with its position.',
+    savedNoLocation: 'Note saved; the position could not be determined.',
+    saving: 'Saving…',
+    showInWorkspace: 'Show in journey',
+    subtitle: 'An instant note with time and position. Add photos separately.',
+    title: 'Quick note',
+    useLocation: 'Add my position',
+  },
   tips: {
     created: 'Tip saved',
     delete: 'Delete',

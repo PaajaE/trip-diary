@@ -158,6 +158,8 @@ export async function createMoments(inputs: NewMoment[]): Promise<void> {
       throw new MomentError('invalid_input', parsed.error.message, parsed.error)
     }
     return {
+      ...(input.body === undefined ? {} : { body: input.body }),
+      ...(input.title === undefined ? {} : { title: input.title }),
       created_by: input.createdBy,
       ends_at: input.endsAt,
       id: input.id,

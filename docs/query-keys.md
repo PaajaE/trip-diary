@@ -22,6 +22,8 @@ Lint and tests cover query-key factories and invalidation helpers. Run `pnpm tes
 | Segment     | `segmentQueryKeys`     | v2 stages and trips per journey                       |
 | Moment      | `momentQueryKeys`      | v2 moments per journey                                |
 | Media       | `mediaQueryKeys`       | v2 media library per journey (with variants), detail  |
+| Tag         | `tagQueryKeys`         | v2 catalog, moment taggings per journey, GBIF species |
+| Tip         | `tipQueryKeys`         | v2 tips (posts of kind tip) per space                 |
 | Translation | `translationQueryKeys` | Unchanged from Wave 3C                                |
 | Engagement  | `engagementQueryKeys`  | Feature-local (`features/engagement`)                 |
 
