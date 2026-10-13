@@ -277,3 +277,27 @@ tabulek a objekty v R2; v1 data a v1 UI zůstávají nedotčené do kroku 7.
 
 Co vyžaduje souhlas uživatele: merge do `main` (nasazení do produkce), service role
 klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
+
+### Přepnutí v1 → v2 — provedeno v produkci (2026-10-13)
+
+- PR #9 mergnut, migrace `…120000` a `…120100` nasazeny CI (ověřeno `list_migrations`).
+- **Kopie Storage → R2** (`copy-storage-to-r2.mjs --apply`): 245 z 252 objektů zkopírováno
+  a ověřeno velikostí; 0 chyb jiných než níže. Kontrola přes veřejnou doménu: dvě
+  zkoušené fotky 200 se shodnou `content-length`.
+- **7 objektů nelze zkopírovat:** jde o fotky s jedinou variantou `preview`, jejíž soubor
+  je ve v1 Storage **0 bajtů** (poškozené nahrávky; žádná není v záznamu, patří do
+  inboxu). Zdroj nelze obnovit.
+- **Převod** `v2_migrate_from_v1()`: 56 médií, 203 variant, 5 momentů, 5 míst, 3 zastávky
+  přeskočeny, 11 možných duplicit. `v2_verify_migration()`: **9/9 ok** (shoda se
+  zkouškou na kopii).
+- Následek: těch 7 médií je ve v2 `ready` s variantou `large`, ale soubor v R2 neexistuje
+  (404). Rozhodnuto uživatelem: smazat. 7 řádků `media` ve v2 smazáno (jen v2 kopie, v1 `photos`
+  zůstávají), ověřeno, že žádný nebyl v momentu.
+- Kontrola dat v produkci pod přihlášeným vlastníkem (RLS, jen čtení): cesta Kanada 2026,
+  5 momentů, 49 médií (všechna `ready`, všechna v momentech, 0 bez cesty), 0 etap (zatím
+  se nepouštělo „Uspořádat automaticky“). Zastávka Calgary má správnou délku (−114,06).
+  Momenty z v1 se stále překrývají a jsou zamčené (viz Brána Fáze 1).
+- Přepnutí vstupů: `/j/$journeyId` přesměruje na pracovní plochu, dashboard vede na rychlý
+  zápis místo v1 „přidat moment“, z menu zmizela v1 „Rychlá poznámka“. v1 stránky a
+  kód zůstávají v repu (nedostupné ze vstupů) do smazání.
+- Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).

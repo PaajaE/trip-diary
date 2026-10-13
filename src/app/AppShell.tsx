@@ -180,15 +180,6 @@ function AccountMenu({
             onClick={() => {
               setOpen(false)
             }}
-            to="/entries/new"
-          >
-            {t('navigation.quickNote')}
-          </Link>
-          <Link
-            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-            onClick={() => {
-              setOpen(false)
-            }}
             to="/spaces"
           >
             {t('navigation.spaces')}

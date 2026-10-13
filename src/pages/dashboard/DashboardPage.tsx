@@ -206,10 +206,10 @@ function ContinueTripHero({ journeys }: { journeys: DashboardJourneyCard[] }) {
         <Link
           className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-semibold hover:bg-white sm:w-auto"
           params={{ journeyId: journey.id }}
-          to="/j/$journeyId/memory/new"
+          to="/j/$journeyId/quick"
         >
           <Plus aria-hidden="true" size={16} />
-          {t('journey.addMoment')}
+          {t('quickNote.title')}
         </Link>
       </div>
     </section>
