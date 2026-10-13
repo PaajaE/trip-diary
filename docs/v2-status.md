@@ -222,3 +222,23 @@ Větev `v2/phase-2-upload` (nad Fází 3).
   testy v `@trip-diary/core` (`media-upload`).
 - Zbývá: ověřit proti skutečnému R2, web klient (zpracování fotek z PC →
   varianty → upload → záznam v `media`), iOS nativní pipeline (iPhone).
+
+## Fáze 4 — owner UI (2026-10-12, rozpracováno)
+
+Větev `v2/phase-4-owner-ui`, PR #9. Vše níže je v kódu a prošlo `pnpm check`; ověření
+proti lokální DB / skutečné knihovně je uvedeno u každé položky.
+
+| Část                                                                            | Stav                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pracovní plocha `/j/$journeyId/workspace`: časová osa + mapa                    | ✅ ověřeno v prohlížeči na lokálních datech                                                                                                                                                                                                                        |
+| Hvězdička, obálky (cesta/etapa/výlet/moment), popisky                           | ✅ testy + prohlížeč                                                                                                                                                                                                                                               |
+| Přijmout/zamítnout návrh etapy, sloučit/rozdělit moment, posun předělu          | ✅ atomické RPC `merge_moments`, `split_moment`, `move_segment_boundary` (pgTAP 37 testů), UI s Undo (sloučení Undo nemá)                                                                                                                                          |
+| Editor textů (etapa, výlet, moment)                                             | ✅ testy                                                                                                                                                                                                                                                           |
+| „Uspořádat automaticky“ (`planOrganization`)                                    | ✅ lokálně; ručně upravené a zamknuté momenty a přijaté/zamítnuté etapy se nepřepisují. Omezení: názvy přeskupených automatických momentů se neřeší, přesuny médií jsou sekvenční, atomický dávkový RPC chybí                                                      |
+| Import s trvalou frontou (web: soubory; iOS: PhotoKit) `/j/$journeyId/import`   | ✅ web proti lokální DB + reálnému R2 (4 fotky, opakovaný běh nic nezdvojí, EXIF čas/GPS správně). ⚠️ UNVERIFIED: cesta PhotoKit → `exportPhoto` → fronta na iPhonu (zařízení bylo offline). HEIC a videa v prohlížeči se přeskočí (`web_video_unsupported`)       |
+| Štítky momentů: kategorie, volné, druhy (GBIF `species/suggest`)                | ✅ UI testy; RLS/granty ověřeny skriptem proti lokální DB (vlastní i cizí uživatel, duplicity 23505). Štítky jen na momentech; média a tipy (DB to umí) zatím bez UI. Prohlížečový průchod nebyl možný (vestavěný prohlížeč bez nástrojů), pokryto testy komponent |
+| Tipy `/tips` (`posts` kind `tip`): seznam, vytvořit, upravit, smazat, zveřejnit | ✅ testy + skript proti lokální DB (RLS: cizí uživatel nezapíše, neupraví, nesmaže). Veřejné zobrazení tipů je Fáze 5                                                                                                                                              |
+| Rychlý zápis `/j/$journeyId/quick`                                              | ✅ testy + vložení do lokální DB. Okamžitý moment (manuální, zamčený) s polohou, koncept v `localStorage`; **bez offline fronty** (při chybě text zůstane, uložit jde znovu). ⚠️ UNVERIFIED: geolokace na iPhonu                                                   |
+
+Zbývá do brány Fáze 4: video import z prohlížeče, zapojení `resumeVideoUploads`,
+atribuce OSM u míst, T8 (celá knihovna), přepnutí v1 → v2 (viz T9, vyžaduje souhlas).
