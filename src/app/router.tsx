@@ -13,13 +13,18 @@ import {
   LazyCreateJourneyMemoryRoutePage,
   LazyDashboardPage,
   LazyEntryRoutePage,
+  LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
+  LazyJourneyWorkspaceRoutePage,
   LazyMediaLibraryDiagnosticsPage,
+  LazyVideoUploadDevPage,
   LazyMediaUploadDevPage,
   LazyProfileRoutePage,
   LazySettingsRoutePage,
+  LazyJourneyQuickNoteRoutePage,
   LazySpacesRoutePage,
+  LazyTipsRoutePage,
   LazySpaceMembersRoutePage,
   LazyAcceptInviteRoutePage,
   LazyAcceptJourneyInviteRoutePage,
@@ -159,6 +164,35 @@ const journeyMembersRoute = createRoute({
   component: LazyJourneyMembersRoutePage,
 })
 
+// v2 read-only workspace (timeline + map); v1 journey routes are untouched.
+const journeyWorkspaceRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/workspace',
+  component: LazyJourneyWorkspaceRoutePage,
+})
+
+const journeyImportRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/import',
+  component: LazyJourneyImportRoutePage,
+})
+
+const tipsRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/tips',
+  component: LazyTipsRoutePage,
+})
+
+const journeyQuickNoteRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/quick',
+  component: LazyJourneyQuickNoteRoutePage,
+})
+
 const spacesRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -191,6 +225,13 @@ const mediaLibraryDiagnosticsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/dev/media-library',
   component: LazyMediaLibraryDiagnosticsPage,
+})
+
+// Native-only video upload harness (T7b); never routed on the web.
+const videoUploadDevRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/video-upload',
+  component: LazyVideoUploadDevPage,
 })
 
 // Phase 2 upload harness: web dev builds only (never routed in production).
@@ -240,11 +281,17 @@ const routeTree = rootRoute.addChildren([
   journeyRoute,
   createJourneyMemoryRoute,
   journeyMembersRoute,
+  journeyWorkspaceRoute,
+  journeyImportRoute,
+  journeyQuickNoteRoute,
   spacesRoute,
+  tipsRoute,
   spaceMembersRoute,
   acceptInviteRoute,
   acceptJourneyInviteRoute,
-  ...(Capacitor.isNativePlatform() ? [mediaLibraryDiagnosticsRoute] : []),
+  ...(Capacitor.isNativePlatform()
+    ? [mediaLibraryDiagnosticsRoute, videoUploadDevRoute]
+    : []),
   ...(import.meta.env.DEV && !Capacitor.isNativePlatform()
     ? [mediaUploadDevRoute]
     : []),

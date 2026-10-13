@@ -33,6 +33,21 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
     }
 
+    func application(
+        _ application: UIApplication,
+        handleEventsForBackgroundURLSession identifier: String,
+        completionHandler: @escaping () -> Void
+    ) {
+        // Touching the shared manager recreates the background session so its
+        // delegate receives the pending events; the handler is called from
+        // urlSessionDidFinishEvents.
+        if identifier == VideoUploadManager.sessionIdentifier {
+            VideoUploadManager.shared.backgroundCompletionHandler = completionHandler
+        } else {
+            completionHandler()
+        }
+    }
+
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
         // Called when the app was launched with a url. Feel free to add additional processing here,
         // but if you want the App API to support tracking app url opens, make sure to keep this call

@@ -4,13 +4,13 @@ Plán: [plan-v2.md](plan-v2.md)
 
 ## Fáze 0 — Úklid a ověření předpokladů
 
-| Krok                          | Stav                       | Poznámka                                                                                                                                                                                       |
-| ----------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.1 Úklid                     | ✅ hotovo (2026-10-09)     | WIP → `archive/v1-video-wip`, Expo → `archive/expo` a odstraněno z `main`, staré plány → `docs/archive/`, `CLAUDE.md`, pnpm připnuté přes `packageManager`, opraven formát z commitu `6b7f012` |
-| 0.2 Testovací dataset         | ⏳ čeká                    | Potřebuje export metadat z knihovny fotek (iPhone)                                                                                                                                             |
-| 0.3 Spike A — PhotoKit import | 🟡 simulátor ✅, iPhone ⏳ | Viz níže. Na iPhonu zbývá ověřit iCloud (originály jen v cloudu), Live Photos, reálné fotky a velkou knihovnu.                                                                                 |
-| 0.4 Spike B — video + R2      | ⏳ čeká                    | Část R2 + edge funkce jde udělat bez iPhonu, potřebuje Cloudflare účet                                                                                                                         |
-| 0.5 Infrastruktura            | ⏳ čeká                    |                                                                                                                                                                                                |
+| Krok                          | Stav                                 | Poznámka                                                                                                                                                                                       |
+| ----------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.1 Úklid                     | ✅ hotovo (2026-10-09)               | WIP → `archive/v1-video-wip`, Expo → `archive/expo` a odstraněno z `main`, staré plány → `docs/archive/`, `CLAUDE.md`, pnpm připnuté přes `packageManager`, opraven formát z commitu `6b7f012` |
+| 0.2 Testovací dataset         | ⏳ čeká                              | Potřebuje export metadat z knihovny fotek (iPhone)                                                                                                                                             |
+| 0.3 Spike A — PhotoKit import | 🟡 simulátor ✅, iPhone ✅ na vzorku | Viz níže. Na iPhonu ověřeno na 50 oblíbených (poloha, čas, offset, iCloud). Zbývá: videa, Live Photos zvlášť, celá velká knihovna.                                                             |
+| 0.4 Spike B — video + R2      | ⏳ čeká                              | Část R2 + edge funkce jde udělat bez iPhonu, potřebuje Cloudflare účet                                                                                                                         |
+| 0.5 Infrastruktura            | ⏳ čeká                              |                                                                                                                                                                                                |
 
 ## Spike A — výsledky v simulátoru (2026-10-09)
 
@@ -33,6 +33,42 @@ Další zjištění:
   `MainViewController`.
 - Hlavička aplikace na iOS se překrývá se stavovým řádkem (chybí safe-area
   odsazení). Řešit v novém UI (Fáze 4).
+
+## Spike A — výsledky na iPhonu (2026-10-09)
+
+Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build `cz.tripdiary.app` nainstalovaný přes `xcodebuild` + `devicectl`.
+Vzorek: **50 oblíbených** položek rovnoměrně rozložených přes knihovnu (37 fotek, 13 videí). Diagnostika: `tripdiary://app/dev/media-library`.
+
+| Měření                        | iCloud vypnutý | iCloud zapnutý (jen vzorek) |
+| ----------------------------- | -------------- | --------------------------- |
+| Fotky s porovnaným časem      | 3              | **35 z 37**, 0 neshod       |
+| Fotky s porovnanou polohou    | 3              | **32**, 0 neshod            |
+| Fotky s EXIF offsetem         | 3              | 35                          |
+| Položky s polohou v PhotoKitu | 42 z 50        | 42 z 50                     |
+| `metadataErrors`              | 0              | 0                           |
+| Čtení metadat vzorku          | 0,3 s          | 43,8 s (asi 1,2 s na fotku) |
+| Výpis celé knihovny           | 3,1 s          | 3,1 s                       |
+
+Závěry:
+
+- Bez iCloudu se EXIF přečetl jen u 3 fotek, takže většina originálů je jen v cloudu; s iCloudem se načetl u 35 z 37. Čtení EXIF z iCloud-only originálů tedy funguje a PhotoKit čas i poloha sedí s EXIF (0 neshod).
+- 2 z 37 fotek nemají porovnatelný čas ani offset (pravděpodobně bez EXIF data, např. screenshoty); nezjišťováno.
+- Import musí počítat se stahováním originálů: asi 1,2 s na fotku při souběhu 4.
+
+Neověřeno: videa (13 z 50 se nečetla), Live Photos zvlášť, celá knihovna (velikost a čas výpisu jsou jen z vzorku 50), mobilní data.
+
+## Video z iPhonu — výsledky (2026-10-09)
+
+Zařízení: iPhone 13 mini, iOS 26.4.2, ladicí build. Dev stránka `/dev/video-upload` (jen nativní aplikace).
+
+| Měření                                        | Výsledek                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Export svislého videa 19,1 s                  | 3,8 s, výstup 1080×1920 (orientace zachována), 32,5 MB, poster 720×1280 98 kB       |
+| Upload do produkčního R2 (background session) | 100 %, 32 539 146 B; řádky `media` (`ready`) a `media_variants` (`video`, `poster`) |
+| Veřejný soubor                                | 200, `video/mp4`, `accept-ranges: bytes`, H.264 + AAC, `moov` na začátku            |
+| Úklid (`delete-media` + smazání řádku)        | DB 0 řádků, R2 objekty pryč; Cloudflare cache dál servíruje starou kopii            |
+
+Výpadek sítě (2026-10-10, 32,6 s, 62 MB, opakovaně letadlový režim): upload po obnovení sítě sám dokončen. Export přepsán s cílem 8 Mb/s: 42,8 s video → 43,6 MB (1920×1080), export 8,2 s. Neověřeno: upload nového exportu, HDR a 4K60 HEVC, přehrání v Chrome a Firefoxu, obnovení po zabití aplikace.
 
 ## Ověření
 
@@ -186,3 +222,58 @@ Větev `v2/phase-2-upload` (nad Fází 3).
   testy v `@trip-diary/core` (`media-upload`).
 - Zbývá: ověřit proti skutečnému R2, web klient (zpracování fotek z PC →
   varianty → upload → záznam v `media`), iOS nativní pipeline (iPhone).
+
+## Fáze 4 — owner UI (2026-10-12, rozpracováno)
+
+Větev `v2/phase-4-owner-ui`, PR #9. Vše níže je v kódu a prošlo `pnpm check`; ověření
+proti lokální DB / skutečné knihovně je uvedeno u každé položky.
+
+| Část                                                                            | Stav                                                                                                                                                                                                                                                               |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Pracovní plocha `/j/$journeyId/workspace`: časová osa + mapa                    | ✅ ověřeno v prohlížeči na lokálních datech                                                                                                                                                                                                                        |
+| Hvězdička, obálky (cesta/etapa/výlet/moment), popisky                           | ✅ testy + prohlížeč                                                                                                                                                                                                                                               |
+| Přijmout/zamítnout návrh etapy, sloučit/rozdělit moment, posun předělu          | ✅ atomické RPC `merge_moments`, `split_moment`, `move_segment_boundary` (pgTAP 37 testů), UI s Undo (sloučení Undo nemá)                                                                                                                                          |
+| Editor textů (etapa, výlet, moment)                                             | ✅ testy                                                                                                                                                                                                                                                           |
+| „Uspořádat automaticky“ (`planOrganization`)                                    | ✅ lokálně; ručně upravené a zamknuté momenty a přijaté/zamítnuté etapy se nepřepisují. Omezení: názvy přeskupených automatických momentů se neřeší, přesuny médií jsou sekvenční, atomický dávkový RPC chybí                                                      |
+| Import s trvalou frontou (web: soubory; iOS: PhotoKit) `/j/$journeyId/import`   | ✅ web proti lokální DB + reálnému R2 (4 fotky, opakovaný běh nic nezdvojí, EXIF čas/GPS správně). ⚠️ UNVERIFIED: cesta PhotoKit → `exportPhoto` → fronta na iPhonu (zařízení bylo offline). HEIC a videa v prohlížeči se přeskočí (`web_video_unsupported`)       |
+| Štítky momentů: kategorie, volné, druhy (GBIF `species/suggest`)                | ✅ UI testy; RLS/granty ověřeny skriptem proti lokální DB (vlastní i cizí uživatel, duplicity 23505). Štítky jen na momentech; média a tipy (DB to umí) zatím bez UI. Prohlížečový průchod nebyl možný (vestavěný prohlížeč bez nástrojů), pokryto testy komponent |
+| Tipy `/tips` (`posts` kind `tip`): seznam, vytvořit, upravit, smazat, zveřejnit | ✅ testy + skript proti lokální DB (RLS: cizí uživatel nezapíše, neupraví, nesmaže). Veřejné zobrazení tipů je Fáze 5                                                                                                                                              |
+| Rychlý zápis `/j/$journeyId/quick`                                              | ✅ testy + vložení do lokální DB. Okamžitý moment (manuální, zamčený) s polohou, koncept v `localStorage`; **bez offline fronty** (při chybě text zůstane, uložit jde znovu). ⚠️ UNVERIFIED: geolokace na iPhonu                                                   |
+
+Zbývá do brány Fáze 4: video import z prohlížeče, zapojení `resumeVideoUploads`,
+atribuce OSM u míst, T8 (celá knihovna), přepnutí v1 → v2 (viz T9, vyžaduje souhlas).
+
+## Přepnutí v1 → v2 — postup (připraveno 2026-10-12, NESPUŠTĚNO)
+
+Stav produkce (jen čtení, 2026-10-12): v1 má 1 cestu, 5 záznamů, 56 fotek, 252
+variant, 435 MB. Migrace `…120000` až `…120300` (v2 schéma, funkce převodu) jsou
+nasazené; **převod nebyl spuštěn** (`media`, `moments`, `segments` mají 0 řádků).
+Migrace `20261010120000` a `…120100` (stav `rejected`, editační RPC) čekají na merge
+PR #9 (CI je nasadí; jsou aditivní).
+
+Pořadí, každý krok má kontrolu a bez ní se nepokračuje:
+
+1. **Merge PR #9** → CI nasadí 2 migrace. Kontrola: `list_migrations` je obsahuje,
+   `pnpm db:test` v CI zelené.
+2. **Brána `media-upload` v produkci** (G: UNVERIFIED): zavolat funkci skutečným
+   přihlášeným uživatelem (`sign-put` malého objektu, `delete-media`). Pokud gateway
+   odmítne uživatelský JWT, nahrávání ve v2 nefunguje; opravit před krokem 4.
+3. **Kopie souborů Storage → R2** se stejnými klíči: `scripts/copy-storage-to-r2.mjs`
+   nejdřív bez `--apply` (suchý běh: počet, `wouldCopy`), potom s `--apply`.
+   Potřebuje `SUPABASE_SERVICE_ROLE_KEY` v lokálním env souboru mimo git (zatím
+   není k dispozici). Skript nic nemaže a je idempotentní. Kontrola: `failed = 0`,
+   `skippedExisting + copied = 252`, náhodných 5 URL na `media.cestovni-denik.cz` → 200.
+4. **Převod dat**: `select public.v2_migrate_from_v1();` pak
+   `select * from public.v2_verify_migration();` — všechny řádky `ok`. Funkce je
+   idempotentní, v1 tabulky nemění. Zkoušeno na kopii produkce (Brána Fáze 1, 9/9).
+5. **Ruční kontrola ve v2 UI**: cesta v `/j/<id>/workspace`, počty médií proti
+   výstupu `v2_verify_migration`, datové problémy z Brány Fáze 1 (Calgary se
+   špatnou délkou, duplicity, překryvy momentů).
+6. **Přepnutí vstupů**: dashboard a odkazy na cestu vedou na v2 (dnes vedou na v1).
+7. **Smazání v1 kódu** (až po 5 a 6) a v1 tabulek za 30 dní jen pro čtení.
+
+Návrat: kroky 3 a 4 jsou aditivní (R2 kopie, v2 tabulky). Vrácení = smazat řádky v2
+tabulek a objekty v R2; v1 data a v1 UI zůstávají nedotčené do kroku 7.
+
+Co vyžaduje souhlas uživatele: merge do `main` (nasazení do produkce), service role
+klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).

@@ -7,5 +7,6 @@ class MainViewController: CAPBridgeViewController {
     override open func capacitorDidLoad() {
         bridge?.registerPluginInstance(PhotoMetadataPlugin())
         bridge?.registerPluginInstance(MediaLibraryPlugin())
+        bridge?.registerPluginInstance(VideoPlugin())
     }
 }

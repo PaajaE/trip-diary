@@ -1866,6 +1866,10 @@ export type Database = {
           role: Database['public']['Enums']['journey_member_role']
         }[]
       }
+      merge_moments: {
+        Args: { p_source: string; p_target: string }
+        Returns: string
+      }
       move_entry_to_space: {
         Args: { p_entry_id: string; p_slug?: string; p_space_id: string }
         Returns: {
@@ -1919,6 +1923,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      move_segment_boundary: {
+        Args: { p_after: string; p_at: string; p_before: string }
+        Returns: undefined
+      }
       normalize_content_slug: {
         Args: { p_id: string; p_value: string }
         Returns: string
@@ -1945,6 +1953,10 @@ export type Database = {
           p_stop_id: string
         }
         Returns: undefined
+      }
+      split_moment: {
+        Args: { p_at: string; p_moment: string; p_new_id: string }
+        Returns: string
       }
       update_entry: {
         Args: {
@@ -2021,7 +2033,7 @@ export type Database = {
         | 'geology'
         | 'landmark'
         | 'general'
-      content_origin: 'manual' | 'suggested' | 'accepted' | 'auto'
+      content_origin: 'manual' | 'suggested' | 'accepted' | 'auto' | 'rejected'
       content_target_type: 'journey' | 'entry' | 'photo'
       entry_language: 'cs' | 'en'
       entry_status: 'draft' | 'published'
@@ -2199,7 +2211,7 @@ export const Constants = {
         'landmark',
         'general',
       ],
-      content_origin: ['manual', 'suggested', 'accepted', 'auto'],
+      content_origin: ['manual', 'suggested', 'accepted', 'auto', 'rejected'],
       content_target_type: ['journey', 'entry', 'photo'],
       entry_language: ['cs', 'en'],
       entry_status: ['draft', 'published'],

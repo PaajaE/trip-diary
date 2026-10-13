@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { sampleEvenly } from '@/features/media-import/lib/sample-evenly'
 import {
   diagnoseAsset,
   summarizeDiagnostics,
@@ -21,6 +22,8 @@ import {
  */
 
 const METADATA_CONCURRENCY = 4
+const DEFAULT_SAMPLE_SIZE = 50
+const MAX_SAMPLE_SIZE = 200
 
 interface MetadataFailure {
   id: string
@@ -29,6 +32,7 @@ interface MetadataFailure {
 
 interface RunResult {
   diagnostics: AssetDiagnostic[]
+  favoritesOnly: boolean
   icloudDownload: boolean
   listMs: number
   metadataFailures: MetadataFailure[]
@@ -41,7 +45,9 @@ export function MediaLibraryDiagnosticsPage() {
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<RunResult | null>(null)
-  const [allowNetwork, setAllowNetwork] = useState(true)
+  const [allowNetwork, setAllowNetwork] = useState(false)
+  const [favoritesOnly, setFavoritesOnly] = useState(true)
+  const [sampleSize, setSampleSize] = useState(DEFAULT_SAMPLE_SIZE)
   const [progress, setProgress] = useState<{
     done: number
     total: number
@@ -62,7 +68,16 @@ export function MediaLibraryDiagnosticsPage() {
     setError(null)
     try {
       setStatus(await getMediaLibraryStatus())
-      const listed = await listMediaLibraryAssets()
+      // Listing reads only local metadata (no iCloud download). Only the
+      // sampled assets are then read, so downloads are bounded by sampleSize.
+      const all = await listMediaLibraryAssets()
+      const candidates = favoritesOnly
+        ? all.assets.filter((asset) => asset.isFavorite)
+        : all.assets
+      const listed = {
+        assets: sampleEvenly(candidates, sampleSize),
+        elapsedMs: all.elapsedMs,
+      }
       const started = performance.now()
       const metadataFailures: MetadataFailure[] = []
       let done = 0
@@ -93,6 +108,7 @@ export function MediaLibraryDiagnosticsPage() {
       )
       setResult({
         diagnostics,
+        favoritesOnly,
         icloudDownload: allowNetwork,
         listMs: listed.elapsedMs,
         metadataFailures,
@@ -139,6 +155,40 @@ export function MediaLibraryDiagnosticsPage() {
       )}
 
       {available && (
+        <div className="mt-3 flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2">
+            <input
+              checked={favoritesOnly}
+              disabled={running}
+              onChange={(event) => {
+                setFavoritesOnly(event.target.checked)
+              }}
+              type="checkbox"
+            />
+            Jen oblíbené
+          </label>
+          <label className="flex items-center gap-2">
+            Počet fotek (max {MAX_SAMPLE_SIZE})
+            <input
+              className="w-20 rounded border border-border px-2 py-1"
+              disabled={running}
+              max={MAX_SAMPLE_SIZE}
+              min={1}
+              onChange={(event) => {
+                const value = Number.parseInt(event.target.value, 10)
+                setSampleSize(
+                  Number.isNaN(value)
+                    ? DEFAULT_SAMPLE_SIZE
+                    : Math.min(Math.max(value, 1), MAX_SAMPLE_SIZE),
+                )
+              }}
+              type="number"
+              value={sampleSize}
+            />
+          </label>
+        </div>
+      )}
+      {available && (
         <label className="mt-3 flex items-center gap-2">
           <input
             checked={allowNetwork}
@@ -148,7 +198,7 @@ export function MediaLibraryDiagnosticsPage() {
             }}
             type="checkbox"
           />
-          Stahovat z iCloudu
+          Stahovat z iCloudu (jen u vybraných fotek)
         </label>
       )}
       {running && (
@@ -182,7 +232,9 @@ export function MediaLibraryDiagnosticsPage() {
             {JSON.stringify(
               {
                 ...result.summary,
+                favoritesOnly: result.favoritesOnly,
                 icloudDownload: result.icloudDownload,
+                sampled: result.diagnostics.length,
                 listMs: result.listMs,
                 metadataErrors: result.metadataFailures.length,
                 metadataErrorSamples: result.metadataFailures

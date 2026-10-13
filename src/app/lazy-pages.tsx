@@ -126,8 +126,40 @@ export const LazyMediaLibraryDiagnosticsPage = lazy(() =>
   ),
 )
 
+export const LazyVideoUploadDevPage = lazy(() =>
+  import('@/pages/dev/VideoUploadDevPage').then(({ VideoUploadDevPage }) => ({
+    default: VideoUploadDevPage,
+  })),
+)
+
 export const LazyMediaUploadDevPage = lazy(() =>
   import('@/pages/dev/MediaUploadDevPage').then(({ MediaUploadDevPage }) => ({
     default: MediaUploadDevPage,
   })),
+)
+
+export const LazyJourneyImportRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyImportRoutePage').then(
+    ({ JourneyImportRoutePage }) => ({ default: JourneyImportRoutePage }),
+  ),
+)
+
+export const LazyJourneyWorkspaceRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyWorkspaceRoutePage').then(
+    ({ JourneyWorkspaceRoutePage }) => ({
+      default: JourneyWorkspaceRoutePage,
+    }),
+  ),
+)
+
+export const LazyTipsRoutePage = lazy(() =>
+  import('@/pages/tips/TipsRoutePage').then(({ TipsRoutePage }) => ({
+    default: TipsRoutePage,
+  })),
+)
+
+export const LazyJourneyQuickNoteRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyQuickNoteRoutePage').then(
+    ({ JourneyQuickNoteRoutePage }) => ({ default: JourneyQuickNoteRoutePage }),
+  ),
 )

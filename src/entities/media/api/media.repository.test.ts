@@ -7,6 +7,7 @@ import {
   addVariant,
   createMedia,
   deleteMedia,
+  listExistingSourceAssetIds,
   markMediaReady,
 } from '@/entities/media/api/media.repository'
 
@@ -15,7 +16,10 @@ const insert = vi.fn()
 const eq = vi.fn()
 const update = vi.fn(() => ({ eq }))
 const del = vi.fn(() => ({ eq }))
-const from = vi.fn(() => ({ delete: del, insert, update }))
+const inFilter = vi.fn()
+const eqOwner = vi.fn(() => ({ in: inFilter }))
+const select = vi.fn(() => ({ eq: eqOwner }))
+const from = vi.fn(() => ({ delete: del, insert, select, update }))
 
 vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: () => ({ from, functions: { invoke } }),
@@ -43,6 +47,49 @@ describe('media repository', () => {
     expect(insert).toHaveBeenCalledWith(
       expect.objectContaining({ id: 'm', owner_id: 'u', status: 'uploading' }),
     )
+  })
+
+  it('writes journey_id only when a journey is given', async () => {
+    insert.mockResolvedValue({ error: null })
+    const base = {
+      capturedAt: null,
+      capturedTz: null,
+      contentHash: 'h',
+      height: 1,
+      id: 'm',
+      latitude: null,
+      longitude: null,
+      ownerId: 'u',
+      width: 2,
+    }
+    await createMedia({ ...base, journeyId: 'j1' })
+    expect(insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ journey_id: 'j1' }),
+    )
+    await createMedia(base)
+    expect(insert.mock.lastCall?.[0]).not.toHaveProperty('journey_id')
+  })
+
+  it('lists existing source asset ids in batches of 100 for the owner', async () => {
+    const ids = Array.from({ length: 250 }, (_, index) => `a${String(index)}`)
+    inFilter
+      .mockResolvedValueOnce({ data: [{ source_asset_id: 'a1' }], error: null })
+      .mockResolvedValueOnce({ data: [], error: null })
+      .mockResolvedValueOnce({
+        data: [{ source_asset_id: 'a249' }, { source_asset_id: null }],
+        error: null,
+      })
+    const found = await listExistingSourceAssetIds('u', ids)
+    expect([...found].sort()).toEqual(['a1', 'a249'])
+    expect(inFilter).toHaveBeenCalledTimes(3)
+    expect(eqOwner).toHaveBeenCalledWith('owner_id', 'u')
+    expect(inFilter.mock.calls[0]?.[1]).toHaveLength(100)
+    expect(inFilter.mock.calls[2]?.[1]).toHaveLength(50)
+  })
+
+  it('does not query for an empty id list', async () => {
+    expect((await listExistingSourceAssetIds('u', [])).size).toBe(0)
+    expect(from).not.toHaveBeenCalled()
   })
 
   it('maps unique violations to a duplicate error', async () => {
