@@ -242,3 +242,38 @@ proti lokální DB / skutečné knihovně je uvedeno u každé položky.
 
 Zbývá do brány Fáze 4: video import z prohlížeče, zapojení `resumeVideoUploads`,
 atribuce OSM u míst, T8 (celá knihovna), přepnutí v1 → v2 (viz T9, vyžaduje souhlas).
+
+## Přepnutí v1 → v2 — postup (připraveno 2026-10-12, NESPUŠTĚNO)
+
+Stav produkce (jen čtení, 2026-10-12): v1 má 1 cestu, 5 záznamů, 56 fotek, 252
+variant, 435 MB. Migrace `…120000` až `…120300` (v2 schéma, funkce převodu) jsou
+nasazené; **převod nebyl spuštěn** (`media`, `moments`, `segments` mají 0 řádků).
+Migrace `20261010120000` a `…120100` (stav `rejected`, editační RPC) čekají na merge
+PR #9 (CI je nasadí; jsou aditivní).
+
+Pořadí, každý krok má kontrolu a bez ní se nepokračuje:
+
+1. **Merge PR #9** → CI nasadí 2 migrace. Kontrola: `list_migrations` je obsahuje,
+   `pnpm db:test` v CI zelené.
+2. **Brána `media-upload` v produkci** (G: UNVERIFIED): zavolat funkci skutečným
+   přihlášeným uživatelem (`sign-put` malého objektu, `delete-media`). Pokud gateway
+   odmítne uživatelský JWT, nahrávání ve v2 nefunguje; opravit před krokem 4.
+3. **Kopie souborů Storage → R2** se stejnými klíči: `scripts/copy-storage-to-r2.mjs`
+   nejdřív bez `--apply` (suchý běh: počet, `wouldCopy`), potom s `--apply`.
+   Potřebuje `SUPABASE_SERVICE_ROLE_KEY` v lokálním env souboru mimo git (zatím
+   není k dispozici). Skript nic nemaže a je idempotentní. Kontrola: `failed = 0`,
+   `skippedExisting + copied = 252`, náhodných 5 URL na `media.cestovni-denik.cz` → 200.
+4. **Převod dat**: `select public.v2_migrate_from_v1();` pak
+   `select * from public.v2_verify_migration();` — všechny řádky `ok`. Funkce je
+   idempotentní, v1 tabulky nemění. Zkoušeno na kopii produkce (Brána Fáze 1, 9/9).
+5. **Ruční kontrola ve v2 UI**: cesta v `/j/<id>/workspace`, počty médií proti
+   výstupu `v2_verify_migration`, datové problémy z Brány Fáze 1 (Calgary se
+   špatnou délkou, duplicity, překryvy momentů).
+6. **Přepnutí vstupů**: dashboard a odkazy na cestu vedou na v2 (dnes vedou na v1).
+7. **Smazání v1 kódu** (až po 5 a 6) a v1 tabulek za 30 dní jen pro čtení.
+
+Návrat: kroky 3 a 4 jsou aditivní (R2 kopie, v2 tabulky). Vrácení = smazat řádky v2
+tabulek a objekty v R2; v1 data a v1 UI zůstávají nedotčené do kroku 7.
+
+Co vyžaduje souhlas uživatele: merge do `main` (nasazení do produkce), service role
+klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
