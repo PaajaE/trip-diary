@@ -38,9 +38,13 @@ export type Database = {
         Row: {
           body: string
           created_at: string
+          guest_name: string | null
           hidden_at: string | null
           hidden_by: string | null
           id: string
+          moderated_at: string | null
+          moderated_by: string | null
+          status: Database['public']['Enums']['comment_status']
           target_id: string
           target_type: Database['public']['Enums']['content_target_type']
           updated_at: string
@@ -49,9 +53,13 @@ export type Database = {
         Insert: {
           body: string
           created_at?: string
+          guest_name?: string | null
           hidden_at?: string | null
           hidden_by?: string | null
           id?: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          status?: Database['public']['Enums']['comment_status']
           target_id: string
           target_type: Database['public']['Enums']['content_target_type']
           updated_at?: string
@@ -60,9 +68,13 @@ export type Database = {
         Update: {
           body?: string
           created_at?: string
+          guest_name?: string | null
           hidden_at?: string | null
           hidden_by?: string | null
           id?: string
+          moderated_at?: string | null
+          moderated_by?: string | null
+          status?: Database['public']['Enums']['comment_status']
           target_id?: string
           target_type?: Database['public']['Enums']['content_target_type']
           updated_at?: string
@@ -1828,6 +1840,10 @@ export type Database = {
           journey_title: string
         }[]
       }
+      get_public_engagement: {
+        Args: { p_journey_slug: string; p_space_handle: string }
+        Returns: Json
+      }
       get_public_journey: {
         Args: { p_journey_slug: string; p_space_handle: string }
         Returns: Json
@@ -1842,6 +1858,7 @@ export type Database = {
         }[]
       }
       has_space_publish_role: { Args: { p_space_id: string }; Returns: boolean }
+      is_guest: { Args: never; Returns: boolean }
       is_interactable_target: {
         Args: {
           p_target_id: string
@@ -1866,9 +1883,35 @@ export type Database = {
           role: Database['public']['Enums']['journey_member_role']
         }[]
       }
+      list_pending_comments: {
+        Args: { p_journey_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          guest_name: string
+          id: string
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+        }[]
+      }
+      list_public_journey_paths: {
+        Args: never
+        Returns: {
+          journey_slug: string
+          space_handle: string
+          updated_at: string
+        }[]
+      }
       merge_moments: {
         Args: { p_source: string; p_target: string }
         Returns: string
+      }
+      moderate_comment: {
+        Args: {
+          p_comment_id: string
+          p_status: Database['public']['Enums']['comment_status']
+        }
+        Returns: undefined
       }
       move_entry_to_space: {
         Args: { p_entry_id: string; p_slug?: string; p_space_id: string }
@@ -1926,6 +1969,16 @@ export type Database = {
       move_segment_boundary: {
         Args: { p_after: string; p_at: string; p_before: string }
         Returns: undefined
+      }
+      my_hearts: {
+        Args: {
+          p_target_id?: string
+          p_target_type?: Database['public']['Enums']['content_target_type']
+        }
+        Returns: {
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+        }[]
       }
       normalize_content_slug: {
         Args: { p_id: string; p_value: string }
@@ -2033,8 +2086,15 @@ export type Database = {
         | 'geology'
         | 'landmark'
         | 'general'
+      comment_status: 'pending' | 'approved' | 'rejected'
       content_origin: 'manual' | 'suggested' | 'accepted' | 'auto' | 'rejected'
-      content_target_type: 'journey' | 'entry' | 'photo'
+      content_target_type:
+        | 'journey'
+        | 'entry'
+        | 'photo'
+        | 'segment'
+        | 'moment'
+        | 'media'
       entry_language: 'cs' | 'en'
       entry_status: 'draft' | 'published'
       entry_type: 'story' | 'tip' | 'note' | 'place'
@@ -2211,8 +2271,16 @@ export const Constants = {
         'landmark',
         'general',
       ],
+      comment_status: ['pending', 'approved', 'rejected'],
       content_origin: ['manual', 'suggested', 'accepted', 'auto', 'rejected'],
-      content_target_type: ['journey', 'entry', 'photo'],
+      content_target_type: [
+        'journey',
+        'entry',
+        'photo',
+        'segment',
+        'moment',
+        'media',
+      ],
       entry_language: ['cs', 'en'],
       entry_status: ['draft', 'published'],
       entry_type: ['story', 'tip', 'note', 'place'],

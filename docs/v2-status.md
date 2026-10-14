@@ -240,8 +240,24 @@ proti lokální DB / skutečné knihovně je uvedeno u každé položky.
 | Tipy `/tips` (`posts` kind `tip`): seznam, vytvořit, upravit, smazat, zveřejnit | ✅ testy + skript proti lokální DB (RLS: cizí uživatel nezapíše, neupraví, nesmaže). Veřejné zobrazení tipů je Fáze 5                                                                                                                                              |
 | Rychlý zápis `/j/$journeyId/quick`                                              | ✅ testy + vložení do lokální DB. Okamžitý moment (manuální, zamčený) s polohou, koncept v `localStorage`; **bez offline fronty** (při chybě text zůstane, uložit jde znovu). ⚠️ UNVERIFIED: geolokace na iPhonu                                                   |
 
-Zbývá do brány Fáze 4: video import z prohlížeče, zapojení `resumeVideoUploads`,
-atribuce OSM u míst, T8 (celá knihovna), přepnutí v1 → v2 (viz T9, vyžaduje souhlas).
+Dokončeno 2026-10-14 (IMPLEMENTED, `pnpm check` zelené, nic z toho nebylo spuštěno
+v reálném prohlížeči ani na iPhonu):
+
+- **Video import z prohlížeče** (`upload-web-video.ts`): znovupoužívá `uploadVideo()`,
+  nahrazuje jen nativní švy (sonda `<video>` + poster z canvasu, díly přes
+  `file.slice`, ETag z odpovědi). Jen `video/mp4`, limity ze serverových konstant
+  (120 MB, 60 s). UNVERIFIED: skutečná sonda v prohlížeči (Safari nemusí vyvolat
+  `seeked`) a **R2 CORS musí mít `ExposeHeaders: ["ETag"]`**, jinak každé webové
+  video selže (chybová zpráva to říká). Díly se posílají sekvenčně bez opakování.
+- **`resumeVideoUploads`**: `reconcileVideoUploadsOnce()` při startu fronty (jen nativně):
+  selhané nahrávky zruší, běžící nechá. Dokončené nahrávky **nelze dokončit** (plugin
+  uchovává jen `uploadKey`, ETagy a bajty, chybí `uploadId`, klíč, poster, rozměry);
+  řádek `media` zůstane `uploading` a čeká na úklid na serveru.
+- **Atribuce OSM** u navržených míst (`OsmAttribution`, cs + en); mapy mají
+  `AttributionControl` už dříve.
+
+Zbývá do brány Fáze 4: T8 (celá knihovna z iPhonu; vyžaduje zařízení), úklid v1
+kódu a tabulek (vyžaduje souhlas), ruční kontrola výše uvedených UNVERIFIED bodů.
 
 ## Přepnutí v1 → v2 — postup (připraveno 2026-10-12, NESPUŠTĚNO)
 
@@ -304,3 +320,51 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   `sign-put` 200 s klíčem pod ID uživatele, PUT do R2 200, `delete-media` smazal 1 objekt,
   opakované smazání 0. Uživatelský JWT gateway přijímá (dřívější UNVERIFIED odpadá).
 - Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).
+
+## Fáze 5 — hosté: srdíčka a komentáře (2026-10-14, rozpracováno)
+
+- UI: srdíčko + komentáře na stránkách Cesta, Etapa/Výlet, Moment, srdíčko na fotce v
+  prohlížeči. Data jdou z jednoho `get_public_engagement`, dotaz se spouští až po
+  `requestIdleCallback` (první vykreslení a počet požadavků se nemění). Hostovská
+  anonymní relace (`ensureGuestSession`) vzniká až při první akci (srdíčko/komentář).
+- Moderace: panel „Komentáře ke schválení“ v pracovní ploše cesty (`list_pending_comments`,
+  `moderate_comment`), viditelný jen když něco čeká.
+- Turnstile: `VITE_TURNSTILE_SITE_KEY` (veřejný site key). Skript se načte při první akci;
+  bez klíče (lokálně) se token neposílá.
+- **AKCE UŽIVATELE (produkce):**
+  1. Supabase Dashboard → Authentication → Sign In / Providers: zapnout **Allow anonymous
+     sign-ins**.
+  2. Supabase Dashboard → Authentication → Attack Protection: zapnout CAPTCHA, provider
+     **Cloudflare Turnstile**, vložit **secret key** tam (do repa nikdy).
+  3. Vytvořit Turnstile widget v Cloudflare (domény webu), **site key** dát do
+     `VITE_TURNSTILE_SITE_KEY` pro produkční build.
+  4. Lokálně: `supabase/config.toml` má `enable_anonymous_sign_ins = true` (captcha
+     zůstává zakomentovaná); běžící lokální stack je potřeba restartovat (`supabase stop`
+     a `start`), jinak anonymní přihlášení vrací `anonymous_provider_disabled`.
+- Ověřeno 2026-10-14 na restartovaném lokálním stacku: skutečné anonymní přihlášení
+  (`/auth/v1/signup` bez těla → `is_anonymous`), srdíčko, `my_hearts`, smazání, komentář
+  (pending neviditelný pro anon, viditelný autorovi i moderátorovi). Turnstile nezkoušen.
+- Dřívější ověření (JWT s `is_anonymous` podepsaný lokálním klíčem, bez GoTrue):
+  vložení srdíčka a komentáře (5 sloupců) 201, komentář se `status` 403 (42501), vlastní
+  pending a srdíčka čitelné, `get_public_engagement` vrací počet srdíček. NEOVĚŘENO:
+  skutečné `signInAnonymously` a Turnstile (lokální stack má anonymní přihlášení vypnuté).
+- Prerender a čerstvost: předrenderované HTML (title, OG tagy, vložený strom) se přestaví
+  jen při deployi, takže zrušení publikace se ve statickém HTML a OG náhledech projeví až
+  při dalším deployi. V prohlížeči se vložená data po prvním vykreslení jednou
+  zrevalidují (`requestIdleCallback`), zrušená cesta se pak ukáže jako nenalezená.
+  NÁVRH (neimplementováno): noční nebo ručně spouštěný (workflow_dispatch) rebuild a deploy.
+
+### Fáze 5 — shrnutí (2026-10-14, větev `v2/phase-5`, IMPLEMENTED)
+
+- Veřejná čtečka v2 z jednoho RPC `get_public_journey`: Cesta, Etapa/Výlet, Moment
+  (`/$spaceHandle/$journeySlug`, `/e/$segmentId`, `/m/$momentId`), mapa se shluky a
+  trasami, srcset z variant. Tagy (průřezy) v RPC nejsou, zatím jen seznam míst.
+- Předgenerování při buildu (`scripts/prerender-public.mjs`, RPC `list_public_journey_paths`):
+  HTML + OG + vložený strom + sitemap/robots; v `pages.yml` je `PRERENDER_REQUIRED=1`.
+- Hosté: DB kontrakt (migrace `20261014120000`–`130000`, pgTAP 495 testů celkem zelených),
+  nezávislé review provedeno, nálezy opraveny (moderační bypass, oracle v
+  `can_moderate_target`, sloupcová práva hearts, `$` v prerenderu, visící captcha).
+- NEOVĚŘENO: reálný prohlížeč (MapLibre, CLS/LCP, Lighthouse ≥ 90, počet požadavků),
+  Turnstile, prerender proti produkčnímu RPC, GitHub Pages deep linky. Lokálně není
+  seed veřejné cesty. Brána výkonu Fáze 5 tedy zatím NENÍ splněna.
+- Po merge: migrace nasadí CI; před zapnutím hostů udělat AKCE UŽIVATELE výše.

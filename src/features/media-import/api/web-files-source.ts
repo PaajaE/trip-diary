@@ -1,3 +1,4 @@
+import { VIDEO_MAX_BYTES } from '@trip-diary/core/media-upload'
 import type {
   ImportCandidate,
   ImportRange,
@@ -41,8 +42,14 @@ function toCandidate(file: File): ImportCandidate {
     return { ...base, mediaType: 'photo', skipReason: 'heic_unsupported' }
   }
   if (file.type.startsWith('video/')) {
-    // Web videos are a later task.
-    return { ...base, mediaType: 'video', skipReason: 'web_video_unsupported' }
+    // Only mp4 is accepted; duration is checked when the video is probed.
+    if (file.type !== 'video/mp4') {
+      return { ...base, mediaType: 'video', skipReason: 'unsupported_type' }
+    }
+    if (file.size > VIDEO_MAX_BYTES) {
+      return { ...base, mediaType: 'video', skipReason: 'video_too_large' }
+    }
+    return { ...base, mediaType: 'video' }
   }
   if (SUPPORTED_PHOTO_TYPES.has(file.type)) {
     return { ...base, mediaType: 'photo' }

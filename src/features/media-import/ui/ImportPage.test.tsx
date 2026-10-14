@@ -135,12 +135,9 @@ describe('ImportPage', () => {
       },
     })
     expect(await screen.findByText('Photos: 1')).toBeTruthy()
-    expect(screen.getByText('Videos: 0')).toBeTruthy()
-    expect(screen.getByText('Skipped: 2')).toBeTruthy()
+    expect(screen.getByText('Videos: 1')).toBeTruthy()
+    expect(screen.getByText('Skipped: 1')).toBeTruthy()
     expect(screen.getByText(/HEIC\/HEIF photos are not supported/)).toBeTruthy()
-    expect(
-      screen.getByText(/Videos cannot be imported in the browser/),
-    ).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
     await waitFor(() => {

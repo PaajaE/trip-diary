@@ -127,11 +127,13 @@ jobs:
           fi
       - run: pnpm build
         env:
+          PRERENDER_REQUIRED: '1'
           VITE_BASE_PATH: /
           VITE_SITE_URL: https://cestovni-denik.cz
           VITE_MAPY_API_KEY: ${{ secrets.VITE_MAPY_API_KEY }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

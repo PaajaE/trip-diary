@@ -32,6 +32,7 @@ import {
   setJourneyMemoryPhotoDraft,
 } from '@/features/journeys/lib/journey-memory-photo-draft'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
+import { OsmAttribution } from '@/shared/ui/OsmAttribution'
 import { reorderPhotosWithCover } from '@/features/journeys/lib/reorder-photos-with-cover'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import {
@@ -447,7 +448,8 @@ export function CreateJourneyMemoryForm({
         </p>
       ) : suggestedTitle !== null && title.trim() !== '' ? (
         <p className="text-sm text-muted">
-          {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
+          {t('journey.placeSuggestionApplied', { title: suggestedTitle })}{' '}
+          <OsmAttribution />
         </p>
       ) : null}
       <label className="block text-sm font-medium">

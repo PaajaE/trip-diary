@@ -11,7 +11,6 @@ export type ImportSkipReason =
   | 'unsupported_type'
   | 'video_too_large'
   | 'video_too_long'
-  | 'web_video_unsupported'
 
 export interface ImportCandidate {
   byteSize?: number | null

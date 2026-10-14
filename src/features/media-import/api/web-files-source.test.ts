@@ -9,7 +9,7 @@ function file(name: string, type: string, size = 3, lastModified = 1000) {
 }
 
 describe('web files source', () => {
-  it('lists photos, rejects HEIC clearly and skips web videos', async () => {
+  it('lists photos, rejects HEIC clearly and accepts mp4 videos', async () => {
     const jpg = file('a.jpg', 'image/jpeg')
     const source = createWebFilesSource([
       jpg,
@@ -18,6 +18,7 @@ describe('web files source', () => {
       file('d.HEIF', ''),
       file('e.mp4', 'video/mp4'),
       file('f.gif', 'image/gif'),
+      file('g.mov', 'video/quicktime'),
     ])
     const list = await source.list()
     expect(source.kind).toBe('web-files')
@@ -28,8 +29,9 @@ describe('web files source', () => {
       ['b.png', 'photo', undefined],
       ['c.heic', 'photo', 'heic_unsupported'],
       ['d.HEIF', 'photo', 'heic_unsupported'],
-      ['e.mp4', 'video', 'web_video_unsupported'],
+      ['e.mp4', 'video', undefined],
       ['f.gif', 'photo', 'unsupported_type'],
+      ['g.mov', 'video', 'unsupported_type'],
     ])
     expect(list[0]).toMatchObject({ byteSize: 3, capturedAt: null })
   })

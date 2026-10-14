@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react'
 import type { ImportSourceKind } from '@/entities/media/model/upload-job'
 import { createImportQueue } from '@/features/media-import/api/create-import-queue'
+import { reconcileVideoUploadsOnce } from '@/features/media-upload/api/reconcile-video-uploads'
 import type {
   QueueSnapshot,
   UploadQueue,
@@ -22,6 +23,7 @@ export function useImportQueue(
   const [sources] = useState(() => new Map<ImportSourceKind, MediaSource>())
   const [queue] = useState(() => createImportQueue(journeyId, ownerId, sources))
   useEffect(() => {
+    void reconcileVideoUploadsOnce()
     void queue.init()
     return () => {
       queue.dispose()

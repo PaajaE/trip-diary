@@ -56,6 +56,8 @@ import {
   TagChips,
 } from '@/features/moment-tags/ui/MomentTags'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
+import { targetTitles } from '@/features/journey-workspace/model/target-titles'
+import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
 import { publicEnv } from '@/shared/config/env'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
@@ -617,6 +619,10 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
         </div>
       </div>
       <p className="mb-6 text-sm text-muted">{t('workspace.subtitle')}</p>
+      <ModerationPanel
+        journeyId={journeyId}
+        titles={tree === null ? new Map() : targetTitles(tree)}
+      />
       {body}
     </main>
   )
