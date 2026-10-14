@@ -1,4 +1,5 @@
 import type { User } from '@supabase/supabase-js'
+import { requestCaptchaToken } from '@/features/auth/api/turnstile'
 import { getSupabaseClient } from '@/shared/api/supabase'
 import {
   signInSchema,
@@ -11,10 +12,24 @@ export type AuthResult =
   | { status: 'authenticated'; user: User }
   | { status: 'confirmationRequired' }
 
+/**
+ * Supabase CAPTCHA protection covers every auth endpoint (sign-in, sign-up,
+ * anonymous), so password flows need a token too. `undefined` means no site key
+ * is configured (local dev), and then no token is sent.
+ */
+function captchaOptions(
+  captchaToken: string | undefined,
+): { captchaToken: string } | undefined {
+  return captchaToken === undefined ? undefined : { captchaToken }
+}
+
 export async function signIn(input: SignInInput): Promise<AuthResult> {
   const credentials = signInSchema.parse(input)
-  const { data, error } =
-    await getSupabaseClient().auth.signInWithPassword(credentials)
+  const captcha = captchaOptions(await requestCaptchaToken())
+  const { data, error } = await getSupabaseClient().auth.signInWithPassword({
+    ...credentials,
+    ...(captcha === undefined ? {} : { options: captcha }),
+  })
 
   if (error !== null) {
     throw error
@@ -25,9 +40,11 @@ export async function signIn(input: SignInInput): Promise<AuthResult> {
 
 export async function signUp(input: SignUpInput): Promise<AuthResult> {
   const credentials = signUpSchema.parse(input)
+  const captcha = captchaOptions(await requestCaptchaToken())
   const { data, error } = await getSupabaseClient().auth.signUp({
     email: credentials.email,
     options: {
+      ...captcha,
       data: {
         username: credentials.username,
       },
