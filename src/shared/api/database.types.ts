@@ -1894,6 +1894,14 @@ export type Database = {
           target_type: Database['public']['Enums']['content_target_type']
         }[]
       }
+      list_public_journey_paths: {
+        Args: never
+        Returns: {
+          journey_slug: string
+          space_handle: string
+          updated_at: string
+        }[]
+      }
       merge_moments: {
         Args: { p_source: string; p_target: string }
         Returns: string
