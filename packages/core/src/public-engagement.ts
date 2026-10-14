@@ -7,7 +7,12 @@ import { z } from 'zod'
  * Mirrors the SQL json shape; keep both in sync.
  */
 
-export const engagementTargetTypeSchema = z.enum(['journey', 'segment', 'moment', 'media'])
+export const engagementTargetTypeSchema = z.enum([
+  'journey',
+  'segment',
+  'moment',
+  'media',
+])
 
 export const publicHeartCountSchema = z.object({
   count: z.number().int().positive(),
@@ -35,7 +40,9 @@ export type PublicComment = z.infer<typeof publicCommentSchema>
 export type PublicEngagement = z.infer<typeof publicEngagementSchema>
 
 /** Parses the RPC result; `null` means the journey is missing or not public. */
-export function parsePublicEngagement(payload: unknown): PublicEngagement | null {
+export function parsePublicEngagement(
+  payload: unknown,
+): PublicEngagement | null {
   if (payload === null) {
     return null
   }

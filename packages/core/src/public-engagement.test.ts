@@ -35,7 +35,10 @@ describe('parsePublicEngagement', () => {
 
   it('rejects legacy target types and malformed items', () => {
     expect(() =>
-      parsePublicEngagement({ comments: [], hearts: [{ count: 1, targetId: id, targetType: 'photo' }] }),
+      parsePublicEngagement({
+        comments: [],
+        hearts: [{ count: 1, targetId: id, targetType: 'photo' }],
+      }),
     ).toThrow()
     expect(() => parsePublicEngagement({ hearts: [] })).toThrow()
   })

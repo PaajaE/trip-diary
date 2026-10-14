@@ -97,8 +97,20 @@ export const LazyPublicSpaceRoutePage = lazy(() =>
 )
 
 export const LazyPublicJourneyRoutePage = lazy(() =>
-  import('@/pages/public-space/PublicJourneyRoutePage').then(
+  import('@/pages/public-journey/PublicJourneyRoutePages').then(
     ({ PublicJourneyRoutePage }) => ({ default: PublicJourneyRoutePage }),
+  ),
+)
+
+export const LazyPublicSegmentRoutePage = lazy(() =>
+  import('@/pages/public-journey/PublicJourneyRoutePages').then(
+    ({ PublicSegmentRoutePage }) => ({ default: PublicSegmentRoutePage }),
+  ),
+)
+
+export const LazyPublicMomentRoutePage = lazy(() =>
+  import('@/pages/public-journey/PublicJourneyRoutePages').then(
+    ({ PublicMomentRoutePage }) => ({ default: PublicMomentRoutePage }),
   ),
 )
 

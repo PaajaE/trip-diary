@@ -30,6 +30,8 @@ import {
   LazyAcceptJourneyInviteRoutePage,
   LazyPublicJourneyEntryRoutePage,
   LazyPublicJourneyRoutePage,
+  LazyPublicMomentRoutePage,
+  LazyPublicSegmentRoutePage,
   LazyPublicSpaceRoutePage,
   LazyPublicStandaloneEntryRoutePage,
 } from '@/app/lazy-pages'
@@ -256,6 +258,18 @@ const publicJourneyRoute = createRoute({
   }),
 })
 
+const publicSegmentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle/$journeySlug/e/$segmentId',
+  component: LazyPublicSegmentRoutePage,
+})
+
+const publicMomentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/$spaceHandle/$journeySlug/m/$momentId',
+  component: LazyPublicMomentRoutePage,
+})
+
 const publicStandaloneEntryRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle/tipy/$entrySlug',
@@ -297,6 +311,8 @@ const routeTree = rootRoute.addChildren([
     : []),
   publicSpaceRoute,
   publicJourneyRoute,
+  publicSegmentRoute,
+  publicMomentRoute,
   publicStandaloneEntryRoute,
   publicJourneyEntryRoute,
 ])
