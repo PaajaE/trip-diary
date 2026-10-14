@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import { useParams } from '@tanstack/react-router'
 import type { PublicJourney } from '@trip-diary/core/public-journey'
 import { usePublicJourney } from '@/entities/public-journey/api/use-public-journey'
+import { readEmbeddedJourney } from '@/entities/public-journey/lib/embedded-journey'
 import { PublicJourneySkeleton } from '@/features/public-journey/ui/PublicJourneySkeleton'
 import { PublicJourneyPage } from '@/pages/public-journey/PublicJourneyPage'
 import { PublicMomentPage } from '@/pages/public-journey/PublicMomentPage'
@@ -23,7 +25,17 @@ function ResolvedJourney({
   journeySlug,
   spaceHandle,
 }: Resolved) {
-  const query = usePublicJourney(spaceHandle, journeySlug, initialData)
+  // Prerendered pages embed the tree; using it as initialData means no fetch
+  // and no skeleton on first render.
+  const embedded = useMemo(
+    () => readEmbeddedJourney(spaceHandle, journeySlug),
+    [spaceHandle, journeySlug],
+  )
+  const query = usePublicJourney(
+    spaceHandle,
+    journeySlug,
+    initialData ?? embedded,
+  )
   if (query.isPending) return <PublicJourneySkeleton />
   if (query.isError) {
     return <PublicRouteError labelKey="publicReader.journeyError" />

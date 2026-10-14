@@ -18,7 +18,10 @@ const packageVitestConfigs = [
 
 const rootScriptFiles = [
   'scripts/backfill-photo-gps.mjs',
+  'scripts/lib/prerender.mjs',
   'scripts/patch-database-types.mjs',
+  'scripts/lib/prerender.test.mjs',
+  'scripts/prerender-public.mjs',
   'scripts/prepare-e2e-env.mjs',
 ]
 
