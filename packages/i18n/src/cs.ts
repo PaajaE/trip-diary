@@ -287,6 +287,10 @@ export const cs: TranslationResources = {
     yourTrips: 'Vaše cesty',
   },
   auth: {
+    captcha: {
+      hint: 'Potřebujeme jen ověřit, že nejste robot.',
+      title: 'Rychlá kontrola zabezpečení',
+    },
     email: 'E-mail',
     username: 'Uživatelské jméno',
     password: 'Heslo',

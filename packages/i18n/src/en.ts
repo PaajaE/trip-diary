@@ -286,6 +286,10 @@ export const en = {
     yourTrips: 'Your trips',
   },
   auth: {
+    captcha: {
+      hint: 'We just need to confirm you are not a robot.',
+      title: 'Quick security check',
+    },
     email: 'Email',
     username: 'Username',
     password: 'Password',
