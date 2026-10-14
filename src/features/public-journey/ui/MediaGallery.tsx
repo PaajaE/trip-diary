@@ -2,6 +2,7 @@ import type { PublicMedia } from '@trip-diary/core/public-journey'
 import { ChevronLeft, ChevronRight, Play, X } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { HeartButton } from '@/features/public-engagement/ui/HeartButton'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 
 interface MediaGalleryProps {
@@ -124,6 +125,11 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
                 {current.caption}
               </figcaption>
             ) : null}
+            <HeartButton
+              inverse
+              key={current.id}
+              target={{ id: current.id, type: 'media' }}
+            />
           </figure>
         </div>
       ) : null}

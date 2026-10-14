@@ -10,6 +10,7 @@ import {
 } from '@/entities/public-journey/lib/journey-model'
 import { resolveImage } from '@/entities/public-journey/lib/media-url'
 import { excerpt } from '@/features/public-journey/lib/format'
+import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { MediaGallery } from '@/features/public-journey/ui/MediaGallery'
 import { Crumbs } from '@/pages/public-journey/Crumbs'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
@@ -105,6 +106,7 @@ export function PublicMomentPage({
         <p className="whitespace-pre-line leading-7">{moment.body}</p>
       ) : null}
       <MediaGallery items={media} label={t('publicJourney.gallery')} />
+      <TargetEngagement target={{ id: moment.id, type: 'moment' }} />
       <nav
         aria-label={t('publicJourney.momentNav')}
         className="flex justify-between gap-4 border-t border-border pt-4 text-sm"

@@ -10,6 +10,7 @@ import {
 } from '@/entities/public-journey/lib/journey-model'
 import { buildMapData } from '@/features/public-journey/lib/build-map-data'
 import { excerpt, formatDateRange } from '@/features/public-journey/lib/format'
+import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { PublicMapSection } from '@/features/public-journey/ui/LazyPublicJourneyMap'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
@@ -199,6 +200,7 @@ export function PublicJourneyPage({
           <OsmAttribution />
         </section>
       ) : null}
+      <TargetEngagement target={{ id: journey.id, type: 'journey' }} />
     </main>
   )
 }

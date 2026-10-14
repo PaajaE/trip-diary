@@ -6,6 +6,7 @@ export const publicEnvSchema = z.object({
   siteUrl: z.url().optional(),
   supabaseAnonKey: z.string().min(1).optional(),
   supabaseUrl: z.url().optional(),
+  turnstileSiteKey: z.string().min(1).optional(),
 })
 
 export type PublicEnv = z.infer<typeof publicEnvSchema>
@@ -24,5 +25,6 @@ export function parsePublicEnv(raw: Record<string, unknown>): PublicEnv {
     siteUrl: blankToUndefined(raw.siteUrl),
     supabaseAnonKey: blankToUndefined(raw.supabaseAnonKey),
     supabaseUrl: blankToUndefined(raw.supabaseUrl),
+    turnstileSiteKey: blankToUndefined(raw.turnstileSiteKey),
   })
 }

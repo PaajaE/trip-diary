@@ -320,3 +320,28 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   `sign-put` 200 s klíčem pod ID uživatele, PUT do R2 200, `delete-media` smazal 1 objekt,
   opakované smazání 0. Uživatelský JWT gateway přijímá (dřívější UNVERIFIED odpadá).
 - Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).
+
+## Fáze 5 — hosté: srdíčka a komentáře (2026-10-14, rozpracováno)
+
+- UI: srdíčko + komentáře na stránkách Cesta, Etapa/Výlet, Moment, srdíčko na fotce v
+  prohlížeči. Data jdou z jednoho `get_public_engagement`, dotaz se spouští až po
+  `requestIdleCallback` (první vykreslení a počet požadavků se nemění). Hostovská
+  anonymní relace (`ensureGuestSession`) vzniká až při první akci (srdíčko/komentář).
+- Moderace: panel „Komentáře ke schválení“ v pracovní ploše cesty (`list_pending_comments`,
+  `moderate_comment`), viditelný jen když něco čeká.
+- Turnstile: `VITE_TURNSTILE_SITE_KEY` (veřejný site key). Skript se načte při první akci;
+  bez klíče (lokálně) se token neposílá.
+- **AKCE UŽIVATELE (produkce):**
+  1. Supabase Dashboard → Authentication → Sign In / Providers: zapnout **Allow anonymous
+     sign-ins**.
+  2. Supabase Dashboard → Authentication → Attack Protection: zapnout CAPTCHA, provider
+     **Cloudflare Turnstile**, vložit **secret key** tam (do repa nikdy).
+  3. Vytvořit Turnstile widget v Cloudflare (domény webu), **site key** dát do
+     `VITE_TURNSTILE_SITE_KEY` pro produkční build.
+  4. Lokálně: `supabase/config.toml` má `enable_anonymous_sign_ins = true` (captcha
+     zůstává zakomentovaná); běžící lokální stack je potřeba restartovat (`supabase stop`
+     a `start`), jinak anonymní přihlášení vrací `anonymous_provider_disabled`.
+- Ověřeno proti lokální DB (JWT s `is_anonymous` podepsaný lokálním klíčem, bez GoTrue):
+  vložení srdíčka a komentáře (5 sloupců) 201, komentář se `status` 403 (42501), vlastní
+  pending a srdíčka čitelné, `get_public_engagement` vrací počet srdíček. NEOVĚŘENO:
+  skutečné `signInAnonymously` a Turnstile (lokální stack má anonymní přihlášení vypnuté).

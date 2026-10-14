@@ -7,6 +7,7 @@ export function readVitePublicEnv(raw: Record<string, unknown>): PublicEnv {
     siteUrl: raw.VITE_SITE_URL,
     supabaseAnonKey: raw.VITE_SUPABASE_ANON_KEY,
     supabaseUrl: raw.VITE_SUPABASE_URL,
+    turnstileSiteKey: raw.VITE_TURNSTILE_SITE_KEY,
   })
 }
 

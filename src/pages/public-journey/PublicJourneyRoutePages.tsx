@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import type { PublicJourney } from '@trip-diary/core/public-journey'
 import { usePublicJourney } from '@/entities/public-journey/api/use-public-journey'
 import { readEmbeddedJourney } from '@/entities/public-journey/lib/embedded-journey'
+import { PublicEngagementScope } from '@/features/public-engagement/lib/scope'
 import { PublicJourneySkeleton } from '@/features/public-journey/ui/PublicJourneySkeleton'
 import { PublicJourneyPage } from '@/pages/public-journey/PublicJourneyPage'
 import { PublicMomentPage } from '@/pages/public-journey/PublicMomentPage'
@@ -43,7 +44,11 @@ function ResolvedJourney({
   if (query.data === null) {
     return <PublicRouteNotFound labelKey="publicReader.journeyNotFound" />
   }
-  return <>{content(query.data)}</>
+  return (
+    <PublicEngagementScope journeySlug={journeySlug} spaceHandle={spaceHandle}>
+      {content(query.data)}
+    </PublicEngagementScope>
+  )
 }
 
 export function PublicJourneyRoutePage() {

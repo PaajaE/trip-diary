@@ -22,6 +22,7 @@ import {
   formatDistance,
 } from '@/features/public-journey/lib/format'
 import { PublicMapSection } from '@/features/public-journey/ui/LazyPublicJourneyMap'
+import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { MediaGallery } from '@/features/public-journey/ui/MediaGallery'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 import { Crumbs } from '@/pages/public-journey/Crumbs'
@@ -281,6 +282,7 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
           />
         </section>
       ) : null}
+      <TargetEngagement target={{ id: segment.id, type: 'segment' }} />
     </main>
   )
 }
