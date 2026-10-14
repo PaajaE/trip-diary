@@ -99,16 +99,13 @@ export async function addHeart(
   check(error)
 }
 
-export async function removeHeart(
-  target: EngagementTarget,
-  userId: string,
-): Promise<void> {
+/** RLS restricts deletes to own rows; a `user_id` filter is rejected (42501). */
+export async function removeHeart(target: EngagementTarget): Promise<void> {
   const { error } = await getSupabaseClient()
     .from('content_hearts')
     .delete()
     .eq('target_type', target.type)
     .eq('target_id', target.id)
-    .eq('user_id', userId)
   check(error)
 }
 
@@ -126,16 +123,11 @@ function inTargets(
   return rows.filter((row) => wanted.has(`${row.type}:${row.id}`))
 }
 
-/** Own hearts (own rows are selectable). Optionally narrowed to `targets`. */
+/** Own hearts via `my_hearts` (max 1000). Optionally narrowed to `targets`. */
 export async function getMyHearts(
-  userId: string,
   targets?: EngagementTarget[],
 ): Promise<EngagementTarget[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('content_hearts')
-    .select('target_type, target_id')
-    .eq('user_id', userId)
-    .limit(1000)
+  const { data, error } = await getSupabaseClient().rpc('my_hearts', {})
   check(error)
   const rows = z
     .array(targetRowSchema)

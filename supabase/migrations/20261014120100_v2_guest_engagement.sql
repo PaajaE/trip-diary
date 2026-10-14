@@ -102,7 +102,8 @@ security definer
 set search_path = ''
 as $$
   select case
-    when p_user_id is null then false
+    -- not an oracle: callers can only ask about themselves
+    when p_user_id is null or p_user_id is distinct from auth.uid() then false
     when p_target_type = 'journey'::public.content_target_type then exists (
       select 1 from public.journeys j
       where j.id = p_target_id
@@ -151,6 +152,17 @@ as $$
     else false
   end
 $$;
+
+-- Both are evaluated by anon/authenticated RLS policies (invoker rights), so those roles
+-- need EXECUTE; PUBLIC is revoked explicitly. can_moderate_target only answers for the caller.
+revoke all on function public.is_interactable_target(public.content_target_type, uuid)
+  from public, anon, authenticated;
+grant execute on function public.is_interactable_target(public.content_target_type, uuid)
+  to anon, authenticated;
+revoke all on function public.can_moderate_target(public.content_target_type, uuid, uuid)
+  from public, anon, authenticated;
+grant execute on function public.can_moderate_target(public.content_target_type, uuid, uuid)
+  to anon, authenticated;
 
 -- ---------------------------------------------------------------- triggers
 create or replace function public.guard_content_comment_insert()
@@ -229,20 +241,93 @@ before insert on public.content_hearts
 for each row
 execute function public.guard_content_heart_insert();
 
+-- Edits: authors (also upgraded ex-guests) cannot bypass moderation, and moderators can
+-- only hide/unhide other users' comments, never rewrite their text. Statements without a
+-- JWT user (migrations, service role) and moderate_comment (status only) are untouched.
+create or replace function public.guard_content_comment_update()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_moderator boolean;
+begin
+  if v_uid is null then
+    return new;
+  end if;
+  v_moderator := public.can_moderate_target(old.target_type, old.target_id, v_uid);
+
+  if new.hidden_at is distinct from old.hidden_at or new.hidden_by is distinct from old.hidden_by then
+    if not v_moderator then
+      raise exception 'only moderators can hide comments' using errcode = '42501';
+    end if;
+  end if;
+
+  if new.body is distinct from old.body then
+    if old.user_id is distinct from v_uid then
+      raise exception 'moderators cannot edit the text of other users' using errcode = '42501';
+    end if;
+    if old.guest_name is not null and not v_moderator then
+      if char_length(new.body) > 500 then
+        raise exception 'guest comment is too long' using errcode = '23514';
+      end if;
+      new.status := 'pending';
+      new.moderated_by := null;
+      new.moderated_at := null;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.guard_content_comment_update() from public, anon, authenticated;
+
+create trigger guard_content_comment_update
+before update of body, hidden_at, hidden_by on public.content_comments
+for each row
+execute function public.guard_content_comment_update();
+
 -- ---------------------------------------------------------------- grants
 revoke all on public.content_comments from anon, authenticated;
 revoke all on public.content_hearts from anon, authenticated;
 
 grant select (id, target_type, target_id, body, guest_name, status, hidden_at, created_at)
   on public.content_comments to anon;
-grant select on public.content_comments to authenticated;
+-- moderated_by / moderated_at stay hidden; user_id stays readable (v1 isOwn + profiles embed).
+grant select (id, target_type, target_id, user_id, body, guest_name, status, hidden_at, created_at, updated_at)
+  on public.content_comments to authenticated;
 grant insert (target_type, target_id, user_id, body, guest_name)
   on public.content_comments to authenticated;
 grant update (body, hidden_at, hidden_by) on public.content_comments to authenticated;
 grant delete on public.content_comments to authenticated;
 
 grant select (target_type, target_id, created_at) on public.content_hearts to anon;
-grant select, insert, delete on public.content_hearts to authenticated;
+-- No user_id: signed-in users (guests included) cannot see who hearted. Own hearts via my_hearts().
+grant select (target_type, target_id, created_at) on public.content_hearts to authenticated;
+grant insert, delete on public.content_hearts to authenticated;
+
+create or replace function public.my_hearts(
+  p_target_type public.content_target_type default null,
+  p_target_id uuid default null
+)
+returns table (target_type public.content_target_type, target_id uuid)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select h.target_type, h.target_id
+  from public.content_hearts h
+  where h.user_id = auth.uid()
+    and (p_target_type is null or h.target_type = p_target_type)
+    and (p_target_id is null or h.target_id = p_target_id)
+  limit 1000
+$$;
+
+revoke all on function public.my_hearts(public.content_target_type, uuid) from public, anon, authenticated;
+grant execute on function public.my_hearts(public.content_target_type, uuid) to authenticated;
 
 -- ---------------------------------------------------------------- policies
 drop policy "Readers can view visible comments on interactable targets" on public.content_comments;

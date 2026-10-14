@@ -185,7 +185,9 @@ export function renderPage(template, page, { embed, siteUrl }) {
     page.hero === null ? null : preloadTag(page.hero),
     `<script type="application/json" id="${EMBED_SCRIPT_ID}">${serializeJsonForScript(embed)}</script>`,
   ].filter((t) => t !== null)
-  return html.replace('</head>', `    ${tags.join('\n    ')}\n  </head>`)
+  const block = `    ${tags.join('\n    ')}\n  </head>`
+  // Replacer function: a string would interpret $$, $&, $' and $` in user text.
+  return html.replace('</head>', () => block)
 }
 
 function preloadTag(hero) {

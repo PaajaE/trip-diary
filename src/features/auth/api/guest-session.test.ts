@@ -6,6 +6,7 @@ vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: () => ({ auth: { getSession, signInAnonymously } }),
 }))
 
+const { CaptchaError } = await import('@/features/auth/api/turnstile')
 const { ensureGuestSession } = await import('@/features/auth/api/guest-session')
 
 const user = { id: 'u1', is_anonymous: true }
@@ -27,6 +28,19 @@ describe('ensureGuestSession', () => {
     await expect(ensureGuestSession({ getCaptchaToken })).resolves.toBe(user)
     expect(signInAnonymously).not.toHaveBeenCalled()
     expect(getCaptchaToken).not.toHaveBeenCalled()
+  })
+
+  it('clears inflight when the captcha is cancelled so a retry works', async () => {
+    getSession.mockResolvedValue({ data: { session: null }, error: null })
+    signInAnonymously.mockResolvedValue({ data: { user }, error: null })
+    await expect(
+      ensureGuestSession({
+        getCaptchaToken: () => Promise.reject(new CaptchaError('cancelled')),
+      }),
+    ).rejects.toBeInstanceOf(CaptchaError)
+    await expect(
+      ensureGuestSession({ getCaptchaToken: () => Promise.resolve('tok') }),
+    ).resolves.toBe(user)
   })
 
   it('passes the captcha token to the anonymous sign-in', async () => {

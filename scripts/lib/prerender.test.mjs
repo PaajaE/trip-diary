@@ -125,6 +125,23 @@ describe('prerender helpers', () => {
     expect(html).not.toContain('content="old"')
   })
 
+  it("keeps $-patterns in user text literal ($$, $&, $', $`)", () => {
+    const [page] = buildPages(tree, { handle: 'pavel', slug: 'kanada' })
+    const nasty = "a $$ b $& c $' d $` e"
+    const html = renderPage(
+      template,
+      { ...page, description: nasty, title: nasty },
+      { embed: { ...tree, note: nasty } },
+    )
+    expect(html).toContain(`<title>${escapeHtml(nasty)}</title>`)
+    expect(html).toContain(`content="${escapeHtml(nasty)}"`)
+    expect(html).toContain('a $$ b $&amp; c')
+    expect(html.match(/<\/head>/g)).toHaveLength(1)
+    expect(html).not.toContain('<title>Old</title>')
+    const json = html.match(/id="__PUBLIC_JOURNEY__">([^<]*)</)?.[1]
+    expect(JSON.parse(json).note).toBe(nasty)
+  })
+
   it('omits canonical without site url', () => {
     const [page] = buildPages(tree, { handle: 'pavel', slug: 'kanada' })
     expect(renderPage(template, page, { embed: tree })).not.toContain(

@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import type { PendingComment } from '@/entities/public-engagement/api/public-engagement.repository'
 import {
@@ -67,9 +68,9 @@ export function ModerationPanel({
                 {href !== null ? (
                   <>
                     {' · '}
-                    <a className="underline" href={href}>
+                    <Link className="underline" to={href}>
                       {t('moderation.open')}
-                    </a>
+                    </Link>
                   </>
                 ) : null}
               </p>

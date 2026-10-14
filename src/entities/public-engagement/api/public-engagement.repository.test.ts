@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const rpc = vi.fn()
 const insert = vi.fn()
-const from = vi.fn(() => ({ insert }))
+const eq = vi.fn()
+const del = vi.fn(() => ({ eq }))
+const from = vi.fn(() => ({ delete: del, insert }))
 vi.mock('@/shared/api/supabase', () => ({
   getSupabaseClient: () => ({ from, rpc }),
 }))
@@ -17,6 +19,8 @@ describe('public engagement repository', () => {
   beforeEach(() => {
     rpc.mockReset()
     insert.mockReset()
+    eq.mockReset()
+    del.mockClear()
     from.mockClear()
   })
 
@@ -101,6 +105,30 @@ describe('public engagement repository', () => {
         }),
       ).rejects.toMatchObject({ kind })
     }
+  })
+
+  it('reads own hearts through my_hearts and drops v1 target types', async () => {
+    rpc.mockResolvedValue({
+      data: [
+        { target_id: ID, target_type: 'moment' },
+        { target_id: ID, target_type: 'photo' },
+      ],
+      error: null,
+    })
+    await expect(repo.getMyHearts()).resolves.toEqual([
+      { id: ID, type: 'moment' },
+    ])
+    expect(rpc).toHaveBeenCalledWith('my_hearts', {})
+    expect(from).not.toHaveBeenCalled()
+  })
+
+  it('removes a heart by target only, never filtering on user_id', async () => {
+    const second = vi.fn().mockResolvedValue({ error: null })
+    eq.mockReturnValue({ eq: second })
+    await repo.removeHeart({ id: ID, type: 'moment' })
+    expect(eq).toHaveBeenCalledWith('target_type', 'moment')
+    expect(second).toHaveBeenCalledWith('target_id', ID)
+    expect(eq).not.toHaveBeenCalledWith('user_id', expect.anything())
   })
 
   it('treats a duplicate heart as success', async () => {

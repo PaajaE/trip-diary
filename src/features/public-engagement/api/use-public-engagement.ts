@@ -87,7 +87,7 @@ export function useMyPendingComments() {
 
 function heartsQuery(userId: string) {
   return {
-    queryFn: () => getMyHearts(userId),
+    queryFn: () => getMyHearts(),
     queryKey: publicEngagementKeys.hearts(userId),
     staleTime: 60_000,
   }
@@ -156,9 +156,7 @@ async function toggleHeart(
     adjustCount(old, target, wasHearted ? -1 : 1),
   )
   try {
-    await (wasHearted
-      ? removeHeart(target, user.id)
-      : addHeart(target, user.id))
+    await (wasHearted ? removeHeart(target) : addHeart(target, user.id))
   } catch (error) {
     queryClient.setQueryData(heartsKey, previousHearts)
     queryClient.setQueryData(treeKey, previousTree)

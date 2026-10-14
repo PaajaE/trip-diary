@@ -1970,6 +1970,16 @@ export type Database = {
         Args: { p_after: string; p_at: string; p_before: string }
         Returns: undefined
       }
+      my_hearts: {
+        Args: {
+          p_target_id?: string
+          p_target_type?: Database['public']['Enums']['content_target_type']
+        }
+        Returns: {
+          target_id: string
+          target_type: Database['public']['Enums']['content_target_type']
+        }[]
+      }
       normalize_content_slug: {
         Args: { p_id: string; p_value: string }
         Returns: string

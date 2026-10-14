@@ -37,14 +37,11 @@ export async function getEngagementSummary(
         .eq('target_type', target.type)
         .eq('target_id', target.id),
       viewerId === null
-        ? Promise.resolve({ data: null, error: null })
-        : client
-            .from('content_hearts')
-            .select('user_id')
-            .eq('target_type', target.type)
-            .eq('target_id', target.id)
-            .eq('user_id', viewerId)
-            .maybeSingle(),
+        ? Promise.resolve({ data: [], error: null })
+        : client.rpc('my_hearts', {
+            p_target_id: target.id,
+            p_target_type: target.type,
+          }),
       commentsQuery,
       viewerId === null
         ? Promise.resolve(false)
@@ -70,7 +67,7 @@ export async function getEngagementSummary(
   }
 
   const heartCount = heartCountResult.count ?? 0
-  const viewerHasHearted = viewerHeartResult.data !== null
+  const viewerHasHearted = viewerHeartResult.data.length > 0
 
   const comments =
     commentsResult.error === null
@@ -132,25 +129,22 @@ export async function toggleContentHeart(
     throw new Error('Sign in required')
   }
 
-  const { data: existing, error: existingError } = await client
-    .from('content_hearts')
-    .select('user_id')
-    .eq('target_type', target.type)
-    .eq('target_id', target.id)
-    .eq('user_id', user.id)
-    .maybeSingle()
+  const { data: existing, error: existingError } = await client.rpc(
+    'my_hearts',
+    { p_target_id: target.id, p_target_type: target.type },
+  )
 
   if (existingError !== null) {
     throw existingError
   }
 
-  if (existing !== null) {
+  if (existing.length > 0) {
+    // RLS restricts deletes to own rows; a user_id filter would be rejected.
     const { error } = await client
       .from('content_hearts')
       .delete()
       .eq('target_type', target.type)
       .eq('target_id', target.id)
-      .eq('user_id', user.id)
     if (error !== null) {
       throw error
     }

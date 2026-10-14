@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(37);
+select plan(52);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -107,7 +107,7 @@ select throws_ok(
      values ('moment','e2000000-0000-4000-8000-000000000001', auth.uid(), 'too many', 'Jana') $$,
   '54000', null, 'sixth comment within an hour is rejected');
 select lives_ok(
-  $$ delete from public.content_hearts where user_id = auth.uid() $$, 'guest removes own heart');
+  $$ delete from public.content_hearts $$, 'guest removes own heart');
 
 -- ------------------------------------------------------------ other guest, anon
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000a03","role":"authenticated","is_anonymous":true}',true);
@@ -152,6 +152,39 @@ select is(
   (select public.get_public_engagement(s.handle, 'eng-private') is null
    from public.spaces s where s.personal_owner_id = '00000000-0000-4000-8000-000000000a01'),
   true, 'RPC returns null for private journeys');
+reset role;
+
+-- ------------------------------------------------------------ review fixes
+insert into public.content_comments (id, target_type, target_id, user_id, body, guest_name, status) values
+('ee000000-0000-4000-8000-000000000001','moment','e2000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000a04','from guest','Ex Guest','approved'),
+('ee000000-0000-4000-8000-000000000002','moment','e2000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000a04','registered',null,'approved');
+update public.content_comments set guest_name = 'Ex Guest' where id = 'ee000000-0000-4000-8000-000000000001';
+insert into public.content_hearts (target_type, target_id, user_id) values
+('moment','e2000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000a03'),
+('moment','e2000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000a04');
+
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000a04","role":"authenticated"}',true);
+-- (1) edits
+select lives_ok($$ update public.content_comments set body = 'edited' where id = 'ee000000-0000-4000-8000-000000000001' $$, 'upgraded author edits former guest comment');
+select is((select status::text from public.content_comments where id = 'ee000000-0000-4000-8000-000000000001'), 'pending', 'edit of a guest-origin comment resets it to pending');
+select lives_ok($$ update public.content_comments set body = 'edited' where id = 'ee000000-0000-4000-8000-000000000002' $$, 'registered author edits own comment');
+select is((select status::text from public.content_comments where id = 'ee000000-0000-4000-8000-000000000002'), 'approved', 'registered comment stays approved (v1 behaviour)');
+select throws_ok($$ update public.content_comments set hidden_at = now(), hidden_by = auth.uid() where id = 'ee000000-0000-4000-8000-000000000002' $$, '42501', null, 'non-moderator author cannot hide/unhide');
+-- (5) oracle
+select is(public.can_moderate_target('journey','e0000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000a01'), false, 'cannot ask can_moderate_target about another user');
+-- (6) columns
+select throws_ok($$ select user_id from public.content_hearts $$, '42501', null, 'authenticated cannot read heart user_id');
+select throws_ok($$ select moderated_by from public.content_comments $$, '42501', null, 'authenticated cannot read moderated_by');
+select is((select count(*)::int from public.my_hearts('moment','e2000000-0000-4000-8000-000000000001')), 1, 'my_hearts returns only own hearts');
+select is((select count(*)::int from public.content_hearts where target_id = 'e2000000-0000-4000-8000-000000000001'), 2, 'hearts still countable');
+select lives_ok($$ delete from public.content_hearts where target_type = 'moment' and target_id = 'e2000000-0000-4000-8000-000000000001' $$, 'own heart deletable without user_id filter');
+select is((select count(*)::int from public.my_hearts()), 0, 'own heart removed');
+
+select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000a01","role":"authenticated"}',true);
+select throws_ok($$ update public.content_comments set body = 'rewritten' where id = 'ee000000-0000-4000-8000-000000000002' $$, '42501', null, 'moderator cannot rewrite another user''s text');
+select lives_ok($$ update public.content_comments set hidden_at = now(), hidden_by = auth.uid() where id = 'ee000000-0000-4000-8000-000000000002' $$, 'moderator hides another user''s comment');
+select is(public.can_moderate_target('journey','e0000000-0000-4000-8000-000000000001', auth.uid()), true, 'moderator is recognised for self');
 reset role;
 
 select * from finish();

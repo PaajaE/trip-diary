@@ -38,7 +38,7 @@ function ResolvedJourney({
     initialData ?? embedded,
   )
   if (query.isPending) return <PublicJourneySkeleton />
-  if (query.isError) {
+  if (query.isError && query.data === undefined) {
     return <PublicRouteError labelKey="publicReader.journeyError" />
   }
   if (query.data === null) {

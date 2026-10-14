@@ -6,9 +6,17 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
+
+// No router is mounted: render the link target as a plain anchor.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to }: { children: ReactNode; to: string }) => (
+    <a href={to}>{children}</a>
+  ),
+}))
 
 const ID = '00000000-0000-4000-8000-000000000001'
 const repo = vi.hoisted(() => ({

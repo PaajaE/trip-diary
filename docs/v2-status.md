@@ -341,7 +341,30 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   4. Lokálně: `supabase/config.toml` má `enable_anonymous_sign_ins = true` (captcha
      zůstává zakomentovaná); běžící lokální stack je potřeba restartovat (`supabase stop`
      a `start`), jinak anonymní přihlášení vrací `anonymous_provider_disabled`.
-- Ověřeno proti lokální DB (JWT s `is_anonymous` podepsaný lokálním klíčem, bez GoTrue):
+- Ověřeno 2026-10-14 na restartovaném lokálním stacku: skutečné anonymní přihlášení
+  (`/auth/v1/signup` bez těla → `is_anonymous`), srdíčko, `my_hearts`, smazání, komentář
+  (pending neviditelný pro anon, viditelný autorovi i moderátorovi). Turnstile nezkoušen.
+- Dřívější ověření (JWT s `is_anonymous` podepsaný lokálním klíčem, bez GoTrue):
   vložení srdíčka a komentáře (5 sloupců) 201, komentář se `status` 403 (42501), vlastní
   pending a srdíčka čitelné, `get_public_engagement` vrací počet srdíček. NEOVĚŘENO:
   skutečné `signInAnonymously` a Turnstile (lokální stack má anonymní přihlášení vypnuté).
+- Prerender a čerstvost: předrenderované HTML (title, OG tagy, vložený strom) se přestaví
+  jen při deployi, takže zrušení publikace se ve statickém HTML a OG náhledech projeví až
+  při dalším deployi. V prohlížeči se vložená data po prvním vykreslení jednou
+  zrevalidují (`requestIdleCallback`), zrušená cesta se pak ukáže jako nenalezená.
+  NÁVRH (neimplementováno): noční nebo ručně spouštěný (workflow_dispatch) rebuild a deploy.
+
+### Fáze 5 — shrnutí (2026-10-14, větev `v2/phase-5`, IMPLEMENTED)
+
+- Veřejná čtečka v2 z jednoho RPC `get_public_journey`: Cesta, Etapa/Výlet, Moment
+  (`/$spaceHandle/$journeySlug`, `/e/$segmentId`, `/m/$momentId`), mapa se shluky a
+  trasami, srcset z variant. Tagy (průřezy) v RPC nejsou, zatím jen seznam míst.
+- Předgenerování při buildu (`scripts/prerender-public.mjs`, RPC `list_public_journey_paths`):
+  HTML + OG + vložený strom + sitemap/robots; v `pages.yml` je `PRERENDER_REQUIRED=1`.
+- Hosté: DB kontrakt (migrace `20261014120000`–`130000`, pgTAP 495 testů celkem zelených),
+  nezávislé review provedeno, nálezy opraveny (moderační bypass, oracle v
+  `can_moderate_target`, sloupcová práva hearts, `$` v prerenderu, visící captcha).
+- NEOVĚŘENO: reálný prohlížeč (MapLibre, CLS/LCP, Lighthouse ≥ 90, počet požadavků),
+  Turnstile, prerender proti produkčnímu RPC, GitHub Pages deep linky. Lokálně není
+  seed veřejné cesty. Brána výkonu Fáze 5 tedy zatím NENÍ splněna.
+- Po merge: migrace nasadí CI; před zapnutím hostů udělat AKCE UŽIVATELE výše.
