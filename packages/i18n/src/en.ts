@@ -86,6 +86,7 @@ export const en = {
   common: {
     cancel: 'Cancel',
     loading: 'Loading…',
+    osmAttribution: '© OpenStreetMap contributors',
     tryAgain: 'Try again',
   },
   home: {
@@ -666,7 +667,6 @@ export const en = {
       unsupported_type: 'This file type is not supported.',
       video_too_large: 'The video file is too large.',
       video_too_long: 'The video is longer than 60 seconds.',
-      web_video_unsupported: 'Videos cannot be imported in the browser yet.',
     },
     resume: 'Resume',
     retryFailed: 'Retry failed',

@@ -7,6 +7,10 @@ import {
   uploadVideo,
   type UploadVideoOptions,
 } from '@/features/media-upload/api/upload-video'
+import {
+  uploadWebVideo,
+  type UploadWebVideoOptions,
+} from '@/features/media-upload/api/upload-web-video'
 import type { JobHooks } from '@/features/media-import/api/upload-queue'
 import { ImportJobError } from '@/features/media-import/model/import-errors'
 import type {
@@ -23,6 +27,10 @@ export interface ImportProcessorDeps {
     options: UploadPhotoOptions,
   ) => Promise<{ mediaId: string }>
   uploadVideo: (options: UploadVideoOptions) => Promise<{ mediaId: string }>
+  uploadWebVideo: (
+    file: File,
+    options: UploadWebVideoOptions,
+  ) => Promise<{ mediaId: string }>
 }
 
 export function jobToCandidate(job: UploadJob): ImportCandidate {
@@ -39,17 +47,56 @@ export function jobToCandidate(job: UploadJob): ImportCandidate {
 
 /**
  * Runs one job: photos are opened from their source and go through
- * uploadPhoto; iOS videos go through uploadVideo(assetId) (native export).
+ * uploadPhoto; iOS videos go through uploadVideo(assetId) (native export); web videos go
+ * through uploadWebVideo (browser probe + PUT of file slices).
  */
 export function createImportProcessor(
   deps: Partial<ImportProcessorDeps> & Pick<ImportProcessorDeps, 'getSource'>,
 ): (job: UploadJob, hooks: JobHooks) => Promise<{ mediaId: string }> {
   const upload = deps.uploadPhoto ?? uploadPhoto
   const uploadVid = deps.uploadVideo ?? uploadVideo
+  const uploadWebVid = deps.uploadWebVideo ?? uploadWebVideo
+  const runWebVideo = async (
+    job: UploadJob,
+    hooks: JobHooks,
+  ): Promise<{ mediaId: string }> => {
+    const source = deps.getSource(job.sourceKind)
+    if (source === undefined) {
+      throw new ImportJobError('fail', 'source_unavailable')
+    }
+    hooks.onPhase('exporting', 0)
+    let opened: Awaited<ReturnType<MediaSource['open']>>
+    try {
+      opened = await source.open(jobToCandidate(job))
+    } catch (error) {
+      if (error instanceof Error && error.message === 'source_unavailable') {
+        throw new ImportJobError('fail', 'source_unavailable')
+      }
+      throw error
+    }
+    try {
+      return await uploadWebVid(opened.file, {
+        assetId: job.sourceId,
+        assetMetadata: {
+          ...(job.capturedAt === null ? {} : { creationDate: job.capturedAt }),
+          ...(job.latitude === null ? {} : { latitude: job.latitude }),
+          ...(job.longitude === null ? {} : { longitude: job.longitude }),
+        },
+        journeyId: job.journeyId,
+        onProgress: (progress) => {
+          hooks.onPhase(progress.phase, progress.fraction)
+        },
+        ownerId: job.ownerId,
+        sourceAssetId: job.sourceId,
+      })
+    } finally {
+      await opened.cleanup().catch(() => undefined)
+    }
+  }
   return async (job, hooks) => {
     if (job.mediaType === 'video') {
       if (job.sourceKind !== 'photokit') {
-        throw new ImportJobError('skip', 'web_video_unsupported')
+        return runWebVideo(job, hooks)
       }
       return uploadVid({
         assetId: job.sourceId,

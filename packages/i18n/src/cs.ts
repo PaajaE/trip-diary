@@ -89,6 +89,7 @@ export const cs: TranslationResources = {
   common: {
     cancel: 'Zrušit',
     loading: 'Načítání…',
+    osmAttribution: '© přispěvatelé OpenStreetMap',
     tryAgain: 'Zkusit znovu',
   },
   home: {
@@ -669,7 +670,6 @@ export const cs: TranslationResources = {
       unsupported_type: 'Tento typ souboru není podporovaný.',
       video_too_large: 'Soubor videa je příliš velký.',
       video_too_long: 'Video je delší než 60 sekund.',
-      web_video_unsupported: 'Videa zatím v prohlížeči nejde importovat.',
     },
     resume: 'Pokračovat',
     retryFailed: 'Zkusit znovu neúspěšné',

@@ -120,17 +120,44 @@ describe('import processor', () => {
     expect(open).not.toHaveBeenCalled()
   })
 
-  it('skips web videos and fails photos whose source is gone after a reload', async () => {
+  it('uploads web videos from their source with journey and dedupe id, then cleans up', async () => {
+    const { cleanup, file, open, src } = source()
+    const uploadWebVideo = vi.fn(() => Promise.resolve({ mediaId: 'mw' }))
+    const onPhase = vi.fn()
+    const run = createImportProcessor({
+      getSource: () => src,
+      uploadWebVideo,
+    })
+    const video: UploadJob = {
+      ...job,
+      capturedAt: null,
+      latitude: null,
+      longitude: null,
+      mediaType: 'video',
+      sourceKind: 'web-files',
+    }
+    await expect(run(video, { onPhase })).resolves.toEqual({ mediaId: 'mw' })
+    expect(open).toHaveBeenCalled()
+    expect(uploadWebVideo).toHaveBeenCalledWith(
+      file,
+      expect.objectContaining({
+        assetMetadata: {},
+        journeyId: 'j',
+        ownerId: 'o',
+        sourceAssetId: 'A',
+      }),
+    )
+    expect(cleanup).toHaveBeenCalled()
+  })
+
+  it('fails web videos and photos whose source is gone after a reload', async () => {
     const run = createImportProcessor({ getSource: () => undefined })
     await expect(
       run(
         { ...job, mediaType: 'video', sourceKind: 'web-files' },
         { onPhase: vi.fn() },
       ),
-    ).rejects.toMatchObject({
-      outcome: 'skip',
-      reason: 'web_video_unsupported',
-    })
+    ).rejects.toMatchObject({ outcome: 'fail', reason: 'source_unavailable' })
     await expect(run(job, { onPhase: vi.fn() })).rejects.toBeInstanceOf(
       ImportJobError,
     )

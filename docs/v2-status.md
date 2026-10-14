@@ -240,8 +240,24 @@ proti lokální DB / skutečné knihovně je uvedeno u každé položky.
 | Tipy `/tips` (`posts` kind `tip`): seznam, vytvořit, upravit, smazat, zveřejnit | ✅ testy + skript proti lokální DB (RLS: cizí uživatel nezapíše, neupraví, nesmaže). Veřejné zobrazení tipů je Fáze 5                                                                                                                                              |
 | Rychlý zápis `/j/$journeyId/quick`                                              | ✅ testy + vložení do lokální DB. Okamžitý moment (manuální, zamčený) s polohou, koncept v `localStorage`; **bez offline fronty** (při chybě text zůstane, uložit jde znovu). ⚠️ UNVERIFIED: geolokace na iPhonu                                                   |
 
-Zbývá do brány Fáze 4: video import z prohlížeče, zapojení `resumeVideoUploads`,
-atribuce OSM u míst, T8 (celá knihovna), přepnutí v1 → v2 (viz T9, vyžaduje souhlas).
+Dokončeno 2026-10-14 (IMPLEMENTED, `pnpm check` zelené, nic z toho nebylo spuštěno
+v reálném prohlížeči ani na iPhonu):
+
+- **Video import z prohlížeče** (`upload-web-video.ts`): znovupoužívá `uploadVideo()`,
+  nahrazuje jen nativní švy (sonda `<video>` + poster z canvasu, díly přes
+  `file.slice`, ETag z odpovědi). Jen `video/mp4`, limity ze serverových konstant
+  (120 MB, 60 s). UNVERIFIED: skutečná sonda v prohlížeči (Safari nemusí vyvolat
+  `seeked`) a **R2 CORS musí mít `ExposeHeaders: ["ETag"]`**, jinak každé webové
+  video selže (chybová zpráva to říká). Díly se posílají sekvenčně bez opakování.
+- **`resumeVideoUploads`**: `reconcileVideoUploadsOnce()` při startu fronty (jen nativně):
+  selhané nahrávky zruší, běžící nechá. Dokončené nahrávky **nelze dokončit** (plugin
+  uchovává jen `uploadKey`, ETagy a bajty, chybí `uploadId`, klíč, poster, rozměry);
+  řádek `media` zůstane `uploading` a čeká na úklid na serveru.
+- **Atribuce OSM** u navržených míst (`OsmAttribution`, cs + en); mapy mají
+  `AttributionControl` už dříve.
+
+Zbývá do brány Fáze 4: T8 (celá knihovna z iPhonu; vyžaduje zařízení), úklid v1
+kódu a tabulek (vyžaduje souhlas), ruční kontrola výše uvedených UNVERIFIED bodů.
 
 ## Přepnutí v1 → v2 — postup (připraveno 2026-10-12, NESPUŠTĚNO)
 

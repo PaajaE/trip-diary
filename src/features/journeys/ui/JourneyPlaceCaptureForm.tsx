@@ -7,6 +7,7 @@ import {
 } from '@/entities/journey/api/journey.repository'
 import type { JourneyDetail } from '@/entities/journey/model/journey'
 import { suggestPlaceLabel } from '@/features/journeys/lib/place-suggestion'
+import { OsmAttribution } from '@/shared/ui/OsmAttribution'
 import { LocationPickerMap } from '@/features/journeys/ui/LocationPickerMap'
 import { Button } from '@/shared/ui/Button'
 import { Input } from '@/shared/ui/Input'
@@ -146,7 +147,8 @@ export function JourneyPlaceCaptureForm({
         </p>
       ) : suggestedTitle !== null && title.trim() !== '' ? (
         <p className="text-sm text-muted">
-          {t('journey.placeSuggestionApplied', { title: suggestedTitle })}
+          {t('journey.placeSuggestionApplied', { title: suggestedTitle })}{' '}
+          <OsmAttribution />
         </p>
       ) : null}
 
