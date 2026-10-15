@@ -391,3 +391,20 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   Turnstile, prerender proti produkčnímu RPC, GitHub Pages deep linky. Lokálně není
   seed veřejné cesty. Brána výkonu Fáze 5 tedy zatím NENÍ splněna.
 - Po merge: migrace nasadí CI; před zapnutím hostů udělat AKCE UŽIVATELE výše.
+
+### Fáze 5 — výkon veřejné stránky cesty (2026-10-15, větev `perf/public-journey-lighthouse`, IMPLEMENTED, produkce NEOVĚŘENO)
+
+- Příčina LCP 4,6 s: aplikace (~35 modulepreloadů, 54 skriptů) soupeřila o pásmo s
+  hero obrázkem; samotný obrázek z cizího originu (DNS+TCP+TLS) dává i bez JS LCP ~2,7 s.
+- Změny: (1) jeden chunk `app` pro vše statické ze vstupu (`vite.config.ts`
+  `codeSplitting`), (2) na předgenerované stránce cesty se skripty aplikace načtou až po
+  `load` hero obrázku (`bootScript`, pojistka 4 s), bez modulepreloadu, (3) CSS inline do
+  HTML, (4) vložený JSON na konec `<body>`, (5) varianta `small` hera se při buildu
+  zkopíruje do `dist/hero/` (stejný origin, bez nového spojení; při chybě zůstane
+  vzdálená URL), `releasePrerenderShellWhenReady` čeká na obrázek v Reactu (bez bliknutí).
+- Měření lokálně (Lighthouse 12 mobile, předgenerovaný build, gzip server, data z
+  produkčního RPC přes mock): před perf 72–77, FCP 2,6 s, LCP 4,6–5,9 s, ~88 požadavků;
+  po perf 87–98 (většinou 98), FCP 1,3 s, LCP 2,3 s, TBT ≤ 40 ms, CLS 0, ~50 požadavků
+  (z toho mapa a dlaždice po načtení). Produkce se musí změřit po nasazení.
+- Návrh (bez změny): doména míří přímo na GitHub Pages (Fastly, `max-age=600`),
+  Cloudflare HTML necachuje. Další zrychlení: menší variant hera (~480 w) v pipeline médií.

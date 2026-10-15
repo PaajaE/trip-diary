@@ -1,8 +1,9 @@
 // Prerenders public v2 routes into dist/ after `vite build`.
 // Env: VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (required to run),
 //      VITE_SITE_URL, VITE_MEDIA_BASE_URL (optional), PRERENDER_REQUIRED=1 (fail hard).
+import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import { parsePublicJourney } from '@trip-diary/core/public-journey'
 import {
   buildPages,
@@ -10,6 +11,8 @@ import {
   buildSitemap,
   isSafePathSegment,
   renderPage,
+  smallVariantUrl,
+  withLocalVariant,
 } from './lib/prerender.mjs'
 
 const required = process.env.PRERENDER_REQUIRED === '1'
@@ -49,6 +52,35 @@ async function rpc(name, body) {
   return response.json()
 }
 
+/**
+ * Copies the hero's `small` variant next to the page (dist/hero/). Best
+ * effort: any failure leaves the remote URL in place.
+ */
+async function mirrorHero(page) {
+  const hero = page.shell?.hero
+  const remote = hero === undefined ? null : smallVariantUrl(hero)
+  if (remote === null) return
+  try {
+    const response = await fetch(remote, {
+      signal: AbortSignal.timeout(30_000),
+    })
+    const type = response.headers.get('content-type') ?? ''
+    if (!response.ok || !type.startsWith('image/'))
+      throw new Error(`HTTP ${response.status} ${type}`)
+    const bytes = Buffer.from(await response.arrayBuffer())
+    if (bytes.length === 0 || bytes.length > 512 * 1024)
+      throw new Error(`unexpected size ${bytes.length}`)
+    const name = `${createHash('sha256').update(remote).digest('hex').slice(0, 16)}${extname(new URL(remote).pathname)}`
+    await mkdir(join(distDir, 'hero'), { recursive: true })
+    await writeFile(join(distDir, 'hero', name), bytes)
+    const local = withLocalVariant(hero, remote, `/hero/${name}`)
+    page.shell = { ...page.shell, hero: local }
+    page.hero = local
+  } catch (error) {
+    console.warn(`prerender: hero not mirrored (${describe(error)})`)
+  }
+}
+
 async function writePage(relDir, html) {
   const file = join(distDir, relDir, 'index.html')
   await mkdir(dirname(file), { recursive: true })
@@ -75,6 +107,20 @@ try {
   )
 }
 
+// Stylesheets inlined into journey pages (one render-blocking request less).
+const inlineStyles = {}
+for (const match of template.matchAll(
+  /<link\s+rel="stylesheet"[^>]*\shref="([^"]+)"/g,
+)) {
+  const href = match[1]
+  try {
+    inlineStyles[href] = await readFile(
+      join(distDir, href.replace(/^\//, '')),
+      'utf8',
+    )
+  } catch {}
+}
+
 const sitemap = []
 let failures = 0
 let written = 0
@@ -96,10 +142,12 @@ for (const row of list) {
     const options = { handle, mediaBaseUrl, slug }
     const pages = buildPages(tree, options)
     for (const page of pages) {
+      if (page.kind === 'journey') await mirrorHero(page)
       await writePage(
         page.dir,
         renderPage(template, page, {
           embed,
+          inlineStyles,
           mediaBaseUrl,
           siteUrl,
           supabaseUrl,

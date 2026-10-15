@@ -96,6 +96,23 @@ export function resolveHero(media, baseUrl = DEFAULT_MEDIA_BASE_URL) {
   }
 }
 
+/** Remote URL of the `small` variant listed in a hero's srcset, or null. */
+export function smallVariantUrl(hero) {
+  const match = /(?:^|,\s*)(\S+\/small\.[A-Za-z0-9]+)\s+\d+w/.exec(hero.srcSet)
+  return match?.[1] ?? null
+}
+
+/**
+ * Same hero, with one remote image URL swapped for a same-origin copy. The
+ * image then reuses the already-open connection to the page's own origin
+ * instead of paying DNS + TCP + TLS for the media host before the LCP paint.
+ * `ogImage` stays absolute (crawlers need it).
+ */
+export function withLocalVariant(hero, remoteUrl, localUrl) {
+  const swap = (value) => value.split(remoteUrl).join(localUrl)
+  return { ...hero, src: swap(hero.src), srcSet: swap(hero.srcSet) }
+}
+
 export function pathsFor(handle, slug) {
   return `/${encodeURIComponent(handle)}/${encodeURIComponent(slug)}`
 }
@@ -194,7 +211,7 @@ const REPLACED_HEAD = [
 export function renderPage(
   template,
   page,
-  { embed, mediaBaseUrl, siteUrl, supabaseUrl },
+  { embed, inlineStyles = {}, mediaBaseUrl, siteUrl, supabaseUrl },
 ) {
   let html = template
   for (const pattern of REPLACED_HEAD) html = html.replace(pattern, '')
@@ -225,22 +242,56 @@ export function renderPage(
       : `<meta name="twitter:image" content="${escapeHtml(page.hero.ogImage)}" />`,
     page.hero === null ? null : preloadTag(page.hero),
     ...originHints({ mediaBaseUrl, supabaseUrl }),
-    `<script type="application/json" id="${EMBED_SCRIPT_ID}">${serializeJsonForScript(embed)}</script>`,
   ].filter((t) => t !== null)
   const block = `    ${tags.join('\n    ')}\n  </head>`
   // Replacer function: a string would interpret $$, $&, $' and $` in user text.
   html = html.replace('</head>', () => block)
   const shell = page.shell === undefined ? null : shellHtml(page.shell)
+  const embedTag = `<script type="application/json" id="${EMBED_SCRIPT_ID}">${serializeJsonForScript(embed)}</script>`
+  let tail = embedTag
+  if (shell !== null) {
+    // The hero is static: let it (and the CSS) have the whole connection, and
+    // boot the app only once the hero image has loaded.
+    const boot = []
+    html = html.replace(
+      /\s*<script\s+type="module"[^>]*\ssrc="([^"]+)"[^>]*><\/script>/g,
+      (_, src) => {
+        boot.push(src)
+        return ''
+      },
+    )
+    html = html.replace(/\s*<link\s+rel="modulepreload"[^>]*>/g, '')
+    html = html.replace(
+      /<link\s+rel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g,
+      (tag, href) => {
+        const css = inlineStyles[href]
+        return css === undefined
+          ? tag
+          : `<style>${css.replaceAll('</style', '<\\/style')}</style>`
+      },
+    )
+    tail = `${embedTag}\n    ${bootScript(boot)}`
+  }
   // vite.config.ts (landingShell) fills #root with the landing hero; it does
   // not belong on journey pages, so replace the whole root element.
   const root =
     shell === null
       ? '<div id="root"></div>'
       : `${shell}\n    <div id="root" hidden></div>`
-  return html.replace(
+  html = html.replace(
     /<div id="root">[\s\S]*?<\/div>(?=\s*<script>)|<div id="root"><\/div>/,
     () => root,
   )
+  return html.replace('</body>', () => `    ${tail}\n  </body>`)
+}
+
+/**
+ * Inline loader: appends the app's module scripts once the hero image has
+ * loaded (or failed, or after 4 s), so the bundle never competes with the LCP
+ * image. Without a hero image it boots at once.
+ */
+export function bootScript(srcs) {
+  return `<script>(function(){var s=${serializeJsonForScript(srcs)},b=0;function go(){if(b)return;b=1;for(var k=0;k<s.length;k++){var e=document.createElement('script');e.type='module';e.crossOrigin='anonymous';e.src=s[k];document.head.appendChild(e)}}var i=document.querySelector('#${SHELL_ID} img');if(!i||i.complete){go();return}i.addEventListener('load',go);i.addEventListener('error',go);setTimeout(go,4000)})()</script>`
 }
 
 /**
