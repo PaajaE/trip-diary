@@ -8,6 +8,8 @@ import {
   renderPage,
   resolveHero,
   serializeJsonForScript,
+  smallVariantUrl,
+  withLocalVariant,
 } from './prerender.mjs'
 
 const id = (n) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`
@@ -121,7 +123,8 @@ describe('prerender helpers', () => {
       '<script type="application/json" id="__PUBLIC_JOURNEY__">',
     )
     expect(html).not.toContain('</script><!--')
-    expect(html.match(/<\/script>/g)).toHaveLength(1)
+    // embedded json + boot loader
+    expect(html.match(/<\/script>/g)).toHaveLength(2)
     expect(html).not.toContain('content="old"')
   })
 
@@ -156,6 +159,52 @@ describe('prerender helpers', () => {
     expect(renderPage(tpl, segment, { embed: tree })).not.toContain(
       'prerender-shell',
     )
+  })
+
+  it('defers the app bundle behind the hero, inlines css, embeds json last', () => {
+    const tpl =
+      '<html><head><script type="module" crossorigin src="/assets/app-1.js"></script><link rel="modulepreload" crossorigin href="/assets/x.js"><link rel="stylesheet" crossorigin href="/assets/app-1.css"></head><body><div id="root"></div><script>1</script></body></html>'
+    const [page, segment] = buildPages(tree, {
+      handle: 'pavel',
+      mediaBaseUrl: 'https://m.test',
+      slug: 'kanada',
+    })
+    const html = renderPage(tpl, page, {
+      embed: tree,
+      inlineStyles: { '/assets/app-1.css': 'a{color:red}</style>' },
+      mediaBaseUrl: 'https://m.test',
+    })
+    expect(html).not.toContain('<script type="module"')
+    expect(html).not.toContain('modulepreload')
+    expect(html).not.toContain('rel="stylesheet"')
+    expect(html).toContain('<style>a{color:red}<\\/style></style>')
+    expect(html).toContain('["/assets/app-1.js"]')
+    const embedAt = html.indexOf('id="__PUBLIC_JOURNEY__"')
+    expect(embedAt).toBeGreaterThan(html.indexOf('</head>'))
+    expect(embedAt).toBeLessThan(html.indexOf('</body>'))
+    // Pages without a shell keep the normal script tags and stylesheet.
+    const plain = renderPage(tpl, segment, { embed: tree })
+    expect(plain).toContain('<script type="module"')
+    expect(plain).toContain('rel="stylesheet"')
+  })
+
+  it('swaps the small variant for a same-origin copy', () => {
+    const hero = {
+      ogImage: 'https://m.test/a/large.jpg',
+      src: 'https://m.test/a/medium.jpg',
+      srcSet:
+        'https://m.test/a/thumb.jpg 220w, https://m.test/a/small.jpg 800w, https://m.test/a/medium.jpg 1600w',
+    }
+    expect(smallVariantUrl(hero)).toBe('https://m.test/a/small.jpg')
+    expect(smallVariantUrl({ srcSet: '' })).toBeNull()
+    const local = withLocalVariant(
+      hero,
+      'https://m.test/a/small.jpg',
+      '/hero/x.jpg',
+    )
+    expect(local.srcSet).toContain('/hero/x.jpg 800w')
+    expect(local.srcSet).toContain('https://m.test/a/medium.jpg 1600w')
+    expect(local.ogImage).toBe('https://m.test/a/large.jpg')
   })
 
   it("keeps $-patterns in user text literal ($$, $&, $', $`)", () => {

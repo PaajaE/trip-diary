@@ -3,7 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import type { PublicJourney } from '@trip-diary/core/public-journey'
 import { usePublicJourney } from '@/entities/public-journey/api/use-public-journey'
 import { readEmbeddedJourney } from '@/entities/public-journey/lib/embedded-journey'
-import { releasePrerenderShell } from '@/app/prerender-shell'
+import { releasePrerenderShellWhenReady } from '@/app/prerender-shell'
 import { PublicEngagementScope } from '@/features/public-engagement/lib/scope'
 import { PublicJourneySkeleton } from '@/features/public-journey/ui/PublicJourneySkeleton'
 import { PublicJourneyPage } from '@/pages/public-journey/PublicJourneyPage'
@@ -40,7 +40,8 @@ function ResolvedJourney({
   )
   const settled = !query.isPending
   useEffect(() => {
-    if (settled) releasePrerenderShell()
+    if (settled) return releasePrerenderShellWhenReady()
+    return undefined
   }, [settled])
   if (query.isPending) return <PublicJourneySkeleton />
   if (query.isError && query.data === undefined) {

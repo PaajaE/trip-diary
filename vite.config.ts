@@ -125,6 +125,16 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Everything statically reachable from the entry goes into one chunk:
+        // ~35 tiny shared chunks meant ~35 modulepreload requests before the
+        // public reader could hydrate. Lazy routes and MapLibre stay split.
+        codeSplitting: { groups: [{ name: 'app', tags: ['$initial'] }] },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
