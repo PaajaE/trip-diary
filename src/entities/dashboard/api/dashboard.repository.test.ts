@@ -50,27 +50,11 @@ describe('getDashboardData', () => {
     vi.mocked(prefetchJourneySnapshot).mockReset()
   })
 
-  it('loads and maps recent member journeys and authored entries', async () => {
+  it('loads and maps recent member journeys', async () => {
     const userId = crypto.randomUUID()
     const journeyId = crypto.randomUUID()
-    const entryId = crypto.randomUUID()
     const memberships = createQueryBuilder({
       data: [{ journey_id: journeyId, role: 'owner' }],
-      error: null,
-    })
-    const entries = createQueryBuilder({
-      data: [
-        {
-          event_at: '2026-06-01T12:00:00+00:00',
-          id: entryId,
-          published_at: null,
-          status: 'draft',
-          title: 'First road',
-          type: 'story',
-          updated_at: '2026-06-09T12:00:00+00:00',
-          visibility: 'private',
-        },
-      ],
       error: null,
     })
     const journeys = createQueryBuilder({
@@ -91,27 +75,14 @@ describe('getDashboardData', () => {
     const client = {
       from: vi.fn((table: string) => {
         if (table === 'journey_members') return memberships
-        if (table === 'entries') return entries
         return journeys
       }),
     }
     getSupabaseClientMock.mockReturnValue(client)
 
     await expect(
-      getDashboardData({ entryLimit: 4, journeyLimit: 3, userId }),
+      getDashboardData({ journeyLimit: 3, userId }),
     ).resolves.toEqual({
-      entries: [
-        {
-          eventAt: '2026-06-01T12:00:00+00:00',
-          id: entryId,
-          publishedAt: null,
-          status: 'draft',
-          title: 'First road',
-          type: 'story',
-          updatedAt: '2026-06-09T12:00:00+00:00',
-          visibility: 'private',
-        },
-      ],
       journeys: [
         {
           endsAt: null,
@@ -128,8 +99,6 @@ describe('getDashboardData', () => {
     })
 
     expect(memberships.eq).toHaveBeenCalledWith('user_id', userId)
-    expect(entries.eq).toHaveBeenCalledWith('creator_id', userId)
-    expect(entries.limit).toHaveBeenCalledWith(4)
     expect(journeys.in).toHaveBeenCalledWith('id', [journeyId])
     expect(journeys.limit).toHaveBeenCalledWith(3)
     expect(prefetchJourneySnapshot).toHaveBeenCalledWith(journeyId)
@@ -137,37 +106,27 @@ describe('getDashboardData', () => {
 
   it('does not query journeys when the user has no memberships', async () => {
     const memberships = createQueryBuilder({ data: [], error: null })
-    const entries = createQueryBuilder({ data: [], error: null })
     const client = {
-      from: vi.fn((table: string) =>
-        table === 'journey_members' ? memberships : entries,
-      ),
+      from: vi.fn(() => memberships),
     }
     getSupabaseClientMock.mockReturnValue(client)
 
     await expect(
       getDashboardData({ userId: crypto.randomUUID() }),
     ).resolves.toEqual({
-      entries: [],
       journeys: [],
     })
     expect(client.from).not.toHaveBeenCalledWith('journeys')
   })
 
   it('falls back to local journeys when the remote dashboard read fails', async () => {
-    const error = new Error('entries unavailable')
-    const memberships = createQueryBuilder({ data: [], error: null })
-    const entries = createQueryBuilder({ data: [], error })
-    getSupabaseClientMock.mockReturnValue({
-      from: vi.fn((table: string) =>
-        table === 'journey_members' ? memberships : entries,
-      ),
-    })
+    const error = new Error('memberships unavailable')
+    const memberships = createQueryBuilder({ data: [], error })
+    getSupabaseClientMock.mockReturnValue({ from: vi.fn(() => memberships) })
 
     await expect(
       getDashboardData({ userId: crypto.randomUUID() }),
     ).resolves.toEqual({
-      entries: [],
       journeys: [],
     })
   })

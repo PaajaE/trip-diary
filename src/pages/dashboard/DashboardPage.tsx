@@ -41,8 +41,6 @@ export function DashboardPage() {
     )
   }
 
-  const unsortedEntries = dashboardQuery.data?.entries ?? []
-
   return (
     <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-16">
       <header className="flex flex-col justify-between gap-6 pb-10 sm:flex-row sm:items-end">
@@ -131,41 +129,6 @@ export function DashboardPage() {
               </div>
             )}
           </section>
-
-          {unsortedEntries.length > 0 ? (
-            <section className="border-t border-border pb-12 pt-4">
-              <h2 className="text-xl font-semibold">
-                {t('dashboard.unsortedCount', {
-                  count: unsortedEntries.length,
-                })}
-              </h2>
-              <p className="mt-2 text-sm text-muted">
-                {t('dashboard.unsorted')}
-              </p>
-              <div className="mt-6 space-y-4">
-                {unsortedEntries.map((entry) => (
-                  <Link
-                    className="block rounded-[1.25rem] border border-border/70 bg-surface p-5 shadow-soft transition-colors hover:bg-white"
-                    key={entry.id}
-                    params={{ entryId: entry.id }}
-                    to="/e/$entryId"
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                      {t(`entry.type.${entry.type}`)}
-                    </p>
-                    <h3 className="mt-2 text-lg font-semibold">
-                      {entry.title ?? t('dashboard.untitled')}
-                    </h3>
-                    <p className="mt-2 text-sm text-muted">
-                      {entry.status === 'published'
-                        ? t('dashboard.published')
-                        : t('dashboard.draft')}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          ) : null}
         </>
       )}
     </main>

@@ -57,7 +57,6 @@ describe('getDashboardData offline journeys', () => {
     const journeyId = crypto.randomUUID()
 
     await saveDashboardCache(userId, {
-      entries: [],
       journeys: [
         {
           endsAt: null,
@@ -125,57 +124,6 @@ describe('getDashboardData offline journeys', () => {
         id: journeyId,
         title: 'Snapshot dashboard trip',
       }),
-    )
-  })
-
-  it('merges cached entries with local standalone entries offline', async () => {
-    const userId = crypto.randomUUID()
-    const cachedEntryId = crypto.randomUUID()
-    const localEntryId = crypto.randomUUID()
-    const now = new Date().toISOString()
-
-    await saveDashboardCache(userId, {
-      entries: [
-        {
-          eventAt: null,
-          id: cachedEntryId,
-          publishedAt: now,
-          status: 'published',
-          title: 'Cached note',
-          type: 'note',
-          updatedAt: now,
-          visibility: 'public',
-        },
-      ],
-      journeys: [],
-    })
-
-    await localDb.entries.add({
-      body: 'Local body',
-      createdAt: now,
-      creatorId: userId,
-      eventAt: now,
-      id: localEntryId,
-      language: 'cs',
-      publishedAt: null,
-      slug: null,
-      spaceId: null,
-      status: 'draft',
-      syncStatus: 'pending',
-      title: 'Local note',
-      type: 'note',
-      updatedAt: now,
-      version: 1,
-      visibility: 'public',
-    })
-
-    const dashboard = await getDashboardData({ userId })
-
-    expect(dashboard.entries).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: cachedEntryId, title: 'Cached note' }),
-        expect.objectContaining({ id: localEntryId, title: 'Local note' }),
-      ]),
     )
   })
 })

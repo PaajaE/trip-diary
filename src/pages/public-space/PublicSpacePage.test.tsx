@@ -33,15 +33,6 @@ const space: PublicSpaceViewModel = {
     },
   ],
   name: 'Ečerovi',
-  diaryEntries: [
-    {
-      dateLabel: '10. června 2026',
-      excerpt: 'Naše osvědčené zastávky na cestu.',
-      id: 'snacks',
-      title: 'Svačiny na dlouhé přejezdy',
-      typeLabel: 'Tip',
-    },
-  ],
 }
 
 const share = {
@@ -52,12 +43,10 @@ const share = {
 describe('PublicSpacePage', () => {
   afterEach(cleanup)
 
-  it('presents public journeys and entries through callbacks', async () => {
+  it('presents public journeys through callbacks', async () => {
     const user = userEvent.setup()
     const onOpenJourney = vi.fn()
-    const onOpenEntry = vi.fn()
     renderPublicSpacePage({
-      onOpenEntry,
       onOpenJourney,
       shareText: share.shareText,
       shareUrl: share.shareUrl,
@@ -72,29 +61,21 @@ describe('PublicSpacePage', () => {
 
     await user.click(screen.getByRole('button', { name: /Kanada 2026/ }))
     expect(onOpenJourney).toHaveBeenCalledWith('canada')
-
-    await user.click(
-      screen.getByRole('button', { name: /Svačiny na dlouhé přejezdy/ }),
-    )
-    expect(onOpenEntry).toHaveBeenCalledWith('snacks')
   })
 
-  it('shows independent empty states for journeys and entries', () => {
+  it('shows an empty state for journeys', () => {
     renderPublicSpacePage({
-      onOpenEntry: vi.fn(),
       onOpenJourney: vi.fn(),
       shareText: share.shareText,
       shareUrl: share.shareUrl,
-      space: { ...space, diaryEntries: [], journeys: [] },
+      space: { ...space, journeys: [] },
     })
 
     expect(screen.getByText('Zatím žádné veřejné cesty')).toBeVisible()
-    expect(screen.getByText('Zatím žádné veřejné příspěvky')).toBeVisible()
   })
 
   it('renders a compact share action for the public diary', () => {
     renderPublicSpacePage({
-      onOpenEntry: vi.fn(),
       onOpenJourney: vi.fn(),
       shareText: share.shareText,
       shareUrl: share.shareUrl,

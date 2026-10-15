@@ -319,7 +319,30 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
 - Brána `media-upload` v produkci (2026-10-13, přihlášený vlastník): bez tokenu 401,
   `sign-put` 200 s klíčem pod ID uživatele, PUT do R2 200, `delete-media` smazal 1 objekt,
   opakované smazání 0. Uživatelský JWT gateway přijímá (dřívější UNVERIFIED odpadá).
-- Zbývá: smazání v1 kódu a tabulek (po schválení výsledku).
+- Zbývá: smazání tabulek (kód viz níže) (po schválení výsledku).
+
+### v1 kód odstraněn (2026-10-15)
+
+- Odstraněno (jen frontend, `supabase/` a workflow beze změn): v1 trasy `/entries/new`,
+  `/e/$entryId`, `/j/$journeyId/memory/new`, `/$spaceHandle/tipy/$entrySlug`,
+  `/$spaceHandle/$journeySlug/$entrySlug` (padají na not-found); stránky `entry/*`,
+  `reader/*`, `JourneyPage`, vytvoření vzpomínky; v1 čtečka a přehled cesty
+  (`features/journeys` kromě formuláře cesty a členů), `features/entries`,
+  `features/photos`, `features/nature` (kromě šablon), `features/checklist`,
+  `features/engagement`, sdílení momentu; repozitáře `entities/entry` (mutace, veřejné),
+  `entities/translation`, `entities/engagement`, galerie a mutace fotek, iNaturalist/GBIF
+  klienti; příslušné testy a nepoužité klíče v `packages/i18n` (cs i en, parita zachována).
+- Veřejná stránka prostoru a dashboard už neukazují v1 záznamy (jen cesty).
+- Záměrně ponecháno: Dexie schéma (`local-db.ts`) a synchronizační fronta
+  (`shared/sync`, `SyncManager`) včetně `entities/entry|photo|checklist|nature` lokálních
+  repozitářů, protože fronta může mít u uživatelů nesesynchronizované v1 operace a
+  vytvoření cesty (`/journeys/new`) ji i šablony checklistu stále používá; `photo.worker.ts` a
+  `process-photo` (v2 nahrávání); klíče `terms.*` (slovník s testem) a `sync.*`.
+- NÁVRH (PROPOSED, 30 dní po přepnutí, vyžaduje souhlas): smazat v1 tabulky
+  (`entries`, `photos`, `entry_photos`, …) a v1 edge funkce `og-share`, `translate-entry`,
+  `maintain-photo-*`; odstranit `scripts/copy-storage-to-r2.mjs` a backfill skripty
+  fotek, řádky nasazení těchto funkcí z workflow; poté vyřadit sync frontu a v1 tabulky z
+  Dexie (verze s `stores({ ...: null })` a test migrace) a `packages/core` v1 modely.
 
 ## Fáze 5 — hosté: srdíčka a komentáře (2026-10-14, rozpracováno)
 
