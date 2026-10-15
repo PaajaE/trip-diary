@@ -59,13 +59,24 @@ export function resolveHero(media, baseUrl = DEFAULT_MEDIA_BASE_URL) {
     const poster = media.variants.find((v) => v.kind === 'poster')
     if (poster === undefined) return null
     const url = mediaUrl(poster.storageKey, baseUrl)
-    return { ogImage: url, src: url, srcSet: '' }
+    return {
+      alt: media.caption ?? '',
+      focalX: media.focalX ?? null,
+      focalY: media.focalY ?? null,
+      height: poster.height,
+      ogImage: url,
+      src: url,
+      srcSet: '',
+      width: poster.width,
+    }
   }
   const sorted = imageVariants(media)
   if (sorted.length === 0) return null
   const large =
     sorted.find((v) => v.kind === 'large') ?? sorted[sorted.length - 1]
-  const medium = sorted.find((v) => v.kind === 'medium') ?? large
+  // Same fallback as resolveImage() in media-url.ts (medium, else largest).
+  const medium =
+    sorted.find((v) => v.kind === 'medium') ?? sorted[sorted.length - 1]
   const seen = new Set()
   const parts = []
   for (const v of sorted) {
@@ -74,9 +85,14 @@ export function resolveHero(media, baseUrl = DEFAULT_MEDIA_BASE_URL) {
     parts.push(`${mediaUrl(v.storageKey, baseUrl)} ${String(v.width)}w`)
   }
   return {
+    alt: media.caption ?? '',
+    focalX: media.focalX ?? null,
+    focalY: media.focalY ?? null,
+    height: medium.height,
     ogImage: mediaUrl(large.storageKey, baseUrl),
     src: mediaUrl(medium.storageKey, baseUrl),
     srcSet: parts.join(', '),
+    width: medium.width,
   }
 }
 
@@ -103,12 +119,33 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
   }
   const j = tree.journey
   const site = j.space.name
+  // Exactly what PublicJourneyPage shows as its hero (pickCover): the cover,
+  // else the first starred photo, else the first photo. The static shell must
+  // match it, so it is derived separately from the OG/preload candidates.
+  const photos = tree.media.filter((m) => m.kind === 'photo')
+  const coverMedia =
+    j.coverMediaId === null ? undefined : mediaById.get(j.coverMediaId)
+  const shellMedia = coverMedia ?? photos.find((m) => m.starred) ?? photos[0]
+  const shellHero = resolveHero(shellMedia, mediaBaseUrl)
   const pages = [
     {
       description: summarize(j.summary) || `${j.title} · ${site}`,
       dir: `${handle}/${slug}`,
-      hero: heroOf(j.coverMediaId, []),
+      hero: shellHero ?? heroOf(j.coverMediaId, []),
       kind: 'journey',
+      shell:
+        shellHero === null
+          ? null
+          : {
+              eyebrow: site,
+              hero: shellHero,
+              period:
+                j.startsAt === null
+                  ? null
+                  : `${j.startsAt}${j.endsAt === null ? '' : ` – ${j.endsAt}`}`,
+              summary: j.summary,
+              title: j.title,
+            },
       title: `${j.title} · ${site}`,
       urlPath: base,
     },
@@ -154,7 +191,11 @@ const REPLACED_HEAD = [
 ]
 
 /** Renders one prerendered page from the built dist/index.html. */
-export function renderPage(template, page, { embed, siteUrl }) {
+export function renderPage(
+  template,
+  page,
+  { embed, mediaBaseUrl, siteUrl, supabaseUrl },
+) {
   let html = template
   for (const pattern of REPLACED_HEAD) html = html.replace(pattern, '')
   const canonical =
@@ -183,18 +224,83 @@ export function renderPage(template, page, { embed, siteUrl }) {
       ? null
       : `<meta name="twitter:image" content="${escapeHtml(page.hero.ogImage)}" />`,
     page.hero === null ? null : preloadTag(page.hero),
+    ...originHints({ mediaBaseUrl, supabaseUrl }),
     `<script type="application/json" id="${EMBED_SCRIPT_ID}">${serializeJsonForScript(embed)}</script>`,
   ].filter((t) => t !== null)
   const block = `    ${tags.join('\n    ')}\n  </head>`
   // Replacer function: a string would interpret $$, $&, $' and $` in user text.
-  return html.replace('</head>', () => block)
+  html = html.replace('</head>', () => block)
+  const shell = page.shell === undefined ? null : shellHtml(page.shell)
+  // vite.config.ts (landingShell) fills #root with the landing hero; it does
+  // not belong on journey pages, so replace the whole root element.
+  const root =
+    shell === null
+      ? '<div id="root"></div>'
+      : `${shell}\n    <div id="root" hidden></div>`
+  return html.replace(
+    /<div id="root">[\s\S]*?<\/div>(?=\s*<script>)|<div id="root"><\/div>/,
+    () => root,
+  )
+}
+
+/**
+ * Static hero painted before the JS bundle runs. Mirrors the hero block of
+ * src/pages/public-journey/PublicJourneyPage.tsx (classes, sizes, dimensions);
+ * keep both in sync. Removed by releasePrerenderShell() once React has rendered.
+ */
+export const HERO_SIZES = '(min-width: 1024px) 1024px, 100vw'
+export const SHELL_ID = 'prerender-shell'
+
+export function shellHtml({ eyebrow, hero, period, summary, title }) {
+  const focal =
+    hero.focalX !== null && hero.focalY !== null
+      ? ` style="object-position:${String(hero.focalX * 100)}% ${String(hero.focalY * 100)}%"`
+      : ''
+  const srcset =
+    hero.srcSet === '' ? '' : ` srcset="${escapeHtml(hero.srcSet)}"`
+  const img = `<img alt="${escapeHtml(hero.alt)}" class="h-full w-full object-cover" decoding="async" fetchpriority="high" height="${String(hero.height)}" loading="eager" sizes="${HERO_SIZES}" src="${escapeHtml(hero.src)}"${srcset}${focal} width="${String(hero.width)}" />`
+  const lines = [
+    `<div class="overflow-hidden rounded-lg bg-surface" style="aspect-ratio:16 / 9">${img}</div>`,
+    `<p class="text-sm text-muted">${escapeHtml(eyebrow)}</p>`,
+    `<h1 class="text-3xl font-semibold">${escapeHtml(title)}</h1>`,
+    period === null || period === undefined
+      ? null
+      : `<p class="text-sm text-muted">${escapeHtml(period)}</p>`,
+    summary === ''
+      ? null
+      : `<p class="whitespace-pre-line leading-7">${escapeHtml(summary)}</p>`,
+  ].filter((l) => l !== null)
+  return `<div id="${SHELL_ID}"><main class="mx-auto max-w-5xl space-y-10 px-5 py-8"><header class="space-y-4">${lines.join('')}</header></main></div>`
+}
+
+function originOf(url) {
+  try {
+    return new URL(url).origin
+  } catch {
+    return null
+  }
+}
+
+/**
+ * preconnect hints. Images are fetched without CORS (no crossorigin attribute,
+ * so the connection is reusable); the API origin is used by fetch() with CORS.
+ */
+function originHints({ mediaBaseUrl, supabaseUrl }) {
+  const media = originOf(mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL)
+  const api = supabaseUrl === undefined ? null : originOf(supabaseUrl)
+  return [
+    media === null ? null : `<link rel="preconnect" href="${media}" />`,
+    api === null || api === media
+      ? null
+      : `<link rel="preconnect" href="${api}" crossorigin />`,
+  ].filter((t) => t !== null)
 }
 
 function preloadTag(hero) {
   const srcset =
     hero.srcSet === ''
       ? ''
-      : ` imagesrcset="${escapeHtml(hero.srcSet)}" imagesizes="100vw"`
+      : ` imagesrcset="${escapeHtml(hero.srcSet)}" imagesizes="${HERO_SIZES}"`
   return `<link rel="preload" as="image" fetchpriority="high" href="${escapeHtml(hero.src)}"${srcset} />`
 }
 

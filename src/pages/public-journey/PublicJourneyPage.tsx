@@ -97,89 +97,95 @@ export function PublicJourneyPage({
         />
       </section>
 
-      <section aria-labelledby="stages-heading" className="space-y-4">
-        <h2 className="text-xl font-semibold" id="stages-heading">
-          {t('publicJourney.stages')}
-        </h2>
-        <ul className="grid gap-4 sm:grid-cols-2">
-          {model.stages.map((stage) => {
-            const media = model.mediaInSpan(stage.id)
-            const stageCover = pickCover(model, stage.coverMediaId, media)
-            const momentCount = model.momentsInSpan(stage.id).length
-            const color = model.stageColor(stage.id)
-            return (
-              <li key={stage.id}>
+      {model.stages.length > 0 ? (
+        <section aria-labelledby="stages-heading" className="space-y-4">
+          <h2 className="text-xl font-semibold" id="stages-heading">
+            {t('publicJourney.stages')}
+          </h2>
+          <ul className="grid gap-4 sm:grid-cols-2">
+            {model.stages.map((stage) => {
+              const media = model.mediaInSpan(stage.id)
+              const stageCover = pickCover(model, stage.coverMediaId, media)
+              const momentCount = model.momentsInSpan(stage.id).length
+              const color = model.stageColor(stage.id)
+              return (
+                <li key={stage.id}>
+                  <Link
+                    className="block overflow-hidden rounded-lg border border-border bg-surface"
+                    params={{ journeySlug, segmentId: stage.id, spaceHandle }}
+                    to="/$spaceHandle/$journeySlug/e/$segmentId"
+                  >
+                    <div
+                      className="bg-border"
+                      style={{
+                        aspectRatio: '3 / 2',
+                        borderBottom: `4px solid ${color}`,
+                      }}
+                    >
+                      {stageCover !== null ? (
+                        <PublicMediaView
+                          className="h-full w-full object-cover"
+                          media={stageCover}
+                          sizes="(min-width: 640px) 50vw, 100vw"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="space-y-1 p-4">
+                      <h3 className="text-lg font-semibold">{stage.title}</h3>
+                      <p className="text-sm text-muted">
+                        {formatDateRange(model, stage, i18n.language)}
+                      </p>
+                      <p className="text-sm text-muted">
+                        {t('publicJourney.counts', {
+                          moments: momentCount,
+                          photos: media.length,
+                        })}
+                      </p>
+                      {stage.body !== '' ? (
+                        <p className="text-sm leading-6">
+                          {excerpt(stage.body)}
+                        </p>
+                      ) : null}
+                    </div>
+                  </Link>
+                </li>
+              )
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      {timeline.length > 0 ? (
+        <section aria-labelledby="timeline-heading" className="space-y-4">
+          <h2 className="text-xl font-semibold" id="timeline-heading">
+            {t('publicJourney.timeline')}
+          </h2>
+          <ol className="space-y-2 border-l-2 border-border pl-4">
+            {timeline.map((segment) => (
+              <li
+                className={segment.kind === 'trip' ? 'ml-4' : ''}
+                key={segment.id}
+              >
                 <Link
-                  className="block overflow-hidden rounded-lg border border-border bg-surface"
-                  params={{ journeySlug, segmentId: stage.id, spaceHandle }}
+                  className="font-medium underline"
+                  params={{ journeySlug, segmentId: segment.id, spaceHandle }}
                   to="/$spaceHandle/$journeySlug/e/$segmentId"
                 >
-                  <div
-                    className="bg-border"
-                    style={{
-                      aspectRatio: '3 / 2',
-                      borderBottom: `4px solid ${color}`,
-                    }}
-                  >
-                    {stageCover !== null ? (
-                      <PublicMediaView
-                        className="h-full w-full object-cover"
-                        media={stageCover}
-                        sizes="(min-width: 640px) 50vw, 100vw"
-                      />
-                    ) : null}
-                  </div>
-                  <div className="space-y-1 p-4">
-                    <h3 className="text-lg font-semibold">{stage.title}</h3>
-                    <p className="text-sm text-muted">
-                      {formatDateRange(model, stage, i18n.language)}
-                    </p>
-                    <p className="text-sm text-muted">
-                      {t('publicJourney.counts', {
-                        moments: momentCount,
-                        photos: media.length,
-                      })}
-                    </p>
-                    {stage.body !== '' ? (
-                      <p className="text-sm leading-6">{excerpt(stage.body)}</p>
-                    ) : null}
-                  </div>
-                </Link>
+                  {segment.title}
+                </Link>{' '}
+                <span className="text-sm text-muted">
+                  {formatInZone(
+                    segment.startsAt,
+                    zoneOf(model, segment),
+                    i18n.language,
+                    { day: 'numeric', month: 'short' },
+                  )}
+                </span>
               </li>
-            )
-          })}
-        </ul>
-      </section>
-
-      <section aria-labelledby="timeline-heading" className="space-y-4">
-        <h2 className="text-xl font-semibold" id="timeline-heading">
-          {t('publicJourney.timeline')}
-        </h2>
-        <ol className="space-y-2 border-l-2 border-border pl-4">
-          {timeline.map((segment) => (
-            <li
-              className={segment.kind === 'trip' ? 'ml-4' : ''}
-              key={segment.id}
-            >
-              <Link
-                className="font-medium underline"
-                params={{ journeySlug, segmentId: segment.id, spaceHandle }}
-                to="/$spaceHandle/$journeySlug/e/$segmentId"
-              >
-                {segment.title}
-              </Link>{' '}
-              <span className="text-sm text-muted">
-                {formatInZone(
-                  segment.startsAt,
-                  zoneOf(model, segment),
-                  i18n.language,
-                  { day: 'numeric', month: 'short' },
-                )}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
+            ))}
+          </ol>
+        </section>
+      ) : null}
 
       {data.places.length > 0 ? (
         <section aria-labelledby="places-heading" className="space-y-2">

@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useParams } from '@tanstack/react-router'
 import type { PublicJourney } from '@trip-diary/core/public-journey'
 import { usePublicJourney } from '@/entities/public-journey/api/use-public-journey'
 import { readEmbeddedJourney } from '@/entities/public-journey/lib/embedded-journey'
+import { releasePrerenderShell } from '@/app/prerender-shell'
 import { PublicEngagementScope } from '@/features/public-engagement/lib/scope'
 import { PublicJourneySkeleton } from '@/features/public-journey/ui/PublicJourneySkeleton'
 import { PublicJourneyPage } from '@/pages/public-journey/PublicJourneyPage'
@@ -37,6 +38,10 @@ function ResolvedJourney({
     journeySlug,
     initialData ?? embedded,
   )
+  const settled = !query.isPending
+  useEffect(() => {
+    if (settled) releasePrerenderShell()
+  }, [settled])
   if (query.isPending) return <PublicJourneySkeleton />
   if (query.isError && query.data === undefined) {
     return <PublicRouteError labelKey="publicReader.journeyError" />
