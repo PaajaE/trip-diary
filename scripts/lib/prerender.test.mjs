@@ -125,6 +125,39 @@ describe('prerender helpers', () => {
     expect(html).not.toContain('content="old"')
   })
 
+  it('renders a static hero shell, hidden root and preconnect hints', () => {
+    const tpl =
+      '<html><head></head><body><div id="root">\n<div id="landing-shell"><div>x</div>\n</div>\n</div>\n<script>1</script></body></html>'
+    const [page] = buildPages(tree, {
+      handle: 'pavel',
+      mediaBaseUrl: 'https://m.test',
+      slug: 'kanada',
+    })
+    const html = renderPage(tpl, page, {
+      embed: tree,
+      mediaBaseUrl: 'https://m.test',
+      supabaseUrl: 'https://api.test',
+    })
+    expect(html).toContain('<div id="prerender-shell">')
+    expect(html).toContain('<div id="root" hidden></div>')
+    expect(html).not.toContain('landing-shell')
+    expect(html).toContain(
+      '<h1 class="text-3xl font-semibold">Kanada &quot;2026&quot;</h1>',
+    )
+    expect(html).toContain('fetchpriority="high"')
+    expect(html).toContain('sizes="(min-width: 1024px) 1024px, 100vw"')
+    expect(html).toContain('imagesizes="(min-width: 1024px) 1024px, 100vw"')
+    expect(html).toContain('width="1000" ')
+    expect(html).toContain('<link rel="preconnect" href="https://m.test" />')
+    expect(html).toContain(
+      '<link rel="preconnect" href="https://api.test" crossorigin />',
+    )
+    const segment = buildPages(tree, { handle: 'pavel', slug: 'kanada' })[1]
+    expect(renderPage(tpl, segment, { embed: tree })).not.toContain(
+      'prerender-shell',
+    )
+  })
+
   it("keeps $-patterns in user text literal ($$, $&, $', $`)", () => {
     const [page] = buildPages(tree, { handle: 'pavel', slug: 'kanada' })
     const nasty = "a $$ b $& c $' d $` e"

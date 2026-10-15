@@ -9,14 +9,12 @@ describe('dashboard models', () => {
     expect(
       dashboardQuerySchema.parse({ userId: crypto.randomUUID() }),
     ).toMatchObject({
-      entryLimit: 6,
       journeyLimit: 6,
     })
   })
 
   it('rejects invalid card data returned by the backend', () => {
     const result = dashboardDataSchema.safeParse({
-      entries: [],
       journeys: [
         {
           endsAt: null,

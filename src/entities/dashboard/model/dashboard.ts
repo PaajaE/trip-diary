@@ -1,8 +1,6 @@
 import { z } from 'zod'
 import { journeyListItemSchema } from '@/entities/journey/model/core-journey'
 
-const dateTimeSchema = z.iso.datetime({ offset: true })
-
 export const dashboardJourneyCardSchema = journeyListItemSchema.extend({
   role: z.enum(['owner', 'editor', 'member']),
   summary: z.string().max(5000),
@@ -10,29 +8,15 @@ export const dashboardJourneyCardSchema = journeyListItemSchema.extend({
   visibility: z.enum(['public', 'private']),
 })
 
-export const dashboardEntryCardSchema = z.object({
-  eventAt: dateTimeSchema.nullable(),
-  id: z.uuid(),
-  publishedAt: dateTimeSchema.nullable(),
-  status: z.enum(['draft', 'published']),
-  title: z.string().min(1).max(160).nullable(),
-  type: z.enum(['story', 'tip', 'note', 'place']),
-  updatedAt: dateTimeSchema,
-  visibility: z.enum(['public', 'private']),
-})
-
 export const dashboardDataSchema = z.object({
-  entries: z.array(dashboardEntryCardSchema),
   journeys: z.array(dashboardJourneyCardSchema),
 })
 
 export const dashboardQuerySchema = z.object({
-  entryLimit: z.number().int().min(1).max(20).default(6),
   journeyLimit: z.number().int().min(1).max(20).default(6),
   userId: z.uuid(),
 })
 
 export type DashboardData = z.infer<typeof dashboardDataSchema>
-export type DashboardEntryCard = z.infer<typeof dashboardEntryCardSchema>
 export type DashboardJourneyCard = z.infer<typeof dashboardJourneyCardSchema>
 export type DashboardQueryInput = z.input<typeof dashboardQuerySchema>

@@ -1,12 +1,10 @@
-import { BookOpen, MapPinned } from 'lucide-react'
+import { MapPinned } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { PublicEntryCard } from '@/pages/public-space/PublicEntryCard'
 import { PublicJourneyCard } from '@/pages/public-space/PublicJourneyCard'
 import { PublicSpaceHeader } from '@/pages/public-space/PublicSpaceHeader'
 import type { PublicSpaceViewModel } from '@/pages/public-space/model'
 
 interface PublicSpacePageProps {
-  onOpenEntry: (entryId: string) => void
   onOpenJourney: (journeyId: string) => void
   shareText: string
   shareUrl: string
@@ -14,7 +12,6 @@ interface PublicSpacePageProps {
 }
 
 export function PublicSpacePage({
-  onOpenEntry,
   onOpenJourney,
   shareText,
   shareUrl,
@@ -47,21 +44,6 @@ export function PublicSpacePage({
               journey={journey}
               key={journey.id}
               onOpen={onOpenJourney}
-            />
-          ))}
-        </PublicSection>
-
-        <PublicSection
-          emptyDescription={t('publicSpace.entriesEmptyDescription')}
-          emptyTitle={t('publicSpace.entriesEmptyTitle')}
-          icon={BookOpen}
-          title={t('publicSpace.entriesTitle')}
-        >
-          {space.diaryEntries.map((entry) => (
-            <PublicEntryCard
-              entry={entry}
-              key={entry.id}
-              onOpen={onOpenEntry}
             />
           ))}
         </PublicSection>

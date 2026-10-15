@@ -62,7 +62,7 @@ export default function PublicJourneyMap({
   onSelectPoint,
   points,
 }: PublicJourneyMapProps) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const onSelectRef = useRef(onSelectPoint)
   useEffect(() => {
@@ -78,6 +78,21 @@ export default function PublicJourneyMap({
       cooperativeGestures: true,
       center: [0, 20],
       container,
+      // MapLibre ships English strings only; localize the visible hints.
+      locale: {
+        'CooperativeGesturesHandler.MacHelpText': t(
+          'publicJourney.mapGesturesMac',
+        ),
+        'CooperativeGesturesHandler.MobileHelpText': t(
+          'publicJourney.mapGesturesMobile',
+        ),
+        'CooperativeGesturesHandler.WindowsHelpText': t(
+          'publicJourney.mapGesturesDesktop',
+        ),
+        'NavigationControl.ResetBearing': t('publicJourney.mapResetBearing'),
+        'NavigationControl.ZoomIn': t('publicJourney.mapZoomIn'),
+        'NavigationControl.ZoomOut': t('publicJourney.mapZoomOut'),
+      },
       style: getAppMapStyle(i18n.language),
       zoom: 1,
     })
@@ -220,7 +235,7 @@ export default function PublicJourneyMap({
       })
       map.remove()
     }
-  }, [i18n.language, lines, points])
+  }, [i18n.language, lines, points, t])
 
   return (
     <div

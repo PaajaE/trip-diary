@@ -8,11 +8,8 @@ import { Capacitor } from '@capacitor/core'
 import { Suspense } from 'react'
 import {
   LazyAuthPage,
-  LazyCreateEntryPage,
   LazyCreateJourneyPage,
-  LazyCreateJourneyMemoryRoutePage,
   LazyDashboardPage,
-  LazyEntryRoutePage,
   LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
@@ -28,20 +25,13 @@ import {
   LazySpaceMembersRoutePage,
   LazyAcceptInviteRoutePage,
   LazyAcceptJourneyInviteRoutePage,
-  LazyPublicJourneyEntryRoutePage,
   LazyPublicJourneyRoutePage,
   LazyPublicMomentRoutePage,
   LazyPublicSegmentRoutePage,
   LazyPublicSpaceRoutePage,
-  LazyPublicStandaloneEntryRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
-import {
-  optionalEnum,
-  optionalString,
-  optionalUuid,
-  searchSchema,
-} from '@/app/search-params'
+import { optionalEnum, searchSchema } from '@/app/search-params'
 import { requireAuth } from '@/features/auth/routing/require-auth'
 import { HomePage } from '@/pages/home/HomePage'
 
@@ -104,23 +94,6 @@ const profileRoute = createRoute({
   component: LazyProfileRoutePage,
 })
 
-const createEntryRoute = createRoute({
-  beforeLoad: requireAuth,
-  getParentRoute: () => rootRoute,
-  path: '/entries/new',
-  component: LazyCreateEntryPage,
-})
-
-const entryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/e/$entryId',
-  validateSearch: searchSchema({
-    notice: optionalEnum(['photos_failed']),
-    returnTo: optionalString(),
-  }),
-  component: LazyEntryRoutePage,
-})
-
 const createJourneyRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -131,32 +104,7 @@ const createJourneyRoute = createRoute({
 const journeyRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId',
-  validateSearch: searchSchema({
-    highlight: optionalUuid(),
-    natureGoalId: optionalUuid(),
-    naturePrompt: optionalUuid(),
-    notice: optionalEnum(['photos_failed', 'template_failed']),
-    section: optionalEnum([
-      'story',
-      'map',
-      'gallery',
-      'overview',
-      'more',
-      'guides',
-    ]),
-  }),
   component: LazyJourneyRoutePage,
-})
-
-const createJourneyMemoryRoute = createRoute({
-  beforeLoad: requireAuth,
-  getParentRoute: () => rootRoute,
-  path: '/j/$journeyId/memory/new',
-  validateSearch: searchSchema({
-    focus: optionalEnum(['note']),
-    natureGoalId: optionalUuid(),
-  }),
-  component: LazyCreateJourneyMemoryRoutePage,
 })
 
 const journeyMembersRoute = createRoute({
@@ -270,18 +218,6 @@ const publicMomentRoute = createRoute({
   component: LazyPublicMomentRoutePage,
 })
 
-const publicStandaloneEntryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/$spaceHandle/tipy/$entrySlug',
-  component: LazyPublicStandaloneEntryRoutePage,
-})
-
-const publicJourneyEntryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/$spaceHandle/$journeySlug/$entrySlug',
-  component: LazyPublicJourneyEntryRoutePage,
-})
-
 const routeTree = rootRoute.addChildren([
   indexRoute,
   signInRoute,
@@ -289,11 +225,8 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   settingsRoute,
   profileRoute,
-  createEntryRoute,
-  entryRoute,
   createJourneyRoute,
   journeyRoute,
-  createJourneyMemoryRoute,
   journeyMembersRoute,
   journeyWorkspaceRoute,
   journeyImportRoute,
@@ -313,8 +246,6 @@ const routeTree = rootRoute.addChildren([
   publicJourneyRoute,
   publicSegmentRoute,
   publicMomentRoute,
-  publicStandaloneEntryRoute,
-  publicJourneyEntryRoute,
 ])
 
 export const router = createRouter({

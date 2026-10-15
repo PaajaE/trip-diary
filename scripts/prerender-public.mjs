@@ -96,7 +96,15 @@ for (const row of list) {
     const options = { handle, mediaBaseUrl, slug }
     const pages = buildPages(tree, options)
     for (const page of pages) {
-      await writePage(page.dir, renderPage(template, page, { embed, siteUrl }))
+      await writePage(
+        page.dir,
+        renderPage(template, page, {
+          embed,
+          mediaBaseUrl,
+          siteUrl,
+          supabaseUrl,
+        }),
+      )
       sitemap.push({ lastmod: row.updated_at, urlPath: page.urlPath })
       written += 1
     }

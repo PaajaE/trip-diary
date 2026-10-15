@@ -4,6 +4,7 @@ import { RouterProvider } from '@tanstack/react-router'
 import { LocaleSync } from '@/app/LocaleSync'
 import { queryClient } from '@/app/query-client'
 import { router } from '@/app/router'
+import { isPublicReaderPath } from '@/features/sharing/lib/is-public-reader-path'
 import { SessionProvider } from '@/features/auth/session'
 import { ToastProvider } from '@/shared/ui/ToastProvider'
 
@@ -28,15 +29,27 @@ function DeferredBackgroundServices() {
     const start = () => {
       setReady(true)
     }
-    if (typeof window.requestIdleCallback === 'function') {
-      const handle = window.requestIdleCallback(start, { timeout: 3000 })
-      return () => {
-        window.cancelIdleCallback(handle)
+    // Public readers have nothing to sync: keep Dexie and the sync engine out
+    // of the load window there (still well before the first 60 s sync tick).
+    const delay = isPublicReaderPath(window.location.pathname) ? 6000 : 0
+    let cancelIdle: (() => void) | undefined
+    const schedule = () => {
+      if (typeof window.requestIdleCallback === 'function') {
+        const handle = window.requestIdleCallback(start, { timeout: 3000 })
+        cancelIdle = () => {
+          window.cancelIdleCallback(handle)
+        }
+        return
+      }
+      const handle = window.setTimeout(start, 0)
+      cancelIdle = () => {
+        window.clearTimeout(handle)
       }
     }
-    const handle = window.setTimeout(start, 0)
+    const timer = window.setTimeout(schedule, delay)
     return () => {
-      window.clearTimeout(handle)
+      window.clearTimeout(timer)
+      cancelIdle?.()
     }
   }, [])
 

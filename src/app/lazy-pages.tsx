@@ -26,30 +26,10 @@ export const LazyProfileRoutePage = lazy(() =>
   })),
 )
 
-export const LazyCreateEntryPage = lazy(() =>
-  import('@/pages/entry/CreateEntryPage').then(({ CreateEntryPage }) => ({
-    default: CreateEntryPage,
-  })),
-)
-
-export const LazyEntryRoutePage = lazy(() =>
-  import('@/pages/entry/EntryRoutePage').then(({ EntryRoutePage }) => ({
-    default: EntryRoutePage,
-  })),
-)
-
 export const LazyCreateJourneyPage = lazy(() =>
   import('@/pages/journey/CreateJourneyPage').then(({ CreateJourneyPage }) => ({
     default: CreateJourneyPage,
   })),
-)
-
-export const LazyCreateJourneyMemoryRoutePage = lazy(() =>
-  import('@/pages/journey/CreateJourneyMemoryRoutePage').then(
-    ({ CreateJourneyMemoryRoutePage }) => ({
-      default: CreateJourneyMemoryRoutePage,
-    }),
-  ),
 )
 
 export const LazyJourneyRoutePage = lazy(() =>
@@ -111,22 +91,6 @@ export const LazyPublicSegmentRoutePage = lazy(() =>
 export const LazyPublicMomentRoutePage = lazy(() =>
   import('@/pages/public-journey/PublicJourneyRoutePages').then(
     ({ PublicMomentRoutePage }) => ({ default: PublicMomentRoutePage }),
-  ),
-)
-
-export const LazyPublicStandaloneEntryRoutePage = lazy(() =>
-  import('@/pages/public-space/PublicEntryRoutePage').then(
-    ({ PublicStandaloneEntryRoutePage }) => ({
-      default: PublicStandaloneEntryRoutePage,
-    }),
-  ),
-)
-
-export const LazyPublicJourneyEntryRoutePage = lazy(() =>
-  import('@/pages/public-space/PublicEntryRoutePage').then(
-    ({ PublicJourneyEntryRoutePage }) => ({
-      default: PublicJourneyEntryRoutePage,
-    }),
   ),
 )
 

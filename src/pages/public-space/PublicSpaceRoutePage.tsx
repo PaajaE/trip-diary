@@ -13,7 +13,7 @@ import {
 
 export function PublicSpaceRoutePage() {
   const { spaceHandle } = useParams({ from: '/$spaceHandle' })
-  const { i18n, t } = useTranslation()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const query = useQuery({
     queryFn: () => getPublicSpace(spaceHandle),
@@ -35,33 +35,9 @@ export function PublicSpaceRoutePage() {
     space.handle,
     t('reader.shareSpaceMessage', { name: space.name }),
   )
-  const dateLocale = i18n.language === 'cs' ? 'cs-CZ' : 'en-US'
 
   return (
     <PublicSpacePage
-      onOpenEntry={(entryId) => {
-        const entry = space.diaryEntries.find(({ id }) => id === entryId)
-        if (entry === undefined) {
-          return
-        }
-
-        if (entry.journeySlug !== null) {
-          void navigate({
-            params: {
-              entrySlug: entry.slug,
-              journeySlug: entry.journeySlug,
-              spaceHandle,
-            },
-            to: '/$spaceHandle/$journeySlug/$entrySlug',
-          })
-          return
-        }
-
-        void navigate({
-          params: { entrySlug: entry.slug, spaceHandle },
-          to: '/$spaceHandle/tipy/$entrySlug',
-        })
-      }}
       onOpenJourney={(journeyId) => {
         const journey = space.journeys.find(({ id }) => id === journeyId)
         if (journey !== undefined) {
@@ -76,21 +52,6 @@ export function PublicSpaceRoutePage() {
       space={{
         avatarUrl: space.avatarUrl,
         bio: space.bio,
-        diaryEntries: space.diaryEntries.map((entry) => ({
-          ...(space.cardImages.entryImageById[entry.id] !== undefined
-            ? { imageUrl: space.cardImages.entryImageById[entry.id] }
-            : {}),
-          ...(entry.journeySlug === null
-            ? {}
-            : { journeySlug: entry.journeySlug }),
-          dateLabel: new Date(
-            entry.event_at ?? entry.published_at ?? 0,
-          ).toLocaleDateString(dateLocale),
-          excerpt: entry.body.slice(0, 180),
-          id: entry.id,
-          title: entry.title ?? t('dashboard.untitled'),
-          typeLabel: t(`entry.type.${entry.type}`),
-        })),
         handle: space.handle,
         journeys: space.journeys.map((journey) => {
           const cover = space.cardImages.journeyCoverById[journey.id]
