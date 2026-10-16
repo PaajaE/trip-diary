@@ -1,5 +1,10 @@
 // Pure helpers for scripts/prerender-public.mjs (no I/O, no network).
 // Image URL logic mirrors src/entities/public-journey/lib/media-url.ts.
+import {
+  buildMapPreview,
+  MAP_PREVIEW_BACKGROUND,
+  mapPreviewSvg,
+} from '@trip-diary/core/public-journey'
 
 export const DEFAULT_MEDIA_BASE_URL = 'https://media.cestovni-denik.cz'
 export const EMBED_SCRIPT_ID = '__PUBLIC_JOURNEY__'
@@ -160,6 +165,7 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
                 j.startsAt === null
                   ? null
                   : `${j.startsAt}${j.endsAt === null ? '' : ` – ${j.endsAt}`}`,
+              mapPreview: buildMapPreview(tree),
               summary: j.summary,
               title: j.title,
             },
@@ -211,7 +217,17 @@ const REPLACED_HEAD = [
 export function renderPage(
   template,
   page,
-  { embed, inlineStyles = {}, mediaBaseUrl, siteUrl, supabaseUrl },
+  {
+    embed,
+    dataUrl,
+    inlineStyles = {},
+    mapOrigin,
+    mediaBaseUrl,
+    preload,
+    siteUrl,
+    strings,
+    supabaseUrl,
+  },
 ) {
   let html = template
   for (const pattern of REPLACED_HEAD) html = html.replace(pattern, '')
@@ -241,14 +257,18 @@ export function renderPage(
       ? null
       : `<meta name="twitter:image" content="${escapeHtml(page.hero.ogImage)}" />`,
     page.hero === null ? null : preloadTag(page.hero),
-    ...originHints({ mediaBaseUrl, supabaseUrl }),
+    ...originHints({ mapOrigin, mediaBaseUrl, supabaseUrl }),
   ].filter((t) => t !== null)
   const block = `    ${tags.join('\n    ')}\n  </head>`
   // Replacer function: a string would interpret $$, $&, $' and $` in user text.
   html = html.replace('</head>', () => block)
-  const shell = page.shell === undefined ? null : shellHtml(page.shell)
+  const shell =
+    page.shell === undefined || page.shell === null
+      ? null
+      : shellHtml(page.shell, strings)
   const embedTag = `<script type="application/json" id="${EMBED_SCRIPT_ID}">${serializeJsonForScript(embed)}</script>`
   let tail = embedTag
+  let loader = ''
   if (shell !== null) {
     // The hero is static: let it (and the CSS) have the whole connection, and
     // boot the app only once the hero image has loaded.
@@ -265,19 +285,30 @@ export function renderPage(
       /<link\s+rel="stylesheet"[^>]*\shref="([^"]+)"[^>]*>/g,
       (tag, href) => {
         const css = inlineStyles[href]
+        // The disabled link is never fetched but still matches the lookup of
+        // Vite's dynamic-import helper, so lazy chunks do not download the
+        // stylesheet a second time.
         return css === undefined
           ? tag
-          : `<style>${css.replaceAll('</style', '<\\/style')}</style>`
+          : `<style>${css.replaceAll('</style', '<\\/style')}</style><link rel="stylesheet" href="${href}" disabled />`
       },
     )
-    tail = `${embedTag}\n    ${bootScript(boot)}`
+    if (dataUrl === undefined) {
+      tail = `${embedTag}\n    ${bootScript(boot, preload)}`
+    } else {
+      // The tree is a separate file (page-data): inline it would put the HTML
+      // above one TCP initial window (~14 KB) and cost a round trip on the LCP
+      // path. The loader fills the same element the app reads.
+      tail = ''
+      loader = `\n    ${bootScript(boot, preload, dataUrl)}`
+    }
   }
   // vite.config.ts (landingShell) fills #root with the landing hero; it does
   // not belong on journey pages, so replace the whole root element.
   const root =
     shell === null
       ? '<div id="root"></div>'
-      : `${shell}\n    <div id="root" hidden></div>`
+      : `${shell}\n    <div id="root" hidden></div>${loader}`
   html = html.replace(
     /<div id="root">[\s\S]*?<\/div>(?=\s*<script>)|<div id="root"><\/div>/,
     () => root,
@@ -288,10 +319,27 @@ export function renderPage(
 /**
  * Inline loader: appends the app's module scripts once the hero image has
  * loaded (or failed, or after 4 s), so the bundle never competes with the LCP
- * image. Without a hero image it boots at once.
+ * image. Without a hero image it boots at once. `preload` (chunks the public
+ * route needs next, see routePreloads) is requested in the same moment, so
+ * they download in parallel with the app chunk instead of after it runs.
  */
-export function bootScript(srcs) {
-  return `<script>(function(){var s=${serializeJsonForScript(srcs)},b=0;function go(){if(b)return;b=1;for(var k=0;k<s.length;k++){var e=document.createElement('script');e.type='module';e.crossOrigin='anonymous';e.src=s[k];document.head.appendChild(e)}}var i=document.querySelector('#${SHELL_ID} img');if(!i||i.complete){go();return}i.addEventListener('load',go);i.addEventListener('error',go);setTimeout(go,4000)})()</script>`
+export function bootScript(srcs, preload = { css: [], js: [] }, dataUrl) {
+  const hints = [
+    ...preload.js.map((href) => ['modulepreload', href, '']),
+    ...preload.css.map((href) => ['preload', href, 'style']),
+  ]
+  // dataUrl: fetch the journey tree now (it is tiny next to the hero) and put
+  // it into the element readEmbeddedJourney() reads. The app is started only
+  // after the tree arrived (or after 1.5 s; the app then fetches it itself).
+  const data =
+    dataUrl === undefined
+      ? ''
+      : `var d=fetch(${serializeJsonForScript(dataUrl)}).then(function(r){return r.ok?r.text():''}).then(function(t){if(t){var e=document.createElement('script');e.type='application/json';e.id='${EMBED_SCRIPT_ID}';e.textContent=t;document.body.appendChild(e)}}).catch(function(){});`
+  const wait =
+    dataUrl === undefined
+      ? 'start()'
+      : 'Promise.race([d,new Promise(function(r){setTimeout(r,1500)})]).then(start)'
+  return `<script>(function(){${data}var s=${serializeJsonForScript(srcs)},h=${serializeJsonForScript(hints)},b=0;function start(){for(var j=0;j<h.length;j++){var l=document.createElement('link');l.rel=h[j][0];l.crossOrigin='';l.href=h[j][1];if(h[j][2])l.as=h[j][2];document.head.appendChild(l)}for(var k=0;k<s.length;k++){var e=document.createElement('script');e.type='module';e.crossOrigin='anonymous';e.src=s[k];document.head.appendChild(e)}}function go(){if(b)return;b=1;${wait}}var i=document.querySelector('#${SHELL_ID} img');if(!i||i.complete){go();return}i.addEventListener('load',go);i.addEventListener('error',go);setTimeout(go,4000)})()</script>`
 }
 
 /**
@@ -302,7 +350,44 @@ export function bootScript(srcs) {
 export const HERO_SIZES = '(min-width: 1024px) 1024px, 100vw'
 export const SHELL_ID = 'prerender-shell'
 
-export function shellHtml({ eyebrow, hero, period, summary, title }) {
+/**
+ * Both languages are in the markup; this picks one before first paint with the
+ * same rule as detectBrowserLocale()/readStoredLocale() in src/app/locale-preference.ts.
+ */
+const LOCALE_SCRIPT = `<script>(function(){var l;try{l=localStorage.getItem('trip-diary.locale')}catch(e){}if(l!=='cs'&&l!=='en'){l='en';var a=navigator.languages&&navigator.languages.length?navigator.languages:[navigator.language||''];for(var i=0;i<a.length;i++){var b=String(a[i]).toLowerCase().split('-')[0];if(b==='cs'||b==='sk'){l='cs';break}if(b==='en')break}}var n=document.querySelectorAll('#${SHELL_ID} [data-l]');for(var k=0;k<n.length;k++)n[k].hidden=n[k].getAttribute('data-l')!==l})()</script>`
+
+function bilingual(strings, key) {
+  return ['cs', 'en']
+    .map(
+      (l) =>
+        `<span data-l="${l}"${l === 'cs' ? '' : ' hidden'}>${escapeHtml(strings[l][key])}</span>`,
+    )
+    .join('')
+}
+
+/**
+ * Route heading + map-sized placeholder (tone of the real map, pins and route
+ * from the data) so the first viewport is visually complete before MapLibre.
+ * Mirrors the route section of PublicJourneyPage and PublicMapSection.
+ */
+function routeSectionHtml(mapPreview, strings) {
+  const box =
+    mapPreview === null || mapPreview === undefined ? 'bg-surface' : ''
+  const tone =
+    mapPreview === null || mapPreview === undefined
+      ? ''
+      : ` style="background:${MAP_PREVIEW_BACKGROUND}"`
+  const svg =
+    mapPreview === null || mapPreview === undefined
+      ? ''
+      : mapPreviewSvg(mapPreview)
+  return `<section aria-labelledby="route-heading-shell" class="space-y-3"><h2 class="text-xl font-semibold" id="route-heading-shell">${bilingual(strings, 'route')}</h2><section><div aria-hidden="true" class="relative h-[22rem] w-full overflow-hidden rounded-lg border border-border ${box} sm:h-[28rem]"${tone}>${svg}</div><p class="mt-3 text-xs leading-5 text-muted">${bilingual(strings, 'attribution')}</p></section></section>`
+}
+
+export function shellHtml(
+  { eyebrow, hero, mapPreview, period, summary, title },
+  strings,
+) {
   const focal =
     hero.focalX !== null && hero.focalY !== null
       ? ` style="object-position:${String(hero.focalX * 100)}% ${String(hero.focalY * 100)}%"`
@@ -321,7 +406,9 @@ export function shellHtml({ eyebrow, hero, period, summary, title }) {
       ? null
       : `<p class="whitespace-pre-line leading-7">${escapeHtml(summary)}</p>`,
   ].filter((l) => l !== null)
-  return `<div id="${SHELL_ID}"><main class="mx-auto max-w-5xl space-y-10 px-5 py-8"><header class="space-y-4">${lines.join('')}</header></main></div>`
+  const route =
+    strings === undefined ? '' : routeSectionHtml(mapPreview, strings)
+  return `<div id="${SHELL_ID}"><main class="mx-auto max-w-5xl space-y-10 px-5 py-8"><header class="space-y-4">${lines.join('')}</header>${route}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
 }
 
 function originOf(url) {
@@ -336,14 +423,16 @@ function originOf(url) {
  * preconnect hints. Images are fetched without CORS (no crossorigin attribute,
  * so the connection is reusable); the API origin is used by fetch() with CORS.
  */
-function originHints({ mediaBaseUrl, supabaseUrl }) {
+function originHints({ mapOrigin, mediaBaseUrl, supabaseUrl }) {
   const media = originOf(mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL)
   const api = supabaseUrl === undefined ? null : originOf(supabaseUrl)
+  const map = mapOrigin === undefined ? null : originOf(mapOrigin)
   return [
     media === null ? null : `<link rel="preconnect" href="${media}" />`,
     api === null || api === media
       ? null
       : `<link rel="preconnect" href="${api}" crossorigin />`,
+    map === null ? null : `<link rel="preconnect" href="${map}" crossorigin />`,
   ].filter((t) => t !== null)
 }
 
@@ -375,4 +464,47 @@ export function buildRobots(source, siteUrl) {
   const base = source.endsWith('\n') ? source : `${source}\n`
   if (siteUrl === undefined) return base
   return `${base.replace(/^Sitemap:.*\n?/gim, '')}Sitemap: ${trimSlash(siteUrl)}/sitemap.xml\n`
+}
+
+/**
+ * Chunks (and CSS) the public journey route needs right after the entry chunk
+ * runs: the lazy route chunk, its static imports, and the lazy map chunk with
+ * MapLibre. From Vite's build manifest; anything unexpected gives an empty
+ * result (no preload hints, the app then just loads them on demand).
+ * `entryFiles` (manifest-relative, requested by the page anyway) and `skipCss`
+ * (inlined stylesheets) are left out.
+ */
+export function routePreloads(
+  manifest,
+  { base = '/', entryFiles = [], skipCss = [] } = {},
+) {
+  const none = { css: [], js: [] }
+  if (manifest === null || typeof manifest !== 'object') return none
+  const route = Object.values(manifest).find(
+    (c) => c?.src === 'src/pages/public-journey/PublicJourneyRoutePages.tsx',
+  )
+  if (route === undefined) return none
+  // Already requested by the boot script itself.
+  const skip = new Set(entryFiles)
+  const js = new Set()
+  const css = new Set()
+  const visit = (chunk, depth) => {
+    if (chunk === undefined || skip.has(chunk.file) || js.has(chunk.file))
+      return
+    js.add(chunk.file)
+    for (const file of chunk.css ?? []) css.add(file)
+    for (const key of chunk.imports ?? []) visit(manifest[key], depth)
+    // The lazy map chunk is the only dynamic import worth fetching early.
+    if (depth === 0) {
+      for (const key of chunk.dynamicImports ?? []) {
+        if (/PublicJourneyMap\.tsx$/.test(key)) visit(manifest[key], depth + 1)
+      }
+    }
+  }
+  visit(route, 0)
+  const url = (file) => `${base.replace(/\/+$/, '')}/${file}`
+  return {
+    css: [...css].filter((f) => !skipCss.includes(url(f))).map(url),
+    js: [...js].map(url),
+  }
 }

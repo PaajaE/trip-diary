@@ -7,6 +7,7 @@ import {
   isSafePathSegment,
   renderPage,
   resolveHero,
+  routePreloads,
   serializeJsonForScript,
   smallVariantUrl,
   withLocalVariant,
@@ -54,6 +55,7 @@ const tree = {
   media: [media],
   moments: [{ body: 'Text', coverMediaId: null, id: id(3), title: null }],
   segments: [{ body: '', coverMediaId: null, id: id(2), title: 'Calgary' }],
+  tracks: [],
 }
 const template =
   '<html><head><title>Old</title><meta name="description" content="old" /><meta property="og:title" content="old" /></head><body></body></html>'
@@ -176,8 +178,12 @@ describe('prerender helpers', () => {
     })
     expect(html).not.toContain('<script type="module"')
     expect(html).not.toContain('modulepreload')
-    expect(html).not.toContain('rel="stylesheet"')
-    expect(html).toContain('<style>a{color:red}<\\/style></style>')
+    // Only an inert (disabled, never fetched) link remains, so Vite's lazy
+    // chunk loader does not download the inlined stylesheet again.
+    expect(html).not.toMatch(/<link rel="stylesheet"(?![^>]*disabled)/)
+    expect(html).toContain(
+      '<style>a{color:red}<\\/style></style><link rel="stylesheet" href="/assets/app-1.css" disabled />',
+    )
     expect(html).toContain('["/assets/app-1.js"]')
     const embedAt = html.indexOf('id="__PUBLIC_JOURNEY__"')
     expect(embedAt).toBeGreaterThan(html.indexOf('</head>'))
@@ -186,6 +192,99 @@ describe('prerender helpers', () => {
     const plain = renderPage(tpl, segment, { embed: tree })
     expect(plain).toContain('<script type="module"')
     expect(plain).toContain('rel="stylesheet"')
+  })
+
+  it('puts the route heading and a map preview into the shell, both languages', () => {
+    const located = {
+      ...tree,
+      moments: [
+        {
+          ...tree.moments[0],
+          latitude: 51,
+          longitude: -114,
+          startsAt: '2026-07-16T10:00:00Z',
+        },
+        {
+          ...tree.moments[0],
+          id: id(9),
+          latitude: 51.2,
+          longitude: -115,
+          startsAt: '2026-07-17T10:00:00Z',
+        },
+      ],
+    }
+    const [page] = buildPages(located, { handle: 'pavel', slug: 'kanada' })
+    const strings = {
+      cs: { attribution: 'Mapa cs', route: 'Trasa' },
+      en: { attribution: 'Map en', route: 'Route' },
+    }
+    const tpl = '<html><head></head><body><div id="root"></div></body></html>'
+    const html = renderPage(tpl, page, { embed: located, strings })
+    expect(html).toContain('<span data-l="cs">Trasa</span>')
+    expect(html).toContain('<span data-l="en" hidden>Route</span>')
+    expect(html).toContain('<span data-l="cs">Mapa cs</span>')
+    expect(html).toContain('viewBox="0 0 372 352"')
+    expect(html).toContain('stroke-dasharray')
+    expect(html).toContain('trip-diary.locale')
+    // Without strings the shell is the plain hero block (no map section).
+    expect(renderPage(tpl, page, { embed: located })).not.toContain(
+      'route-heading-shell',
+    )
+  })
+
+  it('loads the tree from a data file instead of inlining it', () => {
+    const tpl =
+      '<html><head><script type="module" crossorigin src="/assets/app-1.js"></script></head><body><div id="root"></div></body></html>'
+    const [page] = buildPages(tree, { handle: 'pavel', slug: 'kanada' })
+    const html = renderPage(tpl, page, {
+      dataUrl: '/pavel/kanada/data.json',
+      embed: tree,
+      preload: { css: ['/a/m.css'], js: ['/a/route.js'] },
+    })
+    expect(html).not.toContain('<script type="application/json"')
+    expect(html).not.toContain('journeySlug')
+    expect(html).toContain('fetch("/pavel/kanada/data.json")')
+    expect(html).toContain("id='__PUBLIC_JOURNEY__'")
+    expect(html).toContain('["modulepreload","/a/route.js",""]')
+    expect(html).toContain('["preload","/a/m.css","style"]')
+    // The loader sits right after the shell, before the rest of the body.
+    expect(html.indexOf('fetch(')).toBeLessThan(html.indexOf('</body>'))
+  })
+
+  it('lists the route chunks to preload from the build manifest', () => {
+    const manifest = {
+      '_app.js': { file: 'assets/app.js' },
+      '_dep.js': { css: ['assets/dep.css'], file: 'assets/dep.js' },
+      '_runtime.js': { file: 'assets/runtime.js' },
+      'src/pages/public-journey/PublicJourneyRoutePages.tsx': {
+        dynamicImports: [
+          'src/features/public-journey/ui/PublicJourneyMap.tsx',
+          'src/pages/other.tsx',
+        ],
+        file: 'assets/route.js',
+        imports: ['_runtime.js', '_app.js', '_dep.js'],
+        src: 'src/pages/public-journey/PublicJourneyRoutePages.tsx',
+      },
+      'src/features/public-journey/ui/PublicJourneyMap.tsx': {
+        css: ['assets/app.css'],
+        file: 'assets/map.js',
+        imports: ['_app.js'],
+        src: 'src/features/public-journey/ui/PublicJourneyMap.tsx',
+      },
+      'src/pages/other.tsx': { file: 'assets/other.js' },
+    }
+    expect(
+      routePreloads(manifest, {
+        base: '/',
+        entryFiles: ['assets/app.js', 'assets/runtime.js'],
+        skipCss: ['/assets/app.css'],
+      }),
+    ).toEqual({
+      css: ['/assets/dep.css'],
+      js: ['/assets/route.js', '/assets/dep.js', '/assets/map.js'],
+    })
+    expect(routePreloads(null)).toEqual({ css: [], js: [] })
+    expect(routePreloads({})).toEqual({ css: [], js: [] })
   })
 
   it('swaps the small variant for a same-origin copy', () => {

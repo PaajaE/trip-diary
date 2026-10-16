@@ -29,9 +29,13 @@ describe('map-style', () => {
       layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
       sources: {
         basemap: {
-          attribution: '© Seznam.cz a.s. a další',
+          attribution:
+            '<a href="https://api.mapy.com/copyright" target="_blank">&copy; Seznam.cz a.s. a další</a>',
+          maxzoom: 19,
+          tiles: [
+            'https://api.mapy.com/v1/maptiles/outdoor/256/{z}/{x}/{y}?lang=cs&apikey=test-map-key',
+          ],
           type: 'raster',
-          url: 'https://api.mapy.com/v1/maptiles/outdoor/tiles.json?apikey=test-map-key&lang=cs',
         },
       },
       version: 8,

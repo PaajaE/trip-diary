@@ -10,3 +10,4 @@ android/capacitor-cordova-android-plugins
 ios/App/App/capacitor.config.json
 .claude
 .mcp.json
+.claude/worktrees

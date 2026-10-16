@@ -10,6 +10,11 @@ interface PublicMediaViewProps {
   priority?: boolean
   sizes: string
   media: PublicMedia
+  /**
+   * Same-origin copy of one variant (prerendered hero): swapped into the
+   * URLs so the browser reuses the image the static shell already loaded.
+   */
+  mirror?: { from: string; to: string } | undefined
   /** Videos play inline (lightbox, moment); otherwise just the poster. */
   playable?: boolean
 }
@@ -18,6 +23,7 @@ interface PublicMediaViewProps {
 export function PublicMediaView({
   className,
   media,
+  mirror,
   playable = false,
   priority = false,
   sizes,
@@ -53,6 +59,8 @@ export function PublicMediaView({
       />
     )
   }
+  const swap = (value: string) =>
+    mirror === undefined ? value : value.split(mirror.from).join(mirror.to)
   return (
     <img
       alt={alt}
@@ -62,7 +70,7 @@ export function PublicMediaView({
       height={image.height}
       loading={priority ? 'eager' : 'lazy'}
       sizes={sizes}
-      src={image.src}
+      src={swap(image.src)}
       style={{
         objectPosition:
           media.focalX !== null && media.focalY !== null
@@ -70,7 +78,7 @@ export function PublicMediaView({
             : undefined,
       }}
       width={image.width}
-      {...(image.srcSet !== '' ? { srcSet: image.srcSet } : {})}
+      {...(image.srcSet !== '' ? { srcSet: swap(image.srcSet) } : {})}
     />
   )
 }

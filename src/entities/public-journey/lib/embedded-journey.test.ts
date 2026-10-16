@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { readEmbeddedJourney } from '@/entities/public-journey/lib/embedded-journey'
+import {
+  readEmbeddedJourney,
+  readHeroMirror,
+} from '@/entities/public-journey/lib/embedded-journey'
 import { publicJourneyFixture } from '@/entities/public-journey/lib/public-journey.fixture'
 
 function docWith(text: string | null) {
@@ -43,6 +46,36 @@ describe('readEmbeddedJourney', () => {
         handle,
         'kanada',
         docWith(envelope({ journey: { a: 1 } })),
+      ),
+    ).toBeUndefined()
+  })
+})
+
+describe('readHeroMirror', () => {
+  it('reads the mapping of the mirrored hero copy', () => {
+    const mirror = {
+      from: 'https://media.example.com/a/small.jpg',
+      to: '/hero/abc.jpg',
+    }
+    expect(readHeroMirror(docWith(envelope({ heroMirror: mirror })))).toEqual(
+      mirror,
+    )
+  })
+
+  it('is undefined when absent, malformed or not a local path', () => {
+    expect(readHeroMirror(docWith(envelope()))).toBeUndefined()
+    expect(readHeroMirror(docWith('{'))).toBeUndefined()
+    expect(readHeroMirror(docWith(null))).toBeUndefined()
+    expect(
+      readHeroMirror(
+        docWith(
+          envelope({
+            heroMirror: {
+              from: 'https://x.test/s.jpg',
+              to: 'http://evil.test/s.jpg',
+            },
+          }),
+        ),
       ),
     ).toBeUndefined()
   })

@@ -408,3 +408,23 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   (z toho mapa a dlaždice po načtení). Produkce se musí změřit po nasazení.
 - Návrh (bez změny): doména míří přímo na GitHub Pages (Fastly, `max-age=600`),
   Cloudflare HTML necachuje. Další zrychlení: menší variant hera (~480 w) v pipeline médií.
+
+### Fáze 5 — výkon veřejné stránky cesty, kolo 3 (2026-10-15, větev `perf/lighthouse-round3`, IMPLEMENTED, produkce NEOVĚŘENO)
+
+- Příčina Speed Indexu ~7,4 s: pod datem byla prázdná plocha až do mapy (MapLibre + dlaždice).
+  Lantern SI = 1,4 × pozorovaný SI + 0,4 × vážený čas pozdních layoutů; pozorovaný SI je histogram snímků.
+- Změny (každá změřena): (1) statický shell obsahuje nadpis „Trasa" (cs/en, volba inline skriptem),
+  placeholder mapy (barevná distribuce Mapy outdoor, trasa a piny z dat přes `buildMapPreview` v
+  `packages/core`) a atribuci; React kreslí totéž a mapu prolne (CLS 0, bez bliknutí). (2) Strom
+  cesty je v `<cesta>/data.json` místo inline JSON: HTML 19,9 → 11,5 KB gz (pod úvodní TCP okno ~14,6 KB).
+  (3) Boot skript po načtení hera preloaduje chunky veřejné trasy a mapy z `dist/.vite/manifest.json`
+  (`build.manifest`). (4) React hero používá stejnou same-origin kopii (`heroMirror`), bez
+  dvojího stahování. (5) Mapy tiles přímo (`tiles` místo `tiles.json`, o jeden round trip méně),
+  preconnect na api.mapy.com. (6) Odstraněno ~20 KB mrtvého CSS z v1 (`src/index.css`);
+  inline CSS má `<link disabled>`, aby lazy chunky nestahovaly CSS znovu.
+- Měřeno LOKÁLNĚ, kalibrovaný harness (HTTPS/H2, gzip, 900 ms odezva všech požadavků, Lighthouse 12
+  mobile, medián 3–5 běhů po rozběhu): před perf 89 (89–90), FCP 1,83, LCP 2,26, SI 8,4, TBT 43;
+  po perf 94 (94–94), FCP 1,69, LCP 2,11, SI 5,1, TBT 70, CLS 0, a11y/SEO/BP 100.
+  Harness vychází o ~2 body lépe než produkce (86–88) a LCP o ~0,5 s níže; produkce NEOVĚŘENA.
+- Nezkoušeno/vynecháno: re-enkódování hera (ImageMagick lokálně není), kritické CSS, start
+  aplikace souběžně s herem (v simulaci bez výhody pro LCP, reálně riziko), odložení session runtime.
