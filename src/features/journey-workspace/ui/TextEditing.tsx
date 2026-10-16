@@ -6,7 +6,7 @@ import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-worksp
 import { TextEditDialog } from '@/features/journey-workspace/ui/TextEditDialog'
 
 const BUTTON =
-  'min-h-10 min-w-10 rounded-md border border-border px-3 py-1.5 text-sm font-semibold'
+  'inline-flex min-h-11 items-center rounded-xl px-2 text-sm font-semibold text-primary hover:bg-surface active:bg-surface'
 
 const CLAMP_LINES = 3
 const CLAMP_CHARS = 200
@@ -19,7 +19,7 @@ export function ClampedBody({ body }: { body: string }) {
   const long =
     body.split('\n').length > CLAMP_LINES || body.length > CLAMP_CHARS
   return (
-    <div className="mt-2">
+    <div className="mt-1">
       <p
         className={`whitespace-pre-line break-words text-sm ${expanded || !long ? '' : 'line-clamp-3'}`}
         data-testid="workspace-body"
@@ -29,7 +29,7 @@ export function ClampedBody({ body }: { body: string }) {
       {long ? (
         <button
           aria-expanded={expanded}
-          className="min-h-10 text-sm font-semibold underline"
+          className="min-h-11 text-sm font-semibold text-primary underline"
           type="button"
           onClick={() => {
             setExpanded((value) => !value)

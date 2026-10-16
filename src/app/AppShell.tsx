@@ -38,12 +38,15 @@ export function AppShell({ children }: PropsWithChildren) {
       {immersiveReaderShell ? null : (
         <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:pr-[max(2rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))]">
           <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
-            <Link className="text-sm font-semibold tracking-wide" to="/">
+            <Link
+              className="min-w-0 truncate whitespace-nowrap text-sm font-semibold tracking-wide"
+              to="/"
+            >
               {t('brand')}
             </Link>
             <nav
               aria-label={t('navigation.account')}
-              className="flex min-w-0 items-center gap-1 sm:gap-2"
+              className="flex shrink-0 items-center gap-1 sm:gap-2"
             >
               {minimalPublicShell || (user === null && !loading) ? null : (
                 <Suspense fallback={null}>

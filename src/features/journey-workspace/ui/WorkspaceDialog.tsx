@@ -51,11 +51,11 @@ export function WorkspaceDialog({
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4">
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="max-h-[85vh] w-full max-w-md overflow-y-auto rounded-xl bg-background p-5 shadow-xl"
+        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-background px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-xl"
         ref={ref}
         role="dialog"
       >
@@ -69,4 +69,4 @@ export function WorkspaceDialog({
 }
 
 export const dialogButton =
-  'min-h-10 min-w-10 rounded-md border border-border px-3 py-1.5 font-semibold disabled:opacity-50'
+  'min-h-11 min-w-11 rounded-xl border border-border px-4 py-1.5 font-semibold disabled:opacity-50'
