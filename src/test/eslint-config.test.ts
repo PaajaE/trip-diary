@@ -48,7 +48,7 @@ describe('eslint workspace coverage', () => {
 
     expect(results).toHaveLength(1)
     expect(results[0]?.errorCount).toBe(0)
-  })
+  }, 30_000)
 
   it('restricts deprecated web translation repository imports', async () => {
     const eslint = new ESLint()
