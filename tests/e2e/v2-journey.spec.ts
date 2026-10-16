@@ -20,11 +20,9 @@ test('a new journey opens the v2 workspace and its quick note', async ({
   await page.getByRole('button', { name: 'Vytvořit cestu' }).click()
 
   await expect(page).toHaveURL(/\/j\/[^/]+\/workspace$/)
-  await expect(
-    page.getByRole('heading', { name: 'Pracovní prostor cesty' }),
-  ).toBeVisible()
+  await expect(page.getByRole('heading', { name: journeyTitle })).toBeVisible()
 
-  await page.getByRole('link', { name: 'Rychlý zápis' }).click()
+  await page.getByRole('link', { name: 'Rychlý zápis' }).first().click()
   await expect(page).toHaveURL(/\/j\/[^/]+\/quick$/)
   await page.getByLabel('Co se právě děje?').fill('Medvěd u cesty')
   await page.getByLabel('Přidat moji polohu').uncheck()
