@@ -97,7 +97,7 @@ export function WorkspaceMap({
   return (
     <div
       aria-label={t('workspace.map')}
-      className="h-80 overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-8rem)]"
+      className="h-80 overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)]"
       ref={containerRef}
       role="region"
     />

@@ -255,6 +255,22 @@ export const en = {
     tips: 'Tips',
     signOut: 'Sign out',
   },
+  owner: {
+    breadcrumb: 'Breadcrumb',
+    myJourneys: 'My journeys',
+    tabsLabel: 'Journey sections',
+    tabs: {
+      workspace: 'Workspace',
+      import: 'Import',
+      quick: 'Quick note',
+      members: 'Members',
+      public: 'Public page',
+    },
+    publicHint: 'The journey is not public yet, so there is no public page.',
+    outline: 'Outline',
+    outlineShow: 'Show outline',
+    outlineHide: 'Hide outline',
+  },
   dashboard: {
     addJourney: 'Create trip',
     continueDescription:
@@ -409,6 +425,21 @@ export const en = {
     },
   },
   mediaImport: {
+    dropActive: 'Drop to add the files',
+    dropHint: 'Drag photos here',
+    dropOr: 'or',
+    dropDescription:
+      'Photos are added to this journey and sorted by capture time.',
+    itemState: {
+      done: 'Done',
+      failed: 'Failed',
+      paused: 'Paused',
+      pending: 'Waiting',
+      processing: 'In progress',
+      skipped: 'Skipped',
+    },
+    queueMore: '+{{count}} more items',
+    queueTitle: 'Import queue',
     accessDenied:
       'Access to the photo library is not allowed. Enable it in the system Settings and try again.',
     back: 'Back to the journey',
@@ -419,7 +450,7 @@ export const en = {
     chooseFromLibraryHint:
       'Pick specific photos and videos, for example from Favorites or an album.',
     chooseFilesHint:
-      'JPEG, PNG or WebP photos. HEIC photos and videos cannot be imported in the browser yet.',
+      'JPEG, PNG or WebP photos and MP4 videos (up to 60 s and 120 MB). HEIC photos cannot be imported in the browser yet.',
     continue: 'Continue import',
     current: 'Now: {{phase}} ({{percent}} %)',
     dateFrom: 'From',
@@ -569,6 +600,10 @@ export const en = {
     visibilityPublic: 'Published',
   },
   workspace: {
+    emptyTitle: 'Nothing here yet',
+    mapHeading: 'Map',
+    starPhoto: 'Star this photo',
+    unstarPhoto: 'Remove star from this photo',
     emptyJourney: 'This journey has no stages, moments or media yet.',
     loadError: 'The journey could not be loaded.',
     looseMoments: 'Moments outside any stage or trip',
@@ -672,10 +707,13 @@ export const en = {
     create: 'Create journey',
     createError:
       'The journey could not be created. Check your connection and try again.',
+    createDescription:
+      'Give the journey a name. Stages, trips and moments come later, from your photos.',
     createTitle: 'Plan a journey',
     endsAt: 'End',
     loading: 'Loading journey…',
     members: {
+      removeFor: 'Remove {{name}} from the journey',
       actionsFor: 'Actions for {{name}}',
       add: 'Add to journey',
       addByUsernameTitle: 'Add by username',

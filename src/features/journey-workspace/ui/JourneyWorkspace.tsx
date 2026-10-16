@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { ChevronDown, Hand, Info, Lock } from 'lucide-react'
+import { ChevronDown, Hand, ImagePlus, ListTree, Lock } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -56,16 +56,25 @@ import {
   MomentTagsDialog,
   TagChips,
 } from '@/features/moment-tags/ui/MomentTags'
-import { OrganizeDialog } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import {
   OverflowMenu,
   type MenuAction,
 } from '@/features/journey-workspace/ui/OverflowMenu'
 import { targetTitles } from '@/features/journey-workspace/model/target-titles'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
+import {
+  momentElementId,
+  segmentElementId,
+} from '@/features/journey-workspace/lib/outline-ids'
+import {
+  WorkspaceOutline,
+  type OutlineTarget,
+} from '@/features/journey-workspace/ui/WorkspaceOutline'
 import { publicEnv } from '@/shared/config/env'
 import { cn } from '@/shared/lib/cn'
+import { useMediaQuery } from '@/shared/lib/use-media-query'
 import { buttonVariants } from '@/shared/ui/button-variants'
+import { EmptyState } from '@/shared/ui/EmptyState'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 
@@ -103,7 +112,7 @@ function MediaTiles({
   const visible = overflow && !expanded ? items.slice(0, GRID_LIMIT - 1) : items
   const hidden = items.length - visible.length
   return (
-    <div className="mt-2 grid grid-cols-3 gap-2">
+    <div className="mt-2 grid grid-cols-3 gap-2 lg:grid-cols-[repeat(auto-fill,minmax(7rem,1fr))] lg:gap-3">
       {visible.map((item) => (
         <EditableMediaTile
           baseUrl={BASE_URL}
@@ -116,7 +125,7 @@ function MediaTiles({
       {overflow && !expanded ? (
         <button
           aria-label={t('workspace.moreMediaLabel', { count: hidden })}
-          className="flex aspect-square items-center justify-center rounded-sm bg-surface text-base font-semibold text-muted"
+          className="flex aspect-square items-center justify-center rounded-sm bg-surface text-base font-semibold text-muted transition-colors hover:bg-border/60"
           type="button"
           onClick={() => {
             setExpanded(true)
@@ -127,7 +136,7 @@ function MediaTiles({
       ) : null}
       {overflow && expanded ? (
         <button
-          className="col-span-3 min-h-11 rounded-xl text-sm font-semibold text-primary hover:bg-surface"
+          className="col-span-full min-h-11 rounded-xl text-sm font-semibold text-primary hover:bg-surface"
           type="button"
           onClick={() => {
             setExpanded(false)
@@ -269,13 +278,16 @@ function MomentBlock({
   })
   return (
     <li
-      className={`relative py-3 ${selected ? '-mx-2 rounded-sm bg-primary/5 px-2' : ''}`}
-      id={`ws-moment-${entry.moment.id}`}
+      className={cn(
+        'relative scroll-mt-24 py-3 lg:-mx-3 lg:rounded-lg lg:px-3 lg:py-4 lg:transition-colors lg:hover:bg-surface/70',
+        selected && '-mx-2 rounded-sm bg-primary/5 px-2 lg:bg-primary/5',
+      )}
+      id={momentElementId(entry.moment.id)}
     >
       {rail ? (
         <span
           aria-hidden="true"
-          className="absolute -left-5 top-[26px] size-2 rounded-full border border-muted bg-background"
+          className="absolute -left-5 top-[26px] size-2 rounded-full border border-muted bg-background lg:-left-2 lg:top-[34px]"
         />
       ) : null}
       <div className="flex items-start gap-1">
@@ -289,14 +301,14 @@ function MomentBlock({
             onSelect(entry.moment.id)
           }}
         >
-          <span className="flex items-center gap-1.5 font-medium">
+          <span className="flex items-center gap-1.5 font-medium lg:text-lg">
             <span className="min-w-0 truncate">{name}</span>
             <StateIcons
               locked={entry.moment.locked}
               manual={entry.moment.origin === 'manual'}
             />
           </span>
-          <span className="block text-xs text-muted">
+          <span className="block text-xs text-muted lg:text-sm">
             {formatCompactRange(
               entry.moment.startsAt,
               entry.moment.endsAt,
@@ -386,7 +398,7 @@ function SegmentBlock({
   const hasContent = node.moments.length > 0 || node.children.length > 0
   const wrapper = isStage
     ? cn(
-        '-mx-5 border-y px-5 py-2 sm:mx-0 sm:rounded-xl sm:border sm:px-4',
+        '-mx-5 border-y px-5 py-2 sm:mx-0 sm:rounded-xl sm:border sm:px-4 lg:rounded-lg lg:px-5 lg:py-3',
         suggested
           ? 'border-dashed border-accent bg-accent/5'
           : 'border-border bg-surface',
@@ -397,8 +409,9 @@ function SegmentBlock({
   return (
     <section
       aria-label={segment.title}
-      className="relative"
+      className="relative scroll-mt-24"
       data-kind={segment.kind}
+      id={segmentElementId(segment.id)}
     >
       {inRail ? (
         <span
@@ -414,7 +427,7 @@ function SegmentBlock({
               open ? 'workspace.collapseSegment' : 'workspace.expandSegment',
               { name: segment.title },
             )}
-            className="flex min-h-11 w-full items-center gap-3 text-left"
+            className="-mx-2 flex min-h-11 w-[calc(100%+1rem)] items-center gap-3 rounded-lg px-2 text-left transition-colors lg:gap-4 lg:hover:bg-background/70"
             type="button"
             onClick={() => {
               editing.toggleCollapsed(segment.id)
@@ -423,7 +436,7 @@ function SegmentBlock({
             {isStage && node.cover !== null ? (
               <MediaThumb
                 baseUrl={BASE_URL}
-                className="h-12 w-12"
+                className="h-12 w-12 lg:h-16 lg:w-16"
                 item={node.cover}
               />
             ) : null}
@@ -432,7 +445,7 @@ function SegmentBlock({
                 {t(`terms.${termKey}.singular`)}
               </span>
               <span
-                className={`flex items-center gap-1.5 font-semibold ${isStage ? 'text-lg' : 'text-base'}`}
+                className={`flex items-center gap-1.5 font-semibold ${isStage ? 'text-lg lg:reader-display lg:text-2xl' : 'text-base lg:text-lg'}`}
               >
                 <span className="min-w-0 truncate">{segment.title}</span>
                 <StateIcons
@@ -440,7 +453,7 @@ function SegmentBlock({
                   manual={segment.origin === 'manual'}
                 />
               </span>
-              <span className="block text-xs text-muted">
+              <span className="block text-xs text-muted lg:text-sm">
                 {formatCompactRange(
                   segment.startsAt,
                   segment.endsAt,
@@ -649,8 +662,9 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   const journeyCover = useJourneyCoverQuery(journeyId)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
-  const [aboutOpen, setAboutOpen] = useState(false)
-  const [organizing, setOrganizing] = useState(false)
+  const [outlineOpen, setOutlineOpen] = useState(false)
+  const isLg = useMediaQuery('(min-width: 1024px)')
+  const isXl = useMediaQuery('(min-width: 1280px)')
   const locale = i18n.language
 
   const toggleCollapsed = useCallback((segmentId: string) => {
@@ -661,15 +675,28 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       return next
     })
   }, [])
-  const closeOrganize = useCallback(() => {
-    setOrganizing(false)
-  }, [])
 
   const select = useCallback((id: string) => {
     setSelectedId(id)
     document
       .getElementById(`ws-moment-${id}`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [])
+
+  const goTo = useCallback((target: OutlineTarget) => {
+    // Open the stage (and parents) first, then scroll once it is rendered.
+    setCollapsed((current) => {
+      if (!target.expand.some((id) => current.has(id))) return current
+      const next = new Set(current)
+      for (const id of target.expand) next.delete(id)
+      return next
+    })
+    if (target.momentId !== undefined) setSelectedId(target.momentId)
+    window.setTimeout(() => {
+      document
+        .getElementById(target.elementId)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }, [])
 
   const tree = state.status === 'ready' ? state.tree : null
@@ -696,6 +723,10 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
             unassigned: tree.unassigned,
           },
     [collapsed, edits, tags, toggleCollapsed, tree, journeyId, journeyCoverId],
+  )
+  const momentLabel = useCallback(
+    (entry: WorkspaceMoment) => momentTitle(entry, t, locale),
+    [t, locale],
   )
   const points = useMemo<WorkspaceMapPoint[]>(() => {
     if (tree === null) return []
@@ -730,12 +761,66 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       </div>
     )
   } else if (isWorkspaceEmpty(state.tree)) {
-    body = <p className="text-muted">{t('workspace.emptyJourney')}</p>
+    body = (
+      <EmptyState
+        action={
+          <Link
+            className={buttonVariants({ variant: 'primary' })}
+            params={{ journeyId }}
+            to="/j/$journeyId/import"
+          >
+            {t('workspace.import')}
+          </Link>
+        }
+        description={t('workspace.emptyJourney')}
+        icon={ImagePlus}
+        title={t('workspace.emptyTitle')}
+      />
+    )
   } else if (editing !== null) {
     const ready = state.tree
+    const outline = (
+      <WorkspaceOutline
+        momentLabel={momentLabel}
+        observeKey={collapsed}
+        tree={ready}
+        onNavigate={goTo}
+      />
+    )
     body = (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div aria-label={t('workspace.timeline')} className="space-y-3">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[14rem_minmax(0,1fr)_26rem] xl:gap-8 2xl:grid-cols-[15rem_minmax(0,64rem)_minmax(28rem,1fr)]">
+        {isXl ? (
+          <aside className="sticky top-20 max-h-[calc(100vh-6rem)] self-start overflow-y-auto">
+            <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted">
+              {t('owner.outline')}
+            </h2>
+            {outline}
+          </aside>
+        ) : null}
+        <div
+          aria-label={t('workspace.timeline')}
+          className="min-w-0 space-y-3 lg:text-base"
+        >
+          {isLg && !isXl ? (
+            <div>
+              <button
+                aria-expanded={outlineOpen}
+                className="inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-muted hover:bg-surface"
+                type="button"
+                onClick={() => {
+                  setOutlineOpen((value) => !value)
+                }}
+              >
+                <ListTree aria-hidden="true" size={16} />
+                {t(outlineOpen ? 'owner.outlineHide' : 'owner.outlineShow')}
+              </button>
+              {outlineOpen ? (
+                <div className="mt-1 max-h-72 overflow-y-auto rounded-lg border border-border bg-surface p-2">
+                  {outline}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <SegmentList
             editing={editing}
             locale={locale}
@@ -765,7 +850,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           ) : null}
           {ready.unassigned.length > 0 ? (
             <section
-              className="rounded-xl border border-dashed border-border p-3"
+              className="rounded-lg border border-dashed border-border p-3"
               data-testid="unassigned-group"
             >
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
@@ -778,7 +863,10 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
             </section>
           ) : null}
         </div>
-        <div className="lg:sticky lg:top-20 lg:self-start">
+        <div className="min-w-0 lg:sticky lg:top-20 lg:self-start">
+          <h2 className="mb-2 hidden text-xs font-semibold uppercase tracking-wide text-muted lg:block">
+            {t('workspace.mapHeading')}
+          </h2>
           {points.length > 0 ? (
             <WorkspaceMap
               points={points}
@@ -786,7 +874,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               onSelect={select}
             />
           ) : (
-            <p className="rounded-xl border border-border p-4 text-sm text-muted">
+            <p className="rounded-lg border border-border p-4 text-sm text-muted">
               {t('workspace.noMapPoints')}
             </p>
           )}
@@ -796,79 +884,14 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-5 pt-4 pb-28 sm:px-8 sm:py-8">
-      <div className="gap-3 sm:flex sm:items-center sm:justify-between">
-        <div className="flex min-w-0 items-center gap-1">
-          <h1 className="min-w-0 truncate text-xl font-semibold sm:text-2xl">
-            {t('workspace.title')}
-          </h1>
-          <button
-            aria-expanded={aboutOpen}
-            aria-label={t('workspace.about')}
-            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-surface"
-            type="button"
-            onClick={() => {
-              setAboutOpen((value) => !value)
-            }}
-          >
-            <Info aria-hidden="true" size={18} />
-          </button>
-        </div>
-        <div
-          aria-label={t('workspace.toolbar')}
-          className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-border bg-background/95 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
-          role="toolbar"
-        >
-          <Link
-            className={cn(
-              buttonVariants({ variant: 'primary' }),
-              'flex-1 sm:flex-none',
-            )}
-            params={{ journeyId }}
-            to="/j/$journeyId/import"
-          >
-            {t('workspace.import')}
-          </Link>
-          <Link
-            className={cn(
-              buttonVariants({ variant: 'secondary' }),
-              'flex-1 sm:flex-none',
-            )}
-            params={{ journeyId }}
-            to="/j/$journeyId/quick"
-          >
-            {t('quickNote.title')}
-          </Link>
-          <OverflowMenu
-            actions={[
-              {
-                key: 'organize',
-                label: t('autoOrganize.button'),
-                onSelect: () => {
-                  setOrganizing(true)
-                },
-              },
-            ]}
-            className="border border-border/80 bg-surface"
-            description={t('workspace.organizeHint')}
-            label={t('workspace.moreActions')}
-            name={t('workspace.moreActions')}
-          />
-        </div>
-      </div>
-      {aboutOpen ? (
-        <p className="mt-1 text-sm text-muted">{t('workspace.subtitle')}</p>
-      ) : null}
-      <div className="mt-3">
+    <div className="pb-24 sm:pb-0">
+      <div className="mb-4">
         <ModerationPanel
           journeyId={journeyId}
           titles={tree === null ? new Map() : targetTitles(tree)}
         />
       </div>
       {body}
-      {organizing ? (
-        <OrganizeDialog journeyId={journeyId} onClose={closeOrganize} />
-      ) : null}
-    </main>
+    </div>
   )
 }

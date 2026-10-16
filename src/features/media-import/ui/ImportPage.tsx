@@ -1,5 +1,11 @@
-import { Link } from '@tanstack/react-router'
-import { useEffect, useRef, useState, type ChangeEvent } from 'react'
+import { Image as ImageIcon, UploadCloud, Video } from 'lucide-react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type DragEvent,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { dexieUploadJobStore } from '@/entities/media/api/upload-jobs.store'
 import {
@@ -27,6 +33,10 @@ import type {
   MediaSource,
 } from '@/features/media-import/model/types'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
+import { cn } from '@/shared/lib/cn'
+import { Button } from '@/shared/ui/Button'
+import { buttonVariants } from '@/shared/ui/button-variants'
+import { Card, SectionHeading } from '@/shared/ui/PageLayout'
 import {
   getMediaLibraryStatus,
   MediaLibraryError,
@@ -35,10 +45,17 @@ import {
   requestMediaLibraryAccess,
 } from '@/shared/lib/media-library'
 
-const BUTTON =
-  'min-h-10 rounded-md border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50'
-const PRIMARY_BUTTON =
-  'min-h-10 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50'
+/** Rows rendered in the queue list before "+N more". */
+const QUEUE_ROW_LIMIT = 100
+
+const STATE_ORDER: Record<UploadJob['state'], number> = {
+  processing: 0,
+  failed: 1,
+  skipped: 2,
+  pending: 3,
+  paused: 4,
+  done: 5,
+}
 
 type RangeMode = RangeChoice['mode']
 
@@ -191,6 +208,10 @@ function ImportView({
   async function pickFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
+    await handleFiles(files)
+  }
+
+  async function handleFiles(files: File[]) {
     if (files.length === 0) return
     setError(null)
     try {
@@ -221,310 +242,406 @@ function ImportView({
     counts.done > 0 &&
     waiting === 0 &&
     counts.processing === 0
-  const problems = snapshot.jobs.filter(
-    (job) => job.state === 'failed' || job.state === 'skipped',
-  )
+
+  const rows = [...snapshot.jobs]
+    .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state])
+    .slice(0, QUEUE_ROW_LIMIT)
+  const hiddenRows = snapshot.jobs.length - rows.length
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-5 py-8">
-      <div>
-        <Link
-          className="text-sm text-muted underline"
-          params={{ journeyId }}
-          to="/j/$journeyId/workspace"
-        >
-          {t('mediaImport.back')}
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">
-          {t('mediaImport.title')}
-        </h1>
-      </div>
-
-      <section aria-label={t('mediaImport.rangeLabel')} className="space-y-4">
-        {native ? (
-          <>
-            <div className="space-y-2">
-              <button
-                className={PRIMARY_BUTTON}
-                disabled={picking || scanning || busy}
-                type="button"
-                onClick={() => void pickFromLibrary()}
-              >
-                {picking
-                  ? t('mediaImport.picking')
-                  : t('mediaImport.chooseFromLibrary')}
-              </button>
-              <p className="text-sm text-muted">
-                {t('mediaImport.chooseFromLibraryHint')}
-              </p>
-              {picked === null || picked.selected === 0 ? null : (
-                <p className="text-sm font-semibold" role="status">
-                  {t('mediaImport.pickedCount', { count: picked.selected })}
+    <div className="space-y-6">
+      <Card>
+        <section aria-label={t('mediaImport.rangeLabel')} className="space-y-4">
+          {native ? (
+            <>
+              <div className="space-y-2">
+                <Button
+                  disabled={picking || scanning || busy}
+                  onClick={() => void pickFromLibrary()}
+                >
+                  {picking
+                    ? t('mediaImport.picking')
+                    : t('mediaImport.chooseFromLibrary')}
+                </Button>
+                <p className="text-sm text-muted">
+                  {t('mediaImport.chooseFromLibraryHint')}
                 </p>
-              )}
-              {picked === null || picked.left === 0 ? null : (
-                <p className="text-sm text-muted" role="status">
-                  {t('mediaImport.pickedLimited', { count: picked.left })}
-                </p>
-              )}
-            </div>
-            <h2 className="pt-2 text-sm font-semibold">
-              {t('mediaImport.byDate')}
-            </h2>
-            <fieldset className="space-y-2">
-              <legend className="text-sm font-semibold">
-                {t('mediaImport.rangeLabel')}
-              </legend>
-              {cursor === null ? null : (
+                {picked === null || picked.selected === 0 ? null : (
+                  <p className="text-sm font-semibold" role="status">
+                    {t('mediaImport.pickedCount', { count: picked.selected })}
+                  </p>
+                )}
+                {picked === null || picked.left === 0 ? null : (
+                  <p className="text-sm text-muted" role="status">
+                    {t('mediaImport.pickedLimited', { count: picked.left })}
+                  </p>
+                )}
+              </div>
+              <h2 className="border-t border-border pt-4 text-sm font-semibold">
+                {t('mediaImport.byDate')}
+              </h2>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-semibold">
+                  {t('mediaImport.rangeLabel')}
+                </legend>
+                {cursor === null ? null : (
+                  <RangeOption
+                    checked={mode === 'since'}
+                    label={t('mediaImport.rangeSince', {
+                      date: new Intl.DateTimeFormat(locale, {
+                        dateStyle: 'medium',
+                      }).format(Date.parse(cursor.lastCapturedAt)),
+                    })}
+                    onSelect={() => {
+                      setMode('since')
+                    }}
+                  />
+                )}
                 <RangeOption
-                  checked={mode === 'since'}
-                  label={t('mediaImport.rangeSince', {
-                    date: new Intl.DateTimeFormat(locale, {
-                      dateStyle: 'medium',
-                    }).format(Date.parse(cursor.lastCapturedAt)),
-                  })}
+                  checked={mode === 'dates'}
+                  label={t('mediaImport.rangeDates')}
                   onSelect={() => {
-                    setMode('since')
+                    setMode('dates')
                   }}
                 />
-              )}
-              <RangeOption
-                checked={mode === 'dates'}
-                label={t('mediaImport.rangeDates')}
-                onSelect={() => {
-                  setMode('dates')
-                }}
-              />
-              {mode === 'dates' ? (
-                <div className="flex flex-wrap gap-3 pl-8">
-                  <label className="text-sm">
-                    {t('mediaImport.dateFrom')}
-                    <input
-                      className="mt-1 block min-h-10 rounded-md border border-border px-2"
-                      type="date"
-                      value={fromDay}
-                      onChange={(event) => {
-                        setFromDay(event.target.value)
-                      }}
-                    />
-                  </label>
-                  <label className="text-sm">
-                    {t('mediaImport.dateTo')}
-                    <input
-                      className="mt-1 block min-h-10 rounded-md border border-border px-2"
-                      type="date"
-                      value={toDay}
-                      onChange={(event) => {
-                        setToDay(event.target.value)
-                      }}
-                    />
-                  </label>
-                </div>
-              ) : null}
-              <RangeOption
-                checked={mode === 'all'}
-                label={t('mediaImport.rangeAll')}
-                onSelect={() => {
-                  setMode('all')
-                }}
-              />
-            </fieldset>
-            <div>
-              <label className="flex min-h-10 items-center gap-3 text-sm font-semibold">
-                <input
-                  checked={icloud}
-                  className="h-5 w-5"
-                  type="checkbox"
-                  onChange={(event) => {
-                    setIcloud(event.target.checked)
+                {mode === 'dates' ? (
+                  <div className="flex flex-wrap gap-3 pl-8">
+                    <label className="text-sm">
+                      {t('mediaImport.dateFrom')}
+                      <input
+                        className="mt-1 block min-h-11 rounded-md border border-border bg-surface px-2"
+                        type="date"
+                        value={fromDay}
+                        onChange={(event) => {
+                          setFromDay(event.target.value)
+                        }}
+                      />
+                    </label>
+                    <label className="text-sm">
+                      {t('mediaImport.dateTo')}
+                      <input
+                        className="mt-1 block min-h-11 rounded-md border border-border bg-surface px-2"
+                        type="date"
+                        value={toDay}
+                        onChange={(event) => {
+                          setToDay(event.target.value)
+                        }}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <RangeOption
+                  checked={mode === 'all'}
+                  label={t('mediaImport.rangeAll')}
+                  onSelect={() => {
+                    setMode('all')
                   }}
                 />
-                {t('mediaImport.icloudLabel')}
-              </label>
-              <p className="pl-8 text-sm text-muted">
-                {t('mediaImport.icloudHint')}
-              </p>
-            </div>
-            <button
-              className={BUTTON}
-              disabled={scanning || busy}
-              type="button"
-              onClick={() => void scan()}
-            >
-              {scanning ? t('mediaImport.scanning') : t('mediaImport.scan')}
-            </button>
-          </>
-        ) : (
-          <div className="space-y-2">
-            <label
-              className={`${BUTTON} inline-flex cursor-pointer items-center`}
-            >
-              {t('mediaImport.chooseFiles')}
-              <input
-                accept={WEB_FILES_ACCEPT}
-                className="sr-only"
-                disabled={busy}
-                multiple
-                type="file"
-                onChange={(event) => void pickFiles(event)}
-              />
-            </label>
-            <p className="text-sm text-muted">
-              {t('mediaImport.chooseFilesHint')}
-            </p>
-          </div>
-        )}
-        {error === null ? null : (
-          <p className="text-sm text-destructive" role="alert">
-            {t(`mediaImport.${error}`)}
-          </p>
-        )}
-      </section>
-
-      {summary === null ? null : (
-        <section aria-label={t('mediaImport.start')} className="space-y-2">
-          <ul className="text-sm">
-            <li>{t('mediaImport.summaryPhotos', { count: summary.photos })}</li>
-            <li>{t('mediaImport.summaryVideos', { count: summary.videos })}</li>
-            <li>
-              {t('mediaImport.summarySkipped', { count: summary.skippedTotal })}
-            </li>
-            {Object.entries(summary.skipped).map(([reason, count]) => (
-              <li className="pl-4 text-muted" key={reason}>
-                {t(`mediaImport.reason.${reason}`, {
-                  defaultValue: t('mediaImport.reason.other'),
-                })}{' '}
-                ({count})
-              </li>
-            ))}
-          </ul>
-          {importable === 0 ? (
-            <p className="text-sm text-muted">
-              {t('mediaImport.nothingToImport')}
-            </p>
-          ) : null}
-          <button
-            className={PRIMARY_BUTTON}
-            disabled={importable === 0 && summary.skippedTotal === 0}
-            type="button"
-            onClick={() => void startImport()}
-          >
-            {t('mediaImport.start')}
-          </button>
-        </section>
-      )}
-
-      {snapshot.jobs.length === 0 ? null : (
-        <section aria-label={t('mediaImport.title')} className="space-y-3">
-          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-            {UPLOAD_JOB_STATES.map((state) => (
-              <li data-state={state} key={state}>
-                {t(`mediaImport.state.${state}`, { count: counts[state] })}
-              </li>
-            ))}
-          </ul>
-          {runtime === 'waiting_online' ? (
-            <p className="text-sm text-muted" role="status">
-              {t('mediaImport.waitingOnline')}
-            </p>
-          ) : null}
-          {current === null ? null : (
-            <p className="text-sm" role="status">
-              {t('mediaImport.current', {
-                percent: Math.round(current.fraction * 100),
-                phase: t(`mediaImport.phase.${current.phase}`),
-              })}
+              </fieldset>
+              <div>
+                <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+                  <input
+                    checked={icloud}
+                    className="size-5"
+                    type="checkbox"
+                    onChange={(event) => {
+                      setIcloud(event.target.checked)
+                    }}
+                  />
+                  {t('mediaImport.icloudLabel')}
+                </label>
+                <p className="pl-8 text-sm text-muted">
+                  {t('mediaImport.icloudHint')}
+                </p>
+              </div>
+              <Button
+                disabled={scanning || busy}
+                variant="secondary"
+                onClick={() => void scan()}
+              >
+                {scanning ? t('mediaImport.scanning') : t('mediaImport.scan')}
+              </Button>
+            </>
+          ) : (
+            <DropZone
+              busy={busy}
+              onFiles={(files) => void handleFiles(files)}
+              onPick={(event) => void pickFiles(event)}
+              t={t}
+            />
+          )}
+          {error === null ? null : (
+            <p className="text-sm text-destructive" role="alert">
+              {t(`mediaImport.${error}`)}
             </p>
           )}
-          <div className="flex flex-wrap gap-2">
-            {runtime === 'running' || runtime === 'waiting_online' ? (
-              <button
-                className={BUTTON}
-                type="button"
-                onClick={() => void queue.pause()}
-              >
-                {t('mediaImport.pause')}
-              </button>
-            ) : null}
-            {runtime === 'paused' || counts.paused > 0 ? (
-              <button
-                className={BUTTON}
-                type="button"
-                onClick={() => void queue.resume()}
-              >
-                {t('mediaImport.resume')}
-              </button>
-            ) : null}
-            {runtime === 'idle' && counts.pending > 0 ? (
-              <button
-                className={BUTTON}
-                type="button"
-                onClick={() => {
-                  queue.start()
-                }}
-              >
-                {t('mediaImport.continue')}
-              </button>
-            ) : null}
-            {counts.failed > 0 ? (
-              <button
-                className={BUTTON}
-                type="button"
-                onClick={() => void queue.retryFailed()}
-              >
-                {t('mediaImport.retryFailed')}
-              </button>
-            ) : null}
-            {waiting > 0 ? (
-              <button
-                className={BUTTON}
-                type="button"
-                onClick={() => void queue.cancel()}
-              >
-                {t('mediaImport.cancel')}
-              </button>
-            ) : null}
-          </div>
-          {problems.length === 0 ? null : (
-            <div>
-              <h2 className="text-sm font-semibold">
-                {t('mediaImport.problemsTitle')}
-              </h2>
-              <ul className="mt-1 divide-y divide-border text-sm">
-                {problems.map((job) => (
-                  <li className="py-2" key={job.id}>
-                    <span className="font-medium">
-                      {t(
-                        job.mediaType === 'video'
-                          ? 'mediaImport.itemVideo'
-                          : 'mediaImport.itemPhoto',
-                        { name: jobLabel(job, locale) },
-                      )}
-                    </span>
-                    <span className="block text-muted">
-                      {t(`mediaImport.reason.${job.lastError ?? 'other'}`, {
-                        defaultValue: t('mediaImport.reason.other'),
-                      })}
-                    </span>
+        </section>
+      </Card>
+
+      {summary === null ? null : (
+        <Card>
+          <section aria-label={t('mediaImport.start')} className="space-y-4">
+            <ul className="grid grid-cols-3 gap-3 text-sm">
+              <li className="rounded-md bg-background px-3 py-2">
+                {t('mediaImport.summaryPhotos', { count: summary.photos })}
+              </li>
+              <li className="rounded-md bg-background px-3 py-2">
+                {t('mediaImport.summaryVideos', { count: summary.videos })}
+              </li>
+              <li className="rounded-md bg-background px-3 py-2">
+                {t('mediaImport.summarySkipped', {
+                  count: summary.skippedTotal,
+                })}
+              </li>
+            </ul>
+            {Object.keys(summary.skipped).length === 0 ? null : (
+              <ul className="space-y-1 text-sm text-muted">
+                {Object.entries(summary.skipped).map(([reason, count]) => (
+                  <li key={reason}>
+                    {t(`mediaImport.reason.${reason}`, {
+                      defaultValue: t('mediaImport.reason.other'),
+                    })}{' '}
+                    ({count})
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-          {finished ? (
-            <div className="space-y-2 rounded-xl border border-border p-4">
-              <p className="text-sm font-semibold">
-                {t('mediaImport.finished', { count: counts.done })}
-              </p>
+            )}
+            {importable === 0 ? (
               <p className="text-sm text-muted">
-                {t('mediaImport.organizeOffer')}
+                {t('mediaImport.nothingToImport')}
               </p>
-              <OrganizeJourneyButton journeyId={journeyId} />
+            ) : null}
+            <Button
+              disabled={importable === 0 && summary.skippedTotal === 0}
+              onClick={() => void startImport()}
+            >
+              {t('mediaImport.start')}
+            </Button>
+          </section>
+        </Card>
+      )}
+
+      {snapshot.jobs.length === 0 ? null : (
+        <section aria-label={t('mediaImport.title')}>
+          <SectionHeading>{t('mediaImport.queueTitle')}</SectionHeading>
+          <Card className="space-y-4">
+            <ul className="flex flex-wrap gap-2 text-sm">
+              {UPLOAD_JOB_STATES.map((state) => (
+                <li
+                  className="rounded-full bg-background px-3 py-1 font-medium"
+                  data-state={state}
+                  key={state}
+                >
+                  {t(`mediaImport.state.${state}`, { count: counts[state] })}
+                </li>
+              ))}
+            </ul>
+            {runtime === 'waiting_online' ? (
+              <p className="text-sm text-muted" role="status">
+                {t('mediaImport.waitingOnline')}
+              </p>
+            ) : null}
+            {current === null ? null : (
+              <p className="text-sm" role="status">
+                {t('mediaImport.current', {
+                  percent: Math.round(current.fraction * 100),
+                  phase: t(`mediaImport.phase.${current.phase}`),
+                })}
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {runtime === 'running' || runtime === 'waiting_online' ? (
+                <Button variant="secondary" onClick={() => void queue.pause()}>
+                  {t('mediaImport.pause')}
+                </Button>
+              ) : null}
+              {runtime === 'paused' || counts.paused > 0 ? (
+                <Button variant="secondary" onClick={() => void queue.resume()}>
+                  {t('mediaImport.resume')}
+                </Button>
+              ) : null}
+              {runtime === 'idle' && counts.pending > 0 ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    queue.start()
+                  }}
+                >
+                  {t('mediaImport.continue')}
+                </Button>
+              ) : null}
+              {counts.failed > 0 ? (
+                <Button
+                  variant="secondary"
+                  onClick={() => void queue.retryFailed()}
+                >
+                  {t('mediaImport.retryFailed')}
+                </Button>
+              ) : null}
+              {waiting > 0 ? (
+                <Button
+                  variant="destructive"
+                  onClick={() => void queue.cancel()}
+                >
+                  {t('mediaImport.cancel')}
+                </Button>
+              ) : null}
             </div>
-          ) : null}
+            <ul className="divide-y divide-border rounded-md border border-border text-sm">
+              {rows.map((job) => {
+                const problem =
+                  job.state === 'failed' || job.state === 'skipped'
+                const active = current !== null && current.jobId === job.id
+                const Icon = job.mediaType === 'video' ? Video : ImageIcon
+                return (
+                  <li
+                    className="flex items-start gap-3 px-3 py-2.5"
+                    data-job-state={job.state}
+                    key={job.id}
+                  >
+                    <Icon
+                      aria-hidden="true"
+                      className="mt-0.5 shrink-0 text-muted"
+                      size={16}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="block truncate font-medium">
+                        {t(
+                          job.mediaType === 'video'
+                            ? 'mediaImport.itemVideo'
+                            : 'mediaImport.itemPhoto',
+                          { name: jobLabel(job, locale) },
+                        )}
+                      </span>
+                      {problem ? (
+                        <span className="block text-muted">
+                          {t(`mediaImport.reason.${job.lastError ?? 'other'}`, {
+                            defaultValue: t('mediaImport.reason.other'),
+                          })}
+                        </span>
+                      ) : null}
+                      {active ? (
+                        <span
+                          aria-hidden="true"
+                          className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-border"
+                        >
+                          <span
+                            className="block h-full rounded-full bg-primary transition-[width]"
+                            style={{
+                              width: `${String(Math.round(current.fraction * 100))}%`,
+                            }}
+                          />
+                        </span>
+                      ) : null}
+                    </div>
+                    <span
+                      className={cn(
+                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                        job.state === 'done' && 'bg-primary/10 text-primary',
+                        job.state === 'failed' &&
+                          'bg-destructive/10 text-destructive',
+                        job.state === 'skipped' &&
+                          'bg-accent/10 text-accent-strong',
+                        job.state !== 'done' &&
+                          job.state !== 'failed' &&
+                          job.state !== 'skipped' &&
+                          'bg-background text-muted',
+                      )}
+                    >
+                      {t(`mediaImport.itemState.${job.state}`)}
+                    </span>
+                  </li>
+                )
+              })}
+            </ul>
+            {hiddenRows > 0 ? (
+              <p className="text-sm text-muted">
+                {t('mediaImport.queueMore', { count: hiddenRows })}
+              </p>
+            ) : null}
+            {finished ? (
+              <div className="space-y-2 rounded-md bg-primary/5 p-4">
+                <p className="text-sm font-semibold">
+                  {t('mediaImport.finished', { count: counts.done })}
+                </p>
+                <p className="text-sm text-muted">
+                  {t('mediaImport.organizeOffer')}
+                </p>
+                <OrganizeJourneyButton journeyId={journeyId} />
+              </div>
+            ) : null}
+          </Card>
         </section>
       )}
-    </main>
+    </div>
+  )
+}
+
+function DropZone({
+  busy,
+  onFiles,
+  onPick,
+  t,
+}: {
+  busy: boolean
+  onFiles: (files: File[]) => void
+  onPick: (event: ChangeEvent<HTMLInputElement>) => void
+  t: ReturnType<typeof useTranslation>['t']
+}) {
+  const [over, setOver] = useState(false)
+  function allow(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault()
+    if (!busy) setOver(true)
+  }
+  return (
+    <div
+      className={cn(
+        'flex flex-col items-center rounded-lg border-2 border-dashed px-6 py-10 text-center transition-colors',
+        over ? 'border-primary bg-primary/5' : 'border-border bg-background/50',
+      )}
+      data-testid="import-dropzone"
+      onDragEnter={allow}
+      onDragLeave={() => {
+        setOver(false)
+      }}
+      onDragOver={allow}
+      onDrop={(event) => {
+        event.preventDefault()
+        setOver(false)
+        if (!busy) onFiles(Array.from(event.dataTransfer.files))
+      }}
+    >
+      <span
+        aria-hidden="true"
+        className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary"
+      >
+        <UploadCloud size={22} />
+      </span>
+      <p className="mt-4 text-lg font-semibold">
+        {over ? t('mediaImport.dropActive') : t('mediaImport.dropHint')}
+      </p>
+      <p className="my-2 text-sm text-muted">{t('mediaImport.dropOr')}</p>
+      <label
+        className={cn(
+          buttonVariants({ variant: 'primary' }),
+          'cursor-pointer has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-3 has-[:focus-visible]:outline-primary/55',
+          busy && 'pointer-events-none opacity-50',
+        )}
+      >
+        {t('mediaImport.chooseFiles')}
+        <input
+          accept={WEB_FILES_ACCEPT}
+          className="sr-only"
+          disabled={busy}
+          multiple
+          type="file"
+          onChange={onPick}
+        />
+      </label>
+      <p className="mt-4 max-w-md text-sm text-muted">
+        {t('mediaImport.chooseFilesHint')}
+      </p>
+    </div>
   )
 }
 
@@ -538,10 +655,10 @@ function RangeOption({
   onSelect: () => void
 }) {
   return (
-    <label className="flex min-h-10 items-center gap-3 text-sm">
+    <label className="flex min-h-11 items-center gap-3 text-sm">
       <input
         checked={checked}
-        className="h-5 w-5"
+        className="size-5"
         name="import-range"
         type="radio"
         onChange={onSelect}

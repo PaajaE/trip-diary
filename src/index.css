@@ -69,7 +69,7 @@ a {
   z-index: 10;
 }
 
-.reader-display {
+@utility reader-display {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-weight: 600;
 }

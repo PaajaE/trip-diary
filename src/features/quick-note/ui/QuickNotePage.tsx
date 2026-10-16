@@ -12,6 +12,8 @@ import { loadDraft, saveDraft } from '@/features/quick-note/lib/draft'
 import { BODY_MAX_LENGTH } from '@/features/journey-workspace/lib/text-edit'
 import { isGeolocationAvailable } from '@/shared/lib/geolocation'
 import { Button } from '@/shared/ui/Button'
+import { buttonVariants } from '@/shared/ui/button-variants'
+import { Card } from '@/shared/ui/PageLayout'
 
 type Status =
   | { kind: 'idle' }
@@ -68,21 +70,9 @@ function QuickNoteView({
   const errorId = `${ids}-error`
 
   return (
-    <main className="mx-auto max-w-xl space-y-5 px-5 py-6">
-      <div>
-        <Link
-          className="text-sm text-muted underline"
-          params={{ journeyId }}
-          to="/j/$journeyId/workspace"
-        >
-          {t('mediaImport.back')}
-        </Link>
-        <h1 className="mt-2 text-2xl font-semibold">{t('quickNote.title')}</h1>
-        <p className="mt-1 text-sm text-muted">{t('quickNote.subtitle')}</p>
-      </div>
-
+    <Card className="mx-auto max-w-2xl">
       <form
-        className="space-y-4"
+        className="space-y-5"
         noValidate
         onSubmit={(event) => {
           event.preventDefault()
@@ -96,7 +86,7 @@ function QuickNoteView({
           <textarea
             aria-describedby={error !== null ? errorId : undefined}
             aria-invalid={error === 'empty' || error === 'too_long'}
-            className="mt-1 block min-h-[40vh] w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-base leading-7"
+            className="mt-2 block min-h-48 sm:min-h-64 w-full resize-y rounded-md border border-border bg-background px-4 py-3 text-base leading-7 outline-none focus:border-primary"
             id={`${ids}-text`}
             value={text}
             onChange={(event) => {
@@ -132,7 +122,7 @@ function QuickNoteView({
 
         <div aria-live="polite" id={errorId}>
           {error !== null ? (
-            <p className="text-sm text-red-600" role="alert">
+            <p className="text-sm text-destructive" role="alert">
               {error === 'empty'
                 ? t('quickNote.empty')
                 : error === 'too_long'
@@ -161,7 +151,7 @@ function QuickNoteView({
             {saving ? t('quickNote.saving') : t('quickNote.save')}
           </Button>
           <Link
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border/80 px-5 text-sm font-semibold"
+            className={buttonVariants({ variant: 'secondary' })}
             params={{ journeyId }}
             to="/j/$journeyId/import"
           >
@@ -169,6 +159,6 @@ function QuickNoteView({
           </Link>
         </div>
       </form>
-    </main>
+    </Card>
   )
 }

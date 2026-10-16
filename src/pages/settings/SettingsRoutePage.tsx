@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
+import { PageContainer } from '@/shared/ui/PageLayout'
 import { useTranslation } from 'react-i18next'
 import {
   getCurrentProfile,
@@ -79,9 +80,5 @@ export function SettingsRoutePage() {
 }
 
 function SettingsMessage({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto min-h-[calc(100svh-4rem)] max-w-3xl px-5 py-16 text-muted sm:px-8">
-      {children}
-    </main>
-  )
+  return <PageContainer className="text-muted">{children}</PageContainer>
 }

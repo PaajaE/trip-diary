@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useSession } from '@/features/auth/session'
 import { CreateJourneyForm } from '@/features/journeys/ui/CreateJourneyForm'
 import { useActiveSpace } from '@/features/spaces'
+import { Card, PageContainer, PageHeader } from '@/shared/ui/PageLayout'
 
 export function CreateJourneyPage() {
   const { t } = useTranslation()
@@ -11,41 +12,54 @@ export function CreateJourneyPage() {
   const spacesQuery = useActiveSpace(user?.id)
 
   return (
-    <main className="mx-auto min-h-svh w-full max-w-2xl px-5 py-8 sm:py-16">
-      <h1 className="mt-16 text-4xl font-semibold tracking-[-0.04em]">
-        {t('journey.createTitle')}
-      </h1>
+    <PageContainer width="form">
+      <PageHeader
+        crumbs={[
+          <Link
+            className="rounded-sm font-medium hover:text-foreground hover:underline"
+            key="journeys"
+            to="/dashboard"
+          >
+            {t('owner.myJourneys')}
+          </Link>,
+          <span key="current">{t('journey.createTitle')}</span>,
+        ]}
+        description={t('journey.createDescription')}
+        title={t('journey.createTitle')}
+      />
       {loading ? (
-        <p className="mt-8 text-muted">{t('journey.loading')}</p>
+        <p className="text-muted">{t('journey.loading')}</p>
       ) : user === null ? (
-        <p className="mt-8 text-muted">
+        <p className="text-muted">
           {t('journey.signInRequired')}{' '}
           <Link className="font-semibold text-primary" to="/sign-in">
             {t('home.signIn')}
           </Link>
         </p>
       ) : spacesQuery.isPending ? (
-        <p className="mt-8 text-muted">Načítám publikační prostor…</p>
+        <p className="text-muted">Načítám publikační prostor…</p>
       ) : spacesQuery.activeSpace === null ? (
-        <p className="mt-8 text-destructive">
+        <p className="text-destructive">
           Pro publikování potřebujete osobní nebo rodinný prostor.
         </p>
       ) : (
-        <CreateJourneyForm
-          creatorId={user.id}
-          onCreated={(journeyId, meta) =>
-            void navigate({
-              params: { journeyId },
-              search:
-                meta?.templateFailed === true
-                  ? { notice: 'template_failed' }
-                  : {},
-              to: '/j/$journeyId',
-            })
-          }
-          spaceId={spacesQuery.activeSpace.id}
-        />
+        <Card>
+          <CreateJourneyForm
+            creatorId={user.id}
+            onCreated={(journeyId, meta) =>
+              void navigate({
+                params: { journeyId },
+                search:
+                  meta?.templateFailed === true
+                    ? { notice: 'template_failed' }
+                    : {},
+                to: '/j/$journeyId',
+              })
+            }
+            spaceId={spacesQuery.activeSpace.id}
+          />
+        </Card>
       )}
-    </main>
+    </PageContainer>
   )
 }

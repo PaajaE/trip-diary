@@ -1,13 +1,22 @@
+import type { ReactNode } from 'react'
 import {
   CreateFamilyForm,
   SpaceSwitcher,
   type CreateFamilyValues,
   type SpaceSwitcherItem,
 } from '@/features/spaces'
+import {
+  Card,
+  PageContainer,
+  PageHeader,
+  SectionHeading,
+} from '@/shared/ui/PageLayout'
 
 interface SpacesPageProps {
   activeSpaceId: string
   creatingFamily: boolean
+  /** Extra content below the page (for example a link to member management). */
+  footer?: ReactNode
   onCancelCreate: () => void
   onCreateFamily: (values: CreateFamilyValues) => Promise<void>
   onOpenCreate: () => void
@@ -18,6 +27,7 @@ interface SpacesPageProps {
 export function SpacesPage({
   activeSpaceId,
   creatingFamily,
+  footer,
   onCancelCreate,
   onCreateFamily,
   onOpenCreate,
@@ -25,39 +35,36 @@ export function SpacesPage({
   spaces,
 }: SpacesPageProps) {
   return (
-    <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-3xl px-5 py-10 sm:px-8 sm:py-16">
-      <header className="border-b border-border pb-8">
-        <p className="text-sm font-medium text-accent">Vaše společné místo</p>
-        <h1 className="mt-3 text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-          Rodinné prostory
-        </h1>
-        <p className="mt-4 max-w-xl leading-7 text-muted">
-          Přepínejte mezi svým deníkem a místy, která tvoříte společně.
-        </p>
-      </header>
-      <section className="py-8 sm:py-10">
-        <h2 className="text-xl font-semibold">Aktivní prostor</h2>
-        <div className="mt-5">
+    <PageContainer>
+      <PageHeader
+        description="Přepínejte mezi svým deníkem a místy, která tvoříte společně."
+        title="Rodinné prostory"
+      />
+      <div className="space-y-10">
+        <section>
+          <SectionHeading>Aktivní prostor</SectionHeading>
           <SpaceSwitcher
             activeSpaceId={activeSpaceId}
             onCreateFamily={onOpenCreate}
             onSelect={onSelectSpace}
             spaces={spaces}
           />
-        </div>
-      </section>
-      {creatingFamily ? (
-        <section className="rounded-md bg-surface p-5 shadow-soft sm:p-8">
-          <h2 className="text-2xl font-semibold">Nový rodinný prostor</h2>
-          <p className="mt-2 mb-7 leading-7 text-muted">
-            Vytvořte společný domov pro cesty, vzpomínky a praktické tipy.
-          </p>
-          <CreateFamilyForm
-            onCancel={onCancelCreate}
-            onCreate={onCreateFamily}
-          />
         </section>
-      ) : null}
-    </main>
+        {creatingFamily ? (
+          <section>
+            <SectionHeading description="Vytvořte společný domov pro cesty, vzpomínky a praktické tipy.">
+              Nový rodinný prostor
+            </SectionHeading>
+            <Card>
+              <CreateFamilyForm
+                onCancel={onCancelCreate}
+                onCreate={onCreateFamily}
+              />
+            </Card>
+          </section>
+        ) : null}
+        {footer}
+      </div>
+    </PageContainer>
   )
 }

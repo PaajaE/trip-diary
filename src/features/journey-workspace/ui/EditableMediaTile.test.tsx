@@ -115,6 +115,17 @@ describe('EditableMediaTile', () => {
     })
   })
 
+  it('stars straight from the hover toolbar without opening the sheet', async () => {
+    render(<Tile current={item} />, { wrapper })
+    fireEvent.click(screen.getByRole('button', { name: 'Star this photo' }))
+    await waitFor(() => {
+      expect(repo.updateMediaMeta).toHaveBeenCalledWith(item.id, {
+        starred: true,
+      })
+    })
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
   it('rolls back the star and shows an error toast when saving fails', async () => {
     repo.updateMediaMeta.mockRejectedValue(new Error('rls'))
     render(<Tile current={item} />, { wrapper })
@@ -131,8 +142,8 @@ describe('EditableMediaTile', () => {
 
   it('shows the cover badge and only offers levels that contain the media', () => {
     render(<Tile current={item} />, { wrapper })
-    // No always-visible buttons on the tile itself.
-    expect(screen.getAllByRole('button')).toHaveLength(1)
+    // Only the sheet opener and the desktop hover star live on the tile.
+    expect(screen.getAllByRole('button')).toHaveLength(2)
     openSheet()
     expect(screen.getByText('Cover: stage')).toBeTruthy()
     expect(

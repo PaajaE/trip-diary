@@ -256,6 +256,22 @@ export const cs: TranslationResources = {
     tips: 'Tipy',
     signOut: 'Odhlásit se',
   },
+  owner: {
+    breadcrumb: 'Drobečková navigace',
+    myJourneys: 'Moje cesty',
+    tabsLabel: 'Části cesty',
+    tabs: {
+      workspace: 'Pracovní plocha',
+      import: 'Import',
+      quick: 'Rychlý zápis',
+      members: 'Členové',
+      public: 'Veřejná stránka',
+    },
+    publicHint: 'Cesta zatím není veřejná, veřejná stránka proto neexistuje.',
+    outline: 'Osnova',
+    outlineShow: 'Zobrazit osnovu',
+    outlineHide: 'Skrýt osnovu',
+  },
   dashboard: {
     addJourney: 'Vytvořit cestu',
     continueDescription:
@@ -409,6 +425,21 @@ export const cs: TranslationResources = {
     },
   },
   mediaImport: {
+    dropActive: 'Pusťte soubory pro přidání',
+    dropHint: 'Přetáhněte sem fotky',
+    dropOr: 'nebo',
+    dropDescription:
+      'Fotky se přidají do této cesty a seřadí podle času pořízení.',
+    itemState: {
+      done: 'Hotovo',
+      failed: 'Selhalo',
+      paused: 'Pozastaveno',
+      pending: 'Čeká',
+      processing: 'Probíhá',
+      skipped: 'Přeskočeno',
+    },
+    queueMore: '+ dalších {{count}} položek',
+    queueTitle: 'Fronta importu',
     accessDenied:
       'Přístup do knihovny fotek není povolený. Povolte ho v nastavení systému a zkuste to znovu.',
     back: 'Zpět na cestu',
@@ -419,7 +450,7 @@ export const cs: TranslationResources = {
     chooseFromLibraryHint:
       'Vyberte konkrétní fotky a videa, například z Oblíbených nebo z alba.',
     chooseFilesHint:
-      'Fotky JPEG, PNG nebo WebP. Fotky HEIC a videa zatím v prohlížeči nejde importovat.',
+      'Fotky JPEG, PNG nebo WebP a videa MP4 (do 60 s a 120 MB). Fotky HEIC zatím v prohlížeči nejde importovat.',
     continue: 'Pokračovat v importu',
     current: 'Právě: {{phase}} ({{percent}} %)',
     dateFrom: 'Od',
@@ -570,6 +601,10 @@ export const cs: TranslationResources = {
     visibilityPublic: 'Zveřejněný',
   },
   workspace: {
+    emptyTitle: 'Zatím tu nic není',
+    mapHeading: 'Mapa',
+    starPhoto: 'Označit fotku hvězdou',
+    unstarPhoto: 'Odebrat fotce hvězdu',
     emptyJourney: 'Tato cesta zatím nemá žádné etapy, momenty ani média.',
     loadError: 'Cestu se nepodařilo načíst.',
     looseMoments: 'Momenty mimo etapu či výlet',
@@ -673,10 +708,13 @@ export const cs: TranslationResources = {
     create: 'Vytvořit cestu',
     createError:
       'Cestu se nepodařilo vytvořit. Zkontroluj připojení a zkus to znovu.',
+    createDescription:
+      'Dejte cestě název. Etapy, výlety a momenty přibudou později z vašich fotek.',
     createTitle: 'Naplánovat cestu',
     endsAt: 'Konec',
     loading: 'Načítání cesty…',
     members: {
+      removeFor: 'Odebrat {{name}} z cesty',
       actionsFor: 'Akce pro {{name}}',
       add: 'Přidat do cesty',
       addByUsernameTitle: 'Přidat podle jména',

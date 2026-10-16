@@ -21,7 +21,7 @@ export function ClampedBody({ body }: { body: string }) {
   return (
     <div className="mt-1">
       <p
-        className={`whitespace-pre-line break-words text-sm ${expanded || !long ? '' : 'line-clamp-3'}`}
+        className={`whitespace-pre-line break-words text-sm lg:text-base lg:leading-7 ${expanded || !long ? '' : 'line-clamp-3'}`}
         data-testid="workspace-body"
       >
         {body}
