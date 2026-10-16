@@ -8,7 +8,10 @@ import {
   type UploadJob,
 } from '@/entities/media/model/upload-job'
 import { useSession } from '@/features/auth/session/use-session'
-import { createPhotoKitSource } from '@/features/media-import/api/photokit-source'
+import {
+  assetsToCandidates,
+  createPhotoKitSource,
+} from '@/features/media-import/api/photokit-source'
 import { useImportQueue } from '@/features/media-import/api/use-import-queue'
 import {
   createWebFilesSource,
@@ -26,7 +29,9 @@ import type {
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import {
   getMediaLibraryStatus,
+  MediaLibraryError,
   isMediaLibraryAvailable,
+  pickMediaLibraryAssets,
   requestMediaLibraryAccess,
 } from '@/shared/lib/media-library'
 
@@ -91,6 +96,11 @@ function ImportView({
   const [icloud, setIcloud] = useState(false)
   const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null)
   const [scanning, setScanning] = useState(false)
+  const [picking, setPicking] = useState(false)
+  const [picked, setPicked] = useState<{
+    left: number
+    selected: number
+  } | null>(null)
   const [error, setError] = useState<'accessDenied' | 'loadError' | null>(null)
 
   useEffect(() => {
@@ -150,6 +160,34 @@ function ImportView({
     }
   }
 
+  async function pickFromLibrary() {
+    setPicking(true)
+    setError(null)
+    setPicked(null)
+    try {
+      const result = await pickMediaLibraryAssets()
+      if (result.cancelled) return
+      const found = assetsToCandidates(result.assets)
+      setPicked({
+        left: Math.max(0, result.requested - result.resolved),
+        selected: found.length,
+      })
+      if (found.length === 0) return
+      setSource(createPhotoKitSource({ allowNetwork: icloud }))
+      setCandidates(null)
+      await queue.enqueue('photokit', found)
+      queue.start()
+    } catch (caught) {
+      setError(
+        caught instanceof MediaLibraryError && caught.code === 'NOT_AUTHORIZED'
+          ? 'accessDenied'
+          : 'loadError',
+      )
+    } finally {
+      setPicking(false)
+    }
+  }
+
   async function pickFiles(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? [])
     event.target.value = ''
@@ -205,6 +243,34 @@ function ImportView({
       <section aria-label={t('mediaImport.rangeLabel')} className="space-y-4">
         {native ? (
           <>
+            <div className="space-y-2">
+              <button
+                className={PRIMARY_BUTTON}
+                disabled={picking || scanning || busy}
+                type="button"
+                onClick={() => void pickFromLibrary()}
+              >
+                {picking
+                  ? t('mediaImport.picking')
+                  : t('mediaImport.chooseFromLibrary')}
+              </button>
+              <p className="text-sm text-muted">
+                {t('mediaImport.chooseFromLibraryHint')}
+              </p>
+              {picked === null || picked.selected === 0 ? null : (
+                <p className="text-sm font-semibold" role="status">
+                  {t('mediaImport.pickedCount', { count: picked.selected })}
+                </p>
+              )}
+              {picked === null || picked.left === 0 ? null : (
+                <p className="text-sm text-muted" role="status">
+                  {t('mediaImport.pickedLimited', { count: picked.left })}
+                </p>
+              )}
+            </div>
+            <h2 className="pt-2 text-sm font-semibold">
+              {t('mediaImport.byDate')}
+            </h2>
             <fieldset className="space-y-2">
               <legend className="text-sm font-semibold">
                 {t('mediaImport.rangeLabel')}

@@ -25,7 +25,7 @@ function suggestionCount(plan: OrganizationPlan): number {
   return plan.stageSuggestions.length + plan.tripSuggestions.length
 }
 
-function OrganizeDialog({
+export function OrganizeDialog({
   journeyId,
   onClose,
 }: {

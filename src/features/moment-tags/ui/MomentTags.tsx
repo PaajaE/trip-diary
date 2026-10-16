@@ -33,6 +33,32 @@ export function TagChips({ tags }: { tags: Tag[] }) {
   )
 }
 
+/** The tag picker dialog for one moment (opened from a button or a menu). */
+export function MomentTagsDialog({
+  momentId,
+  momentName,
+  onClose,
+  tags,
+}: {
+  momentId: string
+  momentName: string
+  onClose: () => void
+  tags: JourneyMomentTags
+}) {
+  const { t } = useTranslation()
+  return (
+    <TagPickerDialog
+      attached={tags.byMoment.get(momentId) ?? []}
+      catalog={tags.catalog}
+      heading={t('tags.editFor', { name: momentName })}
+      onAddFree={(label) => tags.edits.addFree(momentId, label)}
+      onAddSpecies={(species) => tags.edits.addSpecies(momentId, species)}
+      onClose={onClose}
+      onToggle={(tag, attached) => tags.edits.toggle(momentId, tag, attached)}
+    />
+  )
+}
+
 /** The "Tags" button that opens the picker for one moment. */
 export function MomentTagsEditor({
   momentId,
@@ -58,18 +84,13 @@ export function MomentTagsEditor({
         {t('tags.edit')}
       </button>
       {open ? (
-        <TagPickerDialog
-          attached={tags.byMoment.get(momentId) ?? []}
-          catalog={tags.catalog}
-          heading={t('tags.editFor', { name: momentName })}
-          onAddFree={(label) => tags.edits.addFree(momentId, label)}
-          onAddSpecies={(species) => tags.edits.addSpecies(momentId, species)}
+        <MomentTagsDialog
+          momentId={momentId}
+          momentName={momentName}
+          tags={tags}
           onClose={() => {
             setOpen(false)
           }}
-          onToggle={(tag, attached) =>
-            tags.edits.toggle(momentId, tag, attached)
-          }
         />
       ) : null}
     </>

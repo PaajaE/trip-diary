@@ -88,6 +88,7 @@ export const cs: TranslationResources = {
   brand: 'Cestovní deník',
   common: {
     cancel: 'Zrušit',
+    close: 'Zavřít',
     loading: 'Načítání…',
     osmAttribution: '© přispěvatelé OpenStreetMap',
     tryAgain: 'Zkusit znovu',
@@ -411,8 +412,12 @@ export const cs: TranslationResources = {
     accessDenied:
       'Přístup do knihovny fotek není povolený. Povolte ho v nastavení systému a zkuste to znovu.',
     back: 'Zpět na cestu',
+    byDate: 'Podle data',
     cancel: 'Zastavit a smazat čekající položky',
     chooseFiles: 'Vybrat soubory',
+    chooseFromLibrary: 'Vybrat z knihovny',
+    chooseFromLibraryHint:
+      'Vyberte konkrétní fotky a videa, například z Oblíbených nebo z alba.',
     chooseFilesHint:
       'Fotky JPEG, PNG nebo WebP. Fotky HEIC a videa zatím v prohlížeči nejde importovat.',
     continue: 'Pokračovat v importu',
@@ -431,6 +436,10 @@ export const cs: TranslationResources = {
     organizeOffer:
       'Média jsou v cestě. Chcete je automaticky uspořádat do momentů?',
     pause: 'Pozastavit',
+    pickedCount: 'Vybráno: {{count}}',
+    pickedLimited:
+      '{{count}} vybraných položek je mimo fotky, ke kterým má aplikace přístup, a byly vynechány.',
+    picking: 'Otevírám knihovnu…',
     phase: {
       done: 'hotovo',
       exporting: 'příprava souboru',
@@ -568,7 +577,7 @@ export const cs: TranslationResources = {
     noMapPoints: 'Žádný moment nemá polohu, na mapě proto není co zobrazit.',
     showOnMap: 'Zobrazit na mapě',
     subtitle:
-      'Přehled etap, výletů a momentů. Označuj hvězdičkou, nastavuj obálky, upravuj popisky, posuzuj návrhy, slučuj a rozděluj momenty a posouvej hranice.',
+      'Přehled etap, výletů a momentů. Klepnutím na fotku ji označíš, upravíš popisek nebo nastavíš obálku.',
     timeline: 'Časová osa',
     title: 'Pracovní prostor cesty',
     unassigned: 'Nezařazená média',
@@ -642,6 +651,23 @@ export const cs: TranslationResources = {
     boundaryMoved: 'Hranice posunuta',
     dialogChoice: 'Vyber jednu možnost',
     useAsCover: 'Použít jako obálku: {{level}}',
+    about: 'O pracovním prostoru',
+    collapseSegment: 'Sbalit: {{name}}',
+    expandSegment: 'Rozbalit: {{name}}',
+    import: 'Importovat',
+    locked: 'Zamčeno proti automatickým změnám',
+    manual: 'Vytvořeno ručně',
+    mediaActions: 'Možnosti fotky či videa',
+    mediaSheetTitle: 'Fotka či video',
+    moreActions: 'Další akce',
+    moreActionsFor: 'Další akce: {{name}}',
+    moreMedia: 'Ještě {{count}}',
+    moreMediaLabel: 'Zobrazit dalších {{count}}',
+    organizeHint:
+      'Z fotek a poloh navrhne momenty, etapy a výlety. Nic nepřepíše bez náhledu.',
+    showFewerMedia: 'Zobrazit méně',
+    suggestionHint: 'Návrh čeká na tvé rozhodnutí',
+    toolbar: 'Akce pracovního prostoru',
   },
   journey: {
     create: 'Vytvořit cestu',

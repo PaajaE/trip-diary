@@ -19,7 +19,7 @@ export function MediaThumb({
   const isVideo = item.kind === 'video'
   return (
     <span
-      className={`relative inline-block shrink-0 overflow-hidden rounded-md bg-surface ${className}`}
+      className={`relative inline-block shrink-0 overflow-hidden rounded-sm bg-surface ${className}`}
       data-testid="media-thumb"
     >
       {url !== null ? (

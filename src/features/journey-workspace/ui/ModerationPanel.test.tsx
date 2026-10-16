@@ -79,6 +79,12 @@ describe('ModerationPanel', () => {
     repo.listPendingComments.mockResolvedValue(pending)
     repo.moderateComment.mockResolvedValue(undefined)
     setup()
+    // Collapsed by default: only the bar with the count is visible.
+    const toggle = await screen.findByRole('button', { expanded: false })
+    expect(toggle.textContent).toContain('1')
+    expect(screen.queryByText('Čeká na tebe')).toBeNull()
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
     expect(await screen.findByText('Čeká na tebe')).toBeTruthy()
     expect(screen.getByText(/Jezero Louise/)).toBeTruthy()
     await waitFor(() => {
@@ -100,6 +106,7 @@ describe('ModerationPanel', () => {
     repo.listPendingComments.mockResolvedValue(pending)
     repo.moderateComment.mockRejectedValue(new Error('nope'))
     setup()
+    fireEvent.click(await screen.findByRole('button', { expanded: false }))
     await screen.findByText('Čeká na tebe')
     fireEvent.click(screen.getByRole('button', { name: 'Reject' }))
     expect((await screen.findByRole('alert')).textContent).toContain(

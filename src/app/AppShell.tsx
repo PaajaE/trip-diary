@@ -14,6 +14,7 @@ import { useSession } from '@/features/auth/session'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
 import { Avatar } from '@/shared/ui/Avatar'
+import { BrandMark } from '@/shared/ui/BrandMark'
 
 const SyncStatusControl = lazy(() =>
   import('@/features/sync/ui/SyncStatusControl').then(
@@ -38,12 +39,19 @@ export function AppShell({ children }: PropsWithChildren) {
       {immersiveReaderShell ? null : (
         <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:pr-[max(2rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))]">
           <div className="mx-auto flex min-h-16 max-w-5xl items-center justify-between gap-4">
-            <Link className="text-sm font-semibold tracking-wide" to="/">
-              {t('brand')}
+            <Link
+              aria-label={t('brand')}
+              className="flex min-w-0 items-center gap-2.5 text-sm font-semibold tracking-wide"
+              to="/"
+            >
+              <BrandMark />
+              <span className="hidden truncate whitespace-nowrap sm:inline">
+                {t('brand')}
+              </span>
             </Link>
             <nav
               aria-label={t('navigation.account')}
-              className="flex min-w-0 items-center gap-1 sm:gap-2"
+              className="flex shrink-0 items-center gap-1 sm:gap-2"
             >
               {minimalPublicShell || (user === null && !loading) ? null : (
                 <Suspense fallback={null}>

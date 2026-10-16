@@ -49,6 +49,18 @@ export const embeddedMetadataSchema = z.object({
   subsecTimeOriginal: z.string().optional(),
 })
 
+const pickAssetsResultSchema = z.object({
+  assets: z.array(mediaLibraryAssetSchema),
+  cancelled: z.boolean(),
+  /** Picked items that had an identifier. */
+  requested: z.number().int().nonnegative(),
+  /** Picked items readable as PHAsset (fewer under limited access). */
+  resolved: z.number().int().nonnegative(),
+})
+export type PickMediaLibraryAssetsResult = z.infer<
+  typeof pickAssetsResultSchema
+>
+
 export type MediaLibraryStatus = z.infer<typeof mediaLibraryStatusSchema>
 export type MediaLibraryAsset = z.infer<typeof mediaLibraryAssetSchema>
 export type MediaLibraryEmbeddedMetadata = z.infer<
@@ -85,6 +97,7 @@ export type MediaLibraryErrorCode =
   | 'EXPORT_FAILED'
   | 'NOT_AUTHORIZED'
   | 'NOT_FOUND'
+  | 'PICKER_FAILED'
   | 'UNKNOWN'
 
 const MEDIA_LIBRARY_ERROR_CODES: readonly MediaLibraryErrorCode[] = [
@@ -92,6 +105,7 @@ const MEDIA_LIBRARY_ERROR_CODES: readonly MediaLibraryErrorCode[] = [
   'EXPORT_FAILED',
   'NOT_AUTHORIZED',
   'NOT_FOUND',
+  'PICKER_FAILED',
 ]
 
 export class MediaLibraryError extends Error {
@@ -120,6 +134,7 @@ export function toMediaLibraryError(error: unknown): MediaLibraryError {
 interface MediaLibraryPlugin {
   getAuthorizationStatus(): Promise<unknown>
   listAssets(options: ListMediaLibraryAssetsOptions): Promise<unknown>
+  pickAssets(): Promise<unknown>
   deletePhotoExports(options: { fileUrls: string[] }): Promise<unknown>
   exportPhoto(options: ExportMediaLibraryPhotoOptions): Promise<unknown>
   readEmbeddedMetadata(options: {
@@ -155,6 +170,28 @@ export async function listMediaLibraryAssets(
 ): Promise<z.infer<typeof listAssetsResultSchema>> {
   const result = await MediaLibrary.listAssets(options)
   return listAssetsResultSchema.parse(result)
+}
+
+/**
+ * Opens the native multi-select photo picker. Resolves with `cancelled: true`
+ * and no assets when the user dismisses it. Throws `MediaLibraryError`
+ * (NOT_AUTHORIZED, PICKER_FAILED, ...) otherwise; also when unavailable (web).
+ */
+export async function pickMediaLibraryAssets(): Promise<PickMediaLibraryAssetsResult> {
+  if (!isMediaLibraryAvailable()) {
+    throw new MediaLibraryError(
+      'PICKER_FAILED',
+      'Photo picker is not available on this platform',
+    )
+  }
+  try {
+    return pickAssetsResultSchema.parse(await MediaLibrary.pickAssets())
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new MediaLibraryError('PICKER_FAILED', 'Invalid picker result')
+    }
+    throw toMediaLibraryError(error)
+  }
 }
 
 export async function readMediaLibraryEmbeddedMetadata(

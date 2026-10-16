@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { ChevronDown, Hand, Info, Lock } from 'lucide-react'
 import type { TFunction } from 'i18next'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -14,8 +15,8 @@ import {
 import { EditableMediaTile } from '@/features/journey-workspace/ui/EditableMediaTile'
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
 import {
+  formatCompactRange,
   formatInstantTime,
-  formatRange,
 } from '@/features/journey-workspace/lib/format-range'
 import { DEFAULT_MEDIA_BASE_URL } from '@/features/journey-workspace/lib/media-thumb'
 import {
@@ -52,18 +53,27 @@ import {
   type JourneyMomentTags,
 } from '@/features/moment-tags/api/use-moment-tags'
 import {
-  MomentTagsEditor,
+  MomentTagsDialog,
   TagChips,
 } from '@/features/moment-tags/ui/MomentTags'
-import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
+import { OrganizeDialog } from '@/features/journey-organize/ui/OrganizeJourneyButton'
+import {
+  OverflowMenu,
+  type MenuAction,
+} from '@/features/journey-workspace/ui/OverflowMenu'
 import { targetTitles } from '@/features/journey-workspace/model/target-titles'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
 import { publicEnv } from '@/shared/config/env'
+import { cn } from '@/shared/lib/cn'
+import { buttonVariants } from '@/shared/ui/button-variants'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 
-const ACTION_BUTTON =
-  'min-h-10 min-w-10 rounded-md border border-border px-3 py-1.5 text-sm font-semibold'
+/** Photos shown before the "+N" tile (one grid slot is the "+N" tile). */
+const GRID_LIMIT = 6
+
+const BOUNDARY_BUTTON =
+  'inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-muted hover:bg-surface active:bg-surface'
 
 interface EditingContext {
   edits: WorkspaceEdits
@@ -75,6 +85,9 @@ interface EditingContext {
   /** Media outside any moment (candidate instants for boundaries). */
   unassigned: MediaItem[]
   targets: Map<string, CoverTarget[]>
+  /** Segments the user collapsed (kept in memory only). */
+  collapsed: ReadonlySet<string>
+  toggleCollapsed: (segmentId: string) => void
 }
 
 function MediaTiles({
@@ -84,9 +97,14 @@ function MediaTiles({
   editing: EditingContext
   items: MediaItem[]
 }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+  const overflow = items.length > GRID_LIMIT
+  const visible = overflow && !expanded ? items.slice(0, GRID_LIMIT - 1) : items
+  const hidden = items.length - visible.length
   return (
-    <div className="mt-2 flex flex-wrap gap-2">
-      {items.map((item) => (
+    <div className="mt-2 grid grid-cols-3 gap-2">
+      {visible.map((item) => (
         <EditableMediaTile
           baseUrl={BASE_URL}
           edits={editing.edits}
@@ -95,18 +113,69 @@ function MediaTiles({
           targets={editing.targets.get(item.id) ?? []}
         />
       ))}
+      {overflow && !expanded ? (
+        <button
+          aria-label={t('workspace.moreMediaLabel', { count: hidden })}
+          className="flex aspect-square items-center justify-center rounded-sm bg-surface text-base font-semibold text-muted"
+          type="button"
+          onClick={() => {
+            setExpanded(true)
+          }}
+        >
+          +{hidden}
+        </button>
+      ) : null}
+      {overflow && expanded ? (
+        <button
+          className="col-span-3 min-h-11 rounded-xl text-sm font-semibold text-primary hover:bg-surface"
+          type="button"
+          onClick={() => {
+            setExpanded(false)
+          }}
+        >
+          {t('workspace.showFewerMedia')}
+        </button>
+      ) : null}
     </div>
   )
 }
 
-function Counts({ photos, videos }: { photos: number; videos: number }) {
+/** "3 trips · 41 photos · 2 videos"; empty parts are left out. */
+function countsText(
+  t: TFunction,
+  parts: { photos: number; trips?: number; videos: number },
+): string {
+  const out: string[] = []
+  if ((parts.trips ?? 0) > 0)
+    out.push(t('terms.trip.count', { count: parts.trips }))
+  if (parts.photos > 0)
+    out.push(t('terms.photo.count', { count: parts.photos }))
+  if (parts.videos > 0)
+    out.push(t('terms.video.count', { count: parts.videos }))
+  return out.join(' · ')
+}
+
+function StateIcons({ locked, manual }: { locked: boolean; manual: boolean }) {
   const { t } = useTranslation()
   return (
-    <span className="text-xs text-muted">
-      {photos > 0 ? t('terms.photo.count', { count: photos }) : null}
-      {photos > 0 && videos > 0 ? ' · ' : null}
-      {videos > 0 ? t('terms.video.count', { count: videos }) : null}
-    </span>
+    <>
+      {manual ? (
+        <Hand
+          aria-label={t('workspace.manual')}
+          className="inline shrink-0 text-muted"
+          role="img"
+          size={13}
+        />
+      ) : null}
+      {locked ? (
+        <Lock
+          aria-label={t('workspace.locked')}
+          className="inline shrink-0 text-muted"
+          role="img"
+          size={13}
+        />
+      ) : null}
+    </>
   )
 }
 
@@ -123,23 +192,26 @@ function momentTitle(
   )
 }
 
-function MomentCard({
+function MomentBlock({
   editing,
   entry,
   locale,
   onSelect,
+  rail,
   selected,
 }: {
   editing: EditingContext
   entry: WorkspaceMoment
   locale: string
   onSelect: (id: string) => void
+  /** True when the moment hangs on a timeline rail (draws a dot). */
+  rail: boolean
   selected: boolean
 }) {
   const { t } = useTranslation()
-  const [dialog, setDialog] = useState<'next' | 'previous' | 'split' | null>(
-    null,
-  )
+  const [dialog, setDialog] = useState<
+    'next' | 'previous' | 'split' | 'tags' | null
+  >(null)
   const hasPoint =
     entry.moment.latitude !== null && entry.moment.longitude !== null
   const neighbours = findAdjacentMoments(editing.moments, entry.moment.id)
@@ -152,95 +224,115 @@ function MomentCard({
   const close = () => {
     setDialog(null)
   }
+  const name = momentTitle(entry, t, locale)
+  const actions: MenuAction[] = [
+    {
+      key: 'tags',
+      label: t('tags.edit'),
+      onSelect: () => {
+        setDialog('tags')
+      },
+    },
+    ...(neighbours.previous !== null
+      ? [
+          {
+            key: 'previous',
+            label: t('workspace.mergeWithPrevious'),
+            onSelect: () => {
+              setDialog('previous')
+            },
+          },
+        ]
+      : []),
+    ...(neighbours.next !== null
+      ? [
+          {
+            key: 'next',
+            label: t('workspace.mergeWithNext'),
+            onSelect: () => {
+              setDialog('next')
+            },
+          },
+        ]
+      : []),
+    {
+      key: 'split',
+      label: t('workspace.splitMoment'),
+      onSelect: () => {
+        setDialog('split')
+      },
+    },
+  ]
+  const counts = countsText(t, {
+    photos: entry.photoCount,
+    videos: entry.videoCount,
+  })
   return (
     <li
-      className={`rounded-lg border p-3 ${selected ? 'border-primary bg-surface' : 'border-border'}`}
+      className={`relative py-3 ${selected ? '-mx-2 rounded-sm bg-primary/5 px-2' : ''}`}
       id={`ws-moment-${entry.moment.id}`}
     >
-      <button
-        aria-pressed={selected}
-        className="flex w-full items-start gap-3 text-left"
-        disabled={!hasPoint}
-        title={hasPoint ? t('workspace.showOnMap') : ''}
-        type="button"
-        onClick={() => {
-          onSelect(entry.moment.id)
-        }}
-      >
-        {entry.cover !== null ? (
-          <MediaThumb baseUrl={BASE_URL} item={entry.cover} />
-        ) : null}
-        <span className="min-w-0 flex-1">
-          <span className="block text-xs font-semibold uppercase text-muted">
-            {t('terms.moment.singular')}
-          </span>
-          <span className="block font-medium">
-            {momentTitle(entry, t, locale)}
+      {rail ? (
+        <span
+          aria-hidden="true"
+          className="absolute -left-5 top-[26px] size-2 rounded-full border border-muted bg-background"
+        />
+      ) : null}
+      <div className="flex items-start gap-1">
+        <button
+          aria-pressed={selected}
+          className="min-h-11 min-w-0 flex-1 text-left"
+          disabled={!hasPoint}
+          title={hasPoint ? t('workspace.showOnMap') : ''}
+          type="button"
+          onClick={() => {
+            onSelect(entry.moment.id)
+          }}
+        >
+          <span className="flex items-center gap-1.5 font-medium">
+            <span className="min-w-0 truncate">{name}</span>
+            <StateIcons
+              locked={entry.moment.locked}
+              manual={entry.moment.origin === 'manual'}
+            />
           </span>
           <span className="block text-xs text-muted">
-            {formatRange(
+            {formatCompactRange(
               entry.moment.startsAt,
               entry.moment.endsAt,
               entry.tz,
               locale,
-              { withTime: true },
+              { withTime: true, withYear: false },
             )}
+            {counts !== '' ? ` · ${counts}` : ''}
           </span>
-          <Counts photos={entry.photoCount} videos={entry.videoCount} />
-        </span>
-      </button>
+        </button>
+        <OverflowMenu actions={actions} name={name} />
+      </div>
       <ClampedBody body={entry.moment.body} />
       <TagChips tags={editing.tags.byMoment.get(entry.moment.id) ?? []} />
       {entry.media.length > 0 ? (
         <MediaTiles editing={editing} items={entry.media} />
       ) : null}
-      <div className="mt-2 flex flex-wrap gap-2">
+      <div className="mt-1 -ml-2">
         <MomentTextEditor
           edits={editing.edits}
           moment={entry.moment}
-          name={momentTitle(entry, t, locale)}
+          name={name}
         />
-        <MomentTagsEditor
-          momentId={entry.moment.id}
-          momentName={momentTitle(entry, t, locale)}
-          tags={editing.tags}
-        />
-        {neighbours.previous !== null ? (
-          <button
-            className={ACTION_BUTTON}
-            type="button"
-            onClick={() => {
-              setDialog('previous')
-            }}
-          >
-            {t('workspace.mergeWithPrevious')}
-          </button>
-        ) : null}
-        {neighbours.next !== null ? (
-          <button
-            className={ACTION_BUTTON}
-            type="button"
-            onClick={() => {
-              setDialog('next')
-            }}
-          >
-            {t('workspace.mergeWithNext')}
-          </button>
-        ) : null}
-        <button
-          className={ACTION_BUTTON}
-          type="button"
-          onClick={() => {
-            setDialog('split')
-          }}
-        >
-          {t('workspace.splitMoment')}
-        </button>
       </div>
+      {dialog === 'tags' ? (
+        <MomentTagsDialog
+          momentId={entry.moment.id}
+          momentName={name}
+          tags={editing.tags}
+          onClose={close}
+        />
+      ) : null}
       {other !== null ? (
         <MergeDialog
           sourceLabel={momentTitle(other, t, locale)}
-          targetLabel={momentTitle(entry, t, locale)}
+          targetLabel={name}
           onClose={close}
           onConfirm={() => {
             void editing.edits
@@ -266,12 +358,15 @@ function MomentCard({
 
 function SegmentBlock({
   editing,
+  inRail,
   locale,
   node,
   onSelect,
   selectedId,
 }: {
   editing: EditingContext
+  /** True when an ancestor already draws the timeline rail. */
+  inRail: boolean
   locale: string
   node: WorkspaceSegment
   onSelect: (id: string) => void
@@ -279,43 +374,109 @@ function SegmentBlock({
 }) {
   const { t } = useTranslation()
   const { segment } = node
-  const termKey = segment.kind === 'stage' ? 'stage' : 'trip'
+  const isStage = segment.kind === 'stage'
+  const termKey = isStage ? 'stage' : 'trip'
+  const open = !editing.collapsed.has(segment.id)
+  const suggested = segment.origin === 'suggested'
+  const counts = countsText(t, {
+    photos: node.photoCount,
+    trips: node.children.length,
+    videos: node.videoCount,
+  })
+  const hasContent = node.moments.length > 0 || node.children.length > 0
+  const wrapper = isStage
+    ? cn(
+        '-mx-5 border-y px-5 py-2 sm:mx-0 sm:rounded-xl sm:border sm:px-4',
+        suggested
+          ? 'border-dashed border-accent bg-accent/5'
+          : 'border-border bg-surface',
+      )
+    : suggested
+      ? 'rounded-xl border border-dashed border-accent bg-accent/5 px-3 py-1'
+      : ''
   return (
     <section
       aria-label={segment.title}
-      className="rounded-xl border border-border p-4"
+      className="relative"
       data-kind={segment.kind}
     >
-      <header className="flex items-start gap-3">
-        {node.cover !== null ? (
-          <MediaThumb
-            baseUrl={BASE_URL}
-            className="h-20 w-20"
-            item={node.cover}
-          />
+      {inRail ? (
+        <span
+          aria-hidden="true"
+          className="absolute -left-[21px] top-[17px] size-2.5 rounded-full bg-primary"
+        />
+      ) : null}
+      <div className={wrapper}>
+        <h2>
+          <button
+            aria-expanded={open}
+            aria-label={t(
+              open ? 'workspace.collapseSegment' : 'workspace.expandSegment',
+              { name: segment.title },
+            )}
+            className="flex min-h-11 w-full items-center gap-3 text-left"
+            type="button"
+            onClick={() => {
+              editing.toggleCollapsed(segment.id)
+            }}
+          >
+            {isStage && node.cover !== null ? (
+              <MediaThumb
+                baseUrl={BASE_URL}
+                className="h-12 w-12"
+                item={node.cover}
+              />
+            ) : null}
+            <span className="min-w-0 flex-1">
+              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted">
+                {t(`terms.${termKey}.singular`)}
+              </span>
+              <span
+                className={`flex items-center gap-1.5 font-semibold ${isStage ? 'text-lg' : 'text-base'}`}
+              >
+                <span className="min-w-0 truncate">{segment.title}</span>
+                <StateIcons
+                  locked={false}
+                  manual={segment.origin === 'manual'}
+                />
+              </span>
+              <span className="block text-xs text-muted">
+                {formatCompactRange(
+                  segment.startsAt,
+                  segment.endsAt,
+                  segment.tz,
+                  locale,
+                  { withTime: false, withYear: true },
+                )}
+                {counts !== '' ? ` · ${counts}` : ''}
+              </span>
+            </span>
+            <ChevronDown
+              aria-hidden="true"
+              className={`shrink-0 text-muted transition-transform ${open ? '' : '-rotate-90'}`}
+              size={20}
+            />
+          </button>
+        </h2>
+        {open ? (
+          <>
+            <ClampedBody body={segment.body} />
+            <div className="-ml-2">
+              <SegmentTextEditor edits={editing.edits} segment={segment} />
+            </div>
+          </>
         ) : null}
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase text-muted">
-            {t(`terms.${termKey}.singular`)}
-          </p>
-          <h2 className="text-lg font-semibold">{segment.title}</h2>
-          <p className="text-sm text-muted">
-            {formatRange(segment.startsAt, segment.endsAt, segment.tz, locale, {
-              withTime: segment.kind === 'trip',
-            })}
-          </p>
-          <Counts photos={node.photoCount} videos={node.videoCount} />
-          <ClampedBody body={segment.body} />
-          <div className="mt-2">
-            <SegmentTextEditor edits={editing.edits} segment={segment} />
-          </div>
-          {segment.origin === 'suggested' ? (
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-surface px-2 py-0.5 text-xs font-semibold">
+        {suggested ? (
+          <div className="pb-2 pt-1">
+            <p className="text-xs text-accent-strong">
+              <span className="mr-1.5 rounded-full bg-accent px-2 py-0.5 font-semibold text-white">
                 {t('workspace.suggestedBadge')}
               </span>
+              {t('workspace.suggestionHint')}
+            </p>
+            <div className="mt-2 flex gap-2">
               <button
-                className={ACTION_BUTTON}
+                className={cn(buttonVariants({ variant: 'primary' }), 'flex-1')}
                 type="button"
                 onClick={() => {
                   void editing.edits.acceptSegment(segment)
@@ -324,7 +485,10 @@ function SegmentBlock({
                 {t('workspace.acceptSuggestion')}
               </button>
               <button
-                className={ACTION_BUTTON}
+                className={cn(
+                  buttonVariants({ variant: 'secondary' }),
+                  'flex-1',
+                )}
                 type="button"
                 onClick={() => {
                   void editing.edits.rejectSegment(segment)
@@ -333,32 +497,40 @@ function SegmentBlock({
                 {t('workspace.rejectSuggestion')}
               </button>
             </div>
+          </div>
+        ) : null}
+      </div>
+      {open && hasContent ? (
+        <div
+          className={inRail ? 'mt-1' : 'ml-2 mt-2 border-l border-border pl-4'}
+        >
+          {node.moments.length > 0 ? (
+            <ul className="divide-y divide-border/70">
+              {node.moments.map((entry) => (
+                <MomentBlock
+                  editing={editing}
+                  entry={entry}
+                  key={entry.moment.id}
+                  locale={locale}
+                  rail
+                  selected={entry.moment.id === selectedId}
+                  onSelect={onSelect}
+                />
+              ))}
+            </ul>
           ) : null}
-        </div>
-      </header>
-      {node.moments.length > 0 ? (
-        <ul className="mt-3 space-y-2">
-          {node.moments.map((entry) => (
-            <MomentCard
-              editing={editing}
-              entry={entry}
-              key={entry.moment.id}
-              locale={locale}
-              selected={entry.moment.id === selectedId}
-              onSelect={onSelect}
-            />
-          ))}
-        </ul>
-      ) : null}
-      {node.children.length > 0 ? (
-        <div className="mt-3 space-y-3 border-l border-border pl-3">
-          <SegmentList
-            editing={editing}
-            locale={locale}
-            nodes={node.children}
-            selectedId={selectedId}
-            onSelect={onSelect}
-          />
+          {node.children.length > 0 ? (
+            <div className="mt-2 space-y-2">
+              <SegmentList
+                editing={editing}
+                inRail
+                locale={locale}
+                nodes={node.children}
+                selectedId={selectedId}
+                onSelect={onSelect}
+              />
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>
@@ -382,10 +554,11 @@ function BoundaryControl({
     setOpen(false)
   }
   return (
-    <div className="flex justify-center">
+    <div className="flex items-center gap-2">
+      <span aria-hidden="true" className="h-px flex-1 bg-border/70" />
       <button
         aria-label={`${t('workspace.moveBoundary')}: ${before.title} / ${after.title}`}
-        className={ACTION_BUTTON}
+        className={BOUNDARY_BUTTON}
         type="button"
         onClick={() => {
           setOpen(true)
@@ -393,6 +566,7 @@ function BoundaryControl({
       >
         {t('workspace.moveBoundary')}
       </button>
+      <span aria-hidden="true" className="h-px flex-1 bg-border/70" />
       {open ? (
         <BoundaryDialog
           afterTitle={after.title}
@@ -417,12 +591,14 @@ function BoundaryControl({
 
 function SegmentList({
   editing,
+  inRail = false,
   locale,
   nodes,
   onSelect,
   selectedId,
 }: {
   editing: EditingContext
+  inRail?: boolean
   locale: string
   nodes: WorkspaceSegment[]
   onSelect: (id: string) => void
@@ -433,9 +609,10 @@ function SegmentList({
       {nodes.map((node) => {
         const pair = editing.pairs.get(node.segment.id)
         return (
-          <div className="space-y-3" key={node.segment.id}>
+          <div className="space-y-2" key={node.segment.id}>
             <SegmentBlock
               editing={editing}
+              inRail={inRail}
               locale={locale}
               node={node}
               selectedId={selectedId}
@@ -458,9 +635,9 @@ function Skeleton() {
       className="animate-pulse space-y-3"
       data-testid="workspace-skeleton"
     >
-      <div className="h-24 rounded-xl bg-surface" />
-      <div className="h-24 rounded-xl bg-surface" />
-      <div className="h-24 rounded-xl bg-surface" />
+      <div className="h-16 rounded-xl bg-surface" />
+      <div className="h-16 rounded-xl bg-surface" />
+      <div className="h-16 rounded-xl bg-surface" />
     </div>
   )
 }
@@ -471,7 +648,22 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   const edits = useWorkspaceEdits(journeyId)
   const journeyCover = useJourneyCoverQuery(journeyId)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
+  const [aboutOpen, setAboutOpen] = useState(false)
+  const [organizing, setOrganizing] = useState(false)
   const locale = i18n.language
+
+  const toggleCollapsed = useCallback((segmentId: string) => {
+    setCollapsed((current) => {
+      const next = new Set(current)
+      if (next.has(segmentId)) next.delete(segmentId)
+      else next.add(segmentId)
+      return next
+    })
+  }, [])
+  const closeOrganize = useCallback(() => {
+    setOrganizing(false)
+  }, [])
 
   const select = useCallback((id: string) => {
     setSelectedId(id)
@@ -492,6 +684,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       tree === null
         ? null
         : {
+            collapsed,
             edits,
             moments: collectMoments(tree),
             tags,
@@ -499,9 +692,10 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               adjacentSegmentPairs(tree).map((p) => [p.before.segment.id, p]),
             ),
             targets: buildCoverTargetIndex(tree, journeyId, journeyCoverId),
+            toggleCollapsed,
             unassigned: tree.unassigned,
           },
-    [edits, tags, tree, journeyId, journeyCoverId],
+    [collapsed, edits, tags, toggleCollapsed, tree, journeyId, journeyCoverId],
   )
   const points = useMemo<WorkspaceMapPoint[]>(() => {
     if (tree === null) return []
@@ -527,7 +721,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       <div role="alert">
         <p>{t('workspace.loadError')}</p>
         <button
-          className="mt-3 rounded-md border border-border px-3 py-1.5 font-semibold"
+          className={cn(buttonVariants({ variant: 'secondary' }), 'mt-3')}
           type="button"
           onClick={state.retry}
         >
@@ -541,7 +735,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     const ready = state.tree
     body = (
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-        <div aria-label={t('workspace.timeline')} className="space-y-4">
+        <div aria-label={t('workspace.timeline')} className="space-y-3">
           <SegmentList
             editing={editing}
             locale={locale}
@@ -550,15 +744,18 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
             onSelect={select}
           />
           {ready.looseMoments.length > 0 ? (
-            <section className="rounded-xl border border-border p-4">
-              <h2 className="font-semibold">{t('workspace.looseMoments')}</h2>
-              <ul className="mt-3 space-y-2">
+            <section>
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                {t('workspace.looseMoments')}
+              </h2>
+              <ul className="mt-1 divide-y divide-border/70">
                 {ready.looseMoments.map((entry) => (
-                  <MomentCard
+                  <MomentBlock
                     editing={editing}
                     entry={entry}
                     key={entry.moment.id}
                     locale={locale}
+                    rail={false}
                     selected={entry.moment.id === selectedId}
                     onSelect={select}
                   />
@@ -568,18 +765,20 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           ) : null}
           {ready.unassigned.length > 0 ? (
             <section
-              className="rounded-xl border border-dashed border-border p-4"
+              className="rounded-xl border border-dashed border-border p-3"
               data-testid="unassigned-group"
             >
-              <h2 className="font-semibold">{t('workspace.unassigned')}</h2>
-              <p className="text-sm text-muted">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
+                {t('workspace.unassigned')}
+              </h2>
+              <p className="text-xs text-muted">
                 {t('workspace.unassignedHint')}
               </p>
               <MediaTiles editing={editing} items={ready.unassigned} />
             </section>
           ) : null}
         </div>
-        <div className="lg:sticky lg:top-4 lg:self-start">
+        <div className="lg:sticky lg:top-20 lg:self-start">
           {points.length > 0 ? (
             <WorkspaceMap
               points={points}
@@ -587,7 +786,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               onSelect={select}
             />
           ) : (
-            <p className="rounded-lg border border-border p-4 text-muted">
+            <p className="rounded-xl border border-border p-4 text-sm text-muted">
               {t('workspace.noMapPoints')}
             </p>
           )}
@@ -597,33 +796,79 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   }
 
   return (
-    <main className="mx-auto max-w-6xl px-5 py-8 sm:px-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('workspace.title')}</h1>
-        <div className="flex flex-wrap gap-2">
+    <main className="mx-auto max-w-6xl px-5 pt-4 pb-28 sm:px-8 sm:py-8">
+      <div className="gap-3 sm:flex sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-center gap-1">
+          <h1 className="min-w-0 truncate text-xl font-semibold sm:text-2xl">
+            {t('workspace.title')}
+          </h1>
+          <button
+            aria-expanded={aboutOpen}
+            aria-label={t('workspace.about')}
+            className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-xl text-muted hover:bg-surface"
+            type="button"
+            onClick={() => {
+              setAboutOpen((value) => !value)
+            }}
+          >
+            <Info aria-hidden="true" size={18} />
+          </button>
+        </div>
+        <div
+          aria-label={t('workspace.toolbar')}
+          className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-border bg-background/95 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+          role="toolbar"
+        >
           <Link
-            className="inline-flex min-h-10 items-center rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
+            className={cn(
+              buttonVariants({ variant: 'primary' }),
+              'flex-1 sm:flex-none',
+            )}
             params={{ journeyId }}
             to="/j/$journeyId/import"
           >
-            {t('mediaImport.link')}
+            {t('workspace.import')}
           </Link>
           <Link
-            className="inline-flex min-h-10 items-center rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
+            className={cn(
+              buttonVariants({ variant: 'secondary' }),
+              'flex-1 sm:flex-none',
+            )}
             params={{ journeyId }}
             to="/j/$journeyId/quick"
           >
             {t('quickNote.title')}
           </Link>
-          <OrganizeJourneyButton journeyId={journeyId} />
+          <OverflowMenu
+            actions={[
+              {
+                key: 'organize',
+                label: t('autoOrganize.button'),
+                onSelect: () => {
+                  setOrganizing(true)
+                },
+              },
+            ]}
+            className="border border-border/80 bg-surface"
+            description={t('workspace.organizeHint')}
+            label={t('workspace.moreActions')}
+            name={t('workspace.moreActions')}
+          />
         </div>
       </div>
-      <p className="mb-6 text-sm text-muted">{t('workspace.subtitle')}</p>
-      <ModerationPanel
-        journeyId={journeyId}
-        titles={tree === null ? new Map() : targetTitles(tree)}
-      />
+      {aboutOpen ? (
+        <p className="mt-1 text-sm text-muted">{t('workspace.subtitle')}</p>
+      ) : null}
+      <div className="mt-3">
+        <ModerationPanel
+          journeyId={journeyId}
+          titles={tree === null ? new Map() : targetTitles(tree)}
+        />
+      </div>
       {body}
+      {organizing ? (
+        <OrganizeDialog journeyId={journeyId} onClose={closeOrganize} />
+      ) : null}
     </main>
   )
 }

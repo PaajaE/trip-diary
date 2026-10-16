@@ -1,3 +1,4 @@
+import { Star } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
@@ -5,6 +6,10 @@ import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-worksp
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
 import { CAPTION_MAX_LENGTH } from '@/features/journey-workspace/lib/caption'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
+import {
+  dialogButton,
+  WorkspaceDialog,
+} from '@/features/journey-workspace/ui/WorkspaceDialog'
 
 interface EditableMediaTileProps {
   baseUrl: string
@@ -13,9 +18,6 @@ interface EditableMediaTileProps {
   /** Levels whose cover this media may become. */
   targets: CoverTarget[]
 }
-
-const ICON_BUTTON =
-  'absolute flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg text-white focus-visible:outline-2 focus-visible:outline-offset-1'
 
 function CaptionEditor({
   edits,
@@ -53,7 +55,7 @@ function CaptionEditor({
   if (!editing) {
     return (
       <button
-        className="min-h-10 w-full rounded-md px-1 text-left text-xs hover:bg-surface"
+        className="min-h-11 w-full rounded-xl px-3 text-left text-sm hover:bg-surface"
         type="button"
         onClick={() => {
           cancelled.current = false
@@ -76,7 +78,7 @@ function CaptionEditor({
       <input
         aria-invalid={tooLong}
         aria-label={t('workspace.caption')}
-        className="min-h-10 w-full rounded-md border border-border bg-background px-2 text-xs"
+        className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm"
         ref={inputRef}
         type="text"
         value={draft}
@@ -100,7 +102,7 @@ function CaptionEditor({
         }}
       />
       {tooLong ? (
-        <p className="text-xs text-destructive" role="alert">
+        <p className="px-3 text-xs text-destructive" role="alert">
           {t('workspace.captionTooLong', { max: CAPTION_MAX_LENGTH })}
         </p>
       ) : null}
@@ -115,86 +117,95 @@ export function EditableMediaTile({
   targets,
 }: EditableMediaTileProps) {
   const { t } = useTranslation()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [open, setOpen] = useState(false)
   const level = (target: CoverTarget) =>
     t(`terms.${target.level}.singular`).toLowerCase()
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
   const coverOf = targets.filter((target) => target.currentCoverId === item.id)
+  const close = () => {
+    setOpen(false)
+  }
 
   return (
-    <div
-      className="flex w-24 shrink-0 flex-col gap-1"
-      data-testid="editable-media-tile"
-    >
-      <div className="relative">
-        <MediaThumb baseUrl={baseUrl} className="h-24 w-24" item={item} />
-        <button
-          aria-label={t(item.starred ? 'workspace.unstar' : 'workspace.star')}
-          aria-pressed={item.starred}
-          className={`${ICON_BUTTON} right-0 top-0`}
-          type="button"
-          onClick={() => {
-            void edits.toggleStar(item)
-          }}
-        >
-          <span aria-hidden="true">{item.starred ? '★' : '☆'}</span>
-        </button>
-        <button
-          aria-expanded={menuOpen}
-          aria-label={t('workspace.coverMenu')}
-          className={`${ICON_BUTTON} left-0 top-0`}
-          type="button"
-          onClick={() => {
-            setMenuOpen((open) => !open)
-          }}
-        >
-          <span aria-hidden="true">{'⋯'}</span>
-        </button>
-        {menuOpen ? (
-          <div
-            aria-label={t('workspace.coverMenu')}
-            className="absolute left-0 top-10 z-10 flex w-44 flex-col rounded-md border border-border bg-background p-1 shadow-lg"
-            role="group"
-          >
-            {targets.map((target) => {
-              const current = target.currentCoverId === item.id
-              return (
-                <button
-                  className="min-h-10 rounded px-2 text-left text-sm hover:bg-surface disabled:text-muted"
-                  disabled={current}
-                  key={target.level}
-                  type="button"
-                  onClick={() => {
-                    setMenuOpen(false)
-                    void edits.setCover(item.id, target)
-                  }}
-                >
-                  {current
-                    ? t('workspace.coverCurrent', { level: level(target) })
-                    : t('workspace.useAsCover', { level: level(target) })}
-                </button>
-              )
-            })}
-          </div>
+    <div data-testid="editable-media-tile">
+      <button
+        aria-label={t('workspace.mediaActions')}
+        className="relative block aspect-square w-full overflow-hidden rounded-sm bg-surface"
+        type="button"
+        onClick={() => {
+          setOpen(true)
+        }}
+      >
+        <MediaThumb baseUrl={baseUrl} className="h-full w-full" item={item} />
+        {item.starred ? (
+          <Star
+            aria-hidden="true"
+            className="absolute right-1 top-1 fill-amber-300 text-amber-300 drop-shadow"
+            data-testid="starred-indicator"
+            size={16}
+          />
         ) : null}
-      </div>
-      {coverOf.length > 0 ? (
-        <span className="rounded bg-primary/10 px-1 text-[11px] font-semibold">
-          {t('workspace.coverBadge', {
-            levels: coverOf.map(level).join(', '),
-          })}
-        </span>
+        {item.caption !== null ? (
+          <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-0.5 text-left text-[11px] text-white">
+            {item.caption}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <WorkspaceDialog title={t('workspace.mediaSheetTitle')} onClose={close}>
+          <div className="mt-3 space-y-3">
+            <button
+              aria-pressed={item.starred}
+              className="flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left font-medium hover:bg-surface"
+              type="button"
+              onClick={() => {
+                close()
+                void edits.toggleStar(item)
+              }}
+            >
+              <span aria-hidden="true">{item.starred ? '★' : '☆'}</span>
+              {t(item.starred ? 'workspace.unstar' : 'workspace.star')}
+            </button>
+            <CaptionEditor edits={edits} item={item} key={item.id} />
+            {coverOf.length > 0 ? (
+              <p className="px-3 text-sm font-semibold text-primary">
+                {t('workspace.coverBadge', {
+                  levels: coverOf.map(level).join(', '),
+                })}
+              </p>
+            ) : null}
+            <div
+              aria-label={t('workspace.coverMenu')}
+              className="flex flex-col"
+              role="group"
+            >
+              {targets.map((target) => {
+                const current = target.currentCoverId === item.id
+                return (
+                  <button
+                    className="min-h-12 rounded-xl px-3 text-left hover:bg-surface disabled:text-muted"
+                    disabled={current}
+                    key={target.level}
+                    type="button"
+                    onClick={() => {
+                      close()
+                      void edits.setCover(item.id, target)
+                    }}
+                  >
+                    {current
+                      ? t('workspace.coverCurrent', { level: level(target) })
+                      : t('workspace.useAsCover', { level: level(target) })}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end">
+            <button className={dialogButton} type="button" onClick={close}>
+              {t('common.close')}
+            </button>
+          </div>
+        </WorkspaceDialog>
       ) : null}
-      <CaptionEditor edits={edits} item={item} key={item.id} />
     </div>
   )
 }

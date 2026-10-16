@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  formatCompactRange,
   formatDuration,
   formatInstantTime,
   formatRange,
@@ -47,5 +48,46 @@ describe('format-range', () => {
   it('formats durations', () => {
     expect(formatDuration(65_000)).toBe('1:05')
     expect(formatDuration(0)).toBe('0:00')
+  })
+
+  describe('formatCompactRange', () => {
+    const flat = (text: string) => text.replace(/\s+/g, ' ')
+
+    it('shows a compact date range without a zone label', () => {
+      const text = flat(
+        formatCompactRange(
+          '2026-05-28T20:23:00+00:00',
+          '2026-06-02T21:42:00+00:00',
+          'Europe/Prague',
+          'cs',
+          { withTime: false, withYear: true },
+        ),
+      )
+      expect(text).toContain('28. 5.')
+      expect(text).toContain('2. 6. 2026')
+      expect(text).not.toContain('UTC')
+    })
+
+    it('shows one date for a single-day range and times for moments', () => {
+      const text = flat(
+        formatCompactRange(
+          '2026-05-28T20:23:00+00:00',
+          '2026-05-28T21:42:00+00:00',
+          'Europe/Prague',
+          'cs',
+          { withTime: true, withYear: false },
+        ),
+      )
+      expect(text).toBe('28. 5., 22:23 – 23:42')
+    })
+
+    it('never names UTC, even without a zone', () => {
+      const text = formatCompactRange(INSTANT, INSTANT, null, 'en-GB', {
+        withTime: true,
+        withYear: true,
+      })
+      expect(text).not.toContain('UTC')
+      expect(text).toContain('10:30')
+    })
   })
 })

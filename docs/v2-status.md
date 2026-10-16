@@ -428,3 +428,13 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
   Harness vychází o ~2 body lépe než produkce (86–88) a LCP o ~0,5 s níže; produkce NEOVĚŘENA.
 - Nezkoušeno/vynecháno: re-enkódování hera (ImageMagick lokálně není), kritické CSS, start
   aplikace souběžně s herem (v simulaci bez výhody pro LCP, reálně riziko), odložení session runtime.
+
+### Test na iPhonu 13 mini (2026-10-16)
+
+- Přihlášení v nativní aplikaci prošlo s Turnstile (build s veřejným site key; widget má povolený `localhost`).
+- Import přes PhotoKit: původní výběr jen podle data byl nepraktický, přidán nativní výběr z knihovny
+  (`PHPickerViewController`, Oblíbené/alba, `pickAssets` v `MediaLibraryPlugin`). VERIFIED na zařízení:
+  vybráno 6 položek (5 fotek, 1 video), 6 prošlo, čas a poloha sedí (kontrola uživatelem).
+- NEOVĚŘENO: opakovaný import bez zdvojení, násilné ukončení při nahrávání videa, omezený přístup ke knihovně,
+  iCloud-only originály ve výběru, rychlý zápis s polohou, T8 (automatické rozdělení celé Kanady).
+- Zpětná vazba: vzhled správy etap/momentů/cesty (pracovní plocha) je graficky slabý; řešit zvlášť.

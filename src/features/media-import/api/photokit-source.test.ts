@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  assetsToCandidates,
   createPhotoKitSource,
   MAX_IMPORT_VIDEO_MS,
 } from '@/features/media-import/api/photokit-source'
@@ -28,6 +29,27 @@ function asset(over: Partial<MediaLibraryAsset>): MediaLibraryAsset {
     ...over,
   }
 }
+
+describe('assetsToCandidates (picked assets)', () => {
+  it('maps picked assets, flags long videos and drops non-media', () => {
+    const list = assetsToCandidates([
+      asset({ id: 'p' }),
+      asset({
+        durationMs: MAX_IMPORT_VIDEO_MS + 1,
+        id: 'long',
+        mediaType: 'video',
+      }),
+      asset({ creationDate: undefined, id: 'undated' }),
+      asset({ id: 'audio', mediaType: 'audio' }),
+    ])
+    expect(list.map((c) => [c.sourceId, c.skipReason])).toEqual([
+      ['p', undefined],
+      ['long', 'video_too_long'],
+      ['undated', undefined],
+    ])
+    expect(list[2]?.capturedAt).toBeNull()
+  })
+})
 
 describe('PhotoKit source', () => {
   it('maps assets to candidates and flags long videos', async () => {

@@ -21,6 +21,13 @@ function dayKey(date: Date, zone: string): string {
   }).format(date)
 }
 
+function yearKey(date: Date, zone: string): string {
+  return new Intl.DateTimeFormat('en', {
+    timeZone: zone,
+    year: 'numeric',
+  }).format(date)
+}
+
 export function formatInstantTime(
   iso: string,
   tz: string | null,
@@ -74,6 +81,67 @@ export function formatRange(
       : `${startDate}, ${startTime} – ${formatInstantTime(endsAt, tz, locale)}`
   }
   return `${startDate}, ${startTime} – ${formatInstantDate(endsAt, tz, locale)}, ${formatInstantTime(endsAt, tz, locale)}`
+}
+
+function compactDateOptions(
+  locale: string,
+  zone: string,
+  withYear: boolean,
+): Intl.DateTimeFormatOptions {
+  return {
+    day: 'numeric',
+    month: locale.startsWith('cs') ? 'numeric' : 'short',
+    timeZone: zone,
+    ...(withYear ? { year: 'numeric' as const } : {}),
+  }
+}
+
+/**
+ * Compact range in the capture zone without a zone label, e.g.
+ * "28. 5. - 2. 6. 2026" or "28. 5., 22:23 - 23:42". A missing zone falls back
+ * to UTC silently.
+ */
+export function formatCompactRange(
+  startsAt: string,
+  endsAt: string,
+  tz: string | null,
+  locale: string,
+  options: { withTime: boolean; withYear: boolean },
+): string {
+  const { zone } = resolveZone(tz)
+  const start = new Date(startsAt)
+  const end = new Date(endsAt)
+  const dates = new Intl.DateTimeFormat(
+    locale,
+    compactDateOptions(locale, zone, options.withYear),
+  )
+  const time = (date: Date) =>
+    new Intl.DateTimeFormat(locale, {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: zone,
+    }).format(date)
+  const sameDay = dayKey(start, zone) === dayKey(end, zone)
+  if (!options.withTime) {
+    if (sameDay) return dates.format(start)
+    // Intl formatRange pads the numeric cs form ("28.05.2026"); build it by
+    // hand and drop the first year when both ends share it.
+    const sameYear = yearKey(start, zone) === yearKey(end, zone)
+    const first =
+      options.withYear && sameYear
+        ? new Intl.DateTimeFormat(
+            locale,
+            compactDateOptions(locale, zone, false),
+          )
+        : dates
+    return `${first.format(start)} – ${dates.format(end)}`
+  }
+  if (sameDay) {
+    return startsAt === endsAt
+      ? `${dates.format(start)}, ${time(start)}`
+      : `${dates.format(start)}, ${time(start)} – ${time(end)}`
+  }
+  return `${dates.format(start)}, ${time(start)} – ${dates.format(end)}, ${time(end)}`
 }
 
 export function formatDuration(durationMs: number): string {

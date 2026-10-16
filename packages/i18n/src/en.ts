@@ -85,6 +85,7 @@ export const en = {
   brand: 'Trip Diary',
   common: {
     cancel: 'Cancel',
+    close: 'Close',
     loading: 'Loading…',
     osmAttribution: '© OpenStreetMap contributors',
     tryAgain: 'Try again',
@@ -411,8 +412,12 @@ export const en = {
     accessDenied:
       'Access to the photo library is not allowed. Enable it in the system Settings and try again.',
     back: 'Back to the journey',
+    byDate: 'By date',
     cancel: 'Stop and clear the waiting items',
     chooseFiles: 'Choose files',
+    chooseFromLibrary: 'Choose from library',
+    chooseFromLibraryHint:
+      'Pick specific photos and videos, for example from Favorites or an album.',
     chooseFilesHint:
       'JPEG, PNG or WebP photos. HEIC photos and videos cannot be imported in the browser yet.',
     continue: 'Continue import',
@@ -431,6 +436,10 @@ export const en = {
     organizeOffer:
       'The media is in the journey. Organize it into moments automatically?',
     pause: 'Pause',
+    pickedCount: 'Selected: {{count}}',
+    pickedLimited:
+      '{{count}} of the selected items are outside the photos this app can access and were left out.',
+    picking: 'Opening the library…',
     phase: {
       done: 'done',
       exporting: 'preparing the file',
@@ -568,7 +577,7 @@ export const en = {
       'No moment has a location, so there is nothing to show on the map.',
     showOnMap: 'Show on map',
     subtitle:
-      'Overview of stages, trips and moments. Star media, set covers, edit captions, review suggestions, merge or split moments and move boundaries.',
+      'Overview of stages, trips and moments. Tap a photo to star it, edit its caption or set a cover.',
     timeline: 'Timeline',
     title: 'Journey workspace',
     unassigned: 'Unassigned media',
@@ -641,6 +650,23 @@ export const en = {
     boundaryMoved: 'Boundary moved',
     dialogChoice: 'Choose one',
     useAsCover: 'Use as cover of: {{level}}',
+    about: 'About the workspace',
+    collapseSegment: 'Collapse: {{name}}',
+    expandSegment: 'Expand: {{name}}',
+    import: 'Import',
+    locked: 'Locked against automatic changes',
+    manual: 'Created manually',
+    mediaActions: 'Photo or video options',
+    mediaSheetTitle: 'Photo or video',
+    moreActions: 'More actions',
+    moreActionsFor: 'More actions: {{name}}',
+    moreMedia: '{{count}} more',
+    moreMediaLabel: 'Show {{count}} more',
+    organizeHint:
+      'Suggests moments, stages and trips from photos and positions. Nothing is changed without a preview.',
+    showFewerMedia: 'Show fewer',
+    suggestionHint: 'Suggestion waiting for your decision',
+    toolbar: 'Workspace actions',
   },
   journey: {
     create: 'Create journey',

@@ -90,10 +90,13 @@ function load() {
   }
 }
 
-function splitButton(index: number): HTMLElement {
-  const button = screen.getAllByRole('button', { name: 'Split moment' })[index]
-  if (button === undefined) throw new Error('split button missing')
-  return button
+/** Opens the "..." sheet of the moment with this name and picks an action. */
+function chooseMomentAction(moment: string, action: string) {
+  fireEvent.click(
+    screen.getByRole('button', { name: `More actions: ${moment}` }),
+  )
+  const sheet = screen.getByRole('dialog', { name: moment })
+  fireEvent.click(within(sheet).getByRole('button', { name: action }))
 }
 
 describe('workspace structure editing', () => {
@@ -120,7 +123,7 @@ describe('workspace structure editing', () => {
 
   it('merges with the next moment after confirmation, warning there is no undo', async () => {
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Merge with next' }))
+    chooseMomentAction('One', 'Merge with next')
     const dialog = screen.getByRole('dialog', { name: 'Merge moments' })
     expect(within(dialog).getByText(/cannot be undone/)).toBeTruthy()
     expect(dialog.textContent).toContain('"Two" into "One"')
@@ -136,7 +139,7 @@ describe('workspace structure editing', () => {
 
   it('closes a dialog with Escape without calling anything', () => {
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Merge with next' }))
+    chooseMomentAction('One', 'Merge with next')
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(edits.mergeMoments).not.toHaveBeenCalled()
@@ -144,14 +147,20 @@ describe('workspace structure editing', () => {
 
   it('offers no merge-with-previous on the first moment', () => {
     render(<JourneyWorkspace journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'More actions: One' }))
     expect(
-      screen.getAllByRole('button', { name: 'Merge with previous' }),
-    ).toHaveLength(1)
+      screen.queryByRole('button', { name: 'Merge with previous' }),
+    ).toBeNull()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    fireEvent.click(screen.getByRole('button', { name: 'More actions: Two' }))
+    expect(
+      screen.getByRole('button', { name: 'Merge with previous' }),
+    ).toBeTruthy()
   })
 
   it('splits between two media in the media time zone', async () => {
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(splitButton(0))
+    chooseMomentAction('One', 'Split moment')
     const dialog = screen.getByRole('dialog', { name: 'Split moment' })
     const confirm = within(dialog).getByRole('button', { name: 'Split' })
     expect((confirm as HTMLButtonElement).disabled).toBe(true)
@@ -169,7 +178,7 @@ describe('workspace structure editing', () => {
 
   it('explains when a moment with one media cannot be split', () => {
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(splitButton(1))
+    chooseMomentAction('Two', 'Split moment')
     const dialog = screen.getByRole('dialog')
     expect(within(dialog).getByText(/cannot be split/)).toBeTruthy()
     expect(
@@ -195,5 +204,40 @@ describe('workspace structure editing', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull()
     })
+  })
+
+  it('keeps secondary moment actions out of the page until the menu opens', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    expect(screen.queryByRole('button', { name: 'Split moment' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Merge with next' })).toBeNull()
+    // "Edit text" stays visible as the quiet primary action.
+    expect(screen.getByRole('button', { name: 'Edit text: One' })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'More actions: One' }))
+    const sheet = screen.getByRole('dialog', { name: 'One' })
+    expect(within(sheet).getByRole('button', { name: 'Tags' })).toBeTruthy()
+    expect(
+      within(sheet).getByRole('button', { name: 'Split moment' }),
+    ).toBeTruthy()
+  })
+
+  it('collapses and expands a stage, remembering the state while mounted', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    expect(screen.getByText('One')).toBeTruthy()
+    const toggle = screen.getByRole('button', { name: 'Collapse: Beta' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse: Alpha' }))
+    expect(screen.queryByText('One')).toBeNull()
+    expect(screen.queryByText('Two')).toBeNull()
+    expect(screen.getByText('Beta')).toBeTruthy()
+    const reopen = screen.getByRole('button', { name: 'Expand: Alpha' })
+    expect(reopen.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(reopen)
+    expect(screen.getByText('One')).toBeTruthy()
+  })
+
+  it('keeps suggestion decisions visible while the stage is collapsed', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse: Alpha' }))
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy()
   })
 })

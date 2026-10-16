@@ -74,6 +74,12 @@ function wrapper({ children }: PropsWithChildren) {
   )
 }
 
+function openSheet() {
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Photo or video options' }),
+  )
+}
+
 describe('EditableMediaTile', () => {
   beforeEach(async () => {
     toasts = []
@@ -89,6 +95,7 @@ describe('EditableMediaTile', () => {
 
   it('stars optimistically, offers Undo that restores the old value', async () => {
     render(<Tile current={item} />, { wrapper })
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Star' }))
     expect(repo.updateMediaMeta).toHaveBeenCalledWith(item.id, {
       starred: true,
@@ -111,6 +118,7 @@ describe('EditableMediaTile', () => {
   it('rolls back the star and shows an error toast when saving fails', async () => {
     repo.updateMediaMeta.mockRejectedValue(new Error('rls'))
     render(<Tile current={item} />, { wrapper })
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: 'Star' }))
     await waitFor(() => {
       expect(toasts[0]).toMatchObject({ variant: 'error' })
@@ -123,8 +131,10 @@ describe('EditableMediaTile', () => {
 
   it('shows the cover badge and only offers levels that contain the media', () => {
     render(<Tile current={item} />, { wrapper })
+    // No always-visible buttons on the tile itself.
+    expect(screen.getAllByRole('button')).toHaveLength(1)
+    openSheet()
     expect(screen.getByText('Cover: stage')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Use as cover' }))
     expect(
       screen.getByRole('button', { name: 'Use as cover of: moment' }),
     ).toBeTruthy()
@@ -142,7 +152,7 @@ describe('EditableMediaTile', () => {
 
   it('sets the moment cover and the journey cover through repositories', async () => {
     render(<Tile current={item} />, { wrapper })
-    fireEvent.click(screen.getByRole('button', { name: 'Use as cover' }))
+    openSheet()
     fireEvent.click(
       screen.getByRole('button', { name: 'Use as cover of: moment' }),
     )
@@ -151,7 +161,7 @@ describe('EditableMediaTile', () => {
         coverMediaId: item.id,
       })
     })
-    fireEvent.click(screen.getByRole('button', { name: 'Use as cover' }))
+    openSheet()
     fireEvent.click(
       screen.getByRole('button', { name: 'Use as cover of: journey' }),
     )
@@ -162,6 +172,7 @@ describe('EditableMediaTile', () => {
 
   it('saves a trimmed caption on Enter, cancels on Escape', async () => {
     render(<Tile current={item} />, { wrapper })
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: /Add caption/ }))
     const input = screen.getByRole('textbox', { name: 'Caption' })
     fireEvent.change(input, { target: { value: '  Lake  ' } })
@@ -172,6 +183,11 @@ describe('EditableMediaTile', () => {
       })
     })
 
+    await waitFor(() => {
+      expect(
+        screen.getByRole('button', { name: /Add caption|Lake/ }),
+      ).toBeTruthy()
+    })
     fireEvent.click(screen.getByRole('button', { name: /Add caption|Lake/ }))
     const second = screen.getByRole('textbox', { name: 'Caption' })
     fireEvent.change(second, { target: { value: 'discarded' } })
@@ -180,8 +196,17 @@ describe('EditableMediaTile', () => {
     expect(repo.updateMediaMeta).toHaveBeenCalledTimes(1)
   })
 
+  it('shows a star indicator and a caption overlay only when present', () => {
+    const { rerender } = render(<Tile current={item} />, { wrapper })
+    expect(screen.queryByTestId('starred-indicator')).toBeNull()
+    rerender(<Tile current={{ ...item, caption: 'Lake', starred: true }} />)
+    expect(screen.getByTestId('starred-indicator')).toBeTruthy()
+    expect(screen.getByText('Lake')).toBeTruthy()
+  })
+
   it('rejects an over-long caption without calling the repository', async () => {
     render(<Tile current={item} />, { wrapper })
+    openSheet()
     fireEvent.click(screen.getByRole('button', { name: /Add caption/ }))
     const input = screen.getByRole('textbox', { name: 'Caption' })
     fireEvent.change(input, { target: { value: 'a'.repeat(2001) } })
