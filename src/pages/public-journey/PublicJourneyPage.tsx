@@ -8,6 +8,7 @@ import {
   pickCover,
   zoneOf,
 } from '@/entities/public-journey/lib/journey-model'
+import { buildMapPreview } from '@trip-diary/core/public-journey'
 import { buildMapData } from '@/features/public-journey/lib/build-map-data'
 import { excerpt, formatDateRange } from '@/features/public-journey/lib/format'
 import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
@@ -15,6 +16,7 @@ import { PublicMapSection } from '@/features/public-journey/ui/LazyPublicJourney
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { readHeroMirror } from '@/entities/public-journey/lib/embedded-journey'
 import { resolveImage } from '@/entities/public-journey/lib/media-url'
 
 interface PublicJourneyPageProps {
@@ -32,6 +34,10 @@ export function PublicJourneyPage({
   const navigate = useNavigate()
   const model = useMemo(() => buildJourneyModel(data), [data])
   const map = useMemo(() => buildMapData(model, null), [model])
+  const preview = useMemo(() => buildMapPreview(data), [data])
+  // Same-origin hero copy of the prerendered page: the image the static shell
+  // already loaded, so React does not download it a second time.
+  const heroMirror = useMemo(() => readHeroMirror(), [])
   const { journey } = data
   const cover = pickCover(
     model,
@@ -62,6 +68,7 @@ export function PublicJourneyPage({
             <PublicMediaView
               className="h-full w-full object-cover"
               media={cover}
+              mirror={heroMirror}
               priority
               sizes="(min-width: 1024px) 1024px, 100vw"
             />
@@ -94,6 +101,7 @@ export function PublicJourneyPage({
             })
           }}
           points={map.points}
+          preview={preview}
         />
       </section>
 

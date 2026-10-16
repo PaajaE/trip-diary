@@ -126,6 +126,9 @@ export default defineConfig({
     }),
   ],
   build: {
+    // dist/.vite/manifest.json: the prerender step reads it to preload the
+    // public journey route's chunks (scripts/prerender-public.mjs).
+    manifest: true,
     rolldownOptions: {
       output: {
         // Everything statically reachable from the entry goes into one chunk:
@@ -172,6 +175,7 @@ export default defineConfig({
       'dist/**',
       'packages/**',
       'apps/**',
+      '.claude/**',
     ],
     setupFiles: ['./src/test/setup.ts'],
   },

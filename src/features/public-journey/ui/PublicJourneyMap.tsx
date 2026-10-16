@@ -27,6 +27,13 @@ export interface PublicJourneyMapProps {
   points: PublicMapPoint[]
 }
 
+interface PublicJourneyMapInnerProps extends PublicJourneyMapProps {
+  /** Replaces the default box classes (the section draws the box itself). */
+  className?: string
+  /** Called once the first complete render (style and tiles) has happened. */
+  onReady?: () => void
+}
+
 const SOURCE = 'public-points'
 
 interface SourceFeature {
@@ -59,14 +66,18 @@ function clusterElement(count: number): HTMLDivElement {
 export default function PublicJourneyMap({
   label,
   lines,
+  onReady,
   onSelectPoint,
   points,
-}: PublicJourneyMapProps) {
+  className = 'h-[22rem] w-full overflow-hidden rounded-lg border border-border bg-surface sm:h-[28rem]',
+}: PublicJourneyMapInnerProps) {
   const { i18n, t } = useTranslation()
   const containerRef = useRef<HTMLDivElement>(null)
   const onSelectRef = useRef(onSelectPoint)
+  const onReadyRef = useRef(onReady)
   useEffect(() => {
     onSelectRef.current = onSelectPoint
+    onReadyRef.current = onReady
   })
 
   useEffect(() => {
@@ -220,6 +231,8 @@ export default function PublicJourneyMap({
       map.on('render', () => {
         if (map.isSourceLoaded(SOURCE)) updateMarkers()
       })
+      // First complete render: the section fades the map in over its preview.
+      onReadyRef.current?.()
     })
 
     fit()
@@ -240,7 +253,7 @@ export default function PublicJourneyMap({
   return (
     <div
       aria-label={label}
-      className="h-[22rem] w-full overflow-hidden rounded-lg border border-border bg-surface sm:h-[28rem]"
+      className={className}
       ref={containerRef}
       role="region"
     />

@@ -5,12 +5,16 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
 import { parsePublicJourney } from '@trip-diary/core/public-journey'
+import { cs } from '../packages/i18n/src/cs.ts'
+import { en } from '../packages/i18n/src/en.ts'
 import {
   buildPages,
   buildRobots,
   buildSitemap,
   isSafePathSegment,
   renderPage,
+  routePreloads,
+  serializeJsonForScript,
   smallVariantUrl,
   withLocalVariant,
 } from './lib/prerender.mjs'
@@ -21,6 +25,16 @@ const supabaseUrl = process.env.VITE_SUPABASE_URL?.replace(/\/+$/, '')
 const anonKey = process.env.VITE_SUPABASE_ANON_KEY
 const siteUrl = process.env.VITE_SITE_URL || undefined
 const mediaBaseUrl = process.env.VITE_MEDIA_BASE_URL || undefined
+// Same rule as isMapyApiKeyConfigured(): a key selects the Mapy basemap.
+const mapyKey = (process.env.VITE_MAPY_API_KEY ?? '').trim()
+const mapOrigin = mapyKey === '' ? undefined : 'https://api.mapy.com'
+const attributionKey =
+  mapyKey === '' ? 'mapAttributionOsm' : 'mapAttributionMapy'
+// Texts of the static shell (both languages; chosen by an inline script).
+const strings = {
+  cs: { attribution: cs.reader[attributionKey], route: cs.publicJourney.route },
+  en: { attribution: en.reader[attributionKey], route: en.publicJourney.route },
+}
 
 function describe(error) {
   if (error?.name === 'ZodError')
@@ -59,7 +73,7 @@ async function rpc(name, body) {
 async function mirrorHero(page) {
   const hero = page.shell?.hero
   const remote = hero === undefined ? null : smallVariantUrl(hero)
-  if (remote === null) return
+  if (remote === null) return null
   try {
     const response = await fetch(remote, {
       signal: AbortSignal.timeout(30_000),
@@ -76,9 +90,11 @@ async function mirrorHero(page) {
     const local = withLocalVariant(hero, remote, `/hero/${name}`)
     page.shell = { ...page.shell, hero: local }
     page.hero = local
+    return { from: remote, to: `/hero/${name}` }
   } catch (error) {
     console.warn(`prerender: hero not mirrored (${describe(error)})`)
   }
+  return null
 }
 
 async function writePage(relDir, html) {
@@ -121,6 +137,21 @@ for (const match of template.matchAll(
   } catch {}
 }
 
+let manifest = null
+try {
+  manifest = JSON.parse(
+    await readFile(join(distDir, '.vite', 'manifest.json'), 'utf8'),
+  )
+} catch {}
+const base = (process.env.VITE_BASE_PATH ?? '/').replace(/\/+$/, '')
+const preload = routePreloads(manifest, {
+  base,
+  entryFiles: [...template.matchAll(/(?:src|href)="([^"]+\.js)"/g)].map((m) =>
+    m[1].slice(base.length + 1),
+  ),
+  skipCss: Object.keys(inlineStyles),
+})
+
 const sitemap = []
 let failures = 0
 let written = 0
@@ -142,14 +173,35 @@ for (const row of list) {
     const options = { handle, mediaBaseUrl, slug }
     const pages = buildPages(tree, options)
     for (const page of pages) {
-      if (page.kind === 'journey') await mirrorHero(page)
+      if (page.kind === 'journey') {
+        // The React hero swaps the same remote URL for the same-origin copy,
+        // so the image is downloaded once, not twice.
+        const mirror = await mirrorHero(page)
+        if (mirror !== null) embed.heroMirror = mirror
+      }
+      // Journey page: the tree is a separate file, not inlined (HTML size).
+      const dataUrl =
+        page.kind === 'journey' && page.shell
+          ? `${base}/${page.dir}/data.json`
+          : undefined
+      if (dataUrl !== undefined) {
+        await mkdir(join(distDir, page.dir), { recursive: true })
+        await writeFile(
+          join(distDir, page.dir, 'data.json'),
+          serializeJsonForScript(embed),
+        )
+      }
       await writePage(
         page.dir,
         renderPage(template, page, {
+          dataUrl,
           embed,
           inlineStyles,
+          mapOrigin,
           mediaBaseUrl,
+          preload,
           siteUrl,
+          strings,
           supabaseUrl,
         }),
       )

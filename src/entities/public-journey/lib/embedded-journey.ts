@@ -39,3 +39,26 @@ export function readEmbeddedJourney(
     return undefined
   }
 }
+
+const heroMirrorSchema = z.object({
+  heroMirror: z
+    .object({ from: z.url(), to: z.string().regex(/^\/(?!\/)/) })
+    .optional(),
+})
+
+/**
+ * The prerender copies one hero variant next to the page and the static shell
+ * shows that copy. Reading the mapping lets the React hero request the very
+ * same URL, so the image is downloaded once. `undefined` when absent/invalid.
+ */
+export function readHeroMirror(
+  doc: Pick<Document, 'getElementById'> = document,
+): { from: string; to: string } | undefined {
+  const text = doc.getElementById(EMBEDDED_JOURNEY_ELEMENT_ID)?.textContent
+  if (text === undefined || text === '') return undefined
+  try {
+    return heroMirrorSchema.parse(JSON.parse(text)).heroMirror
+  } catch {
+    return undefined
+  }
+}

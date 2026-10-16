@@ -29,13 +29,18 @@ export const DEFAULT_MAP_PROVIDER: MapProviderId = 'mapy-tourist'
 export const DEFAULT_FALLBACK_ORDER: MapProviderId[] = ['mapy-tourist', 'osm']
 
 // Mapy "Tourist Map" product uses mapset id `outdoor` (there is no `tourist` mapset).
-const MAPY_TOURIST_TILEJSON =
-  'https://api.mapy.com/v1/maptiles/outdoor/tiles.json'
+// The tile template is what `.../outdoor/tiles.json` returns (maxzoom 19,
+// 256 px PNG). It is used directly: fetching tiles.json first cost one extra
+// round trip (DNS/TLS to api.mapy.com) before the first tile could be requested.
+const MAPY_TOURIST_TILES = 'https://api.mapy.com/v1/maptiles/outdoor/256'
 
-const MAPY_OUTDOOR_TILEJSON =
-  'https://api.mapy.com/v1/maptiles/outdoor/tiles.json'
+const MAPY_OUTDOOR_TILES = 'https://api.mapy.com/v1/maptiles/outdoor/256'
 
 const MAPY_ATTRIBUTION = '© Seznam.cz a.s. a další'
+
+// Same markup tiles.json delivers (the licence requires the link).
+const MAPY_SOURCE_ATTRIBUTION =
+  '<a href="https://api.mapy.com/copyright" target="_blank">&copy; Seznam.cz a.s. a další</a>'
 
 const OSM_ATTRIBUTION = '© OpenStreetMap contributors'
 
@@ -46,23 +51,23 @@ function buildMapyStyle(
   apiKey: string,
   language?: string,
 ): StyleSpecification {
-  const tileJson =
-    providerId === 'mapy-tourist'
-      ? MAPY_TOURIST_TILEJSON
-      : MAPY_OUTDOOR_TILEJSON
-  const params = new URLSearchParams({ apikey: apiKey })
+  const tiles =
+    providerId === 'mapy-tourist' ? MAPY_TOURIST_TILES : MAPY_OUTDOOR_TILES
+  const params = new URLSearchParams()
   if (language !== undefined && language.length > 0) {
     params.set('lang', language)
   }
+  params.set('apikey', apiKey)
 
   return {
     glyphs: GLYPHS_URL,
     layers: [{ id: 'basemap', source: 'basemap', type: 'raster' }],
     sources: {
       basemap: {
-        attribution: MAPY_ATTRIBUTION,
+        attribution: MAPY_SOURCE_ATTRIBUTION,
+        maxzoom: 19,
+        tiles: [`${tiles}/{z}/{x}/{y}?${params.toString()}`],
         type: 'raster',
-        url: `${tileJson}?${params.toString()}`,
       },
     },
     version: 8,
