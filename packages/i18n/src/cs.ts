@@ -411,8 +411,12 @@ export const cs: TranslationResources = {
     accessDenied:
       'Přístup do knihovny fotek není povolený. Povolte ho v nastavení systému a zkuste to znovu.',
     back: 'Zpět na cestu',
+    byDate: 'Podle data',
     cancel: 'Zastavit a smazat čekající položky',
     chooseFiles: 'Vybrat soubory',
+    chooseFromLibrary: 'Vybrat z knihovny',
+    chooseFromLibraryHint:
+      'Vyberte konkrétní fotky a videa, například z Oblíbených nebo z alba.',
     chooseFilesHint:
       'Fotky JPEG, PNG nebo WebP. Fotky HEIC a videa zatím v prohlížeči nejde importovat.',
     continue: 'Pokračovat v importu',
@@ -431,6 +435,10 @@ export const cs: TranslationResources = {
     organizeOffer:
       'Média jsou v cestě. Chcete je automaticky uspořádat do momentů?',
     pause: 'Pozastavit',
+    pickedCount: 'Vybráno: {{count}}',
+    pickedLimited:
+      '{{count}} vybraných položek je mimo fotky, ke kterým má aplikace přístup, a byly vynechány.',
+    picking: 'Otevírám knihovnu…',
     phase: {
       done: 'hotovo',
       exporting: 'příprava souboru',

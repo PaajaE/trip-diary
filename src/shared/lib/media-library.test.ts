@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const plugin = vi.hoisted(() => ({
   deletePhotoExports: vi.fn(),
   exportPhoto: vi.fn(),
+  pickAssets: vi.fn(),
 }))
 vi.mock('@capacitor/core', () => ({
   Capacitor: { getPlatform: () => 'ios', isPluginAvailable: () => true },
@@ -13,6 +14,7 @@ import {
   deleteMediaLibraryPhotoExports,
   exportMediaLibraryPhoto,
   MediaLibraryError,
+  pickMediaLibraryAssets,
 } from '@/shared/lib/media-library'
 
 const good = {
@@ -80,6 +82,68 @@ describe('deleteMediaLibraryPhotoExports', () => {
     await deleteMediaLibraryPhotoExports(['file:///a'])
     expect(plugin.deletePhotoExports).toHaveBeenCalledWith({
       fileUrls: ['file:///a'],
+    })
+  })
+})
+
+describe('pickMediaLibraryAssets', () => {
+  const asset = {
+    creationDate: '2026-09-11T10:00:00.000Z',
+    height: 3,
+    id: 'A',
+    isFavorite: true,
+    mediaType: 'image',
+    sourceType: 'userLibrary',
+    subtypes: [],
+    width: 4,
+  }
+
+  it('parses a picked selection', async () => {
+    plugin.pickAssets.mockResolvedValue({
+      assets: [asset],
+      cancelled: false,
+      requested: 2,
+      resolved: 1,
+    })
+    const result = await pickMediaLibraryAssets()
+    expect(result).toMatchObject({
+      cancelled: false,
+      requested: 2,
+      resolved: 1,
+    })
+    expect(result.assets[0]?.id).toBe('A')
+  })
+
+  it('parses a cancellation', async () => {
+    plugin.pickAssets.mockResolvedValue({
+      assets: [],
+      cancelled: true,
+      requested: 0,
+      resolved: 0,
+    })
+    await expect(pickMediaLibraryAssets()).resolves.toMatchObject({
+      assets: [],
+      cancelled: true,
+    })
+  })
+
+  it('rejects a malformed result as PICKER_FAILED', async () => {
+    plugin.pickAssets.mockResolvedValue({
+      assets: [{ id: '' }],
+      cancelled: false,
+    })
+    await expect(pickMediaLibraryAssets()).rejects.toMatchObject({
+      code: 'PICKER_FAILED',
+    })
+  })
+
+  it('keeps the native NOT_AUTHORIZED code', async () => {
+    plugin.pickAssets.mockRejectedValue({
+      code: 'NOT_AUTHORIZED',
+      message: 'no',
+    })
+    await expect(pickMediaLibraryAssets()).rejects.toMatchObject({
+      code: 'NOT_AUTHORIZED',
     })
   })
 })

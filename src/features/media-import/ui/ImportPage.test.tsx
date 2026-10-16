@@ -28,6 +28,7 @@ const state = vi.hoisted(() => ({
 }))
 const getCursor = vi.hoisted(() => vi.fn())
 const photoKitList = vi.hoisted(() => vi.fn())
+const pickAssets = vi.hoisted(() => vi.fn())
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: ReactNode }) => (
@@ -49,11 +50,30 @@ vi.mock('@/features/journey-organize/ui/OrganizeJourneyButton', () => ({
   ),
 }))
 vi.mock('@/shared/lib/media-library', () => ({
+  MediaLibraryError: class MediaLibraryError extends Error {
+    code: string
+    constructor(code: string, message: string) {
+      super(message)
+      this.code = code
+    }
+  },
+  pickMediaLibraryAssets: pickAssets,
   getMediaLibraryStatus: () => Promise.resolve('authorized'),
   isMediaLibraryAvailable: () => state.native,
   requestMediaLibraryAccess: () => Promise.resolve('authorized'),
 }))
 vi.mock('@/features/media-import/api/photokit-source', () => ({
+  assetsToCandidates: (
+    assets: { durationMs?: number; id: string; mediaType: string }[],
+  ) =>
+    assets.map((asset) => ({
+      capturedAt: null,
+      durationMs: asset.durationMs ?? null,
+      latitude: null,
+      longitude: null,
+      mediaType: asset.mediaType === 'video' ? 'video' : 'photo',
+      sourceId: asset.id,
+    })),
   createPhotoKitSource: () => ({
     kind: 'photokit',
     list: photoKitList,
@@ -278,6 +298,54 @@ describe('ImportPage', () => {
       expect(photoKitList).toHaveBeenCalledWith({
         from: '2026-09-11T10:00:00.001Z',
       })
+    })
+
+    it('queues the assets picked in the native library picker', async () => {
+      pickAssets.mockResolvedValue({
+        assets: [
+          { id: 'A', mediaType: 'image' },
+          { durationMs: 5000, id: 'B', mediaType: 'video' },
+        ],
+        cancelled: false,
+        requested: 3,
+        resolved: 2,
+      })
+      render(<ImportPage journeyId="j" />)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Choose from library' }),
+      )
+      expect(await screen.findByText('Selected: 2')).toBeTruthy()
+      expect(
+        screen.getByText(/1 of the selected items are outside/),
+      ).toBeTruthy()
+      expect(queue.enqueue).toHaveBeenCalledWith('photokit', [
+        expect.objectContaining({ mediaType: 'photo', sourceId: 'A' }),
+        expect.objectContaining({ mediaType: 'video', sourceId: 'B' }),
+      ])
+      expect(queue.start).toHaveBeenCalled()
+      expect(
+        screen.getByRole('button', { name: 'Scan the photo library' }),
+      ).toBeTruthy()
+    })
+
+    it('does nothing when the picker is cancelled', async () => {
+      pickAssets.mockResolvedValue({
+        assets: [],
+        cancelled: true,
+        requested: 0,
+        resolved: 0,
+      })
+      render(<ImportPage journeyId="j" />)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Choose from library' }),
+      )
+      await waitFor(() => {
+        expect(pickAssets).toHaveBeenCalled()
+      })
+      await screen.findByRole('button', { name: 'Choose from library' })
+      expect(queue.enqueue).not.toHaveBeenCalled()
+      expect(screen.queryByText(/Selected:/)).toBeNull()
+      expect(screen.queryByRole('alert')).toBeNull()
     })
 
     it('has a date range with two date inputs', async () => {

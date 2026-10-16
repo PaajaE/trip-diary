@@ -411,8 +411,12 @@ export const en = {
     accessDenied:
       'Access to the photo library is not allowed. Enable it in the system Settings and try again.',
     back: 'Back to the journey',
+    byDate: 'By date',
     cancel: 'Stop and clear the waiting items',
     chooseFiles: 'Choose files',
+    chooseFromLibrary: 'Choose from library',
+    chooseFromLibraryHint:
+      'Pick specific photos and videos, for example from Favorites or an album.',
     chooseFilesHint:
       'JPEG, PNG or WebP photos. HEIC photos and videos cannot be imported in the browser yet.',
     continue: 'Continue import',
@@ -431,6 +435,10 @@ export const en = {
     organizeOffer:
       'The media is in the journey. Organize it into moments automatically?',
     pause: 'Pause',
+    pickedCount: 'Selected: {{count}}',
+    pickedLimited:
+      '{{count}} of the selected items are outside the photos this app can access and were left out.',
+    picking: 'Opening the library…',
     phase: {
       done: 'done',
       exporting: 'preparing the file',

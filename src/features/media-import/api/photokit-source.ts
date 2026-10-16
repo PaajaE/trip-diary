@@ -40,7 +40,8 @@ const defaultDeps: PhotoKitSourceDeps = {
   },
 }
 
-function toCandidate(asset: MediaLibraryAsset): ImportCandidate | null {
+/** Maps a PhotoKit asset to an import candidate (null for audio/unknown). */
+export function toCandidate(asset: MediaLibraryAsset): ImportCandidate | null {
   if (asset.mediaType !== 'image' && asset.mediaType !== 'video') return null
   const video = asset.mediaType === 'video'
   const durationMs = asset.durationMs ?? null
@@ -57,6 +58,18 @@ function toCandidate(asset: MediaLibraryAsset): ImportCandidate | null {
   }
 }
 
+/** Candidates (importable and skipped) for assets picked in the native picker. */
+export function assetsToCandidates(
+  assets: readonly MediaLibraryAsset[],
+): ImportCandidate[] {
+  const candidates: ImportCandidate[] = []
+  for (const asset of assets) {
+    const candidate = toCandidate(asset)
+    if (candidate !== null) candidates.push(candidate)
+  }
+  return candidates
+}
+
 /** PhotoKit source: lists metadata only; originals are exported on demand. */
 export function createPhotoKitSource(
   overrides: Partial<PhotoKitSourceDeps> = {},
@@ -66,12 +79,7 @@ export function createPhotoKitSource(
     kind: 'photokit',
     async list(range?: ImportRange) {
       const assets = await deps.listAssets()
-      const candidates: ImportCandidate[] = []
-      for (const asset of assets) {
-        const candidate = toCandidate(asset)
-        if (candidate !== null) candidates.push(candidate)
-      }
-      return applyRange(candidates, range)
+      return applyRange(assetsToCandidates(assets), range)
     },
     async open(candidate): Promise<OpenedPhoto> {
       if (candidate.mediaType !== 'photo') {

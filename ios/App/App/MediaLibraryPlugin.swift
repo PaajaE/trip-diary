@@ -2,6 +2,7 @@ import Foundation
 import Capacitor
 import Photos
 import ImageIO
+import PhotosUI
 
 /// Reads the device photo library through PhotoKit.
 ///
@@ -16,6 +17,7 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getAuthorizationStatus", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "listAssets", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "pickAssets", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readEmbeddedMetadata", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "exportPhoto", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "deletePhotoExports", returnType: CAPPluginReturnPromise)
@@ -89,6 +91,72 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
                 "elapsedMs": Int(Date().timeIntervalSince(started) * 1000)
             ])
         }
+    }
+
+    /// Presents the system photo picker (multi-select, albums, Favorites) and
+    /// resolves with metadata of the picked assets, in `listAssets` shape.
+    /// Resolves `{ cancelled: true, assets: [] }` on cancel. `requested` is the
+    /// number of picked items with an identifier, `resolved` how many PHAssets
+    /// could be read (fewer under limited library access).
+    /// Rejects NOT_AUTHORIZED when library access is denied or restricted.
+    @objc func pickAssets(_ call: CAPPluginCall) {
+        let present: (PHAuthorizationStatus) -> Void = { [weak self] status in
+            guard status == .authorized || status == .limited else {
+                call.reject("Photo library access not granted", "NOT_AUTHORIZED")
+                return
+            }
+            DispatchQueue.main.async {
+                self?.presentPicker(call)
+            }
+        }
+        let current = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        if current == .notDetermined {
+            PHPhotoLibrary.requestAuthorization(for: .readWrite, handler: present)
+        } else {
+            present(current)
+        }
+    }
+
+    private var pickerDelegate: AssetPickerDelegate?
+
+    private func presentPicker(_ call: CAPPluginCall) {
+        guard let host = bridge?.viewController else {
+            call.reject("No view controller to present the picker", "PICKER_FAILED")
+            return
+        }
+        var configuration = PHPickerConfiguration(photoLibrary: PHPhotoLibrary.shared())
+        configuration.selectionLimit = 0
+        configuration.filter = .any(of: [.images, .videos])
+        configuration.preferredAssetRepresentationMode = .current
+
+        let picker = PHPickerViewController(configuration: configuration)
+        let delegate = AssetPickerDelegate { [weak self] results in
+            self?.pickerDelegate = nil
+            guard let results else {
+                call.resolve(["cancelled": true, "assets": [], "requested": 0, "resolved": 0])
+                return
+            }
+            let identifiers = results.compactMap { $0.assetIdentifier }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let fetched = PHAsset.fetchAssets(withLocalIdentifiers: identifiers, options: nil)
+                var byId: [String: PHAsset] = [:]
+                fetched.enumerateObjects { asset, _, _ in
+                    byId[asset.localIdentifier] = asset
+                }
+                // Keep the user's selection order.
+                let assets = identifiers.compactMap { byId[$0] }.map { Self.serialize($0) }
+                call.resolve([
+                    "cancelled": false,
+                    "assets": assets,
+                    "requested": identifiers.count,
+                    "resolved": assets.count
+                ])
+            }
+        }
+        pickerDelegate = delegate
+        picker.delegate = delegate
+        picker.presentationController?.delegate = delegate
+        host.present(picker, animated: true)
     }
 
     /// Reads EXIF/TIFF/GPS dictionaries embedded in the asset's original image
@@ -377,5 +445,31 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         if subtypes.contains(.videoTimelapse) { names.append("timelapse") }
         if subtypes.contains(.videoCinematic) { names.append("cinematic") }
         return names
+    }
+}
+
+/// Bridges PHPickerViewControllerDelegate to a single completion call.
+/// `nil` means the user cancelled (button or swipe-down dismissal).
+private final class AssetPickerDelegate: NSObject, PHPickerViewControllerDelegate,
+    UIAdaptivePresentationControllerDelegate {
+    private var completion: (([PHPickerResult]?) -> Void)?
+
+    init(completion: @escaping ([PHPickerResult]?) -> Void) {
+        self.completion = completion
+    }
+
+    private func finish(_ results: [PHPickerResult]?) {
+        let done = completion
+        completion = nil
+        done?(results)
+    }
+
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        finish(results.isEmpty ? nil : results)
+    }
+
+    func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
+        finish(nil)
     }
 }
