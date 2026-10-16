@@ -1,6 +1,7 @@
-import { Star } from 'lucide-react'
+import { Ellipsis, Star } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/shared/lib/cn'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-workspace-edits'
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
@@ -126,10 +127,10 @@ export function EditableMediaTile({
   }
 
   return (
-    <div data-testid="editable-media-tile">
+    <div className="group relative" data-testid="editable-media-tile">
       <button
         aria-label={t('workspace.mediaActions')}
-        className="relative block aspect-square w-full overflow-hidden rounded-sm bg-surface"
+        className="relative block aspect-square w-full overflow-hidden rounded-sm bg-surface transition-shadow hover:shadow-soft hover:ring-2 hover:ring-primary/40"
         type="button"
         onClick={() => {
           setOpen(true)
@@ -139,16 +140,43 @@ export function EditableMediaTile({
         {item.starred ? (
           <Star
             aria-hidden="true"
-            className="absolute right-1 top-1 fill-amber-300 text-amber-300 drop-shadow"
+            className="absolute right-1 top-1 fill-amber-300 text-amber-300 drop-shadow lg:hidden"
             data-testid="starred-indicator"
             size={16}
           />
         ) : null}
+        <span
+          aria-hidden="true"
+          className="absolute left-1 top-1 hidden size-8 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100 lg:flex"
+        >
+          <Ellipsis size={16} />
+        </span>
         {item.caption !== null ? (
           <span className="absolute inset-x-0 bottom-0 truncate bg-black/55 px-1.5 py-0.5 text-left text-[11px] text-white">
             {item.caption}
           </span>
         ) : null}
+      </button>
+      <button
+        aria-label={t(
+          item.starred ? 'workspace.unstarPhoto' : 'workspace.starPhoto',
+        )}
+        aria-pressed={item.starred}
+        className={cn(
+          'absolute right-1 top-1 hidden size-8 items-center justify-center rounded-full bg-black/55 text-white transition-opacity focus-visible:opacity-100 group-hover:opacity-100 lg:flex',
+          item.starred ? 'opacity-100' : 'opacity-0',
+        )}
+        data-testid="quick-star"
+        type="button"
+        onClick={() => {
+          void edits.toggleStar(item)
+        }}
+      >
+        <Star
+          aria-hidden="true"
+          className={item.starred ? 'fill-amber-300 text-amber-300' : ''}
+          size={16}
+        />
       </button>
       {open ? (
         <WorkspaceDialog title={t('workspace.mediaSheetTitle')} onClose={close}>

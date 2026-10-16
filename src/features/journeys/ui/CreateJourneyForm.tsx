@@ -76,7 +76,7 @@ export function CreateJourneyForm({
 
   return (
     <form
-      className="mt-8 space-y-5"
+      className="space-y-5"
       onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
     >
       <Input
@@ -87,7 +87,7 @@ export function CreateJourneyForm({
       <label className="block text-sm font-medium">
         {t('journey.summary')}
         <textarea
-          className="mt-2 min-h-32 w-full rounded-md border border-border bg-surface px-3 py-3 text-base font-normal outline-none focus:border-primary"
+          className="mt-2 min-h-32 w-full rounded-md border border-border bg-surface px-3 py-3 text-base font-normal outline-none transition-colors focus:border-primary"
           {...form.register('summary')}
         />
       </label>
@@ -109,7 +109,7 @@ export function CreateJourneyForm({
         />
       </div>
 
-      <section className="rounded-2xl border border-border/80 bg-background/40">
+      <section className="rounded-lg border border-border/80 bg-background/40">
         <button
           className="flex w-full items-start justify-between gap-3 px-4 py-4 text-left"
           onClick={() => {
@@ -174,13 +174,15 @@ export function CreateJourneyForm({
         ) : null}
       </section>
 
-      <Button
-        className="w-full"
-        disabled={form.formState.isSubmitting}
-        type="submit"
-      >
-        {t('journey.create')}
-      </Button>
+      <div className="flex justify-end">
+        <Button
+          className="w-full sm:w-auto"
+          disabled={form.formState.isSubmitting}
+          type="submit"
+        >
+          {t('journey.create')}
+        </Button>
+      </div>
       {submitError === null ? null : (
         <p className="text-sm text-destructive" role="alert">
           {submitError}

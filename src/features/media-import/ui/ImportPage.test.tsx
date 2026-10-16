@@ -141,6 +141,32 @@ describe('ImportPage', () => {
     expect(screen.queryByText('Download originals from iCloud')).toBeNull()
   })
 
+  it('queues files dropped on the drop zone (summary first, then start)', async () => {
+    render(<ImportPage journeyId="j" />)
+    const zone = screen.getByTestId('import-dropzone')
+    fireEvent.dragOver(zone, { dataTransfer: { files: [] } })
+    expect(screen.getByText('Drop to add the files')).toBeTruthy()
+    fireEvent.drop(zone, {
+      dataTransfer: {
+        files: [
+          new File(['x'], 'a.jpg', { type: 'image/jpeg' }),
+          new File(['x'], 'b.png', { type: 'image/png' }),
+        ],
+      },
+    })
+    expect(await screen.findByText('Photos: 2')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
+    await waitFor(() => {
+      expect(queue.enqueue).toHaveBeenCalledWith(
+        'web-files',
+        expect.arrayContaining([
+          expect.objectContaining({ mediaType: 'photo' }),
+        ]),
+      )
+    })
+    expect(queue.start).toHaveBeenCalled()
+  })
+
   it('summarizes picked files, explains skips and enqueues on start', async () => {
     render(<ImportPage journeyId="j" />)
     const input = document.querySelector('input[type="file"]')

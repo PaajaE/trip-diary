@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { Link, useParams } from '@tanstack/react-router'
+import { useParams } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import {
   addJourneyMemberByUsername,
@@ -15,6 +15,8 @@ import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { useSession } from '@/features/auth/session'
 import { JourneyMembersPage } from '@/pages/journey/JourneyMembersPage'
+import { JourneyOwnerFrame } from '@/pages/journey/JourneyOwnerFrame'
+import { PageContainer } from '@/shared/ui/PageLayout'
 
 export function JourneyMembersRoutePage() {
   const { t } = useTranslation()
@@ -59,19 +61,13 @@ export function JourneyMembersRoutePage() {
   const members = membersQuery.data
   const pendingInvites = pendingInvitesQuery.data
   return (
-    <>
-      <div className="mx-auto max-w-3xl px-5 pt-8 sm:px-8">
-        <Link
-          className="font-semibold text-primary"
-          params={{ journeyId }}
-          search={{}}
-          to="/j/$journeyId"
-        >
-          {t('journey.members.back')}
-        </Link>
-      </div>
+    <JourneyOwnerFrame
+      current="members"
+      description={t('journey.members.description')}
+      journeyId={journeyId}
+      title={t('journey.members.title')}
+    >
       <JourneyMembersPage
-        journeyTitle={journeyQuery.data.title}
         members={members.map((member) => ({
           avatarUrl: member.avatarUrl,
           canChangeRole: member.userId !== user.id,
@@ -117,14 +113,10 @@ export function JourneyMembersRoutePage() {
           await pendingInvitesQuery.refetch()
         }}
       />
-    </>
+    </JourneyOwnerFrame>
   )
 }
 
 function Message({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="mx-auto max-w-3xl px-5 py-16 text-muted sm:px-8">
-      {children}
-    </main>
-  )
+  return <PageContainer className="text-muted">{children}</PageContainer>
 }

@@ -4,6 +4,8 @@ import {
   fireEvent,
   render as rtlRender,
   screen,
+  waitFor,
+  within,
 } from '@testing-library/react'
 import type { ReactElement, ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -157,5 +159,45 @@ describe('JourneyWorkspace', () => {
     render(<JourneyWorkspace journeyId="j" />)
     expect(screen.queryByTestId('map')).toBeNull()
     expect(screen.getByText(/nothing to show on the map/)).toBeTruthy()
+  })
+
+  it('on wide screens shows the outline; clicking a moment re-opens its stage and scrolls', async () => {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      addEventListener: vi.fn(),
+      matches: true,
+      media: query,
+      removeEventListener: vi.fn(),
+    }))
+    vi.stubGlobal(
+      'IntersectionObserver',
+      class {
+        observe = vi.fn()
+        disconnect = vi.fn()
+      },
+    )
+    const scrollIntoView = vi.fn()
+    Element.prototype.scrollIntoView = scrollIntoView
+    try {
+      readyWith([mom(10, { latitude: 46.5, longitude: 8.1 })])
+      render(<JourneyWorkspace journeyId="j" />)
+      const outline = screen.getByRole('navigation', { name: 'Outline' })
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Collapse: Segment 1' }),
+      )
+      expect(
+        screen.getByRole('button', { name: 'Expand: Segment 1' }),
+      ).toBeTruthy()
+      fireEvent.click(
+        within(outline).getByRole('button', { name: /Moment at 11:00/ }),
+      )
+      expect(
+        screen.getByRole('button', { name: 'Collapse: Segment 1' }),
+      ).toBeTruthy()
+      await waitFor(() => {
+        expect(scrollIntoView).toHaveBeenCalled()
+      })
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

@@ -1,3 +1,4 @@
+import { Lightbulb, MapPinOff } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useTipsQuery } from '@/entities/tip/api/use-tips-query'
@@ -12,6 +13,7 @@ import { useTipActions } from '@/features/tips/api/use-tip-actions'
 import { TipDialog } from '@/features/tips/ui/TipDialog'
 import { Button } from '@/shared/ui/Button'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { PageContainer, PageHeader } from '@/shared/ui/PageLayout'
 
 type DialogState =
   | { kind: 'closed' }
@@ -66,6 +68,7 @@ function TipsView({ userId }: { userId: string }) {
     body = (
       <EmptyState
         description={t('tips.noSpaceDescription')}
+        icon={MapPinOff}
         title={t('tips.noSpaceTitle')}
       />
     )
@@ -82,20 +85,28 @@ function TipsView({ userId }: { userId: string }) {
           </Button>
         }
         description={t('tips.emptyDescription')}
+        icon={Lightbulb}
         title={t('tips.emptyTitle')}
       />
     )
   } else {
     body = (
-      <ul className="space-y-3">
+      <ul className="space-y-4">
         {tips.data?.map((tip) => (
-          <li className="rounded-xl border border-border p-4" key={tip.id}>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+          <li
+            className="rounded-lg border border-border/70 bg-surface p-5 shadow-soft"
+            key={tip.id}
+          >
+            <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
               <h2 className="min-w-0 break-words text-lg font-semibold">
                 {tip.title}
               </h2>
               <span
-                className="rounded-full border border-border px-2.5 py-0.5 text-xs"
+                className={
+                  tip.visibility === 'public'
+                    ? 'rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary'
+                    : 'rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted'
+                }
                 data-visibility={tip.visibility}
               >
                 {tip.visibility === 'public'
@@ -103,37 +114,35 @@ function TipsView({ userId }: { userId: string }) {
                   : t('tips.visibilityPrivate')}
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-muted">
+            <p className="mt-1 text-xs text-muted">
               {t('tips.updatedOn', {
                 date: dateFormat.format(Date.parse(tip.updatedAt)),
               })}
             </p>
             {tip.body === '' ? null : (
-              <p className="mt-2 line-clamp-4 whitespace-pre-line break-words text-sm">
+              <p className="mt-3 line-clamp-4 whitespace-pre-line break-words text-sm leading-6">
                 {tip.body}
               </p>
             )}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Button
                 aria-label={t('tips.editFor', { name: tip.title })}
-                className={dialogButton}
-                type="button"
+                variant="secondary"
                 onClick={() => {
                   setDialog({ kind: 'edit', tip })
                 }}
               >
                 {t('tips.edit')}
-              </button>
-              <button
+              </Button>
+              <Button
                 aria-label={t('tips.deleteFor', { name: tip.title })}
-                className={`${dialogButton} text-destructive`}
-                type="button"
+                variant="destructive"
                 onClick={() => {
                   setDialog({ kind: 'delete', tip })
                 }}
               >
                 {t('tips.delete')}
-              </button>
+              </Button>
             </div>
           </li>
         ))}
@@ -144,20 +153,22 @@ function TipsView({ userId }: { userId: string }) {
   const canCreate = activeSpace !== null && (tips.data?.length ?? 0) > 0
 
   return (
-    <main className="mx-auto max-w-2xl space-y-6 px-5 py-8">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">{t('terms.tip.plural')}</h1>
-        {canCreate ? (
-          <Button
-            onClick={() => {
-              setDialog({ kind: 'create' })
-            }}
-          >
-            {t('tips.new')}
-          </Button>
-        ) : null}
-      </div>
-      <p className="text-sm text-muted">{t('tips.subtitle')}</p>
+    <PageContainer>
+      <PageHeader
+        actions={
+          canCreate ? (
+            <Button
+              onClick={() => {
+                setDialog({ kind: 'create' })
+              }}
+            >
+              {t('tips.new')}
+            </Button>
+          ) : undefined
+        }
+        description={t('tips.subtitle')}
+        title={t('terms.tip.plural')}
+      />
       {body}
 
       {dialog.kind === 'create' ? (
@@ -177,7 +188,7 @@ function TipsView({ userId }: { userId: string }) {
           onConfirm={() => actions.remove(dialog.tip)}
         />
       ) : null}
-    </main>
+    </PageContainer>
   )
 }
 
