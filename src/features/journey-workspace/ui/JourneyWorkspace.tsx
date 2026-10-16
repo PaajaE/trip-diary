@@ -788,7 +788,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       />
     )
     body = (
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[13rem_minmax(0,1fr)_20rem] xl:gap-8 2xl:grid-cols-[14rem_minmax(0,50rem)_minmax(24rem,1fr)]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] xl:grid-cols-[14rem_minmax(0,1fr)_26rem] xl:gap-8 2xl:grid-cols-[15rem_minmax(0,64rem)_minmax(28rem,1fr)]">
         {isXl ? (
           <aside className="sticky top-20 max-h-[calc(100vh-6rem)] self-start overflow-y-auto">
             <h2 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wide text-muted">

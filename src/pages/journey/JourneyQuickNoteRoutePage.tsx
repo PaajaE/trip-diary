@@ -9,6 +9,7 @@ export function JourneyQuickNoteRoutePage() {
   return (
     <JourneyOwnerFrame
       current="quick"
+      width="form"
       description={t('quickNote.subtitle')}
       journeyId={journeyId}
       title={t('quickNote.title')}

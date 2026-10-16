@@ -36,7 +36,7 @@ export function JourneyOwnerFrame({
   descriptionClassName?: string
   journeyId: string
   title?: string
-  width?: 'narrow' | 'wide'
+  width?: 'form' | 'narrow' | 'wide'
 }) {
   const { t } = useTranslation()
   const journeyQuery = useJourneyQuery(journeyId)

@@ -3,11 +3,12 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 
-type PageWidth = 'narrow' | 'wide'
+type PageWidth = 'form' | 'narrow' | 'wide'
 
 const WIDTHS: Record<PageWidth, string> = {
-  narrow: 'max-w-3xl',
-  wide: 'max-w-[92rem]',
+  form: 'max-w-3xl',
+  narrow: 'max-w-5xl',
+  wide: 'max-w-[96rem]',
 }
 
 /** Shared frame of every owner page: one width scale, one padding rhythm. */

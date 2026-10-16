@@ -12,7 +12,7 @@ export function CreateJourneyPage() {
   const spacesQuery = useActiveSpace(user?.id)
 
   return (
-    <PageContainer>
+    <PageContainer width="form">
       <PageHeader
         crumbs={[
           <Link

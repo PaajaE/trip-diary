@@ -20,7 +20,7 @@ export function SettingsPage({
   userId,
 }: SettingsPageProps) {
   return (
-    <PageContainer>
+    <PageContainer width="form">
       <PageHeader
         description="Upravte, jak vás ostatní cestovatelé uvidí."
         title="Nastavení profilu"
