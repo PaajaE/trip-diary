@@ -1,12 +1,17 @@
-import { summarizeDays, suggestStageBoundaries } from './days.ts'
+import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
-import { clusterMoments, type MomentClusterOptions } from './moments.ts'
-import { wallClockToInstant } from './time-zone.ts'
+import { clusterMoments } from './moments.ts'
 import {
-  suggestTrips,
-  type SuggestedTripType,
-  type TripSuggestionOptions,
-} from './trips.ts'
+  findTripsAroundBase,
+  planStages,
+  type StageDay,
+  type StageKind,
+  type StagePlanOptions,
+  type StageTrip,
+  type StageTripKind,
+} from './stages.ts'
+import { wallClockToInstant } from './time-zone.ts'
+import type { SuggestedTripType } from './trips.ts'
 
 /** A ready media item of the journey. Only ready media are organised. */
 export interface OrganizeMedia {
@@ -41,20 +46,20 @@ export interface SegmentTitleInput {
   /** First local date (YYYY-MM-DD) covered by the suggestion. */
   startsOn: string
   tripType: SuggestedTripType | null
+  /** What kind of stage this is (null for trips). */
+  stageKind: StageKind | null
 }
 
 export interface OrganizeOptions {
-  cluster?: Pick<MomentClusterOptions, 'maxGapMinutes' | 'maxStepKm'>
   /** Journey home zone (IANA); days are cut in this zone. */
   homeTz: string
   /** Generates ids for new rows (client-generated uuids). */
   newId: () => string
   /** Localised title of a suggested segment (titles are required in the DB). */
   segmentTitle: (input: SegmentTitleInput) => string
-  stageShiftKm?: number
+  stages?: StagePlanOptions
   /** A rejected stage starting this close blocks a new suggestion. */
   rejectedBoundaryToleranceMs?: number
-  trips?: TripSuggestionOptions
 }
 
 export interface OrganizeInput {
@@ -78,6 +83,10 @@ export interface PlannedSegment {
   kind: 'stage' | 'trip'
   /** Position among suggestions of the same kind. */
   position: number
+  /** Short English diagnostic of why the stage looks like this (not UI text). */
+  reason?: string
+  /** Kind of a stage suggestion; stored as a plain stage in the database. */
+  stageKind?: StageKind
   startsAt: string
   title: string
   tripType: SuggestedTripType | null
@@ -169,7 +178,6 @@ function planMoments(
   )
 
   const { moments: clusters } = clusterMoments(input.media.map(toPoint), {
-    ...options.cluster,
     lockedMediaIds,
   })
   const momentOf = new Map(input.media.map((item) => [item.id, item.momentId]))
@@ -239,6 +247,35 @@ function iso(ms: number): string {
   return new Date(ms).toISOString()
 }
 
+/** Located days for staging; days without GPS do not take part. */
+function toStageDays(days: readonly ZonedDaySummary[]): StageDay[] {
+  const out: StageDay[] = []
+  for (const day of days) {
+    if (
+      day.centroid !== null &&
+      day.firstPoint !== null &&
+      day.lastPoint !== null
+    ) {
+      out.push({
+        centre: day.centroid,
+        date: day.date,
+        first: day.firstPoint,
+        last: day.lastPoint,
+        mediaIds: day.mediaIds,
+        photoCount: day.points.length,
+        points: day.points,
+        timeZone: day.timeZone,
+      })
+    }
+  }
+  return out
+}
+
+/** Trip kinds of the stage organiser mapped to the stored trip types. */
+export function tripTypeOf(kind: StageTripKind): SuggestedTripType {
+  return kind === 'day' ? 'day' : 'trek'
+}
+
 function planSegments(
   input: OrganizeInput,
   options: OrganizeOptions,
@@ -267,42 +304,53 @@ function planSegments(
   interface Candidate {
     kind: 'stage' | 'trip'
     range: Range
+    reason?: string
+    stageKind?: StageKind
     startsOn: string
     tripType: SuggestedTripType | null
   }
 
-  // Stages: the journey is cut where the daily centre of gravity jumps.
+  interface FreshWindow {
+    range: Range
+    trips: StageTrip[]
+  }
+
+  // Stages: smart organiser over located local days (zone per day by GPS).
   const stages: Candidate[] = []
+  const stageTrips: FreshWindow[] = []
   const first = dated[0]
   const last = dated[dated.length - 1]
   if (first !== undefined && last !== undefined) {
-    const days = summarizeDays(dated, options.homeTz)
-    const boundaries = suggestStageBoundaries(days, {
-      ...(options.stageShiftKm === undefined
-        ? {}
-        : { minShiftKm: options.stageShiftKm }),
+    const planned = planStages(
+      toStageDays(summarizeZonedDays(dated, options.homeTz)),
+      options.stages,
+    )
+    const starts = planned.map((stage, index) => {
+      const day = stage.days[0]
+      if (day === undefined || index === 0) return first.time
+      const earliest = Math.min(
+        dayStartMs(day.date, day.timeZone),
+        ...day.mediaIds.map((id) => timeOf.get(id) ?? Number.POSITIVE_INFINITY),
+      )
+      return earliest
     })
-    if (boundaries.length > 0) {
-      const starts = [
-        { date: days[0]?.date ?? '', ms: first.time },
-        ...boundaries.map((boundary) => ({
-          date: boundary.startsOn,
-          ms: dayStartMs(boundary.startsOn, options.homeTz),
-        })),
-      ]
-      starts.forEach((entry, index) => {
-        const end = starts[index + 1]?.ms ?? last.time
-        stages.push({
-          kind: 'stage',
-          range: {
-            end: end > entry.ms ? end : entry.ms + MIN_SEGMENT_MS,
-            start: entry.ms,
-          },
-          startsOn: entry.date,
-          tripType: null,
-        })
+    planned.forEach((stage, index) => {
+      const start = starts[index] ?? first.time
+      const end = starts[index + 1] ?? last.time
+      const range = {
+        end: end > start ? end : start + MIN_SEGMENT_MS,
+        start,
+      }
+      stages.push({
+        kind: 'stage',
+        range,
+        reason: stage.reason,
+        stageKind: stage.kind,
+        startsOn: stage.days[0]?.date ?? '',
+        tripType: null,
       })
-    }
+      stageTrips.push({ range, trips: stage.trips })
+    })
   }
   const keptStageRanges = keptSegments
     .filter((segment) => segment.kind === 'stage')
@@ -318,10 +366,18 @@ function planSegments(
       ),
   )
 
-  // Trips are suggested per stage window (kept stages plus fresh ones).
+  // Trips: fresh stages bring their own; hand-made stage windows and media
+  // outside any stage are searched for trips around a base.
+  const freshWindows = stageTrips.filter((window) =>
+    freshStages.some(
+      (stage) =>
+        stage.range.start === window.range.start &&
+        stage.range.end === window.range.end,
+    ),
+  )
   const windows: Range[] = [
     ...keptStageRanges,
-    ...freshStages.map((stage) => stage.range),
+    ...freshWindows.map((window) => window.range),
   ].sort((a, b) => a.start - b.start || a.end - b.end)
   const buckets: (typeof dated)[] = windows.map(() => [])
   const loose: typeof dated = []
@@ -342,39 +398,51 @@ function planSegments(
   const rejectedTrips = rejected
     .filter((segment) => segment.kind === 'trip')
     .map((segment) => ({ range: rangeOf(segment), type: segment.tripType }))
-  const trips: Candidate[] = []
-  for (const bucket of [...buckets, loose]) {
-    if (bucket.length === 0) continue
-    const result = suggestTrips(
-      summarizeDays(bucket, options.homeTz),
-      options.trips,
+  const found: StageTrip[] = freshWindows.flatMap((window) => window.trips)
+  const freshRanges = new Set(freshWindows.map((window) => window.range))
+  windows.forEach((window, index) => {
+    if (freshRanges.has(window)) return
+    const bucket = buckets[index] ?? []
+    if (bucket.length === 0) return
+    found.push(
+      ...findTripsAroundBase(
+        toStageDays(summarizeZonedDays(bucket, options.homeTz)),
+      ),
     )
-    for (const trip of result.trips) {
-      const times = trip.mediaIds
-        .map((id) => timeOf.get(id))
-        .filter((time): time is number => time !== undefined)
-      if (times.length === 0) continue
-      const start = Math.min(...times)
-      const end = Math.max(...times)
-      const range = {
-        end: end > start ? end : start + MIN_SEGMENT_MS,
-        start,
-      }
-      if (
-        keptTrips.some((kept) => overlaps(range, kept)) ||
-        rejectedTrips.some(
-          (r) => r.type === trip.tripType && overlaps(range, r.range),
-        )
-      ) {
-        continue
-      }
-      trips.push({
-        kind: 'trip',
-        range,
-        startsOn: trip.dates[0] ?? '',
-        tripType: trip.tripType,
-      })
+  })
+  if (loose.length > 0) {
+    found.push(
+      ...findTripsAroundBase(
+        toStageDays(summarizeZonedDays(loose, options.homeTz)),
+      ),
+    )
+  }
+  const trips: Candidate[] = []
+  for (const trip of found) {
+    const tripType = tripTypeOf(trip.kind)
+    const times = trip.days
+      .flatMap((day) => day.mediaIds)
+      .map((id) => timeOf.get(id))
+      .filter((time): time is number => time !== undefined)
+    if (times.length === 0) continue
+    const start = Math.min(...times)
+    const end = Math.max(...times)
+    const range = {
+      end: end > start ? end : start + MIN_SEGMENT_MS,
+      start,
     }
+    if (
+      keptTrips.some((kept) => overlaps(range, kept)) ||
+      rejectedTrips.some((r) => r.type === tripType && overlaps(range, r.range))
+    ) {
+      continue
+    }
+    trips.push({
+      kind: 'trip',
+      range,
+      startsOn: trip.days[0]?.date ?? '',
+      tripType,
+    })
   }
   trips.sort((a, b) => a.range.start - b.range.start)
 
@@ -410,10 +478,15 @@ function planSegments(
       id: options.newId(),
       kind: candidate.kind,
       position: counters[candidate.kind] - 1,
+      ...(candidate.reason === undefined ? {} : { reason: candidate.reason }),
+      ...(candidate.stageKind === undefined
+        ? {}
+        : { stageKind: candidate.stageKind }),
       startsAt: iso(candidate.range.start),
       title: options.segmentTitle({
         index: counters[candidate.kind],
         kind: candidate.kind,
+        stageKind: candidate.stageKind ?? null,
         startsOn: candidate.startsOn,
         tripType: candidate.tripType,
       }),

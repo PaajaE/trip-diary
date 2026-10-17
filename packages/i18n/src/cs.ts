@@ -408,6 +408,15 @@ export const cs: TranslationResources = {
     planNothing: 'Není co měnit, vše je aktuální.',
     planSuggestions: 'Návrhy etap a výletů: {{count}}',
     progress: 'Pracuji… {{done}} / {{total}}',
+    stageKindTitle: {
+      stay: 'Pobyt {{index}}',
+      region: 'Oblast {{index}}',
+      detour: 'Odbočka {{index}}',
+      arrival: 'Příjezd {{index}}',
+      transfer: 'Přesun {{index}}',
+      stop: 'Zastávka {{index}}',
+      remoteStop: 'Vzdálená zastávka {{index}}',
+    },
     stageTitle: 'Etapa {{index}}',
     steps: {
       assignMedia: 'přesun médií',
