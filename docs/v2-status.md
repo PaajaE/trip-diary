@@ -175,6 +175,15 @@ Větev `v2/phase-3-automation`. Čisté funkce v `@trip-diary/core/automation`
 | `summarizeTrack`, `parseGpxTrackPoints`, `deriveTrackFromMedia`                               | ✅   | vzdálenost, převýšení, Douglas–Peucker                                |
 | Místa (reverzní geokódování, edge funkce + cache v `places`)                                  | ⏳   | —                                                                     |
 
+**Aktualizace 2026-10-17 (IMPLEMENTED, `pnpm check` zelené, větev `feat/smart-stages`, necommitováno):**
+nové `stages.ts` (`planStages`) a dělení momentů podle zastávky nahrazují `suggestStageBoundaries`,
+`suggestTrips` a pravidlo 90 min / 1,5 km v `planOrganization` (`trips.ts` zůstává exportovaný, ale
+nepoužitý). Algoritmus byl nejdřív ladil prototypem na 1 657 reálných fotkách z Kanady (79 dní): 14 etap
+místo 27 předělů, 249 momentů místo 295. Stejný výsledek dává TS port (ověřeno skriptem mimo repozitář).
+**UNVERIFIED:** brána T8 (≥ 90 % médií ve správném výletu) — chybí ručně označené „správné“ rozdělení;
+reálná data nejsou v repozitáři, testy jsou syntetické. Stávající navržené segmenty se stejným
+časovým rozsahem si ponechají starý název a druh (klíč idempotence nezahrnuje druh).
+
 Poznámky:
 
 - Vzorek z produkce je ručně vybraných 56 fotek, proto vychází hodně

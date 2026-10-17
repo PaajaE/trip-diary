@@ -276,13 +276,20 @@ alternativě dřív, než se napíše produkční kód.
 
 Čisté funkce v `packages/core/automation/`, každá testovaná na fixture z Kanady:
 
-1. **Shlukování do momentů:** mezera v čase (výchozí 90 min) nebo ve vzdálenosti
-   (výchozí 1,5 km), parametry laditelné. Výstupem je stabilní ID odvozené z prvního
-   média, aby se momenty při novém výpočtu „nepřeházely“.
-2. **Návrh výletů:** odchylka od „základny“ (místo, kde se opakovaně spí) a návrat;
-   vícedenní pobyt mimo silnice znamená trek. Návrh obsahuje důvod („6 dní, 42 km od
-   základny“).
-3. **Návrh předělů etap:** velké přesuny (vzdálenost za den) a změny základny.
+1. **Shlukování do momentů (podle zastávky, ne podle pevné mezery):** foto patří
+   k momentu, pokud je do 15 min a do 3 km, nebo do 3 h a do 0,6 km od jeho středu
+   (bez GPS do 30 min); momenty s < 3 fotkami se slučují se sousedem (≤ 6 h, ≤ 5 km).
+   Stabilní ID z prvního média zůstává.
+2. **Etapy (dělení trasy po dnech):** optimální rozdělení podle polohy dní (rozptyl
+   - penalizace za předěl, levnější předěl při změně pásma, pauze spojené se
+     změnou místa nebo velkém skoku). Penalizaci volí algoritmus (etapa ≈ týden).
+     Izolují se „špičky“ (den daleko a zpět), pauza na stejném místě není předěl
+     (pobyt bez fotek). Druhy: **pobyt** (≥ 4 noci u základny, 8 km), **oblast**
+     (road trip po oblasti, ≤ 220 km), **odbočka** (> 100 km a návrat do týdne, je
+     samostatná etapa, ne součást okolní), **příjezd** (město po příletu > 600 km),
+     **přesun**, **zastávka**, **vzdálená zastávka**. Každá etapa má důvod.
+3. **Výlety:** uvnitř pobytu den / trek / vícedenní výlet podle večerů mimo
+   základnu; uvnitř oblasti „místa“ (návštěvy do 25 km).
 4. **Místa:** reverzní geokódování středu momentu na serveru (edge funkce, cache v
    `places`) a sloučení blízkých míst.
 5. **Trasy:** z GPX (import) nebo odvozené z médií, zjednodušené pro mapu.

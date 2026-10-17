@@ -408,6 +408,15 @@ export const en = {
     planNothing: 'Nothing to change, everything is up to date.',
     planSuggestions: 'Stage and trip suggestions: {{count}}',
     progress: 'Working… {{done}} / {{total}}',
+    stageKindTitle: {
+      stay: 'Stay {{index}}',
+      region: 'Region {{index}}',
+      detour: 'Detour {{index}}',
+      arrival: 'Arrival {{index}}',
+      transfer: 'Transfer {{index}}',
+      stop: 'Stop {{index}}',
+      remoteStop: 'Remote stop {{index}}',
+    },
     stageTitle: 'Stage {{index}}',
     steps: {
       assignMedia: 'moving media',

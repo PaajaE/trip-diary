@@ -1,5 +1,11 @@
 import { centroid, distanceKm, type GeoPoint } from './geo.ts'
-import { pointOf, sortDated, type MediaPoint } from './media-point.ts'
+import {
+  pointOf,
+  sortDated,
+  type DatedMediaPoint,
+  type MediaPoint,
+} from './media-point.ts'
+import { timeZoneAt } from './time-zone.ts'
 
 export interface DaySummary {
   centroid: GeoPoint | null
@@ -33,6 +39,33 @@ function localDateFormatter(timeZone: string): Intl.DateTimeFormat {
   })
 }
 
+function summarizeGroup(
+  date: string,
+  items: readonly DatedMediaPoint[],
+): DaySummary {
+  const points = items
+    .map(pointOf)
+    .filter((point): point is GeoPoint => point !== null)
+  let travelledKm = 0
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1]
+    const current = points[index]
+    if (previous !== undefined && current !== undefined) {
+      travelledKm += distanceKm(previous, current)
+    }
+  }
+  return {
+    centroid: centroid(points),
+    date,
+    firstPoint: points[0] ?? null,
+    lastPoint: points[points.length - 1] ?? null,
+    mediaCount: items.length,
+    mediaIds: items.map((item) => item.id),
+    points,
+    travelledKm,
+  }
+}
+
 /**
  * Groups media by local calendar day. `timeZone` is the journey home zone
  * (IANA name); per-media zones can refine this later.
@@ -43,7 +76,7 @@ export function summarizeDays(
 ): DaySummary[] {
   const format = localDateFormatter(timeZone)
   const { dated } = sortDated(media)
-  const days = new Map<string, typeof dated>()
+  const days = new Map<string, DatedMediaPoint[]>()
   for (const item of dated) {
     const date = format.format(new Date(item.time))
     const list = days.get(date)
@@ -53,30 +86,67 @@ export function summarizeDays(
       list.push(item)
     }
   }
+  return [...days.entries()].map(([date, items]) => summarizeGroup(date, items))
+}
 
-  return [...days.entries()].map(([date, items]) => {
-    const points = items
-      .map(pointOf)
-      .filter((point): point is GeoPoint => point !== null)
-    let travelledKm = 0
-    for (let index = 1; index < points.length; index += 1) {
-      const previous = points[index - 1]
-      const current = points[index]
-      if (previous !== undefined && current !== undefined) {
-        travelledKm += distanceKm(previous, current)
-      }
+export interface ZonedDaySummary extends DaySummary {
+  /** IANA zone the day was (mostly) spent in: that of its first photo. */
+  timeZone: string
+}
+
+function zoneAtPoint(point: GeoPoint): string | null {
+  try {
+    return timeZoneAt(point.latitude, point.longitude)
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Groups media by the local calendar day of the place where each photo was
+ * taken. The zone comes from the GPS position (offline lookup); photos
+ * without a position inherit the zone of the previous located photo, and
+ * the journey home zone is used before the first position is known.
+ * Sorted by date, so the result does not depend on input order.
+ */
+export function summarizeZonedDays(
+  media: readonly MediaPoint[],
+  homeTimeZone: string,
+): ZonedDaySummary[] {
+  const formatters = new Map<string, Intl.DateTimeFormat>()
+  const formatterFor = (zone: string): Intl.DateTimeFormat => {
+    let formatter = formatters.get(zone)
+    if (formatter === undefined) {
+      formatter = localDateFormatter(zone)
+      formatters.set(zone, formatter)
     }
-    return {
-      centroid: centroid(points),
-      date,
-      firstPoint: points[0] ?? null,
-      lastPoint: points[points.length - 1] ?? null,
-      mediaCount: items.length,
-      mediaIds: items.map((item) => item.id),
-      points,
-      travelledKm,
+    return formatter
+  }
+  const { dated } = sortDated(media)
+  const groups = new Map<
+    string,
+    { items: DatedMediaPoint[]; timeZone: string }
+  >()
+  let zone = homeTimeZone
+  for (const item of dated) {
+    const point = pointOf(item)
+    if (point !== null) {
+      zone = zoneAtPoint(point) ?? zone
     }
-  })
+    const date = formatterFor(zone).format(new Date(item.time))
+    const group = groups.get(date)
+    if (group === undefined) {
+      groups.set(date, { items: [item], timeZone: zone })
+    } else {
+      group.items.push(item)
+    }
+  }
+  return [...groups.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([date, group]) => ({
+      ...summarizeGroup(date, group.items),
+      timeZone: group.timeZone,
+    }))
 }
 
 /**

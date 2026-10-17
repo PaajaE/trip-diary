@@ -128,13 +128,13 @@ describe('planOrganization', () => {
     expect(one.momentsToCreate[0]?.id).toBe('new-1')
   })
 
-  it('suggests a stage boundary at the jump and trips per stage', () => {
+  it('suggests a stage boundary at the jump (local midnight of the new zone) and trips per stage', () => {
     const plan = planOrganization(empty(journeyMedia()), options())
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
       '2026-09-01T09:00:00.000Z',
-      '2026-09-05T00:00:00.000Z',
+      '2026-09-05T07:00:00.000Z',
     ])
-    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-05T00:00:00.000Z')
+    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-05T07:00:00.000Z')
     expect(plan.stageSuggestions[0]?.title).toBe('stage--1')
     expect(plan.tripSuggestions).toHaveLength(1)
     const trip = plan.tripSuggestions[0]
@@ -313,7 +313,7 @@ describe('planOrganization', () => {
     // The manual stage covers the first stage region; the day trip is covered
     // by an accepted trip, so only the Vancouver stage remains suggested.
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
-      '2026-09-05T00:00:00.000Z',
+      '2026-09-05T07:00:00.000Z',
     ])
     expect(plan.tripSuggestions).toEqual([])
     expect(plan.segmentsToDelete).not.toContain('manual-stage')
@@ -394,5 +394,141 @@ describe('planOrganization', () => {
 
   it('returns an empty plan for a journey without media', () => {
     expect(isPlanEmpty(planOrganization(empty([]), options()))).toBe(true)
+  })
+
+  describe('smart stages', () => {
+    const BASE_A = [51.0, -115.5] as const
+    const BASE_B = [49.5, -123.5] as const
+
+    function at(
+      [lat, lon]: readonly [number, number],
+      northKm = 0,
+    ): readonly [number, number] {
+      return [lat + northKm / 111, lon]
+    }
+
+    /** 21 days: stay with day trips and a trek, a 3 day transfer, a second stay. */
+    function smartMedia(): OrganizeMedia[] {
+      const media: OrganizeMedia[] = []
+      let dayIndex = 0
+      const addDay = (points: (readonly [number, number])[]) => {
+        const date = new Date(Date.UTC(2026, 6, 1 + dayIndex))
+          .toISOString()
+          .slice(0, 10)
+        points.forEach((point, index) => {
+          media.push(
+            photo(
+              `d${String(dayIndex).padStart(2, '0')}-${String(index)}`,
+              `${date}T${String(17 + index * 2)}:00:00Z`,
+              point,
+            ),
+          )
+        })
+        dayIndex += 1
+      }
+      for (const away of [0, 30, 0, 40, 25]) {
+        addDay([
+          at(BASE_A),
+          ...(away > 0 ? [at(BASE_A, away)] : []),
+          at(BASE_A),
+        ])
+      }
+      for (let i = 0; i < 6; i += 1) {
+        const north = 50 + 5 * (i < 3 ? i : 5 - i)
+        addDay([at(BASE_A, north), at(BASE_A, north + 3)])
+      }
+      for (let i = 0; i < 3; i += 1) addDay([at(BASE_A), at(BASE_A)])
+      for (let i = 0; i < 3; i += 1) {
+        const p: readonly [number, number] = [
+          BASE_A[0] + ((BASE_B[0] - BASE_A[0]) * (i + 1)) / 4,
+          BASE_A[1] + ((BASE_B[1] - BASE_A[1]) * (i + 1)) / 4,
+        ]
+        addDay([p, p])
+      }
+      for (let i = 0; i < 4; i += 1) addDay([BASE_B, BASE_B])
+      return media
+    }
+
+    function smartOptions(): OrganizeOptions {
+      return {
+        ...options(),
+        segmentTitle: ({ index, kind, stageKind, tripType }) =>
+          `${stageKind ?? tripType ?? kind}-${String(index)}`,
+      }
+    }
+
+    it('cuts stays and a transfer with kinds, titles and trips', () => {
+      const plan = planOrganization(empty(smartMedia()), smartOptions())
+      expect(plan.stageSuggestions.map((s) => s.stageKind)).toEqual([
+        'stay',
+        'transfer',
+        'stay',
+      ])
+      expect(plan.stageSuggestions.map((s) => s.title)).toEqual([
+        'stay-1',
+        'transfer-2',
+        'stay-3',
+      ])
+      expect(plan.stageSuggestions.every((s) => s.reason !== undefined)).toBe(
+        true,
+      )
+      expect(plan.stageSuggestions.every((s) => s.tripType === null)).toBe(true)
+      expect(plan.tripSuggestions.map((s) => s.tripType)).toEqual([
+        'day',
+        'day',
+        'day',
+        'trek',
+      ])
+      // the stages tile the journey without gaps
+      const [one, two, three] = plan.stageSuggestions
+      expect(one?.endsAt).toBe(two?.startsAt)
+      expect(two?.endsAt).toBe(three?.startsAt)
+      expect(one?.startsAt).toBe('2026-07-01T17:00:00.000Z')
+    })
+
+    it('is idempotent and independent of input order', () => {
+      const input = empty(smartMedia())
+      const first = planOrganization(input, smartOptions())
+      expect(
+        planOrganization(empty(smartMedia().reverse()), smartOptions()),
+      ).toEqual(first)
+      const second = planOrganization(applyPlan(input, first), smartOptions())
+      expect(second.stageSuggestions).toEqual([])
+      expect(second.tripSuggestions).toEqual([])
+      expect(second.segmentsToDelete).toEqual([])
+      expect(isPlanEmpty(second)).toBe(true)
+    })
+
+    it('keeps manual stages and does not repeat a rejected boundary', () => {
+      const base = planOrganization(empty(smartMedia()), smartOptions())
+      const [, transfer, secondStay] = base.stageSuggestions
+      const plan = planOrganization(
+        {
+          media: smartMedia(),
+          moments: [],
+          segments: [
+            {
+              endsAt: transfer?.endsAt ?? '',
+              id: 'manual',
+              kind: 'stage',
+              origin: 'manual',
+              startsAt: transfer?.startsAt ?? '',
+              tripType: null,
+            },
+            {
+              endsAt: secondStay?.endsAt ?? '',
+              id: 'rejected',
+              kind: 'stage',
+              origin: 'rejected',
+              startsAt: secondStay?.startsAt ?? '',
+              tripType: null,
+            },
+          ],
+        },
+        smartOptions(),
+      )
+      expect(plan.stageSuggestions.map((s) => s.stageKind)).toEqual(['stay'])
+      expect(plan.segmentsToDelete).toEqual([])
+    })
   })
 })

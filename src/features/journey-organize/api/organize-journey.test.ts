@@ -95,6 +95,8 @@ describe('organizeJourney', () => {
       `assign:${uuid(701)}:1`,
       'deleteMoments:1',
       'deleteSegments:1',
+      // a single-stage journey now also gets its (typed) stage suggestion
+      'createSegments:1',
     ])
     if (result.ok) {
       expect(result.counts).toMatchObject({
