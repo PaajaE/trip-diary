@@ -17,13 +17,61 @@ describe('clusterMoments', () => {
   it('splits on a long pause', () => {
     const { moments } = clusterMoments([
       photo('a', '2026-06-01T10:00:00Z'),
-      photo('b', '2026-06-01T10:30:00Z'),
-      photo('c', '2026-06-01T13:00:00Z'),
+      photo('b', '2026-06-01T10:10:00Z'),
+      photo('c', '2026-06-01T10:20:00Z'),
+      // five hours later: beyond the dwell gap, and too far to merge back
+      photo('d', '2026-06-01T15:30:00Z'),
+      photo('e', '2026-06-01T15:40:00Z'),
+      photo('f', '2026-06-01T15:50:00Z'),
     ])
 
     expect(moments.map((moment) => moment.mediaIds)).toEqual([
-      ['a', 'b'],
-      ['c'],
+      ['a', 'b', 'c'],
+      ['d', 'e', 'f'],
+    ])
+  })
+
+  it('keeps a three hour picnic at one place as one moment', () => {
+    const times = ['10:00', '11:30', '13:00', '14:30', '16:00']
+    const picnic = times.map((time, index) =>
+      photo(
+        `p${String(index)}`,
+        `2026-06-01T${time}:00Z`,
+        51.0 + index * 0.001, // ~100 m apart
+        -115.0,
+      ),
+    )
+
+    expect(clusterMoments(picnic).moments).toHaveLength(1)
+  })
+
+  it('merges singletons into the nearest neighbour', () => {
+    const { moments } = clusterMoments([
+      photo('a', '2026-06-01T10:00:00Z'),
+      photo('b', '2026-06-01T10:05:00Z'),
+      photo('c', '2026-06-01T10:10:00Z'),
+      // a drive away breaks the moment, but the lone shot is only 4 km off
+      photo('d', '2026-06-01T10:40:00Z', 51.036, -115.0),
+    ])
+
+    expect(moments.map((moment) => moment.mediaIds)).toEqual([
+      ['a', 'b', 'c', 'd'],
+    ])
+  })
+
+  it('does not merge a singleton that is too far or too late', () => {
+    const { moments } = clusterMoments([
+      photo('a', '2026-06-01T10:00:00Z'),
+      photo('b', '2026-06-01T10:05:00Z'),
+      photo('c', '2026-06-01T10:10:00Z'),
+      photo('d', '2026-06-01T10:40:00Z', 51.2, -115.0), // ~22 km away
+      photo('e', '2026-06-01T20:00:00Z'), // ten hours later
+    ])
+
+    expect(moments.map((moment) => moment.mediaIds)).toEqual([
+      ['a', 'b', 'c'],
+      ['d'],
+      ['e'],
     ])
   })
 
@@ -37,7 +85,7 @@ describe('clusterMoments', () => {
     expect(moments).toHaveLength(2)
   })
 
-  it('keeps a continuous walk together while each step is short', () => {
+  it('keeps a continuous walk in a few moments while each step is short', () => {
     const walk = Array.from({ length: 10 }, (_, index) =>
       photo(
         `w${String(index)}`,
@@ -47,7 +95,11 @@ describe('clusterMoments', () => {
       ),
     )
 
-    expect(clusterMoments(walk).moments).toHaveLength(1)
+    // The running centre trails the walker, so a long walk is cut into a few
+    // moments, but never into single photos.
+    const moments = clusterMoments(walk).moments
+    expect(moments.length).toBeLessThanOrEqual(3)
+    expect(moments.flatMap((moment) => moment.mediaIds)).toHaveLength(10)
   })
 
   it('places photos without coordinates by time only', () => {

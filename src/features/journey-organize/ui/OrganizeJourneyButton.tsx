@@ -41,9 +41,11 @@ export function OrganizeDialog({
   useEffect(() => {
     let cancelled = false
     previewOrganization(journeyId, {
-      segmentTitle: ({ index, kind, tripType }) =>
+      segmentTitle: ({ index, kind, stageKind, tripType }) =>
         kind === 'stage' || tripType === null
-          ? t('autoOrganize.stageTitle', { index })
+          ? stageKind === null
+            ? t('autoOrganize.stageTitle', { index })
+            : t(`autoOrganize.stageKindTitle.${stageKind}`, { index })
           : t(`autoOrganize.tripTitle.${tripType}`, { index }),
     }).then(
       (plan) => {
