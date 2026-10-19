@@ -8,6 +8,7 @@ import {
   newMomentSchema,
   type NewMoment,
 } from '@/entities/moment/model/moment'
+import { fetchAllPages } from '@/shared/api/fetch-all-pages'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
 type MomentRow = Database['public']['Tables']['moments']['Row']
@@ -55,11 +56,15 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
 }
 
 export async function listJourneyMoments(journeyId: string): Promise<Moment[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('moments')
-    .select('*')
-    .eq('journey_id', journeyId)
-    .order('starts_at', { ascending: true })
+  const { data, error } = await fetchAllPages((from, to) =>
+    getSupabaseClient()
+      .from('moments')
+      .select('*')
+      .eq('journey_id', journeyId)
+      .order('starts_at', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
   if (error !== null) {
     throw new MomentError('list_failed', error.message, error)
   }

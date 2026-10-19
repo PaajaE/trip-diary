@@ -11,7 +11,16 @@ const U = '33333333-3333-4333-8333-333333333333'
 
 let result: { data?: unknown; error: unknown } = { data: [], error: null }
 const chain: Record<string, ReturnType<typeof vi.fn>> = {}
-for (const name of ['select', 'insert', 'delete', 'in', 'eq', 'neq', 'order']) {
+for (const name of [
+  'select',
+  'insert',
+  'delete',
+  'in',
+  'eq',
+  'neq',
+  'order',
+  'range',
+]) {
   chain[name] = vi.fn(() => Object.assign(Promise.resolve(result), chain))
 }
 const from = vi.fn(() => chain)

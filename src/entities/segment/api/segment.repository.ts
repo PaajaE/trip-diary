@@ -8,6 +8,7 @@ import {
   type SegmentPatch,
   segmentSchema,
 } from '@/entities/segment/model/segment'
+import { fetchAllPages } from '@/shared/api/fetch-all-pages'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
 type SegmentRow = Database['public']['Tables']['segments']['Row']
@@ -73,14 +74,18 @@ const newSegmentShapeSchema = z
 export async function listJourneySegments(
   journeyId: string,
 ): Promise<Segment[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('segments')
-    .select('*')
-    .eq('journey_id', journeyId)
-    // Rejected suggestions keep their row but are never shown or used.
-    .neq('origin', 'rejected')
-    .order('starts_at', { ascending: true })
-    .order('position', { ascending: true })
+  const { data, error } = await fetchAllPages((from, to) =>
+    getSupabaseClient()
+      .from('segments')
+      .select('*')
+      .eq('journey_id', journeyId)
+      // Rejected suggestions keep their row but are never shown or used.
+      .neq('origin', 'rejected')
+      .order('starts_at', { ascending: true })
+      .order('position', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
   if (error !== null) {
     throw new SegmentError('list_failed', error.message, error)
   }
@@ -94,12 +99,16 @@ export async function listJourneySegments(
 export async function listJourneySegmentsIncludingRejected(
   journeyId: string,
 ): Promise<Segment[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('segments')
-    .select('*')
-    .eq('journey_id', journeyId)
-    .order('starts_at', { ascending: true })
-    .order('position', { ascending: true })
+  const { data, error } = await fetchAllPages((from, to) =>
+    getSupabaseClient()
+      .from('segments')
+      .select('*')
+      .eq('journey_id', journeyId)
+      .order('starts_at', { ascending: true })
+      .order('position', { ascending: true })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
   if (error !== null) {
     throw new SegmentError('list_failed', error.message, error)
   }

@@ -47,7 +47,14 @@ const row = {
 
 let result: { data: unknown; error: unknown } = { data: null, error: null }
 const chain: Record<string, ReturnType<typeof vi.fn>> = {}
-for (const name of ['select', 'update', 'eq', 'order', 'maybeSingle']) {
+for (const name of [
+  'select',
+  'update',
+  'eq',
+  'order',
+  'range',
+  'maybeSingle',
+]) {
   chain[name] = vi.fn(() => Object.assign(Promise.resolve(result), chain))
 }
 const from = vi.fn((table: string) => {

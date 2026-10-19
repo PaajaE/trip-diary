@@ -447,3 +447,11 @@ klíč pro krok 3, spuštění kroku 4 (zápis do produkce), krok 7 (mazání).
 - NEOVĚŘENO: opakovaný import bez zdvojení, násilné ukončení při nahrávání videa, omezený přístup ke knihovně,
   iCloud-only originály ve výběru, rychlý zápis s polohou, T8 (automatické rozdělení celé Kanady).
 - Zpětná vazba: vzhled správy etap/momentů/cesty (pracovní plocha) je graficky slabý; řešit zvlášť.
+
+### Oprava: seznamy bez stránkování (2026-10-18, větev `feat/smart-stages`, IMPLEMENTED)
+
+- Příčina: `listJourneyMedia`, `listJourneyMoments` a `listJourneySegments*` četly jediným dotazem a PostgREST
+  vrací max. `max_rows` = 1000 řádků. Cesta Kanada měla 2540 médií, z toho 1542 bez momentu; „Uspořádat
+  automaticky“ i mapa viděly jen prvních 1000 podle času, druhé spuštění vyšlo prázdné.
+- Oprava: `fetchAllPages` (`src/shared/api/fetch-all-pages.ts`) čte po stránkách se stabilním řazením (+ `id`).
+  Test stránkování přidán. Produkční data NEPŘEUSPOŘÁDÁNA: je potřeba znovu spustit „Uspořádat automaticky“.

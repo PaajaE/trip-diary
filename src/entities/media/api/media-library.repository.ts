@@ -5,6 +5,7 @@ import {
   type MediaMetaPatch,
   mediaItemSchema,
 } from '@/entities/media/model/media-library'
+import { fetchAllPages } from '@/shared/api/fetch-all-pages'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
 type MediaRow = Database['public']['Tables']['media']['Row']
@@ -63,11 +64,15 @@ function toMediaItem(row: MediaWithVariants): MediaItem {
 export async function listJourneyMedia(
   journeyId: string,
 ): Promise<MediaItem[]> {
-  const { data, error } = await getSupabaseClient()
-    .from('media')
-    .select(MEDIA_WITH_VARIANTS)
-    .eq('journey_id', journeyId)
-    .order('captured_at', { ascending: true, nullsFirst: false })
+  const { data, error } = await fetchAllPages((from, to) =>
+    getSupabaseClient()
+      .from('media')
+      .select(MEDIA_WITH_VARIANTS)
+      .eq('journey_id', journeyId)
+      .order('captured_at', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, to),
+  )
   if (error !== null) {
     throw new MediaLibraryError('list_failed', error.message, error)
   }
