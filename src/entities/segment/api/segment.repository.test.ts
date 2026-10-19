@@ -45,6 +45,7 @@ for (const name of [
   'neq',
   'in',
   'order',
+  'range',
   'single',
   'maybeSingle',
 ]) {

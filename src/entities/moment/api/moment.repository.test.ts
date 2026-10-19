@@ -36,6 +36,7 @@ for (const name of [
   'delete',
   'eq',
   'order',
+  'range',
   'maybeSingle',
 ]) {
   chain[name] = vi.fn(() => Object.assign(Promise.resolve(result), chain))
