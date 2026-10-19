@@ -15,7 +15,7 @@ import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSectio
 import { PublicMapSection } from '@/features/public-journey/ui/LazyPublicJourneyMap'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
-import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 import { readHeroMirror } from '@/entities/public-journey/lib/embedded-journey'
 import { resolveImage } from '@/entities/public-journey/lib/media-url'
 
@@ -211,7 +211,7 @@ export function PublicJourneyPage({
               </li>
             ))}
           </ul>
-          <OsmAttribution />
+          <PlaceAttribution />
         </section>
       ) : null}
       <TargetEngagement target={{ id: journey.id, type: 'journey' }} />

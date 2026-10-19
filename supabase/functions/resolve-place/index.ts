@@ -1,11 +1,11 @@
-// Resolves a place name for a position (OSM Nominatim, cached).
+// Resolves a place name for a position (Mapy.com reverse geocoding, cached).
 //
-// Nominatim usage policy: https://operations.osmfoundation.org/policies/nominatim/
-// - app-wide max 1 request/s  -> public.claim_geocoder_slot()
+// - API key                   -> MAPY_API_KEY (secret; never logged, the request
+//                                URL carries it)
 // - results cached            -> public.place_lookups + places.source_ref
-// - identifying User-Agent    -> NOMINATIM_USER_AGENT
 // - end-user triggered only   -> requires a signed-in user
-// Attribution "© OpenStreetMap contributors" is shown wherever names appear.
+// Attribution "© Seznam.cz a.s." / Mapy.com is shown wherever names appear.
+// (OSM Nominatim answered HTTP 403 to the shared cloud egress, hence Mapy.com.)
 
 import {
   createClient,
@@ -15,18 +15,12 @@ import {
 import { handleOptions, jsonResponse } from '../_shared/http.ts'
 import {
   buildReverseUrl,
-  featureFromNaturalResult,
   lookupGridKey,
-  NOMINATIM_MIN_INTERVAL_MS,
-  NOMINATIM_USER_AGENT,
+  placeFromMapyResult,
   PLACE_GEOCODE_SOURCE,
-  regionFallback,
-  settlementFromAddressResult,
-  type NominatimLayer,
-  type NominatimResult,
   type PlaceCandidate,
   type ReverseQuery,
-} from '../_shared/places/nominatim.ts'
+} from '../_shared/places/mapy.ts'
 
 interface PlaceRow {
   country_code: string | null
@@ -76,27 +70,15 @@ function toResponsePlace(row: PlaceRow) {
   }
 }
 
-async function reverse(
-  service: SupabaseClient,
-  query: ReverseQuery,
-  layer: NominatimLayer,
-): Promise<NominatimResult> {
-  const { data: waitMs, error } = await service.rpc('claim_geocoder_slot', {
-    p_interval_ms: NOMINATIM_MIN_INTERVAL_MS,
-  })
-  if (error !== null) {
-    throw new Error(`geocoder slot: ${error.message}`)
-  }
-  if (typeof waitMs === 'number' && waitMs > 0) {
-    await new Promise((resolve) => setTimeout(resolve, waitMs))
-  }
-  const response = await fetch(buildReverseUrl(query, layer), {
-    headers: { 'User-Agent': NOMINATIM_USER_AGENT },
+async function reverse(query: ReverseQuery, apiKey: string): Promise<unknown> {
+  // Network errors can embed the request URL (and so the key): rethrow bare.
+  const response = await fetch(buildReverseUrl(query, apiKey)).catch(() => {
+    throw new Error('mapy network error')
   })
   if (!response.ok) {
-    throw new Error(`nominatim ${String(response.status)}`)
+    throw new Error(`mapy ${String(response.status)}`)
   }
-  return (await response.json()) as NominatimResult
+  return await response.json()
 }
 
 async function storePlace(
@@ -153,6 +135,12 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'unauthorized' }, 401)
   }
 
+  const mapyKey = Deno.env.get('MAPY_API_KEY')
+  if (mapyKey === undefined || mapyKey === '') {
+    console.error('resolve-place: MAPY_API_KEY is not configured')
+    return jsonResponse({ error: 'geocoding_unconfigured' }, 500)
+  }
+
   try {
     const supabaseUrl = env('SUPABASE_URL')
     const user = await createClient(supabaseUrl, env('SUPABASE_ANON_KEY'), {
@@ -190,14 +178,7 @@ Deno.serve(async (request) => {
       })
     }
 
-    const addressResult = await reverse(service, query, 'address')
-    let candidate = settlementFromAddressResult(addressResult)
-    if (candidate === null) {
-      const naturalResult = await reverse(service, query, 'natural,poi')
-      candidate =
-        featureFromNaturalResult(naturalResult, query) ??
-        regionFallback(addressResult)
-    }
+    const candidate = placeFromMapyResult(await reverse(query, mapyKey), query)
 
     const place =
       candidate === null ? null : await storePlace(service, candidate)

@@ -64,15 +64,11 @@ export {
 } from './tracks.ts'
 export {
   buildReverseUrl,
-  featureFromNaturalResult,
   lookupGridKey,
-  NOMINATIM_MIN_INTERVAL_MS,
-  NOMINATIM_USER_AGENT,
+  MAPY_RGEOCODE_URL,
   PLACE_GEOCODE_SOURCE,
-  regionFallback,
-  settlementFromAddressResult,
-  type NominatimLayer,
-  type NominatimResult,
+  placeFromMapyResult,
+  type MapyResult,
   type PlaceCandidate,
   type ReverseQuery,
 } from './places.ts'

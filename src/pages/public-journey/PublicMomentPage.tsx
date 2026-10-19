@@ -15,7 +15,7 @@ import { MediaGallery } from '@/features/public-journey/ui/MediaGallery'
 import { Crumbs } from '@/pages/public-journey/Crumbs'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
-import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
 interface Props {
   data: PublicJourney
@@ -98,7 +98,7 @@ export function PublicMomentPage({
               {place.name}
               {place.region !== null ? `, ${place.region}` : ''}
             </span>
-            <OsmAttribution />
+            <PlaceAttribution />
           </p>
         ) : null}
       </header>

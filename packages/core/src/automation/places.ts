@@ -1,15 +1,11 @@
 // Shared with the resolve-place edge function (Deno); tested here.
 export {
   buildReverseUrl,
-  featureFromNaturalResult,
   lookupGridKey,
-  NOMINATIM_MIN_INTERVAL_MS,
-  NOMINATIM_USER_AGENT,
+  MAPY_RGEOCODE_URL,
   PLACE_GEOCODE_SOURCE,
-  regionFallback,
-  settlementFromAddressResult,
-  type NominatimLayer,
-  type NominatimResult,
+  placeFromMapyResult,
+  type MapyResult,
   type PlaceCandidate,
   type ReverseQuery,
-} from '../../../../supabase/functions/_shared/places/nominatim.ts'
+} from '../../../../supabase/functions/_shared/places/mapy.ts'

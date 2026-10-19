@@ -1,181 +1,152 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildReverseUrl,
-  featureFromNaturalResult,
   lookupGridKey,
-  regionFallback,
-  settlementFromAddressResult,
-  type NominatimResult,
+  placeFromMapyResult,
 } from './places.ts'
 
-// Trimmed real Nominatim responses (© OpenStreetMap contributors, ODbL).
-const calgaryDowntown: NominatimResult = {
-  address: {
-    city: 'Calgary',
-    country: 'Kanada',
-    country_code: 'ca',
-    state: 'Alberta',
-    suburb: 'Downtown Commercial Core',
-  },
-  addresstype: 'suburb',
-  category: 'boundary',
-  lat: '51.0473777',
-  lon: '-114.0671989',
-  name: 'Downtown Commercial Core',
-  osm_id: 18465295,
-  osm_type: 'relation',
-  type: 'administrative',
+// Trimmed real Mapy.com responses (© Seznam.cz a.s. a partneři).
+const country = { isoCode: 'CA', name: 'Kanada', type: 'regional.country' }
+const calgary = {
+  items: [
+    {
+      name: 'Calgary',
+      position: { lat: 51.0447, lon: -114.0719 },
+      regionalStructure: [
+        { name: 'Downtown', type: 'regional.municipality_part' },
+        { name: 'Calgary', type: 'regional.municipality' },
+        { name: 'provincie Alberta', type: 'regional.region' },
+        country,
+      ],
+      type: 'regional.municipality',
+    },
+  ],
 }
-const dawsonCity: NominatimResult = {
-  address: { country_code: 'ca', state: 'Yukon', town: 'Dawson City' },
-  addresstype: 'town',
-  category: 'boundary',
-  lat: '64.0606605',
-  lon: '-139.4316950',
-  name: 'Dawson City',
-  osm_id: 9457300,
-  osm_type: 'relation',
-  type: 'administrative',
+const lakeLouise = {
+  items: [
+    {
+      name: 'Improvement District No. 09',
+      regionalStructure: [
+        { name: 'Improvement District No. 09', type: 'regional.municipality' },
+        { name: 'provincie Alberta', type: 'regional.region' },
+        country,
+      ],
+      type: 'regional.municipality',
+    },
+  ],
 }
-const skagway: NominatimResult = {
-  address: { country_code: 'us', state: 'Aljaška', town: 'Skagway' },
-  addresstype: 'town',
-  category: 'place',
-  lat: '59.4553914',
-  lon: '-135.3153336',
-  name: 'Skagway',
-  osm_id: 150920839,
-  osm_type: 'node',
-  type: 'town',
+const assiniboine = {
+  items: [
+    {
+      name: 'Area G (Forster Creek/Mount Assiniboine)',
+      regionalStructure: [
+        {
+          name: 'Area G (Forster Creek/Mount Assiniboine)',
+          type: 'regional.municipality',
+        },
+        { name: 'provincie Britská Kolumbie', type: 'regional.region' },
+        country,
+      ],
+    },
+  ],
 }
-const magogAdminArea: NominatimResult = {
-  address: {
-    city: 'Area G (Forster Creek/Mount Assiniboine)',
-    country_code: 'ca',
-    county: 'Regional District of East Kootenay',
-    state: 'Britská Kolumbie',
-  },
-  addresstype: 'city',
-  category: 'boundary',
-  lat: '50.8744332',
-  lon: '-116.1903417',
-  name: 'Area G (Forster Creek/Mount Assiniboine)',
-  osm_id: 11353011,
-  osm_type: 'relation',
-  type: 'administrative',
-}
-const moraineAdminArea: NominatimResult = {
-  address: {
-    country_code: 'ca',
-    county: 'Improvement District No. 9',
-    state: 'Alberta',
-  },
-  addresstype: 'county',
-  category: 'boundary',
-  lat: '51.4881335',
-  lon: '-115.9380498',
-  name: 'Improvement District No. 9',
-  osm_id: 11122776,
-  osm_type: 'relation',
-  type: 'administrative',
-}
-const mountAssiniboine: NominatimResult = {
-  address: { country_code: 'ca', peak: 'Mount Assiniboine', state: 'Alberta' },
-  addresstype: 'peak',
-  category: 'natural',
-  lat: '50.8700193',
-  lon: '-115.6513468',
-  name: 'Mount Assiniboine',
-  osm_id: 2687505274,
-  osm_type: 'node',
-  type: 'peak',
-}
+const query = { latitude: 51.417, longitude: -116.18 }
 
-const lakeMagog = { latitude: 50.875, longitude: -115.646 }
+describe('buildReverseUrl', () => {
+  it('builds the rgeocode request', () => {
+    const url = new URL(buildReverseUrl(query, 'KEY'))
+    expect(url.origin + url.pathname).toBe('https://api.mapy.cz/v1/rgeocode')
+    expect(url.searchParams.get('lon')).toBe('-116.180000')
+    expect(url.searchParams.get('lat')).toBe('51.417000')
+    expect(url.searchParams.get('lang')).toBe('cs')
+    expect(url.searchParams.get('apikey')).toBe('KEY')
+  })
+})
 
-describe('settlementFromAddressResult', () => {
-  it('uses the city for a district, so all of Calgary is one place', () => {
-    expect(settlementFromAddressResult(calgaryDowntown)).toMatchObject({
+describe('lookupGridKey', () => {
+  it('rounds to ~110 m', () => {
+    expect(lookupGridKey({ latitude: 51.04471, longitude: -114.07189 })).toBe(
+      '51.045,-114.072',
+    )
+  })
+})
+
+describe('placeFromMapyResult', () => {
+  it('uses the municipality and its item position', () => {
+    expect(placeFromMapyResult(calgary, query)).toEqual({
       countryCode: 'CA',
+      latitude: 51.0447,
+      longitude: -114.0719,
       name: 'Calgary',
       region: 'Alberta',
-      sourceRef: 'osm-settlement:ca:alberta:calgary',
+      sourceRef: 'mapy:municipality:calgary:alberta:CA',
     })
   })
 
-  it('accepts towns tagged as boundaries or place nodes', () => {
-    expect(settlementFromAddressResult(dawsonCity)).toMatchObject({
-      name: 'Dawson City',
-      sourceRef: 'osm:relation:9457300',
-    })
-    expect(settlementFromAddressResult(skagway)).toMatchObject({
-      countryCode: 'US',
-      name: 'Skagway',
-      sourceRef: 'osm:node:150920839',
-    })
-  })
-
-  it('rejects administrative areas in the wilderness', () => {
-    expect(settlementFromAddressResult(magogAdminArea)).toBeNull()
-    expect(settlementFromAddressResult(moraineAdminArea)).toBeNull()
-  })
-
-  it('rejects error responses', () => {
-    expect(
-      settlementFromAddressResult({ error: 'Unable to geocode' }),
-    ).toBeNull()
-  })
-})
-
-describe('featureFromNaturalResult', () => {
-  it('names a wilderness photo after the nearby peak', () => {
-    expect(featureFromNaturalResult(mountAssiniboine, lakeMagog)).toMatchObject(
-      {
-        name: 'Mount Assiniboine',
-        sourceRef: 'osm:node:2687505274',
-      },
-    )
-  })
-
-  it('ignores features too far from the photo', () => {
-    expect(
-      featureFromNaturalResult(mountAssiniboine, {
-        latitude: 51.5,
-        longitude: -116.5,
-      }),
-    ).toBeNull()
-  })
-
-  it('ignores administrative boundaries', () => {
-    expect(featureFromNaturalResult(magogAdminArea, lakeMagog)).toBeNull()
-  })
-})
-
-describe('regionFallback', () => {
-  it('falls back to the province or state', () => {
-    expect(regionFallback(moraineAdminArea)).toMatchObject({
+  it('falls back to the region for administrative placeholders', () => {
+    expect(placeFromMapyResult(lakeLouise, query)).toMatchObject({
+      latitude: 51.417,
+      longitude: -116.18,
       name: 'Alberta',
-      sourceRef: 'osm-region:ca:alberta',
+      region: 'Alberta',
+      sourceRef: 'mapy:region:alberta:alberta:CA',
+    })
+    expect(placeFromMapyResult(assiniboine, query)).toMatchObject({
+      name: 'Britská Kolumbie',
+      region: 'Britská Kolumbie',
     })
   })
-})
 
-describe('request helpers', () => {
-  it('builds a reverse request for the given layer', () => {
-    const url = new URL(buildReverseUrl(lakeMagog, 'natural,poi'))
-
-    expect(url.origin + url.pathname).toBe(
-      'https://nominatim.openstreetmap.org/reverse',
-    )
-    expect(url.searchParams.get('layer')).toBe('natural,poi')
-    expect(url.searchParams.get('format')).toBe('jsonv2')
-    expect(url.searchParams.get('lat')).toBe('50.875000')
+  it('falls back to the country without a region', () => {
+    const result = {
+      items: [{ regionalStructure: [country] }],
+    }
+    expect(placeFromMapyResult(result, query)).toMatchObject({
+      countryCode: 'CA',
+      name: 'Kanada',
+      region: null,
+    })
   })
 
-  it('rounds lookups to about 110 m so nearby photos share one request', () => {
-    expect(lookupGridKey({ latitude: 50.87512, longitude: -115.64649 })).toBe(
-      lookupGridKey({ latitude: 50.87531, longitude: -115.64601 }),
-    )
-    expect(lookupGridKey(lakeMagog)).toBe('50.875,-115.646')
+  it('strips generic prefixes and rejects bad country codes', () => {
+    const result = {
+      items: [
+        {
+          regionalStructure: [
+            { name: 'Jihomoravský kraj', type: 'regional.region' },
+            { name: 'kraj Vysočina', type: 'regional.region' },
+            { isoCode: 'CZE', name: 'Česko', type: 'regional.country' },
+          ],
+        },
+      ],
+    }
+    expect(placeFromMapyResult(result, query)).toMatchObject({
+      countryCode: null,
+      name: 'Jihomoravský kraj',
+    })
+  })
+
+  it('is defensive about malformed responses', () => {
+    expect(placeFromMapyResult(null, query)).toBeNull()
+    expect(placeFromMapyResult({}, query)).toBeNull()
+    expect(placeFromMapyResult({ items: [] }, query)).toBeNull()
+    expect(placeFromMapyResult({ items: [{}] }, query)).toBeNull()
+    expect(placeFromMapyResult({ items: [null, 3] }, query)).toBeNull()
+  })
+
+  it('caps the source reference length', () => {
+    const long = 'x'.repeat(400)
+    const result = {
+      items: [
+        {
+          regionalStructure: [
+            { name: long, type: 'regional.municipality' },
+            country,
+          ],
+        },
+      ],
+    }
+    const place = placeFromMapyResult(result, query)
+    expect(place?.sourceRef.length).toBeLessThanOrEqual(200)
   })
 })

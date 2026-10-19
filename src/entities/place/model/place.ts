@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-/** A named place (OpenStreetMap derived); shown with OSM attribution. */
+/** A named place (Mapy.com reverse geocoding); shown with PlaceAttribution. */
 export const placeSchema = z.object({
   countryCode: z.string().nullable(),
   id: z.uuid(),
