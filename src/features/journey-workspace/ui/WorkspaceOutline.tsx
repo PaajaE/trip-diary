@@ -23,7 +23,7 @@ import type {
   WorkspaceTree,
 } from '@/features/journey-workspace/model/workspace-tree'
 import { cn } from '@/shared/lib/cn'
-import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
 export { LOOSE_SCOPE }
 
@@ -362,7 +362,7 @@ export function WorkspaceOutline({
       </ul>
       {hasPlaces ? (
         <p className="mt-2 px-2">
-          <OsmAttribution />
+          <PlaceAttribution />
         </p>
       ) : null}
     </nav>

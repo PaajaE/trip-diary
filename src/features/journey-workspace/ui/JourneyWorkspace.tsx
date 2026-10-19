@@ -101,7 +101,7 @@ import { cn } from '@/shared/lib/cn'
 import { useMediaQuery } from '@/shared/lib/use-media-query'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { EmptyState } from '@/shared/ui/EmptyState'
-import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 
@@ -1237,7 +1237,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       {body}
       {placeNames.size > 0 ? (
         <p className="mt-6 text-muted">
-          <OsmAttribution />
+          <PlaceAttribution />
         </p>
       ) : null}
       {viewer !== null && editing !== null ? (

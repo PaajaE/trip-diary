@@ -1,30 +1,28 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it } from 'vitest'
 import { i18n } from '@/app/i18n'
-import { OsmAttribution } from '@/shared/ui/OsmAttribution'
+import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
 afterEach(() => {
   cleanup()
 })
 
-describe('OsmAttribution', () => {
-  it('links to the OSM copyright page with noopener in English', async () => {
+describe('PlaceAttribution', () => {
+  it('links to Mapy.com with noopener in English', async () => {
     await i18n.changeLanguage('en')
-    render(<OsmAttribution />)
+    render(<PlaceAttribution />)
     const link = screen.getByRole('link', {
-      name: '© OpenStreetMap contributors',
+      name: 'Place names © Seznam.cz a.s.',
     })
-    expect(link.getAttribute('href')).toBe(
-      'https://www.openstreetmap.org/copyright',
-    )
+    expect(link.getAttribute('href')).toBe('https://mapy.com')
     expect(link.getAttribute('rel')).toContain('noopener')
   })
 
   it('is translated to Czech', async () => {
     await i18n.changeLanguage('cs')
-    render(<OsmAttribution />)
+    render(<PlaceAttribution />)
     expect(
-      screen.getByRole('link', { name: '© přispěvatelé OpenStreetMap' }),
+      screen.getByRole('link', { name: 'Názvy míst © Seznam.cz a.s.' }),
     ).toBeTruthy()
     await i18n.changeLanguage('en')
   })

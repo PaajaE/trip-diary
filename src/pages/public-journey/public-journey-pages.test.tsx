@@ -103,7 +103,7 @@ describe('public journey pages', () => {
     ).toBe(`/ecerovi/kanada-2026/e/${FIXTURE_IDS.stage}`)
     expect(screen.getByText('Assiniboine, Alberta')).toBeTruthy()
     expect(
-      screen.getAllByText('© přispěvatelé OpenStreetMap').length,
+      screen.getAllByText('Názvy míst © Seznam.cz a.s.').length,
     ).toBeGreaterThan(0)
   })
 
@@ -130,7 +130,7 @@ describe('public journey pages', () => {
   it('shows a moment with place attribution and prev/next', async () => {
     await renderAt(`/ecerovi/kanada-2026/m/${FIXTURE_IDS.momentA}`)
     expect(screen.getByText('Assiniboine, Alberta')).toBeTruthy()
-    expect(screen.getByText('© přispěvatelé OpenStreetMap')).toBeTruthy()
+    expect(screen.getByText('Názvy míst © Seznam.cz a.s.')).toBeTruthy()
     expect(
       screen.getByRole('link', { name: /Další/ }).getAttribute('href'),
     ).toBe(`/ecerovi/kanada-2026/m/${FIXTURE_IDS.hiddenMoment}`)
@@ -143,7 +143,7 @@ describe('public journey pages', () => {
       screen.getByRole('heading', { level: 1, name: 'Soukromé místo' }),
     ).toBeTruthy()
     expect(screen.queryByText('Assiniboine, Alberta')).toBeNull()
-    expect(screen.queryByText('© přispěvatelé OpenStreetMap')).toBeNull()
+    expect(screen.queryByText('Názvy míst © Seznam.cz a.s.')).toBeNull()
   })
 
   it('does not pin moments without coordinates on the map', async () => {

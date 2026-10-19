@@ -90,7 +90,7 @@ export const cs: TranslationResources = {
     cancel: 'Zrušit',
     close: 'Zavřít',
     loading: 'Načítání…',
-    osmAttribution: '© přispěvatelé OpenStreetMap',
+    placeAttribution: 'Názvy míst © Seznam.cz a.s.',
     tryAgain: 'Zkusit znovu',
   },
   home: {

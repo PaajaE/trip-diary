@@ -151,7 +151,7 @@ describe('WorkspaceOutline', () => {
       expect(
         screen.getByRole('button', { name: /^09:23.* Banff/ }),
       ).toBeTruthy()
-      expect(screen.getByText('© OpenStreetMap contributors')).toBeTruthy()
+      expect(screen.getByText('Place names © Seznam.cz a.s.')).toBeTruthy()
     })
 
     it('opens only the stage that holds the current row', () => {

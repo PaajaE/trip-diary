@@ -34,7 +34,7 @@ Přestavba Trip Diary na v2 (detail v `docs/plan-v2.md`): médium (fotka/video s
 - `20261009120300_v2_place_geocoding.sql` — `places.source_ref`, `place_lookups`, `geocoder_throttle`, `claim_geocoder_slot()` (jen `service_role`).
 - Testy: `supabase/tests/v2_schema_rls.test.sql`, `v2_migration.test.sql`, `v2_place_geocoding.test.sql`.
 
-**Edge funkce** (`supabase/functions/`): `resolve-place` (OSM Nominatim, cache, slot 1,1 s), `media-upload` (presigned PUT pro varianty fotek, multipart pro video, klíče jen pod složkou uživatele); sdílená logika v `_shared/places/nominatim.ts`, `_shared/media/upload.ts`. Deploy kroky přidány do `.github/workflows/pages.yml`.
+**Edge funkce** (`supabase/functions/`): `resolve-place` (Mapy.com rgeocode, cache; dříve Nominatim, v produkci blokováno 403), `media-upload` (presigned PUT pro varianty fotek, multipart pro video, klíče jen pod složkou uživatele); sdílená logika v `_shared/places/nominatim.ts`, `_shared/media/upload.ts`. Deploy kroky přidány do `.github/workflows/pages.yml`.
 
 **Sdílené balíčky:** `packages/core/src/public-journey.ts` (+ `fixtures/public-journey.json` = reálný výstup RPC), `automation/` (shlukování momentů, duplicity, dny, návrhy etap a výletů, pásma z GPS, trasy, názvy míst), `media-upload.ts`; `packages/utils/src/exif-datetime.ts`; závislost `@photostructure/tz-lookup@11.7.0`.
 

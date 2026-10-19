@@ -87,7 +87,7 @@ export const en = {
     cancel: 'Cancel',
     close: 'Close',
     loading: 'Loading…',
-    osmAttribution: '© OpenStreetMap contributors',
+    placeAttribution: 'Place names © Seznam.cz a.s.',
     tryAgain: 'Try again',
   },
   home: {
