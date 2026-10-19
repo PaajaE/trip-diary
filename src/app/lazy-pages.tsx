@@ -128,6 +128,12 @@ export const LazyJourneyWorkspaceRoutePage = lazy(() =>
   ),
 )
 
+export const LazyJourneyTrashRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyTrashRoutePage').then(
+    ({ JourneyTrashRoutePage }) => ({ default: JourneyTrashRoutePage }),
+  ),
+)
+
 export const LazyTipsRoutePage = lazy(() =>
   import('@/pages/tips/TipsRoutePage').then(({ TipsRoutePage }) => ({
     default: TipsRoutePage,

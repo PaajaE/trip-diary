@@ -320,6 +320,39 @@ kap. 6 a výlety jako Magog, Salmon Glacier, trajekt) a automatika ho trefí. C�
 - **Brána:** celou Kanadu (všechna média) jde naimportovat a uspořádat do etap a výletů
   do 30 minut práce. Žádná data se při tom neztratí ani nezdvojí.
 
+#### Fáze 4b — Pracovní plocha jako třídírna (2026-10-18)
+
+Výchozí stav (produkce, Kanada): 345 momentů, z toho 5 pojmenovaných, 48 s jedinou
+fotkou; osnova bez data a místa; dialog fotky bez náhledu; nejde mazat; mapa začíná
+na celém světě; ~1 300 dlaždic se vykreslí najednou. `resolve-place` existuje, UI ho
+nevolá.
+
+- **P1**
+  - **Osnova po dnech:** Etapa → (Výlet) → Den → Moment. Den je jen odvozený v UI
+    (místní den podle `captured_tz`). Popisek momentu: název → místo → čas.
+  - **Místa:** doplnit `moments.place_id` přes `resolve-place` na pozadí.
+  - **Prohlížeč fotek:** celá obrazovka, šipky přes momenty, pás náhledů, panel nástrojů
+    (★, popisek, obálka, výřez obálky, přesunout, vyjmout do nového momentu, smazat,
+    info). Na mobilu tah prstem.
+  - **Koš:** smazání fotky je měkké (`deleted_at`), 30 dní v koši, obnovení, Undo.
+    Smazaná fotka se opakovaným importem nevrátí (podle `content_hash`). Varianty
+    v R2 se mažou až po vyprázdnění koše.
+  - **Mapa:** přiblížení na cestu, etapu a den, barvy etap, trasa, propojení pin ↔ moment.
+  - **Výkon:** virtualizovaný seznam, náhledy líně.
+- **P2**
+  - Výběr fotek (Shift/Cmd), lišta hromadných akcí, přesun fotek mezi momenty.
+  - Momenty: přejmenovat, smazat (fotky k sousednímu momentu, nebo do koše i s fotkami),
+    hromadně sloučit nebo smazat z osnovy.
+  - Etapy a výlety: přejmenovat, sloučit, rozdělit, smazat; „Přijmout vše“ u návrhů.
+- **P3**
+  - Režim vybírání (★ / smazat / další jen klávesami).
+  - Časový pás etap s tažením předělů.
+  - Návrh na sloučení drobných momentů.
+  - Návrhy názvů z míst.
+
+Brána: na Kanadě jde v produkci najít libovolný den do 10 s z osnovy, smazat a obnovit
+fotku a projít moment v prohlížeči bez opuštění klávesnice.
+
 ### Fáze 5 — Prezentační vrstva
 
 - **Rozhodnutí na začátku fáze:** předgenerované veřejné stránky (při publikaci)
@@ -423,3 +456,6 @@ dalších samostatných reportů.
 6. **Plánování:** z produktu mizí.
 7. **Originály médií** se na server neukládají, zůstávají v knihovně fotek
    nebo v iCloudu (kvůli kapacitě).
+8. **Pracovní plocha (2026-10-18):** smazání fotky jde do koše na 30 dní. Skrývání
+   z veřejné stránky nebude, stačí smazání. Den je jen odvozená úroveň v UI. Názvy
+   z míst jsou vždy jen návrh ke schválení. Pořadí P1 → P2 → P3 (kap. 5, Fáze 4b).

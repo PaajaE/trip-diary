@@ -13,9 +13,9 @@ type VariantRow = Database['public']['Tables']['media_variants']['Row']
 type MediaWithVariants = MediaRow & { media_variants: VariantRow[] }
 type MediaUpdate = Database['public']['Tables']['media']['Update']
 
-const MEDIA_WITH_VARIANTS = '*, media_variants(*)'
+export const MEDIA_WITH_VARIANTS = '*, media_variants(*)'
 
-function toMediaItem(row: MediaWithVariants): MediaItem {
+export function toMediaItem(row: MediaWithVariants): MediaItem {
   const parsed = mediaItemSchema.safeParse({
     altitude: row.altitude,
     caption: row.caption,
@@ -60,7 +60,10 @@ function toMediaItem(row: MediaWithVariants): MediaItem {
   return parsed.data
 }
 
-/** Lists a journey's media (all statuses) with variants, oldest capture first. */
+/**
+ * Lists a journey's live media (all upload statuses, trashed rows excluded)
+ * with variants, oldest capture first.
+ */
 export async function listJourneyMedia(
   journeyId: string,
 ): Promise<MediaItem[]> {
@@ -69,6 +72,7 @@ export async function listJourneyMedia(
       .from('media')
       .select(MEDIA_WITH_VARIANTS)
       .eq('journey_id', journeyId)
+      .is('deleted_at', null)
       .order('captured_at', { ascending: true, nullsFirst: false })
       .order('id', { ascending: true })
       .range(from, to),

@@ -59,6 +59,24 @@ describe('useUndoableMutation', () => {
     expect(toasts[0]?.action?.label).toBe('Undo')
   })
 
+  it('rolls back silently for errors the caller handles itself', async () => {
+    const { result, toasts } = setup()
+    const rollback = vi.fn()
+    let ok = true
+    await act(async () => {
+      ok = await result.current(
+        edit({
+          apply: () => Promise.reject(new Error('x')),
+          handled: () => true,
+          optimistic: () => rollback,
+        }),
+      )
+    })
+    expect(ok).toBe(false)
+    expect(rollback).toHaveBeenCalledOnce()
+    expect(toasts).toHaveLength(0)
+  })
+
   it('shows a toast without an Undo action for irreversible edits', async () => {
     const { result, toasts } = setup()
     const { undo, ...rest } = edit()

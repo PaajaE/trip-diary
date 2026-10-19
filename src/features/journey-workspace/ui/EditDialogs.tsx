@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import type { DeleteMomentResult } from '@/features/journey-workspace/api/use-workspace-edits'
+import type { DeleteMomentMode } from '@/entities/moment/api/moment.repository'
 import {
   formatInstantDate,
   formatInstantTime,
@@ -116,6 +118,80 @@ function ChoiceList({
         </label>
       ))}
     </fieldset>
+  )
+}
+
+export function DeleteMomentDialog({
+  counts,
+  mediaCount,
+  name,
+  onClose,
+  onConfirm,
+}: {
+  /** Human readable photo/video counts, e.g. "12 fotek". */
+  counts: string
+  mediaCount: number
+  name: string
+  onClose: () => void
+  onConfirm: (mode: DeleteMomentMode) => Promise<DeleteMomentResult>
+}) {
+  const { t } = useTranslation()
+  const [mode, setMode] = useState<DeleteMomentMode | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [noNeighbour, setNoNeighbour] = useState(false)
+  const effective = mediaCount === 0 ? 'keep_media' : mode
+  return (
+    <WorkspaceDialog title={t('workspace.deleteMomentTitle')} onClose={onClose}>
+      <p className="mt-2 text-sm">
+        {mediaCount === 0
+          ? t('workspace.deleteMomentEmpty', { name })
+          : t('workspace.deleteMomentBody', { counts, name })}
+      </p>
+      {mediaCount > 0 ? (
+        <ChoiceList
+          legend={t('workspace.dialogChoice')}
+          name="delete-moment-mode"
+          options={[
+            { id: 'keep_media', label: t('workspace.deleteKeepMedia') },
+            { id: 'trash_media', label: t('workspace.deleteTrashMedia') },
+          ]}
+          value={mode}
+          onChange={(id) => {
+            setMode(id === 'trash_media' ? 'trash_media' : 'keep_media')
+            setNoNeighbour(false)
+          }}
+        />
+      ) : null}
+      {noNeighbour ? (
+        <p className="mt-3 text-sm font-medium text-destructive" role="alert">
+          {t('workspace.deleteNoNeighbour')}
+        </p>
+      ) : null}
+      <p className="mt-3 text-sm font-medium">
+        {t('workspace.deleteMomentNote')}
+      </p>
+      <Actions
+        confirmDisabled={effective === null || busy}
+        confirmLabel={t('workspace.deleteMomentConfirm')}
+        onClose={onClose}
+        onConfirm={() => {
+          if (effective === null) return
+          setBusy(true)
+          void onConfirm(effective)
+            .then((result) => {
+              if (result === 'no_neighbour') {
+                setNoNeighbour(true)
+                setMode(null)
+              } else {
+                onClose()
+              }
+            })
+            .finally(() => {
+              setBusy(false)
+            })
+        }}
+      />
+    </WorkspaceDialog>
   )
 }
 

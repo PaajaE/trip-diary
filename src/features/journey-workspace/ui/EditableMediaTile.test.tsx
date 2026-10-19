@@ -12,12 +12,13 @@ import '@/app/i18n'
 import i18n from 'i18next'
 import { mediaQueryKeys } from '@/entities/media/api/media-query-keys'
 import { useWorkspaceEdits } from '@/features/journey-workspace/api/use-workspace-edits'
-import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
 import { med, uuid } from '@/features/journey-workspace/test-fixtures'
 import { EditableMediaTile } from '@/features/journey-workspace/ui/EditableMediaTile'
 import { ToastContext, type ShowToastOptions } from '@/shared/ui/toast-context'
 
 const repo = vi.hoisted(() => ({
+  restoreMedia: vi.fn(),
+  trashMedia: vi.fn(),
   setJourneyCover: vi.fn(),
   updateMediaMeta: vi.fn(),
   updateMoment: vi.fn(),
@@ -25,6 +26,10 @@ const repo = vi.hoisted(() => ({
 }))
 vi.mock('@/entities/media/api/media-library.repository', () => ({
   updateMediaMeta: repo.updateMediaMeta,
+}))
+vi.mock('@/entities/media/api/media-trash.repository', () => ({
+  restoreMedia: repo.restoreMedia,
+  trashMedia: repo.trashMedia,
 }))
 vi.mock('@/entities/moment/api/moment.repository', () => ({
   updateMoment: repo.updateMoment,
@@ -36,13 +41,9 @@ vi.mock('@/entities/journey/api/journey-cover.repository', () => ({
   setJourneyCover: repo.setJourneyCover,
 }))
 
+const onOpen = vi.fn()
 const JOURNEY = uuid(999)
 const item = med(20)
-const targets: CoverTarget[] = [
-  { currentCoverId: null, level: 'moment', targetId: uuid(10) },
-  { currentCoverId: item.id, level: 'stage', targetId: uuid(1) },
-  { currentCoverId: null, level: 'journey', targetId: JOURNEY },
-]
 
 let toasts: ShowToastOptions[] = []
 let client: QueryClient
@@ -54,7 +55,7 @@ function Tile({ current }: { current: typeof item }) {
       baseUrl="https://m.test"
       edits={edits}
       item={current}
-      targets={targets}
+      onOpen={onOpen}
     />
   )
 }
@@ -74,12 +75,6 @@ function wrapper({ children }: PropsWithChildren) {
   )
 }
 
-function openSheet() {
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Photo or video options' }),
-  )
-}
-
 describe('EditableMediaTile', () => {
   beforeEach(async () => {
     toasts = []
@@ -87,35 +82,21 @@ describe('EditableMediaTile', () => {
     client.setQueryData(mediaQueryKeys.journey(JOURNEY), [item])
     vi.clearAllMocks()
     repo.updateMediaMeta.mockResolvedValue(item)
-    repo.updateMoment.mockResolvedValue({})
-    repo.setJourneyCover.mockResolvedValue(undefined)
+    repo.trashMedia.mockResolvedValue(1)
+    repo.restoreMedia.mockResolvedValue(1)
     await i18n.changeLanguage('en')
   })
   afterEach(cleanup)
 
-  it('stars optimistically, offers Undo that restores the old value', async () => {
+  it('opens the viewer with the item and the clicked button', () => {
     render(<Tile current={item} />, { wrapper })
-    openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Star' }))
-    expect(repo.updateMediaMeta).toHaveBeenCalledWith(item.id, {
-      starred: true,
-    })
-    const cached = client.getQueryData<(typeof item)[]>(
-      mediaQueryKeys.journey(JOURNEY),
-    )
-    expect(cached?.[0]?.starred).toBe(true)
-    await waitFor(() => {
-      expect(toasts[0]?.message).toBe('Starred')
-    })
-    toasts[0]?.action?.onClick()
-    await waitFor(() => {
-      expect(repo.updateMediaMeta).toHaveBeenLastCalledWith(item.id, {
-        starred: false,
-      })
-    })
+    const opener = screen.getByRole('button', { name: 'Open photo or video' })
+    fireEvent.click(opener)
+    expect(onOpen).toHaveBeenCalledWith(item, opener)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('stars straight from the hover toolbar without opening the sheet', async () => {
+  it('stars straight from the hover toolbar without opening the viewer', async () => {
     render(<Tile current={item} />, { wrapper })
     fireEvent.click(screen.getByRole('button', { name: 'Star this photo' }))
     await waitFor(() => {
@@ -123,88 +104,7 @@ describe('EditableMediaTile', () => {
         starred: true,
       })
     })
-    expect(screen.queryByRole('dialog')).toBeNull()
-  })
-
-  it('rolls back the star and shows an error toast when saving fails', async () => {
-    repo.updateMediaMeta.mockRejectedValue(new Error('rls'))
-    render(<Tile current={item} />, { wrapper })
-    openSheet()
-    fireEvent.click(screen.getByRole('button', { name: 'Star' }))
-    await waitFor(() => {
-      expect(toasts[0]).toMatchObject({ variant: 'error' })
-    })
-    const cached = client.getQueryData<(typeof item)[]>(
-      mediaQueryKeys.journey(JOURNEY),
-    )
-    expect(cached?.[0]?.starred).toBe(false)
-  })
-
-  it('shows the cover badge and only offers levels that contain the media', () => {
-    render(<Tile current={item} />, { wrapper })
-    // Only the sheet opener and the desktop hover star live on the tile.
-    expect(screen.getAllByRole('button')).toHaveLength(2)
-    openSheet()
-    expect(screen.getByText('Cover: stage')).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Use as cover of: moment' }),
-    ).toBeTruthy()
-    expect(
-      screen.getByRole('button', { name: 'Use as cover of: journey' }),
-    ).toBeTruthy()
-    expect(
-      screen.queryByRole('button', { name: 'Use as cover of: trip' }),
-    ).toBeNull()
-    const current = screen.getByRole('button', {
-      name: 'Already the cover of: stage',
-    })
-    expect((current as HTMLButtonElement).disabled).toBe(true)
-  })
-
-  it('sets the moment cover and the journey cover through repositories', async () => {
-    render(<Tile current={item} />, { wrapper })
-    openSheet()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Use as cover of: moment' }),
-    )
-    await waitFor(() => {
-      expect(repo.updateMoment).toHaveBeenCalledWith(uuid(10), {
-        coverMediaId: item.id,
-      })
-    })
-    openSheet()
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Use as cover of: journey' }),
-    )
-    await waitFor(() => {
-      expect(repo.setJourneyCover).toHaveBeenCalledWith(JOURNEY, item.id)
-    })
-  })
-
-  it('saves a trimmed caption on Enter, cancels on Escape', async () => {
-    render(<Tile current={item} />, { wrapper })
-    openSheet()
-    fireEvent.click(screen.getByRole('button', { name: /Add caption/ }))
-    const input = screen.getByRole('textbox', { name: 'Caption' })
-    fireEvent.change(input, { target: { value: '  Lake  ' } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    await waitFor(() => {
-      expect(repo.updateMediaMeta).toHaveBeenCalledWith(item.id, {
-        caption: 'Lake',
-      })
-    })
-
-    await waitFor(() => {
-      expect(
-        screen.getByRole('button', { name: /Add caption|Lake/ }),
-      ).toBeTruthy()
-    })
-    fireEvent.click(screen.getByRole('button', { name: /Add caption|Lake/ }))
-    const second = screen.getByRole('textbox', { name: 'Caption' })
-    fireEvent.change(second, { target: { value: 'discarded' } })
-    fireEvent.keyDown(second, { key: 'Escape' })
-    expect(screen.queryByRole('textbox')).toBeNull()
-    expect(repo.updateMediaMeta).toHaveBeenCalledTimes(1)
+    expect(onOpen).not.toHaveBeenCalled()
   })
 
   it('shows a star indicator and a caption overlay only when present', () => {
@@ -215,14 +115,30 @@ describe('EditableMediaTile', () => {
     expect(screen.getByText('Lake')).toBeTruthy()
   })
 
-  it('rejects an over-long caption without calling the repository', async () => {
+  it('moves to the trash from the hover toolbar, removes it at once and Undo restores it', async () => {
     render(<Tile current={item} />, { wrapper })
-    openSheet()
-    fireEvent.click(screen.getByRole('button', { name: /Add caption/ }))
-    const input = screen.getByRole('textbox', { name: 'Caption' })
-    fireEvent.change(input, { target: { value: 'a'.repeat(2001) } })
-    fireEvent.keyDown(input, { key: 'Enter' })
-    expect(await screen.findByRole('alert')).toBeTruthy()
-    expect(repo.updateMediaMeta).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }))
+    expect(repo.trashMedia).toHaveBeenCalledWith([item.id])
+    // Optimistic: gone from the cache before the server answered.
+    expect(client.getQueryData(mediaQueryKeys.journey(JOURNEY))).toEqual([])
+    expect(onOpen).not.toHaveBeenCalled()
+    await waitFor(() => {
+      expect(toasts[0]?.action?.label).toBe('Undo')
+    })
+    toasts[0]?.action?.onClick()
+    expect(client.getQueryData(mediaQueryKeys.journey(JOURNEY))).toEqual([item])
+    await waitFor(() => {
+      expect(repo.restoreMedia).toHaveBeenCalledWith([item.id])
+    })
+  })
+
+  it('puts the item back and reports when trashing fails', async () => {
+    repo.trashMedia.mockRejectedValue(new Error('boom'))
+    render(<Tile current={item} />, { wrapper })
+    fireEvent.click(screen.getByRole('button', { name: 'Move to trash' }))
+    await waitFor(() => {
+      expect(toasts[0]?.variant).toBe('error')
+    })
+    expect(client.getQueryData(mediaQueryKeys.journey(JOURNEY))).toEqual([item])
   })
 })

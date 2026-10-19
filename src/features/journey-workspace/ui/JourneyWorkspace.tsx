@@ -1,8 +1,11 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronDown, Hand, ImagePlus, ListTree, Lock } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useJourneyPlaces } from '@/entities/place/api/use-journey-places'
+import { useCanEditJourney } from '@/features/journey-workspace/api/use-can-edit-journey'
+import { useResolveMissingPlaces } from '@/features/journey-workspace/api/use-resolve-missing-places'
 import { useJourneyCoverQuery } from '@/entities/journey/api/use-journey-cover-query'
 import {
   useWorkspaceEdits,
@@ -16,6 +19,7 @@ import { EditableMediaTile } from '@/features/journey-workspace/ui/EditableMedia
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
 import {
   formatCompactRange,
+  formatDayLabel,
   formatInstantTime,
 } from '@/features/journey-workspace/lib/format-range'
 import { DEFAULT_MEDIA_BASE_URL } from '@/features/journey-workspace/lib/media-thumb'
@@ -28,9 +32,15 @@ import {
 } from '@/features/journey-workspace/model/edit-candidates'
 import {
   BoundaryDialog,
+  DeleteMomentDialog,
   MergeDialog,
   SplitDialog,
 } from '@/features/journey-workspace/ui/EditDialogs'
+import {
+  dayElementId,
+  groupMomentsByDay,
+  UNKNOWN_DAY,
+} from '@/features/journey-workspace/model/workspace-days'
 import {
   collectMoments,
   isWorkspaceEmpty,
@@ -38,10 +48,25 @@ import {
   type WorkspaceSegment,
 } from '@/features/journey-workspace/model/workspace-tree'
 import type { MediaItem } from '@/entities/media/model/media-library'
+import { scrollAndAnchor } from '@/features/journey-workspace/lib/anchor-scroll'
+import { useStableByKey } from '@/features/journey-workspace/lib/use-stable-by-key'
+import { useNearViewport } from '@/features/journey-workspace/lib/use-near-viewport'
+import {
+  buildMapModel,
+  computeView,
+  createHoverStore,
+  estimateMomentHeight,
+  type HoverStore,
+  type MapView,
+} from '@/features/journey-workspace/model/workspace-map'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import {
+  MediaViewer,
+  type ViewerGroup,
+} from '@/features/journey-workspace/ui/MediaViewer'
+import {
   WorkspaceMap,
-  type WorkspaceMapPoint,
+  type MapViewRequest,
 } from '@/features/journey-workspace/ui/WorkspaceMap'
 import {
   ClampedBody,
@@ -67,6 +92,7 @@ import {
   segmentElementId,
 } from '@/features/journey-workspace/lib/outline-ids'
 import {
+  LOOSE_SCOPE,
   WorkspaceOutline,
   type OutlineTarget,
 } from '@/features/journey-workspace/ui/WorkspaceOutline'
@@ -75,11 +101,15 @@ import { cn } from '@/shared/lib/cn'
 import { useMediaQuery } from '@/shared/lib/use-media-query'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { EmptyState } from '@/shared/ui/EmptyState'
+import { OsmAttribution } from '@/shared/ui/OsmAttribution'
 
 const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 
 /** Photos shown before the "+N" tile (one grid slot is the "+N" tile). */
 const GRID_LIMIT = 6
+
+/** Moments rendered on each side of a navigation target. */
+const NAV_NEIGHBOURS = 2
 
 const BOUNDARY_BUTTON =
   'inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-muted hover:bg-surface active:bg-surface'
@@ -89,6 +119,10 @@ interface EditingContext {
   tags: JourneyMomentTags
   /** Every moment of the journey in start order. */
   moments: WorkspaceMoment[]
+  /** Place names by place id. */
+  placeNames: ReadonlyMap<string, string>
+  /** Opens the full-screen viewer at a media item. */
+  openViewer: (item: MediaItem, trigger: HTMLElement) => void
   /** Adjacent same-kind segment pairs keyed by the earlier segment id. */
   pairs: Map<string, SegmentPair>
   /** Media outside any moment (candidate instants for boundaries). */
@@ -97,6 +131,12 @@ interface EditingContext {
   /** Segments the user collapsed (kept in memory only). */
   collapsed: ReadonlySet<string>
   toggleCollapsed: (segmentId: string) => void
+  /** Hovered moment, mirrored as a highlighted map pin. */
+  hover: HoverStore
+  /** Moments that must render now (navigation target and its neighbours). */
+  forced: ReadonlySet<string>
+  /** Bumps after a programmatic scroll ended: re-check what is near. */
+  settleTick: number
 }
 
 function MediaTiles({
@@ -119,7 +159,7 @@ function MediaTiles({
           edits={editing.edits}
           item={item}
           key={item.id}
-          targets={editing.targets.get(item.id) ?? []}
+          onOpen={editing.openViewer}
         />
       ))}
       {overflow && !expanded ? (
@@ -213,13 +253,83 @@ function MomentBlock({
   entry: WorkspaceMoment
   locale: string
   onSelect: (id: string) => void
+  rail: boolean
+  selected: boolean
+}) {
+  const { t } = useTranslation()
+  const ref = useRef<HTMLLIElement>(null)
+  // Far from the viewport only a placeholder of the estimated height renders;
+  // the element and its id exist either way, so navigation can scroll to it.
+  const id = entry.moment.id
+  const near = useNearViewport(
+    ref,
+    selected || editing.forced.has(id),
+    editing.settleTick,
+  )
+  return (
+    <li
+      className={cn(
+        'relative scroll-mt-24 py-3 lg:-mx-3 lg:rounded-lg lg:px-3 lg:py-4 lg:transition-colors lg:hover:bg-surface/70',
+        selected && '-mx-2 rounded-sm bg-primary/5 px-2 lg:bg-primary/5',
+      )}
+      data-placeholder={near ? undefined : 'true'}
+      id={momentElementId(id)}
+      ref={ref}
+      style={
+        near
+          ? undefined
+          : {
+              minHeight: estimateMomentHeight(
+                entry.media.length,
+                entry.moment.body !== '',
+                GRID_LIMIT,
+              ),
+            }
+      }
+      onMouseEnter={() => {
+        editing.hover.set(id)
+      }}
+      onMouseLeave={() => {
+        editing.hover.set(null)
+      }}
+    >
+      {near ? (
+        <MomentContent
+          editing={editing}
+          entry={entry}
+          locale={locale}
+          rail={rail}
+          selected={selected}
+          onSelect={onSelect}
+        />
+      ) : (
+        <span className="block truncate font-medium text-muted">
+          {momentTitle(entry, t, locale)}
+        </span>
+      )}
+    </li>
+  )
+}
+
+function MomentContent({
+  editing,
+  entry,
+  locale,
+  onSelect,
+  rail,
+  selected,
+}: {
+  editing: EditingContext
+  entry: WorkspaceMoment
+  locale: string
+  onSelect: (id: string) => void
   /** True when the moment hangs on a timeline rail (draws a dot). */
   rail: boolean
   selected: boolean
 }) {
   const { t } = useTranslation()
   const [dialog, setDialog] = useState<
-    'next' | 'previous' | 'split' | 'tags' | null
+    'delete' | 'next' | 'previous' | 'split' | 'tags' | null
   >(null)
   const hasPoint =
     entry.moment.latitude !== null && entry.moment.longitude !== null
@@ -271,19 +381,20 @@ function MomentBlock({
         setDialog('split')
       },
     },
+    {
+      key: 'delete',
+      label: t('workspace.deleteMoment'),
+      onSelect: () => {
+        setDialog('delete')
+      },
+    },
   ]
   const counts = countsText(t, {
     photos: entry.photoCount,
     videos: entry.videoCount,
   })
   return (
-    <li
-      className={cn(
-        'relative scroll-mt-24 py-3 lg:-mx-3 lg:rounded-lg lg:px-3 lg:py-4 lg:transition-colors lg:hover:bg-surface/70',
-        selected && '-mx-2 rounded-sm bg-primary/5 px-2 lg:bg-primary/5',
-      )}
-      id={momentElementId(entry.moment.id)}
-    >
+    <>
       {rail ? (
         <span
           aria-hidden="true"
@@ -353,6 +464,15 @@ function MomentBlock({
           }}
         />
       ) : null}
+      {dialog === 'delete' ? (
+        <DeleteMomentDialog
+          counts={counts}
+          mediaCount={entry.media.length}
+          name={name}
+          onClose={close}
+          onConfirm={(mode) => editing.edits.deleteMoment(entry.moment, mode)}
+        />
+      ) : null}
       {dialog === 'split' ? (
         <SplitDialog
           candidates={splitCandidates(entry)}
@@ -364,7 +484,67 @@ function MomentBlock({
           }}
         />
       ) : null}
-    </li>
+    </>
+  )
+}
+
+/** Moments of one segment (or the loose group) with a heading per local day. */
+function MomentList({
+  editing,
+  locale,
+  moments,
+  rail,
+  scopeId,
+  selectedId,
+  onSelect,
+}: {
+  editing: EditingContext
+  locale: string
+  moments: WorkspaceMoment[]
+  rail: boolean
+  scopeId: string
+  selectedId: string | null
+  onSelect: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const days = useMemo(() => groupMomentsByDay(moments), [moments])
+  return (
+    <ul className="divide-y divide-border/70">
+      {days.map((day) => {
+        const first = day.moments[0]
+        if (first === undefined) return null
+        const places = day.placeIds
+          .map((id) => editing.placeNames.get(id))
+          .filter((name): name is string => name !== undefined)
+        const date =
+          day.key === UNKNOWN_DAY
+            ? t('workspace.dayUnknown')
+            : formatDayLabel(first.moment.startsAt, first.tz, locale)
+        return (
+          <li key={day.key}>
+            <h3
+              className="scroll-mt-24 pt-3 text-xs font-semibold uppercase tracking-wide text-muted"
+              id={dayElementId(scopeId, day.key)}
+            >
+              {[date, places.join(', ')].filter((p) => p !== '').join(' · ')}
+            </h3>
+            <ul className="divide-y divide-border/70">
+              {day.moments.map((entry) => (
+                <MomentBlock
+                  editing={editing}
+                  entry={entry}
+                  key={entry.moment.id}
+                  locale={locale}
+                  rail={rail}
+                  selected={entry.moment.id === selectedId}
+                  onSelect={onSelect}
+                />
+              ))}
+            </ul>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -518,19 +698,15 @@ function SegmentBlock({
           className={inRail ? 'mt-1' : 'ml-2 mt-2 border-l border-border pl-4'}
         >
           {node.moments.length > 0 ? (
-            <ul className="divide-y divide-border/70">
-              {node.moments.map((entry) => (
-                <MomentBlock
-                  editing={editing}
-                  entry={entry}
-                  key={entry.moment.id}
-                  locale={locale}
-                  rail
-                  selected={entry.moment.id === selectedId}
-                  onSelect={onSelect}
-                />
-              ))}
-            </ul>
+            <MomentList
+              editing={editing}
+              locale={locale}
+              moments={node.moments}
+              rail
+              scopeId={segment.id}
+              selectedId={selectedId}
+              onSelect={onSelect}
+            />
           ) : null}
           {node.children.length > 0 ? (
             <div className="mt-2 space-y-2">
@@ -676,36 +852,177 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     })
   }, [])
 
-  const select = useCallback((id: string) => {
-    setSelectedId(id)
-    document
-      .getElementById(`ws-moment-${id}`)
-      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-  }, [])
+  const tree = state.status === 'ready' ? state.tree : null
+  const mapModel = useMemo(
+    () =>
+      tree === null
+        ? null
+        : buildMapModel(tree, (entry) => momentTitle(entry, t, locale)),
+    [tree, t, locale],
+  )
+  // Pins keep their identity while their content is equal, so unrelated edits
+  // (a resolved place, a star) neither diff the markers nor move the camera.
+  const pinsKey = useMemo(
+    () =>
+      (mapModel?.pins ?? [])
+        .map(
+          (p) =>
+            `${p.id}|${String(p.latitude)}|${String(p.longitude)}|${p.color}|${p.label}`,
+        )
+        .join('\n'),
+    [mapModel],
+  )
+  const pins = useStableByKey(mapModel?.pins ?? [], pinsKey)
+  // The whole-journey view is computed once, when pins first exist.
+  const [initialView, setInitialView] = useState<MapView | null>(null)
+  if (initialView === null && pins.length > 0)
+    setInitialView(computeView(pins, null))
+  const [explicitRequest, setExplicitRequest] = useState<MapViewRequest | null>(
+    null,
+  )
+  const mapRequest = useMemo<MapViewRequest>(
+    () => explicitRequest ?? { nonce: 0, view: initialView },
+    [explicitRequest, initialView],
+  )
 
-  const goTo = useCallback((target: OutlineTarget) => {
-    // Open the stage (and parents) first, then scroll once it is rendered.
+  const hover = useMemo(() => createHoverStore(), [])
+  const requestView = useCallback(
+    (ids: readonly string[] | null) => {
+      setExplicitRequest((current) => ({
+        nonce: (current?.nonce ?? 0) + 1,
+        view: computeView(pins, ids),
+      }))
+    },
+    [pins],
+  )
+
+  const select = useCallback(
+    (id: string) => {
+      setSelectedId(id)
+      requestView([id])
+      document
+        .getElementById(momentElementId(id))
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    },
+    [requestView],
+  )
+
+  // Moments forced to render for a navigation, and a counter that bumps when
+  // the scroll has settled so lazy blocks re-check their intersection.
+  const [forced, setForced] = useState<ReadonlySet<string>>(new Set())
+  const [settleTick, setSettleTick] = useState(0)
+  const forceAround = useCallback(
+    (momentId: string | undefined) => {
+      if (tree === null || momentId === undefined) return
+      const ordered = collectMoments(tree)
+      const at = ordered.findIndex((m) => m.moment.id === momentId)
+      if (at < 0) return
+      setForced(
+        new Set(
+          ordered
+            .slice(Math.max(0, at - NAV_NEIGHBOURS), at + NAV_NEIGHBOURS + 1)
+            .map((m) => m.moment.id),
+        ),
+      )
+    },
+    [tree],
+  )
+
+  const stopAnchor = useRef<(() => void) | null>(null)
+  const scrollToElement = useCallback(
+    (elementId: string, block: ScrollLogicalPosition) => {
+      stopAnchor.current?.()
+      window.setTimeout(() => {
+        // Smooth scroll, then keep the target anchored while lazy blocks above
+        // it render and change height; user input cancels the anchoring.
+        stopAnchor.current = scrollAndAnchor(
+          () => document.getElementById(elementId),
+          block,
+          () => {
+            setSettleTick((n) => n + 1)
+            setForced(new Set())
+          },
+        )
+      }, 0)
+    },
+    [],
+  )
+
+  const openSegments = useCallback((expand: readonly string[]) => {
     setCollapsed((current) => {
-      if (!target.expand.some((id) => current.has(id))) return current
+      if (!expand.some((id) => current.has(id))) return current
       const next = new Set(current)
-      for (const id of target.expand) next.delete(id)
+      for (const id of expand) next.delete(id)
       return next
     })
-    if (target.momentId !== undefined) setSelectedId(target.momentId)
-    window.setTimeout(() => {
-      document
-        .getElementById(target.elementId)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 0)
   }, [])
 
-  const tree = state.status === 'ready' ? state.tree : null
+  const goTo = useCallback(
+    (target: OutlineTarget) => {
+      // Open the stage (and parents) first, then scroll once it is rendered.
+      openSegments(target.expand)
+      if (target.momentId !== undefined) setSelectedId(target.momentId)
+      const scope = mapModel?.scopes.get(target.elementId) ?? null
+      requestView(scope)
+      forceAround(target.momentId ?? scope?.[0])
+      scrollToElement(target.elementId, 'start')
+    },
+    [forceAround, mapModel, openSegments, requestView, scrollToElement],
+  )
+
+  // A pin: open its sections, highlight and scroll to the moment (the map
+  // stays where the user put it).
+  const selectFromMap = useCallback(
+    (id: string) => {
+      openSegments(mapModel?.expandFor.get(id) ?? [])
+      setSelectedId(id)
+      forceAround(id)
+      scrollToElement(momentElementId(id), 'center')
+    },
+    [forceAround, mapModel, openSegments, scrollToElement],
+  )
+
+  const [viewer, setViewer] = useState<{
+    opener: HTMLElement
+    startId: string
+  } | null>(null)
+  const openViewer = useCallback((item: MediaItem, trigger: HTMLElement) => {
+    setViewer({ opener: trigger, startId: item.id })
+  }, [])
+  const closeViewer = useCallback(() => {
+    setViewer(null)
+  }, [])
+
   const journeyCoverId = journeyCover.data ?? null
   const momentIds = useMemo(
     () => (tree === null ? [] : collectMoments(tree).map((m) => m.moment.id)),
     [tree],
   )
   const tags = useJourneyMomentTags(journeyId, momentIds)
+  const allMoments = useMemo(
+    () => (tree === null ? [] : collectMoments(tree).map((m) => m.moment)),
+    [tree],
+  )
+  const placeIds = useMemo(
+    () => [
+      ...new Set(
+        allMoments.flatMap((m) => (m.placeId === null ? [] : [m.placeId])),
+      ),
+    ],
+    [allMoments],
+  )
+  const places = useJourneyPlaces(journeyId, placeIds)
+  const placeNames = useMemo(
+    () => new Map([...places].map(([id, place]) => [id, place.name])),
+    [places],
+  )
+  // Read-only members must never call resolve-place (it writes place rows).
+  const { canEdit } = useCanEditJourney(journeyId)
+  const placeProgress = useResolveMissingPlaces(
+    journeyId,
+    allMoments,
+    tree !== null && canEdit,
+  )
   const editing = useMemo<EditingContext | null>(
     () =>
       tree === null
@@ -713,7 +1030,12 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
         : {
             collapsed,
             edits,
+            forced,
+            hover,
+            settleTick,
             moments: collectMoments(tree),
+            openViewer,
+            placeNames,
             tags,
             pairs: new Map(
               adjacentSegmentPairs(tree).map((p) => [p.before.segment.id, p]),
@@ -722,28 +1044,40 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
             toggleCollapsed,
             unassigned: tree.unassigned,
           },
-    [collapsed, edits, tags, toggleCollapsed, tree, journeyId, journeyCoverId],
+    [
+      collapsed,
+      edits,
+      forced,
+      hover,
+      openViewer,
+      placeNames,
+      settleTick,
+      tags,
+      toggleCollapsed,
+      tree,
+      journeyId,
+      journeyCoverId,
+    ],
   )
-  const momentLabel = useCallback(
-    (entry: WorkspaceMoment) => momentTitle(entry, t, locale),
-    [t, locale],
-  )
-  const points = useMemo<WorkspaceMapPoint[]>(() => {
+  const viewerGroups = useMemo<ViewerGroup[]>(() => {
     if (tree === null) return []
-    const out: WorkspaceMapPoint[] = []
+    const out: ViewerGroup[] = []
     for (const entry of collectMoments(tree)) {
-      const { latitude, longitude } = entry.moment
-      if (latitude === null || longitude === null) continue
+      if (entry.media.length === 0) continue
       out.push({
         id: entry.moment.id,
-        label: momentTitle(entry, t, locale),
-        latitude,
-        longitude,
+        items: entry.media,
+        title: momentTitle(entry, t, locale),
       })
     }
+    if (tree.unassigned.length > 0)
+      out.push({
+        id: 'unassigned',
+        items: tree.unassigned,
+        title: t('workspace.unassigned'),
+      })
     return out
   }, [tree, t, locale])
-
   let body: React.ReactNode = null
   if (state.status === 'loading') {
     body = <Skeleton />
@@ -781,8 +1115,8 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     const ready = state.tree
     const outline = (
       <WorkspaceOutline
-        momentLabel={momentLabel}
         observeKey={collapsed}
+        placeNames={placeNames}
         tree={ready}
         onNavigate={goTo}
       />
@@ -833,19 +1167,15 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">
                 {t('workspace.looseMoments')}
               </h2>
-              <ul className="mt-1 divide-y divide-border/70">
-                {ready.looseMoments.map((entry) => (
-                  <MomentBlock
-                    editing={editing}
-                    entry={entry}
-                    key={entry.moment.id}
-                    locale={locale}
-                    rail={false}
-                    selected={entry.moment.id === selectedId}
-                    onSelect={select}
-                  />
-                ))}
-              </ul>
+              <MomentList
+                editing={editing}
+                locale={locale}
+                moments={ready.looseMoments}
+                rail={false}
+                scopeId={LOOSE_SCOPE}
+                selectedId={selectedId}
+                onSelect={select}
+              />
             </section>
           ) : null}
           {ready.unassigned.length > 0 ? (
@@ -867,11 +1197,16 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           <h2 className="mb-2 hidden text-xs font-semibold uppercase tracking-wide text-muted lg:block">
             {t('workspace.mapHeading')}
           </h2>
-          {points.length > 0 ? (
+          {pins.length > 0 ? (
             <WorkspaceMap
-              points={points}
+              hover={hover}
+              pins={pins}
+              request={mapRequest}
               selectedId={selectedId}
-              onSelect={select}
+              onReset={() => {
+                requestView(null)
+              }}
+              onSelect={selectFromMap}
             />
           ) : (
             <p className="rounded-lg border border-border p-4 text-sm text-muted">
@@ -891,7 +1226,35 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           titles={tree === null ? new Map() : targetTitles(tree)}
         />
       </div>
+      {placeProgress !== null ? (
+        <p aria-live="polite" className="mb-3 text-xs text-muted" role="status">
+          {t('workspace.resolvingPlaces', {
+            done: placeProgress.done,
+            total: placeProgress.total,
+          })}
+        </p>
+      ) : null}
       {body}
+      {placeNames.size > 0 ? (
+        <p className="mt-6 text-muted">
+          <OsmAttribution />
+        </p>
+      ) : null}
+      {viewer !== null && editing !== null ? (
+        <MediaViewer
+          baseUrl={BASE_URL}
+          edits={edits}
+          groups={viewerGroups}
+          locale={locale}
+          returnFocusTo={viewer.opener}
+          startId={viewer.startId}
+          targets={editing.targets}
+          onClose={closeViewer}
+          onDelete={(item) => {
+            void edits.trashMedia([item])
+          }}
+        />
+      ) : null}
     </div>
   )
 }

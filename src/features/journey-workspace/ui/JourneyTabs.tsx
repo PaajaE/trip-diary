@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import { cn } from '@/shared/lib/cn'
 
-export type JourneyTab = 'import' | 'members' | 'quick' | 'workspace'
+export type JourneyTab = 'import' | 'members' | 'quick' | 'trash' | 'workspace'
 
 const TAB_BASE =
   'inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors sm:-mb-px sm:rounded-none sm:border-b-2 sm:px-3'
@@ -77,6 +77,16 @@ export function JourneyTabs({
             to="/j/$journeyId/members"
           >
             {t('owner.tabs.members')}
+          </Link>
+        </li>
+        <li>
+          <Link
+            aria-current={aria('trash')}
+            className={tab('trash')}
+            params={{ journeyId }}
+            to="/j/$journeyId/trash"
+          >
+            {t('owner.tabs.trash')}
           </Link>
         </li>
         <li className="ml-auto">

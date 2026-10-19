@@ -94,6 +94,27 @@ export async function updateMoment(
   return toMoment(data)
 }
 
+/**
+ * Sets the place of a moment only while it has none (never overrides one).
+ * Returns false when nothing was updated: the moment already has a place, is
+ * gone, or the caller may not edit it.
+ */
+export async function setMomentPlaceIfEmpty(
+  momentId: string,
+  placeId: string,
+): Promise<boolean> {
+  const { data, error } = await getSupabaseClient()
+    .from('moments')
+    .update({ place_id: placeId })
+    .eq('id', momentId)
+    .is('place_id', null)
+    .select('id')
+  if (error !== null) {
+    throw new MomentError('update_failed', error.message, error)
+  }
+  return data.length > 0
+}
+
 function rpcErrorCode(code: string | undefined): MomentErrorCode {
   if (code === 'P0002') return 'not_found'
   if (code === '42501') return 'forbidden'
@@ -148,6 +169,26 @@ export async function deleteMoment(momentId: string): Promise<void> {
     .eq('id', momentId)
   if (error !== null) {
     throw new MomentError('delete_failed', error.message, error)
+  }
+}
+
+export type DeleteMomentMode = 'keep_media' | 'trash_media'
+
+/**
+ * Deletes a moment through the RPC. keep_media moves its media to the
+ * neighbouring moment, trash_media sends them to the trash (restorable). The
+ * moment itself cannot be restored.
+ */
+export async function deleteMomentWithMedia(
+  momentId: string,
+  mode: DeleteMomentMode,
+): Promise<void> {
+  const { error } = await getSupabaseClient().rpc('delete_moment', {
+    p_mode: mode,
+    p_moment_id: momentId,
+  })
+  if (error !== null) {
+    throw new MomentError(rpcErrorCode(error.code), error.message, error)
   }
 }
 

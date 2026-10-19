@@ -26,8 +26,11 @@ export function MediaThumb({
         <img
           alt={item.caption ?? ''}
           className="h-full w-full object-cover"
+          decoding="async"
+          height={160}
           loading="lazy"
           src={url}
+          width={160}
         />
       ) : null}
       {isVideo ? (
