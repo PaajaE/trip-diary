@@ -7,6 +7,11 @@ export interface UndoableEdit {
   /** Performs the change through a repository. */
   apply: () => Promise<unknown>
   errorMessage: string
+  /**
+   * Errors the caller reports itself (inline in a dialog): the optimistic
+   * change is rolled back but no error toast is shown. Resolves false.
+   */
+  handled?: (error: unknown) => boolean
   /** Extra cache keys to refresh besides the journey tree. */
   invalidate?: () => Promise<unknown>
   /**
@@ -48,9 +53,11 @@ export function useUndoableMutation(journeyId: string, labels: Labels) {
       const rollback = edit.optimistic?.('apply')
       try {
         await edit.apply()
-      } catch {
+      } catch (error) {
         rollback?.()
-        showToast({ message: edit.errorMessage, variant: 'error' })
+        if (edit.handled?.(error) !== true) {
+          showToast({ message: edit.errorMessage, variant: 'error' })
+        }
         return false
       }
       await refresh().catch(() => undefined)

@@ -46,7 +46,9 @@ export function WorkspaceDialog({
     document.addEventListener('keydown', onKeyDown)
     return () => {
       document.removeEventListener('keydown', onKeyDown)
-      if (opener instanceof HTMLElement) opener.focus()
+      if (opener instanceof HTMLElement && opener.isConnected) {
+        opener.focus({ preventScroll: true })
+      }
     }
   }, [])
 

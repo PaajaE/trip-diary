@@ -1,18 +1,25 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
+import { invalidateTrashChange } from '@/entities/media/api/invalidate-trash-change'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { setJourneyCover } from '@/entities/journey/api/journey-cover.repository'
 import { updateMediaMeta } from '@/entities/media/api/media-library.repository'
+import {
+  restoreMedia,
+  trashMedia,
+} from '@/entities/media/api/media-trash.repository'
 import { mediaQueryKeys } from '@/entities/media/api/media-query-keys'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { momentQueryKeys } from '@/entities/moment/api/moment-query-keys'
 import {
+  type DeleteMomentMode,
+  deleteMomentWithMedia,
   mergeMoments,
   splitMoment,
   updateMoment,
 } from '@/entities/moment/api/moment.repository'
-import type { Moment } from '@/entities/moment/model/moment'
+import { type Moment, MomentError } from '@/entities/moment/model/moment'
 import { segmentQueryKeys } from '@/entities/segment/api/segment-query-keys'
 import {
   acceptSuggestedSegment,
@@ -33,6 +40,31 @@ import {
 import { useUndoableMutation } from '@/features/journey-workspace/lib/use-undoable-mutation'
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
 
+/** Library order: capture time ascending (unknown last), then id. */
+function sortByCapture(list: MediaItem[]): MediaItem[] {
+  return [...list].sort((a, b) => {
+    if (a.capturedAt !== b.capturedAt) {
+      if (a.capturedAt === null) return 1
+      if (b.capturedAt === null) return -1
+      return a.capturedAt < b.capturedAt ? -1 : 1
+    }
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0
+  })
+}
+
+/**
+ * 'no_neighbour': keep_media on an unpublished moment with no unpublished
+ * neighbour (the server refuses so the photos do not become public). Nothing
+ * changed; the dialog should suggest trashing the photos instead.
+ */
+export type DeleteMomentResult = 'deleted' | 'failed' | 'no_neighbour'
+
+interface CoverRef {
+  level: 'journey' | 'moment' | 'segment'
+  mediaId: string
+  targetId: string
+}
+
 export interface SegmentText {
   body: string
   title: string
@@ -45,6 +77,16 @@ export interface MomentText {
 
 export interface WorkspaceEdits {
   acceptSegment: (segment: Segment) => Promise<boolean>
+  /**
+   * Deletes a moment through the RPC. Not undoable: the title and text are
+   * lost. Media go to the trash (restorable) or to the neighbouring moment.
+   */
+  deleteMoment: (
+    moment: Moment,
+    mode: DeleteMomentMode,
+  ) => Promise<DeleteMomentResult>
+  /** Moves media to the trash; Undo restores them. */
+  trashMedia: (items: readonly MediaItem[]) => Promise<boolean>
   /** Moves the shared edge of two adjacent segments; Undo moves it back. */
   moveBoundary: (
     before: Segment,
@@ -112,6 +154,127 @@ export function useWorkspaceEdits(journeyId: string): WorkspaceEdits {
           successMessage: t('workspace.segmentAccepted'),
           undo: () => restoreSuggestedSegment(segment.id),
         }),
+      deleteMoment: async (moment, mode) => {
+        const flags = { noNeighbour: false }
+        const saved = await run({
+          apply: () => deleteMomentWithMedia(moment.id, mode),
+          errorMessage,
+          handled: (error) => {
+            flags.noNeighbour =
+              mode === 'keep_media' &&
+              error instanceof MomentError &&
+              error.code === 'invalid_input'
+            return flags.noNeighbour
+          },
+          invalidate: () => invalidateTrashChange(queryClient, journeyId),
+          optimistic: (direction) =>
+            direction === 'apply'
+              ? optimisticUpdate<Moment[]>(
+                  queryClient,
+                  momentQueryKeys.journey(journeyId),
+                  (list) => list.filter((m) => m.id !== moment.id),
+                )
+              : () => undefined,
+          successMessage: t(
+            mode === 'trash_media'
+              ? 'workspace.momentDeletedTrashed'
+              : 'workspace.momentDeleted',
+          ),
+        })
+        if (saved) return 'deleted'
+        return flags.noNeighbour ? 'no_neighbour' : 'failed'
+      },
+      trashMedia: (items) => {
+        const ids = items.map((item) => item.id)
+        const gone = new Set(ids)
+        // Covers the server clears when it trashes these media; Undo sets
+        // them back after the restore succeeded.
+        let clearedCovers: CoverRef[] = []
+        const rememberCovers = () => {
+          const found: CoverRef[] = []
+          const moments =
+            queryClient.getQueryData<Moment[]>(
+              momentQueryKeys.journey(journeyId),
+            ) ?? []
+          for (const m of moments) {
+            if (m.coverMediaId !== null && gone.has(m.coverMediaId)) {
+              found.push({
+                level: 'moment',
+                mediaId: m.coverMediaId,
+                targetId: m.id,
+              })
+            }
+          }
+          const segments =
+            queryClient.getQueryData<Segment[]>(
+              segmentQueryKeys.journey(journeyId),
+            ) ?? []
+          for (const sg of segments) {
+            if (sg.coverMediaId !== null && gone.has(sg.coverMediaId)) {
+              found.push({
+                level: 'segment',
+                mediaId: sg.coverMediaId,
+                targetId: sg.id,
+              })
+            }
+          }
+          const journeyCover = queryClient.getQueryData<string | null>(
+            journeyQueryKeys.cover(journeyId),
+          )
+          if (journeyCover !== undefined && journeyCover !== null) {
+            if (gone.has(journeyCover)) {
+              found.push({
+                level: 'journey',
+                mediaId: journeyCover,
+                targetId: journeyId,
+              })
+            }
+          }
+          clearedCovers = found
+        }
+        const putCoversBack = async () => {
+          await Promise.all(
+            clearedCovers.map((ref) => {
+              const write =
+                ref.level === 'journey'
+                  ? setJourneyCover(ref.targetId, ref.mediaId)
+                  : ref.level === 'moment'
+                    ? updateMoment(ref.targetId, { coverMediaId: ref.mediaId })
+                    : updateSegment(ref.targetId, {
+                        coverMediaId: ref.mediaId,
+                      })
+              // A cover that cannot be set back (already replaced) is not fatal.
+              return Promise.resolve(write).catch(() => undefined)
+            }),
+          )
+        }
+        return run({
+          apply: () => trashMedia(ids),
+          errorMessage: t('trash.moveFailed'),
+          invalidate: () => invalidateTrashChange(queryClient, journeyId),
+          optimistic: (direction) => {
+            if (direction === 'apply') rememberCovers()
+            return optimisticUpdate<MediaItem[]>(
+              queryClient,
+              mediaQueryKeys.journey(journeyId),
+              (list) =>
+                direction === 'apply'
+                  ? list.filter((m) => !gone.has(m.id))
+                  : sortByCapture([
+                      ...list,
+                      ...items.filter(
+                        (item) => !list.some((m) => m.id === item.id),
+                      ),
+                    ]),
+            )
+          },
+          successMessage: t('trash.moved', { count: ids.length }),
+          undo: async () => {
+            await restoreMedia(ids)
+            await putCoversBack()
+          },
+        })
+      },
       mergeMoments: (targetId, sourceId) =>
         run({
           apply: () => mergeMoments(targetId, sourceId),

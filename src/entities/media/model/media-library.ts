@@ -61,8 +61,24 @@ export interface MediaMetaPatch {
   starred?: boolean
 }
 
+/** A media item in the trash: the library item plus when it was trashed. */
+export const trashedMediaItemSchema = mediaItemSchema.extend({
+  deletedAt: instantSchema,
+  /** Set once a purge was claimed: the files may already be gone. */
+  purgeClaimedAt: instantSchema.nullable(),
+})
+export type TrashedMediaItem = z.infer<typeof trashedMediaItemSchema>
+
+/** Results of the trash/restore/move RPCs: how many rows changed. */
+export const rpcCountSchema = z.number().int().nonnegative()
+/** purge_media returns the ids it removed. */
+export const purgedIdsSchema = z.array(z.uuid())
+export const newMomentIdSchema = z.uuid()
+
 export type MediaLibraryErrorCode =
+  | 'forbidden'
   | 'invalid_input'
+  | 'invalid_response'
   | 'invalid_row'
   | 'list_failed'
   | 'not_found'

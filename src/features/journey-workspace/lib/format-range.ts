@@ -150,3 +150,18 @@ export function formatDuration(durationMs: number): string {
   const seconds = total % 60
   return `${String(minutes)}:${String(seconds).padStart(2, '0')}`
 }
+
+/** Weekday and compact date in the capture zone, e.g. "pá 29. 5.". */
+export function formatDayLabel(
+  iso: string,
+  tz: string | null,
+  locale: string,
+): string {
+  const { zone } = resolveZone(tz)
+  return new Intl.DateTimeFormat(locale, {
+    day: 'numeric',
+    month: locale.startsWith('cs') ? 'numeric' : 'short',
+    timeZone: zone,
+    weekday: 'short',
+  }).format(new Date(iso))
+}

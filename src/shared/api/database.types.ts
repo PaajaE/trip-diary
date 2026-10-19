@@ -800,6 +800,7 @@ export type Database = {
           captured_tz: string | null
           content_hash: string | null
           created_at: string
+          deleted_at: string | null
           duration_ms: number | null
           focal_x: number | null
           focal_y: number | null
@@ -812,6 +813,7 @@ export type Database = {
           longitude: number | null
           moment_id: string | null
           owner_id: string
+          purge_claimed_at: string | null
           segment_override_id: string | null
           source_asset_id: string | null
           starred: boolean
@@ -826,6 +828,7 @@ export type Database = {
           captured_tz?: string | null
           content_hash?: string | null
           created_at?: string
+          deleted_at?: string | null
           duration_ms?: number | null
           focal_x?: number | null
           focal_y?: number | null
@@ -838,6 +841,7 @@ export type Database = {
           longitude?: number | null
           moment_id?: string | null
           owner_id: string
+          purge_claimed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
           starred?: boolean
@@ -852,6 +856,7 @@ export type Database = {
           captured_tz?: string | null
           content_hash?: string | null
           created_at?: string
+          deleted_at?: string | null
           duration_ms?: number | null
           focal_x?: number | null
           focal_y?: number | null
@@ -864,6 +869,7 @@ export type Database = {
           longitude?: number | null
           moment_id?: string | null
           owner_id?: string
+          purge_claimed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
           starred?: boolean
@@ -1790,6 +1796,7 @@ export type Database = {
         Returns: undefined
       }
       claim_geocoder_slot: { Args: { p_interval_ms?: number }; Returns: number }
+      claim_media_purge: { Args: { p_media_ids: string[] }; Returns: string[] }
       compute_source_content_hash: {
         Args: { p_body: string; p_title: string }
         Returns: string
@@ -1824,6 +1831,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_moment_from_media: {
+        Args: { p_media_ids: string[]; p_new_id: string }
+        Returns: string
+      }
       create_space_invite: {
         Args: {
           p_email: string
@@ -1831,6 +1842,10 @@ export type Database = {
           p_space_id: string
         }
         Returns: string
+      }
+      delete_moment: {
+        Args: { p_mode: string; p_moment_id: string }
+        Returns: undefined
       }
       get_journey_invite_preview: {
         Args: { p_raw_token: string }
@@ -1902,6 +1917,14 @@ export type Database = {
           updated_at: string
         }[]
       }
+      media_batch_journey: {
+        Args: { p_fn: string; p_media_ids: string[] }
+        Returns: string
+      }
+      media_trash_rows: {
+        Args: { p_ids: string[]; p_journey: string }
+        Returns: number
+      }
       merge_moments: {
         Args: { p_source: string; p_target: string }
         Returns: string
@@ -1966,6 +1989,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      move_media: {
+        Args: { p_media_ids: string[]; p_target_moment: string }
+        Returns: number
+      }
       move_segment_boundary: {
         Args: { p_after: string; p_at: string; p_before: string }
         Returns: undefined
@@ -1984,10 +2011,12 @@ export type Database = {
         Args: { p_id: string; p_value: string }
         Returns: string
       }
+      purge_media: { Args: { p_media_ids: string[] }; Returns: string[] }
       remove_space_member: {
         Args: { p_space_id: string; p_user_id: string }
         Returns: undefined
       }
+      restore_media: { Args: { p_media_ids: string[] }; Returns: number }
       revoke_journey_invite: {
         Args: { p_invite_id: string }
         Returns: undefined
@@ -2011,6 +2040,7 @@ export type Database = {
         Args: { p_at: string; p_moment: string; p_new_id: string }
         Returns: string
       }
+      trash_media: { Args: { p_media_ids: string[] }; Returns: number }
       update_entry: {
         Args: {
           p_body: string

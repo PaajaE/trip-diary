@@ -51,6 +51,7 @@ for (const name of [
   'select',
   'update',
   'eq',
+  'is',
   'order',
   'range',
   'maybeSingle',
@@ -77,6 +78,8 @@ describe('media library repository', () => {
     expect(from).toHaveBeenCalledWith('media')
     expect(chain.select).toHaveBeenCalledWith('*, media_variants(*)')
     expect(chain.eq).toHaveBeenCalledWith('journey_id', J)
+    // Trashed rows never reach the owner UI.
+    expect(chain.is).toHaveBeenCalledWith('deleted_at', null)
     expect(items[0]?.variants[0]).toMatchObject({
       kind: 'thumb',
       storageKey: 'u/a/thumb.webp',

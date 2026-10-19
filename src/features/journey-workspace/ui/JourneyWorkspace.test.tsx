@@ -38,6 +38,10 @@ vi.mock('@/features/moment-tags/api/use-moment-tags', () => ({
 vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
   useJourneyCoverQuery: () => ({ data: null }),
 }))
+const canEditState = vi.hoisted(() => ({ canEdit: true, ready: true }))
+vi.mock('@/features/journey-workspace/api/use-can-edit-journey', () => ({
+  useCanEditJourney: () => canEditState,
+}))
 vi.mock('@/features/journey-workspace/api/use-workspace-edits', () => ({
   useWorkspaceEdits: () => ({
     saveCaption: vi.fn(),
@@ -58,12 +62,12 @@ vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
 }))
 vi.mock('@/features/journey-workspace/ui/WorkspaceMap', () => ({
   WorkspaceMap: (props: {
-    points: { id: string }[]
+    pins: { id: string }[]
     selectedId: string | null
     onSelect: (id: string) => void
   }) => (
     <div data-selected={props.selectedId ?? ''} data-testid="map">
-      {props.points.map((p) => (
+      {props.pins.map((p) => (
         <button
           key={p.id}
           type="button"
@@ -187,9 +191,7 @@ describe('JourneyWorkspace', () => {
       expect(
         screen.getByRole('button', { name: 'Expand: Segment 1' }),
       ).toBeTruthy()
-      fireEvent.click(
-        within(outline).getByRole('button', { name: /Moment at 11:00/ }),
-      )
+      fireEvent.click(within(outline).getByRole('button', { name: /^11:00/ }))
       expect(
         screen.getByRole('button', { name: 'Collapse: Segment 1' }),
       ).toBeTruthy()

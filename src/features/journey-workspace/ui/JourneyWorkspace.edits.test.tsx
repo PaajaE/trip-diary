@@ -18,6 +18,8 @@ import { JourneyWorkspace } from '@/features/journey-workspace/ui/JourneyWorkspa
 
 const edits = vi.hoisted(() => ({
   acceptSegment: vi.fn(),
+  deleteMoment: vi.fn(),
+  trashMedia: vi.fn(),
   mergeMoments: vi.fn(),
   moveBoundary: vi.fn(),
   rejectSegment: vi.fn(),
@@ -42,6 +44,17 @@ vi.mock('@/features/moment-tags/api/use-moment-tags', () => ({
 }))
 vi.mock('@/entities/journey/api/use-journey-cover-query', () => ({
   useJourneyCoverQuery: () => ({ data: null }),
+}))
+const canEditState = vi.hoisted(() => ({ canEdit: true, ready: true }))
+vi.mock('@/features/journey-workspace/api/use-can-edit-journey', () => ({
+  useCanEditJourney: () => canEditState,
+}))
+const placeJob = vi.hoisted(() => vi.fn())
+vi.mock('@/features/journey-workspace/api/use-resolve-missing-places', () => ({
+  useResolveMissingPlaces: (...args: unknown[]) => {
+    placeJob(...args)
+    return null
+  },
 }))
 vi.mock('@/features/journey-workspace/api/use-workspace-edits', () => ({
   useWorkspaceEdits: () => edits,
@@ -103,6 +116,9 @@ describe('workspace structure editing', () => {
   beforeEach(async () => {
     for (const fn of Object.values(edits))
       fn.mockReset().mockResolvedValue(true)
+    edits.deleteMoment.mockResolvedValue('deleted')
+    placeJob.mockClear()
+    canEditState.canEdit = true
     await i18n.changeLanguage('en')
     load()
   })
@@ -135,6 +151,90 @@ describe('workspace structure editing', () => {
     await waitFor(() => {
       expect(screen.queryByRole('dialog')).toBeNull()
     })
+  })
+
+  it('deletes a moment with the chosen mode, naming the photo count', async () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    chooseMomentAction('One', 'Delete moment…')
+    const dialog = screen.getByRole('dialog', { name: 'Delete moment' })
+    expect(dialog.textContent).toContain('2 photos')
+    expect(dialog.textContent).toContain('can be restored on the Trash tab')
+    const confirm = within(dialog).getByRole('button', {
+      name: 'Delete moment',
+    })
+    // No default: the user must pick what happens to the photos.
+    expect(confirm).toBeDisabled()
+    fireEvent.click(
+      within(dialog).getByLabelText(
+        'Delete the moment and its photos (to the trash)',
+      ),
+    )
+    fireEvent.click(confirm)
+    expect(edits.deleteMoment).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'One' }),
+      'trash_media',
+    )
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
+  it('deletes a moment but keeps its photos in the neighbouring moment', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    chooseMomentAction('Two', 'Delete moment…')
+    const dialog = screen.getByRole('dialog', { name: 'Delete moment' })
+    fireEvent.click(
+      within(dialog).getByLabelText(
+        'Delete the moment, move its photos to the neighbouring one',
+      ),
+    )
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Delete moment' }),
+    )
+    expect(edits.deleteMoment).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Two' }),
+      'keep_media',
+    )
+  })
+
+  it('moves the photo to the trash with Del in the viewer', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    fireEvent.click(
+      screen.getAllByRole('button', { name: 'Open photo or video' })[0]!,
+    )
+    expect(screen.getByRole('dialog', { name: 'Photo viewer' })).toBeTruthy()
+    fireEvent.keyDown(document, { key: 'Delete' })
+    expect(edits.trashMedia).toHaveBeenCalledWith([
+      expect.objectContaining({ id: expect.stringMatching(/20$/) }),
+    ])
+  })
+
+  it('keeps the delete dialog open with a hint when keep_media has no neighbour', async () => {
+    edits.deleteMoment.mockResolvedValue('no_neighbour')
+    render(<JourneyWorkspace journeyId="j" />)
+    chooseMomentAction('One', 'Delete moment…')
+    const dialog = screen.getByRole('dialog', { name: 'Delete moment' })
+    fireEvent.click(
+      within(dialog).getByLabelText(
+        'Delete the moment, move its photos to the neighbouring one',
+      ),
+    )
+    fireEvent.click(
+      within(dialog).getByRole('button', { name: 'Delete moment' }),
+    )
+    expect((await within(dialog).findByRole('alert')).textContent).toContain(
+      'Delete the moment and its photos (to the trash)',
+    )
+    expect(screen.getByRole('dialog', { name: 'Delete moment' })).toBeTruthy()
+  })
+
+  it('runs the place job only for users who can edit the journey', () => {
+    render(<JourneyWorkspace journeyId="j" />)
+    expect(placeJob.mock.calls.at(-1)?.[2]).toBe(true)
+    cleanup()
+    canEditState.canEdit = false
+    render(<JourneyWorkspace journeyId="j" />)
+    expect(placeJob.mock.calls.at(-1)?.[2]).toBe(false)
   })
 
   it('closes a dialog with Escape without calling anything', () => {
