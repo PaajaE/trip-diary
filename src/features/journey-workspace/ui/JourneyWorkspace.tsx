@@ -1,7 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { ChevronDown, Hand, ImagePlus, ListTree, Lock } from 'lucide-react'
 import type { TFunction } from 'i18next'
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useJourneyPlaces } from '@/entities/place/api/use-journey-places'
 import { useCanEditJourney } from '@/features/journey-workspace/api/use-can-edit-journey'
@@ -19,8 +19,9 @@ import { EditableMediaTile } from '@/features/journey-workspace/ui/EditableMedia
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
 import {
   formatCompactRange,
-  formatDayLabel,
+  formatDayHeading,
   formatInstantTime,
+  formatSpan,
 } from '@/features/journey-workspace/lib/format-range'
 import { DEFAULT_MEDIA_BASE_URL } from '@/features/journey-workspace/lib/media-thumb'
 import {
@@ -38,6 +39,9 @@ import {
 } from '@/features/journey-workspace/ui/EditDialogs'
 import {
   dayElementId,
+  dayNumber,
+  dayPlaceNames,
+  firstDayKey,
   groupMomentsByDay,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
@@ -52,9 +56,13 @@ import { scrollAndAnchor } from '@/features/journey-workspace/lib/anchor-scroll'
 import { useStableByKey } from '@/features/journey-workspace/lib/use-stable-by-key'
 import { useNearViewport } from '@/features/journey-workspace/lib/use-near-viewport'
 import {
+  buildBubbleModel,
   buildMapModel,
   computeView,
+  computeFocus,
   createHoverStore,
+  NO_BUBBLES,
+  formatDayCaption,
   estimateMomentHeight,
   type HoverStore,
   type MapView,
@@ -109,10 +117,20 @@ const BASE_URL = publicEnv.mediaBaseUrl ?? DEFAULT_MEDIA_BASE_URL
 const GRID_LIMIT = 6
 
 /** Moments rendered on each side of a navigation target. */
+/** User input that ends a navigation scroll early. */
+const NAV_RELEASE_EVENTS = ['wheel', 'touchstart', 'keydown', 'pointerdown']
 const NAV_NEIGHBOURS = 2
 
 const BOUNDARY_BUTTON =
   'inline-flex min-h-11 items-center rounded-xl px-3 text-xs font-semibold text-muted hover:bg-surface active:bg-surface'
+
+/**
+ * Moment actions stay out of sight until hover or keyboard focus on the card;
+ * they are always visible where there is no hover (touch). Only the buttons
+ * fade, so dialogs they open are not affected by the opacity.
+ */
+const REVEAL =
+  'opacity-0 transition-opacity focus-visible:opacity-100 group-focus-within/moment:opacity-100 group-hover/moment:opacity-100 [@media(hover:none)]:opacity-100'
 
 interface EditingContext {
   edits: WorkspaceEdits
@@ -121,6 +139,8 @@ interface EditingContext {
   moments: WorkspaceMoment[]
   /** Place names by place id. */
   placeNames: ReadonlyMap<string, string>
+  /** Local day key of the journey's first moment ("Den 1"). */
+  firstDay: string | null
   /** Opens the full-screen viewer at a media item. */
   openViewer: (item: MediaItem, trigger: HTMLElement) => void
   /** Adjacent same-kind segment pairs keyed by the earlier segment id. */
@@ -228,17 +248,45 @@ function StateIcons({ locked, manual }: { locked: boolean; manual: boolean }) {
   )
 }
 
+/** Title shown on the card: the title, else the place name, else nothing. */
+function visibleTitle(
+  entry: WorkspaceMoment,
+  placeNames: ReadonlyMap<string, string> | null,
+): string {
+  if (entry.moment.title !== null && entry.moment.title !== '')
+    return entry.moment.title
+  const place =
+    entry.moment.placeId === null
+      ? undefined
+      : placeNames?.get(entry.moment.placeId)
+  return place?.trim() ?? ''
+}
+
+/** Name for menus, dialogs, the viewer and screen readers (never empty). */
 function momentTitle(
   entry: WorkspaceMoment,
   t: TFunction,
   locale: string,
+  placeNames: ReadonlyMap<string, string> | null = null,
 ): string {
-  return (
-    entry.moment.title ??
-    t('workspace.untitledMoment', {
-      time: formatInstantTime(entry.moment.startsAt, entry.tz, locale),
-    })
-  )
+  const shown = visibleTitle(entry, placeNames)
+  return shown !== ''
+    ? shown
+    : t('workspace.untitledMoment', {
+        time: formatInstantTime(entry.moment.startsAt, entry.tz, locale),
+      })
+}
+
+/** Map tooltip: title, else place name, else the time (never "Moment ..."). */
+function pinLabel(
+  entry: WorkspaceMoment,
+  placeNames: ReadonlyMap<string, string>,
+  locale: string,
+): string {
+  const shown = visibleTitle(entry, placeNames)
+  return shown !== ''
+    ? shown
+    : formatInstantTime(entry.moment.startsAt, entry.tz, locale)
 }
 
 function MomentBlock({
@@ -246,14 +294,12 @@ function MomentBlock({
   entry,
   locale,
   onSelect,
-  rail,
   selected,
 }: {
   editing: EditingContext
   entry: WorkspaceMoment
   locale: string
   onSelect: (id: string) => void
-  rail: boolean
   selected: boolean
 }) {
   const { t } = useTranslation()
@@ -269,8 +315,8 @@ function MomentBlock({
   return (
     <li
       className={cn(
-        'relative scroll-mt-24 py-3 lg:-mx-3 lg:rounded-lg lg:px-3 lg:py-4 lg:transition-colors lg:hover:bg-surface/70',
-        selected && '-mx-2 rounded-sm bg-primary/5 px-2 lg:bg-primary/5',
+        'group/moment relative scroll-mt-44 rounded-lg transition-colors',
+        selected && 'bg-primary/5',
       )}
       data-placeholder={near ? undefined : 'true'}
       id={momentElementId(id)}
@@ -298,13 +344,12 @@ function MomentBlock({
           editing={editing}
           entry={entry}
           locale={locale}
-          rail={rail}
           selected={selected}
           onSelect={onSelect}
         />
       ) : (
-        <span className="block truncate font-medium text-muted">
-          {momentTitle(entry, t, locale)}
+        <span className="block truncate py-3 pl-[4.5rem] text-muted">
+          {momentTitle(entry, t, locale, editing.placeNames)}
         </span>
       )}
     </li>
@@ -316,15 +361,12 @@ function MomentContent({
   entry,
   locale,
   onSelect,
-  rail,
   selected,
 }: {
   editing: EditingContext
   entry: WorkspaceMoment
   locale: string
   onSelect: (id: string) => void
-  /** True when the moment hangs on a timeline rail (draws a dot). */
-  rail: boolean
   selected: boolean
 }) {
   const { t } = useTranslation()
@@ -343,7 +385,10 @@ function MomentContent({
   const close = () => {
     setDialog(null)
   }
-  const name = momentTitle(entry, t, locale)
+  const name = momentTitle(entry, t, locale, editing.placeNames)
+  const shownTitle = visibleTitle(entry, editing.placeNames)
+  const span = formatSpan(entry.moment.startsAt, entry.moment.endsAt)
+  const hasBody = entry.moment.body !== ''
   const actions: MenuAction[] = [
     {
       key: 'tags',
@@ -395,54 +440,63 @@ function MomentContent({
   })
   return (
     <>
-      {rail ? (
-        <span
-          aria-hidden="true"
-          className="absolute -left-5 top-[26px] size-2 rounded-full border border-muted bg-background lg:-left-2 lg:top-[34px]"
-        />
-      ) : null}
-      <div className="flex items-start gap-1">
-        <button
-          aria-pressed={selected}
-          className="min-h-11 min-w-0 flex-1 text-left"
-          disabled={!hasPoint}
-          title={hasPoint ? t('workspace.showOnMap') : ''}
-          type="button"
-          onClick={() => {
-            onSelect(entry.moment.id)
-          }}
+      <div className="flex gap-3">
+        <div
+          className="w-14 shrink-0 self-stretch border-r border-border/60 pr-3 pt-4 text-right text-sm tabular-nums"
+          data-testid="moment-rail"
         >
-          <span className="flex items-center gap-1.5 font-medium lg:text-lg">
-            <span className="min-w-0 truncate">{name}</span>
-            <StateIcons
-              locked={entry.moment.locked}
-              manual={entry.moment.origin === 'manual'}
-            />
+          <span className="block text-foreground">
+            {formatInstantTime(entry.moment.startsAt, entry.tz, locale)}
           </span>
-          <span className="block text-xs text-muted lg:text-sm">
-            {formatCompactRange(
-              entry.moment.startsAt,
-              entry.moment.endsAt,
-              entry.tz,
-              locale,
-              { withTime: true, withYear: false },
-            )}
-            {counts !== '' ? ` · ${counts}` : ''}
-          </span>
-        </button>
-        <OverflowMenu actions={actions} name={name} />
-      </div>
-      <ClampedBody body={entry.moment.body} />
-      <TagChips tags={editing.tags.byMoment.get(entry.moment.id) ?? []} />
-      {entry.media.length > 0 ? (
-        <MediaTiles editing={editing} items={entry.media} />
-      ) : null}
-      <div className="mt-1 -ml-2">
-        <MomentTextEditor
-          edits={editing.edits}
-          moment={entry.moment}
-          name={name}
-        />
+          {span !== '' ? (
+            <span className="block text-xs text-muted">{span}</span>
+          ) : null}
+        </div>
+        <div className="min-w-0 flex-1 py-3 pr-1">
+          <div className="flex items-start gap-1">
+            <button
+              aria-pressed={selected}
+              className="min-h-11 min-w-0 flex-1 text-left"
+              disabled={!hasPoint}
+              title={hasPoint ? t('workspace.showOnMap') : ''}
+              type="button"
+              onClick={() => {
+                onSelect(entry.moment.id)
+              }}
+            >
+              <span className="flex flex-wrap items-baseline gap-x-2">
+                {shownTitle !== '' ? (
+                  <span className="min-w-0 truncate text-base font-medium lg:text-lg">
+                    {shownTitle}
+                  </span>
+                ) : (
+                  <span className="sr-only">{name}</span>
+                )}
+                <StateIcons
+                  locked={entry.moment.locked}
+                  manual={entry.moment.origin === 'manual'}
+                />
+                {counts !== '' ? (
+                  <span className="text-xs text-muted">{counts}</span>
+                ) : null}
+              </span>
+            </button>
+            <div className="flex shrink-0 items-center">
+              <MomentTextEditor
+                className={REVEAL}
+                edits={editing.edits}
+                moment={entry.moment}
+                name={name}
+              />
+              <OverflowMenu actions={actions} className={REVEAL} name={name} />
+            </div>
+          </div>
+          {hasBody ? <ClampedBody body={entry.moment.body} /> : null}
+          <TagChips tags={editing.tags.byMoment.get(entry.moment.id) ?? []} />
+          {entry.media.length > 0 ? (
+            <MediaTiles editing={editing} items={entry.media} />
+          ) : null}
+        </div>
       </div>
       {dialog === 'tags' ? (
         <MomentTagsDialog
@@ -454,7 +508,7 @@ function MomentContent({
       ) : null}
       {other !== null ? (
         <MergeDialog
-          sourceLabel={momentTitle(other, t, locale)}
+          sourceLabel={momentTitle(other, t, locale, editing.placeNames)}
           targetLabel={name}
           onClose={close}
           onConfirm={() => {
@@ -493,7 +547,6 @@ function MomentList({
   editing,
   locale,
   moments,
-  rail,
   scopeId,
   selectedId,
   onSelect,
@@ -501,41 +554,59 @@ function MomentList({
   editing: EditingContext
   locale: string
   moments: WorkspaceMoment[]
-  rail: boolean
   scopeId: string
   selectedId: string | null
   onSelect: (id: string) => void
 }) {
   const { t } = useTranslation()
   const days = useMemo(() => groupMomentsByDay(moments), [moments])
+  const lookup = (id: string) => editing.placeNames.get(id)
   return (
-    <ul className="divide-y divide-border/70">
+    <ul className="space-y-2">
       {days.map((day) => {
         const first = day.moments[0]
         if (first === undefined) return null
-        const places = day.placeIds
-          .map((id) => editing.placeNames.get(id))
-          .filter((name): name is string => name !== undefined)
-        const date =
+        const places = dayPlaceNames(day, lookup, 3)
+        const heading =
           day.key === UNKNOWN_DAY
             ? t('workspace.dayUnknown')
-            : formatDayLabel(first.moment.startsAt, first.tz, locale)
+            : formatDayHeading(first.moment.startsAt, first.tz, locale)
+        const number = dayNumber(editing.firstDay, day.key)
+        const sub = [
+          ...places,
+          ...(day.photoCount > 0
+            ? [t('terms.photo.count', { count: day.photoCount })]
+            : []),
+        ].join(' · ')
         return (
           <li key={day.key}>
             <h3
-              className="scroll-mt-24 pt-3 text-xs font-semibold uppercase tracking-wide text-muted"
+              className="sticky top-24 z-10 scroll-mt-24 bg-background pt-4 pb-2"
               id={dayElementId(scopeId, day.key)}
             >
-              {[date, places.join(', ')].filter((p) => p !== '').join(' · ')}
+              <span className="flex items-baseline gap-3">
+                <span className="reader-display text-xl lg:text-2xl">
+                  {heading}
+                </span>
+                {number !== null ? (
+                  <span className="text-sm font-normal text-muted">
+                    {t('workspace.dayNumber', { n: number })}
+                  </span>
+                ) : null}
+              </span>
+              {sub !== '' ? (
+                <span className="block text-sm font-normal text-muted">
+                  {sub}
+                </span>
+              ) : null}
             </h3>
-            <ul className="divide-y divide-border/70">
+            <ul>
               {day.moments.map((entry) => (
                 <MomentBlock
                   editing={editing}
                   entry={entry}
                   key={entry.moment.id}
                   locale={locale}
-                  rail={rail}
                   selected={entry.moment.id === selectedId}
                   onSelect={onSelect}
                 />
@@ -578,13 +649,13 @@ function SegmentBlock({
   const hasContent = node.moments.length > 0 || node.children.length > 0
   const wrapper = isStage
     ? cn(
-        '-mx-5 border-y px-5 py-2 sm:mx-0 sm:rounded-xl sm:border sm:px-4 lg:rounded-lg lg:px-5 lg:py-3',
+        'pb-2',
         suggested
-          ? 'border-dashed border-accent bg-accent/5'
-          : 'border-border bg-surface',
+          ? 'rounded-xl border border-accent/40 px-4 py-2'
+          : 'border-b border-border/60',
       )
     : suggested
-      ? 'rounded-xl border border-dashed border-accent bg-accent/5 px-3 py-1'
+      ? 'rounded-xl border border-accent/40 px-3 py-1'
       : ''
   return (
     <section
@@ -621,11 +692,11 @@ function SegmentBlock({
               />
             ) : null}
             <span className="min-w-0 flex-1">
-              <span className="block text-[11px] font-semibold uppercase tracking-wide text-muted">
+              <span className="block text-xs text-muted">
                 {t(`terms.${termKey}.singular`)}
               </span>
               <span
-                className={`flex items-center gap-1.5 font-semibold ${isStage ? 'text-lg lg:reader-display lg:text-2xl' : 'text-base lg:text-lg'}`}
+                className={`reader-display flex items-center gap-1.5 ${isStage ? 'text-xl lg:text-2xl' : 'text-lg'}`}
               >
                 <span className="min-w-0 truncate">{segment.title}</span>
                 <StateIcons
@@ -662,7 +733,7 @@ function SegmentBlock({
         {suggested ? (
           <div className="pb-2 pt-1">
             <p className="text-xs text-accent-strong">
-              <span className="mr-1.5 rounded-full bg-accent px-2 py-0.5 font-semibold text-white">
+              <span className="mr-1.5 rounded-full border border-accent/50 px-2 py-0.5 font-semibold text-accent-strong">
                 {t('workspace.suggestedBadge')}
               </span>
               {t('workspace.suggestionHint')}
@@ -702,7 +773,6 @@ function SegmentBlock({
               editing={editing}
               locale={locale}
               moments={node.moments}
-              rail
               scopeId={segment.id}
               selectedId={selectedId}
               onSelect={onSelect}
@@ -853,12 +923,48 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   }, [])
 
   const tree = state.status === 'ready' ? state.tree : null
+  const allMoments = useMemo(
+    () => (tree === null ? [] : collectMoments(tree).map((m) => m.moment)),
+    [tree],
+  )
+  const placeIds = useMemo(
+    () => [
+      ...new Set(
+        allMoments.flatMap((m) => (m.placeId === null ? [] : [m.placeId])),
+      ),
+    ],
+    [allMoments],
+  )
+  const places = useJourneyPlaces(journeyId, placeIds)
+  const placeNames = useMemo(
+    () => new Map([...places].map(([id, place]) => [id, place.name])),
+    [places],
+  )
   const mapModel = useMemo(
     () =>
       tree === null
         ? null
-        : buildMapModel(tree, (entry) => momentTitle(entry, t, locale)),
-    [tree, t, locale],
+        : buildMapModel(tree, (entry) => pinLabel(entry, placeNames, locale)),
+    [tree, placeNames, locale],
+  )
+  const freshBubbles = useMemo(
+    () => (tree === null ? NO_BUBBLES : buildBubbleModel(tree, BASE_URL)),
+    [tree],
+  )
+  // Same covers and positions keep the same object, so markers are not diffed.
+  const bubbles = useStableByKey(
+    freshBubbles,
+    JSON.stringify([[...freshBubbles.moments], freshBubbles.stages]),
+  )
+  const stageMomentIds = useMemo(
+    () =>
+      new Map(
+        bubbles.stages.map((stage) => [
+          stage.id,
+          mapModel?.scopes.get(segmentElementId(stage.id)) ?? [],
+        ]),
+      ),
+    [bubbles, mapModel],
   )
   // Pins keep their identity while their content is equal, so unrelated edits
   // (a resolved place, a star) neither diff the markers nor move the camera.
@@ -867,7 +973,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       (mapModel?.pins ?? [])
         .map(
           (p) =>
-            `${p.id}|${String(p.latitude)}|${String(p.longitude)}|${p.color}|${p.label}`,
+            `${p.id}|${String(p.latitude)}|${String(p.longitude)}|${p.label}`,
         )
         .join('\n'),
     [mapModel],
@@ -896,15 +1002,64 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     [pins],
   )
 
+  // Focus = the day the timeline is on. Navigation (outline, pin, button) sets
+  // it and moves the camera; plain scrolling only moves the focus and offers
+  // "zoom to day" instead of moving the camera.
+  const [focusDayId, setFocusDayId] = useState<string | null>(null)
+  const [fittedDayId, setFittedDayId] = useState<string | null>(null)
+  const navigating = useRef(false)
+  const mapModelRef = useRef(mapModel)
+  useEffect(() => {
+    mapModelRef.current = mapModel
+  })
+  const onActiveChange = useCallback((elementId: string | null) => {
+    if (navigating.current || elementId === null) return
+    const day = mapModelRef.current?.dayOfElement.get(elementId)
+    if (day !== undefined) setFocusDayId(day)
+  }, [])
+  const focusIds =
+    focusDayId === null
+      ? null
+      : (mapModel?.days.get(focusDayId)?.momentIds ?? null)
+  const focus = useStableByKey(
+    computeFocus(pins, focusIds),
+    `${pinsKey}#${focusIds?.join(',') ?? '-'}`,
+  )
+  const focusDay = focusDayId === null ? null : mapModel?.days.get(focusDayId)
+  const mapCaption = useMemo(() => {
+    if (focusDay === undefined || focusDay === null) return null
+    if (focus.numbers.size === 0) return null
+    const places = t('workspace.mapPlaces', { count: focus.numbers.size })
+    const date = formatDayCaption(focusDay.key, locale)
+    return date === null ? places : `${date} · ${places}`
+  }, [focus, focusDay, locale, t])
+  /** Moves focus and camera to a day because the user navigated there. */
+  const fitDay = useCallback(
+    (dayId: string) => {
+      setFocusDayId(dayId)
+      setFittedDayId(dayId)
+      requestView(mapModel?.days.get(dayId)?.momentIds ?? null)
+    },
+    [mapModel, requestView],
+  )
+  const zoomToDay = useCallback(() => {
+    if (focusDayId !== null) fitDay(focusDayId)
+  }, [fitDay, focusDayId])
+
   const select = useCallback(
     (id: string) => {
       setSelectedId(id)
       requestView([id])
+      const day = mapModel?.dayOfMoment.get(id)
+      if (day !== undefined) {
+        setFocusDayId(day)
+        setFittedDayId(day)
+      }
       document
         .getElementById(momentElementId(id))
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     },
-    [requestView],
+    [mapModel, requestView],
   )
 
   // Moments forced to render for a navigation, and a counter that bumps when
@@ -929,9 +1084,21 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
   )
 
   const stopAnchor = useRef<(() => void) | null>(null)
+  const releaseNav = useRef<() => void>(() => undefined)
   const scrollToElement = useCallback(
     (elementId: string, block: ScrollLogicalPosition) => {
       stopAnchor.current?.()
+      // While the page scrolls to the target, passing days must not steal focus.
+      releaseNav.current()
+      navigating.current = true
+      const release = () => {
+        navigating.current = false
+        for (const name of NAV_RELEASE_EVENTS)
+          window.removeEventListener(name, release)
+      }
+      releaseNav.current = release
+      for (const name of NAV_RELEASE_EVENTS)
+        window.addEventListener(name, release, { passive: true })
       window.setTimeout(() => {
         // Smooth scroll, then keep the target anchored while lazy blocks above
         // it render and change height; user input cancels the anchoring.
@@ -939,6 +1106,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           () => document.getElementById(elementId),
           block,
           () => {
+            release()
             setSettleTick((n) => n + 1)
             setForced(new Set())
           },
@@ -963,23 +1131,50 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       openSegments(target.expand)
       if (target.momentId !== undefined) setSelectedId(target.momentId)
       const scope = mapModel?.scopes.get(target.elementId) ?? null
-      requestView(scope)
+      const day = mapModel?.dayOfElement.get(target.elementId)
+      if (day === undefined) requestView(scope)
+      else if (target.momentId !== undefined && day === focusDayId) {
+        // Same day: just show the moment, keep the day's focus.
+        requestView(scope)
+        setFittedDayId(day)
+      } else fitDay(day)
       forceAround(target.momentId ?? scope?.[0])
       scrollToElement(target.elementId, 'start')
     },
-    [forceAround, mapModel, openSegments, requestView, scrollToElement],
+    [
+      fitDay,
+      focusDayId,
+      forceAround,
+      mapModel,
+      openSegments,
+      requestView,
+      scrollToElement,
+    ],
   )
 
-  // A pin: open its sections, highlight and scroll to the moment (the map
-  // stays where the user put it).
+  // A pin or dot: open its sections, highlight and scroll to the moment. The
+  // camera only moves when the click moves the focus to another day.
   const selectFromMap = useCallback(
     (id: string) => {
       openSegments(mapModel?.expandFor.get(id) ?? [])
       setSelectedId(id)
+      const day = mapModel?.dayOfMoment.get(id)
+      if (day !== undefined && day !== focusDayId) fitDay(day)
       forceAround(id)
       scrollToElement(momentElementId(id), 'center')
     },
-    [forceAround, mapModel, openSegments, scrollToElement],
+    [fitDay, focusDayId, forceAround, mapModel, openSegments, scrollToElement],
+  )
+
+  // A stage bubble acts like a click on the stage in the outline.
+  const selectStageFromMap = useCallback(
+    (segmentId: string) => {
+      goTo({
+        elementId: segmentElementId(segmentId),
+        expand: [segmentId],
+      })
+    },
+    [goTo],
   )
 
   const [viewer, setViewer] = useState<{
@@ -999,23 +1194,6 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     [tree],
   )
   const tags = useJourneyMomentTags(journeyId, momentIds)
-  const allMoments = useMemo(
-    () => (tree === null ? [] : collectMoments(tree).map((m) => m.moment)),
-    [tree],
-  )
-  const placeIds = useMemo(
-    () => [
-      ...new Set(
-        allMoments.flatMap((m) => (m.placeId === null ? [] : [m.placeId])),
-      ),
-    ],
-    [allMoments],
-  )
-  const places = useJourneyPlaces(journeyId, placeIds)
-  const placeNames = useMemo(
-    () => new Map([...places].map(([id, place]) => [id, place.name])),
-    [places],
-  )
   // Read-only members must never call resolve-place (it writes place rows).
   const { canEdit } = useCanEditJourney(journeyId)
   const placeProgress = useResolveMissingPlaces(
@@ -1030,6 +1208,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
         : {
             collapsed,
             edits,
+            firstDay: firstDayKey(collectMoments(tree)),
             forced,
             hover,
             settleTick,
@@ -1116,6 +1295,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
     const outline = (
       <WorkspaceOutline
         observeKey={collapsed}
+        onActiveChange={onActiveChange}
         placeNames={placeNames}
         tree={ready}
         onNavigate={goTo}
@@ -1171,7 +1351,6 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
                 editing={editing}
                 locale={locale}
                 moments={ready.looseMoments}
-                rail={false}
                 scopeId={LOOSE_SCOPE}
                 selectedId={selectedId}
                 onSelect={select}
@@ -1199,14 +1378,26 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
           </h2>
           {pins.length > 0 ? (
             <WorkspaceMap
+              bubbles={bubbles}
+              caption={mapCaption}
+              focus={focus}
               hover={hover}
+              showZoomDay={
+                focusDayId !== null &&
+                focusDayId !== fittedDayId &&
+                focus.numbers.size > 0
+              }
+              onZoomDay={zoomToDay}
               pins={pins}
               request={mapRequest}
               selectedId={selectedId}
               onReset={() => {
+                setFittedDayId(null)
                 requestView(null)
               }}
+              stageMomentIds={stageMomentIds}
               onSelect={selectFromMap}
+              onSelectStage={selectStageFromMap}
             />
           ) : (
             <p className="rounded-lg border border-border p-4 text-sm text-muted">

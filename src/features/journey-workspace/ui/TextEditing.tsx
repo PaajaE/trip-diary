@@ -85,9 +85,12 @@ export function SegmentTextEditor({
 
 export function MomentTextEditor({
   edits,
+  className = '',
   moment,
   name,
 }: {
+  /** Extra classes for the trigger button (e.g. hover-only reveal). */
+  className?: string
   edits: WorkspaceEdits
   moment: Moment
   /** Display name (the title or the untitled fallback). */
@@ -99,7 +102,7 @@ export function MomentTextEditor({
     <>
       <button
         aria-label={t('workspace.editTextFor', { name })}
-        className={BUTTON}
+        className={`${BUTTON} ${className}`}
         type="button"
         onClick={() => {
           setOpen(true)

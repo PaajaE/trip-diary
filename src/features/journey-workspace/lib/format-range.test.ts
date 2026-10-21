@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   formatCompactRange,
+  formatDayHeading,
   formatDuration,
   formatInstantTime,
   formatRange,
+  formatSpan,
 } from '@/features/journey-workspace/lib/format-range'
 
 // Winter instant: Prague is UTC+1; Asia/Tokyo is UTC+9 with no DST at all.
@@ -89,5 +91,33 @@ describe('format-range', () => {
       expect(text).not.toContain('UTC')
       expect(text).toContain('10:30')
     })
+  })
+})
+
+describe('formatDayHeading', () => {
+  it('writes the long weekday and date in the capture zone', () => {
+    const at = '2026-06-03T12:00:00+00:00'
+    expect(formatDayHeading(at, 'America/Edmonton', 'cs')).toBe(
+      'Středa 3. června',
+    )
+    expect(formatDayHeading(at, 'America/Edmonton', 'en')).toBe(
+      'Wednesday 3 June',
+    )
+    // 03:00 UTC is still the 2nd in Edmonton.
+    expect(
+      formatDayHeading('2026-06-03T03:00:00+00:00', 'America/Edmonton', 'en'),
+    ).toBe('Tuesday 2 June')
+  })
+})
+
+describe('formatSpan', () => {
+  const at = '2026-06-03T10:00:00+00:00'
+  it('formats minutes and hours, empty below a minute', () => {
+    expect(formatSpan(at, '2026-06-03T10:02:00+00:00')).toBe('2 min')
+    expect(formatSpan(at, '2026-06-03T11:15:00+00:00')).toBe('1 h 15 min')
+    expect(formatSpan(at, '2026-06-03T12:00:00+00:00')).toBe('2 h')
+    expect(formatSpan(at, '2026-06-03T10:00:20+00:00')).toBe('')
+    expect(formatSpan(at, at)).toBe('')
+    expect(formatSpan(at, 'garbage')).toBe('')
   })
 })

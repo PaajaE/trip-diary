@@ -2,21 +2,22 @@ import { describe, expect, it } from 'vitest'
 import { dayElementId } from '@/features/journey-workspace/model/workspace-days'
 import {
   boundsOf,
+  buildBubbleModel,
   buildMapModel,
-  buildRoutes,
+  computeFocus,
   computeView,
   createHoverStore,
   estimateMomentHeight,
-  NEUTRAL_COLOR,
-  STAGE_PALETTE,
-  stageColor,
+  formatDayCaption,
+  meanPosition,
+  placeBubbles,
+  viewportCandidates,
   type MapPin,
 } from '@/features/journey-workspace/model/workspace-map'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
-import { mom, seg, uuid } from '@/features/journey-workspace/test-fixtures'
+import { med, mom, seg, uuid } from '@/features/journey-workspace/test-fixtures'
 
-const pin = (id: string, lng: number, lat: number, color = 'a'): MapPin => ({
-  color,
+const pin = (id: string, lng: number, lat: number): MapPin => ({
   id,
   label: id,
   latitude: lat,
@@ -52,41 +53,33 @@ describe('boundsOf / computeView', () => {
   })
 })
 
-describe('buildRoutes', () => {
-  it('chains runs of one colour and links runs together', () => {
-    const lines = buildRoutes([
-      pin('a', 0, 0, 'red'),
-      pin('b', 1, 1, 'red'),
-      pin('c', 2, 2, 'blue'),
-      pin('d', 3, 3, 'blue'),
+describe('computeFocus', () => {
+  const pins = [pin('a', 0, 0), pin('b', 1, 1), pin('c', 2, 2), pin('d', 3, 3)]
+  it('numbers and connects only the pins of the day, in time order', () => {
+    const focus = computeFocus(pins, ['d', 'b', 'zzz'])
+    expect([...focus.numbers]).toEqual([
+      ['b', 1],
+      ['d', 2],
     ])
-    expect(lines).toEqual([
-      {
-        color: 'red',
-        coordinates: [
-          [0, 0],
-          [1, 1],
-        ],
-      },
-      {
-        color: 'blue',
-        coordinates: [
-          [1, 1],
-          [2, 2],
-          [3, 3],
-        ],
-      },
+    expect(focus.line).toEqual([
+      [1, 1],
+      [3, 3],
     ])
   })
-  it('has no line for fewer than two pins', () => {
-    expect(buildRoutes([pin('a', 0, 0)])).toEqual([])
+  it('has no line for one point and nothing without a focused day', () => {
+    expect(computeFocus(pins, ['c']).line).toBeNull()
+    expect(computeFocus(pins, ['c']).numbers.get('c')).toBe(1)
+    const none = computeFocus(pins, null)
+    expect(none.line).toBeNull()
+    expect(none.numbers.size).toBe(0)
   })
 })
 
-describe('stageColor', () => {
-  it('is stable and wraps around the palette', () => {
-    expect(stageColor(0)).toBe(STAGE_PALETTE[0])
-    expect(stageColor(STAGE_PALETTE.length)).toBe(STAGE_PALETTE[0])
+describe('formatDayCaption', () => {
+  it('formats weekday, day and month per language', () => {
+    expect(formatDayCaption('2026-06-03', 'cs')).toBe('St 3. 6.')
+    expect(formatDayCaption('2026-06-03', 'en')).toBe('Wed 3 Jun')
+    expect(formatDayCaption('unknown', 'en')).toBeNull()
   })
 })
 
@@ -107,19 +100,25 @@ describe('buildMapModel', () => {
   const tree = buildWorkspaceTree([stage1, trip, stage2], moments, [])
   const model = buildMapModel(tree, (entry) => entry.moment.id)
 
-  it('keeps time order, colours by stage, neutral for loose moments', () => {
+  it('keeps time order and drops moments without coordinates', () => {
     expect(model.pins.map((p) => p.id)).toEqual([
       uuid(10),
       uuid(11),
       uuid(12),
       uuid(14),
     ])
-    expect(model.pins.map((p) => p.color)).toEqual([
-      stageColor(0),
-      stageColor(0),
-      stageColor(1),
-      NEUTRAL_COLOR,
-    ])
+  })
+  it('maps moments, days and stages to their day', () => {
+    const day = dayElementId(stage2.id, '2026-03-02')
+    expect(model.dayOfMoment.get(uuid(12))).toBe(day)
+    expect(model.dayOfElement.get(`ws-moment-${uuid(12)}`)).toBe(day)
+    expect(model.dayOfElement.get(`ws-segment-${stage2.id}`)).toBe(
+      dayElementId(stage2.id, '2026-03-02'),
+    )
+    expect(model.days.get(day)).toEqual({
+      key: '2026-03-02',
+      momentIds: [uuid(12)],
+    })
   })
   it('indexes scopes: segment (with nested), day and moment', () => {
     expect(model.scopes.get(`ws-segment-${stage1.id}`)).toEqual([
@@ -158,5 +157,91 @@ describe('estimateMomentHeight / hover store', () => {
     store.set('b')
     expect(seen).toEqual(['a', null])
     expect(store.get()).toBe('b')
+  })
+})
+
+describe('bubbles', () => {
+  const variant = (id: string, kind: 'thumb' | 'large') => ({
+    byteSize: 1,
+    createdAt: '2026-01-01T00:00:00+00:00',
+    height: 10,
+    kind,
+    mediaId: id,
+    mimeType: 'image/webp' as const,
+    storageKey: `k/${kind}.webp`,
+    width: 10,
+  })
+
+  it('places a stage bubble at the mean of its moments with coordinates', () => {
+    const cover = med(30, {
+      momentId: uuid(10),
+      variants: [variant(uuid(30), 'large'), variant(uuid(30), 'thumb')],
+    })
+    const tree = buildWorkspaceTree(
+      [seg(1, { coverMediaId: cover.id, title: 'Alps' }), seg(2)],
+      [
+        mom(10, { latitude: 10, longitude: 20 }),
+        mom(11, { latitude: 20, longitude: 40 }),
+        mom(12, { latitude: null, longitude: null }),
+      ],
+      [cover],
+    )
+    const model = buildBubbleModel(tree, 'https://m.test')
+    expect(model.stages).toEqual([
+      {
+        id: uuid(1),
+        latitude: 15,
+        longitude: 30,
+        title: 'Alps',
+        url: 'https://m.test/k/thumb.webp',
+      },
+    ])
+    expect(model.moments.get(uuid(10))?.url).toBe('https://m.test/k/thumb.webp')
+    expect(model.moments.has(uuid(11))).toBe(false)
+  })
+
+  it('meanPosition is null without coordinates', () => {
+    expect(meanPosition([])).toBeNull()
+  })
+
+  it('selects pins in the viewport with a thumbnail, minus skipped', () => {
+    const bubbles = new Map(
+      ['a', 'b', 'c', 'd'].map((id) => [
+        id,
+        { photoCount: 1, starred: false, url: id },
+      ]),
+    )
+    const pins = [
+      pin('a', 1, 1),
+      pin('b', 50, 1),
+      pin('c', 2, 2),
+      pin('x', 1, 1),
+    ]
+    const bounds = { east: 5, north: 5, south: 0, west: 0 }
+    expect(
+      viewportCandidates(pins, bounds, new Map([['c', 1]]), bubbles).map(
+        (p) => p.id,
+      ),
+    ).toEqual(['a'])
+  })
+
+  it('places by priority and drops bubbles near placed ones', () => {
+    const c = (id: string, x: number, photoCount: number, starred = false) => ({
+      id,
+      photoCount,
+      starred,
+      x,
+      y: 0,
+    })
+    expect(
+      placeBubbles(
+        [{ x: 200, y: 0 }],
+        [c('a', 30, 1), c('b', 20, 5), c('c', 40, 1, true), c('d', 190, 9)],
+      ),
+    ).toEqual(['c'])
+    // Without the starred one the busier of two neighbours wins.
+    expect(
+      placeBubbles([], [c('a', 0, 1), c('b', 20, 5), c('e', 100, 1)]),
+    ).toEqual(['b', 'e'])
   })
 })

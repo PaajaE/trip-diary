@@ -99,3 +99,50 @@ export function momentOutlineLabel(
 /** DOM id of a day heading inside a segment (or the loose-moments group). */
 export const dayElementId = (scopeId: string, dayKey: string) =>
   `ws-day-${scopeId}-${dayKey}`
+
+/**
+ * Distinct place names of a day, most frequent first (ties: first seen),
+ * deduplicated case-insensitively; names that are empty are skipped.
+ */
+export function dayPlaceNames(
+  day: MomentDay,
+  nameOf: (placeId: string) => string | undefined,
+  max: number,
+): string[] {
+  const seen = new Map<string, { count: number; name: string; order: number }>()
+  for (const entry of day.moments) {
+    const id = entry.moment.placeId
+    if (id === null) continue
+    const name = nameOf(id)?.trim() ?? ''
+    if (name === '') continue
+    const key = name.toLocaleLowerCase()
+    const found = seen.get(key)
+    if (found === undefined) seen.set(key, { count: 1, name, order: seen.size })
+    else found.count += 1
+  }
+  return [...seen.values()]
+    .sort((a, b) => b.count - a.count || a.order - b.order)
+    .slice(0, max)
+    .map((place) => place.name)
+}
+
+/** Earliest local day key among moments (the journey's "Den 1"), or null. */
+export function firstDayKey(
+  entries: readonly WorkspaceMoment[],
+): string | null {
+  let first: string | null = null
+  for (const entry of entries) {
+    const key = localDayKey(entry.moment.startsAt, entry.tz)
+    if (key !== null && (first === null || key < first)) first = key
+  }
+  return first
+}
+
+/** 1-based day number of `dayKey` counted from `firstKey`; null if unknown. */
+export function dayNumber(firstKey: string | null, key: string): number | null {
+  if (firstKey === null || key === UNKNOWN_DAY) return null
+  const diff =
+    Date.parse(`${key}T00:00:00Z`) - Date.parse(`${firstKey}T00:00:00Z`)
+  if (Number.isNaN(diff)) return null
+  return Math.round(diff / 86_400_000) + 1
+}

@@ -140,11 +140,55 @@ describe('JourneyWorkspace', () => {
     expect(screen.getByText('Segment 1')).toBeTruthy()
     expect(screen.getByText('Segment 2')).toBeTruthy()
     // 10:00 UTC rendered in Europe/Prague (UTC+1 in January).
-    expect(screen.getByText(/Moment at 11:00/)).toBeTruthy()
+    expect(screen.getByText(/^Moment 11:00/)).toBeTruthy()
     expect(screen.getAllByText(/1 photo/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/1 video/).length).toBeGreaterThan(0)
     expect(screen.getByText('1:05')).toBeTruthy()
     expect(screen.getByTestId('unassigned-group')).toBeTruthy()
+  })
+
+  it('shows a calm card: day heading with day number, rail time and duration, no "Moment at"', () => {
+    readyWith([
+      mom(10, { latitude: 46.5, longitude: 8.1 }),
+      mom(11, {
+        endsAt: '2026-01-03T09:15:00+00:00',
+        startsAt: '2026-01-03T08:00:00+00:00',
+      }),
+    ])
+    render(<JourneyWorkspace journeyId="j" />)
+    expect(
+      screen.getByRole('heading', { name: /Friday 2 January/ }),
+    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Day 1/ })).toBeTruthy()
+    expect(
+      screen.getByRole('heading', { name: /Saturday 3 January/ }),
+    ).toBeTruthy()
+    expect(screen.getByRole('heading', { name: /Day 2/ })).toBeTruthy()
+    const rails = screen.getAllByTestId('moment-rail')
+    expect(rails[0]?.textContent).toContain('11:00')
+    expect(rails[0]?.textContent).toContain('1 h')
+    expect(rails[1]?.textContent).toContain('1 h 15 min')
+    // The card shows no date, and the old "Moment at 11:00" title is gone.
+    expect(screen.queryByText(/Moment at/)).toBeNull()
+    expect(screen.queryByText(/Moment v/)).toBeNull()
+  })
+
+  it('keeps edit and more actions in the DOM, reachable by keyboard focus', () => {
+    readyWith([mom(10, { latitude: 46.5, longitude: 8.1 })])
+    render(<JourneyWorkspace journeyId="j" />)
+    const edit = screen.getByRole('button', {
+      name: /^Edit text: Moment 11:00/,
+    })
+    // Hidden until hover, but revealed by focus-within or focus-visible.
+    expect(edit.className).toContain('opacity-0')
+    expect(edit.className).toContain('focus-visible:opacity-100')
+    expect(edit.className).toContain('group-focus-within/moment:opacity-100')
+    expect(edit.className).toContain('[@media(hover:none)]:opacity-100')
+    edit.focus()
+    expect(document.activeElement).toBe(edit)
+    expect(
+      screen.getByRole('button', { name: /^More actions: Moment 11:00/ }),
+    ).toBeTruthy()
   })
 
   it('syncs selection between list and map', () => {
@@ -152,7 +196,7 @@ describe('JourneyWorkspace', () => {
     render(<JourneyWorkspace journeyId="j" />)
     const map = screen.getByTestId('map')
     expect(map.dataset.selected).toBe('')
-    fireEvent.click(screen.getByRole('button', { name: /^Moment at 11:00/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Moment 11:00/ }))
     expect(map.dataset.selected).toMatch(/10$/)
     fireEvent.click(screen.getByRole('button', { name: 'pin-10' }))
     expect(map.dataset.selected).toMatch(/10$/)
@@ -191,7 +235,7 @@ describe('JourneyWorkspace', () => {
       expect(
         screen.getByRole('button', { name: 'Expand: Segment 1' }),
       ).toBeTruthy()
-      fireEvent.click(within(outline).getByRole('button', { name: /^11:00/ }))
+      fireEvent.click(within(outline).getByRole('button', { name: /^Fri/ }))
       expect(
         screen.getByRole('button', { name: 'Collapse: Segment 1' }),
       ).toBeTruthy()

@@ -201,8 +201,8 @@ describe('pickNearbyPlace', () => {
         categories: ['populated_place.village'],
         distance: 8500,
         name: 'V',
-      }),
-    ).toBeNull()
+      })?.name,
+    ).toBe('u V') // beyond the village radius: "near" tier
     expect(
       pick({ categories: ['populated_place.town'], distance: 14000, name: 'T' })
         ?.name,
@@ -255,11 +255,14 @@ describe('pickNearbyPlace', () => {
     ).toBe('Lookout')
   })
 
-  it('prefers name:cs, then name, then name:en', () => {
+  it('prefers name:cs, then name:en, then name', () => {
     const base = { categories: ['populated_place.city'], distance: 5 }
     expect(
       pick({ ...base, name: 'Prague', raw: { 'name:cs': 'Praha' } })?.name,
     ).toBe('Praha')
+    expect(
+      pick({ ...base, name: 'Praga', raw: { 'name:en': 'Prague' } })?.name,
+    ).toBe('Prague')
     expect(pick({ ...base, name: 'Prague' })?.name).toBe('Prague')
     expect(pick({ ...base, raw: { name: 'Praha OSM' } })?.name).toBe(
       'Praha OSM',
@@ -305,11 +308,92 @@ describe('pickNearbyPlace', () => {
   })
 })
 
+describe('pickNearbyPlace v3', () => {
+  it('skips CJK names in favour of a Latin alternative', () => {
+    const base = { categories: ['natural.water'], distance: 100 }
+    expect(
+      pick({
+        ...base,
+        name: 'Herbert Lake观点',
+        raw: { 'name:en': 'Herbert Lake' },
+      })?.name,
+    ).toBe('Herbert Lake')
+    expect(pick({ ...base, name: '翡翠湖' })).toBeNull()
+    expect(pick({ ...base, name: 'Озеро' })).toBeNull()
+    expect(pick({ ...base, name: '  Lake   Louise ' })?.name).toBe(
+      'Lake Louise',
+    )
+  })
+
+  it('ignores plain attractions, keeps viewpoints, waterfalls, wikidata', () => {
+    const attr = {
+      categories: ['tourism', 'tourism.attraction'],
+      distance: 300,
+    }
+    expect(pick({ ...attr, name: 'Red Chairs' })).toBeNull()
+    expect(
+      pick({
+        ...attr,
+        name: 'Fossil Station 2',
+        raw: { tourism: 'attraction' },
+      }),
+    ).toBeNull()
+    expect(
+      pick({ ...attr, name: 'Big Rock', raw: { wikidata: 'Q1' } })?.name,
+    ).toBe('Big Rock')
+    expect(
+      pick({ ...attr, name: 'Falls', raw: { waterway: 'waterfall' } })?.name,
+    ).toBe('Falls')
+    expect(
+      pick({
+        categories: ['tourism.attraction.artwork'],
+        distance: 100,
+        name: 'Statue',
+        raw: { wikidata: 'Q2' },
+      }),
+    ).toBeNull()
+  })
+
+  it('uses a prominent peak/lake within 8 km but not a plain one', () => {
+    const peak = { categories: ['natural.mountain.peak'], distance: 6000 }
+    expect(pick({ ...peak, name: 'Mount Field' })).toBeNull()
+    expect(
+      pick({ ...peak, name: 'Mount Field', raw: { wikidata: 'Q3' } })?.name,
+    ).toBe('Mount Field')
+    expect(
+      pick({ ...peak, distance: 8500, name: 'Far', raw: { wikidata: 'Q3' } }),
+    ).toBeNull()
+  })
+
+  it('falls back to "u <settlement>" within 40 km, after everything else', () => {
+    const far = {
+      categories: ['populated_place.town'],
+      distance: 30_000,
+      name: 'Banff',
+    }
+    const place = pick(far)
+    expect(place).toMatchObject({
+      name: 'u Banff',
+      sourceRef: 'geoapify:n1000:near',
+    })
+    expect(pick({ ...far, distance: 41_000 })).toBeNull()
+    expect(pick({ ...far, categories: ['populated_place.hamlet'] })).toBeNull()
+    expect(
+      pick(far, {
+        categories: ['natural.mountain.peak'],
+        distance: 6000,
+        name: 'Peak',
+        raw: { wikidata: 'Q4' },
+      })?.name,
+    ).toBe('Peak')
+  })
+})
+
 describe('geoapify urls', () => {
-  it('requests settlements within 15 km, biased to the point', () => {
+  it('requests settlements within 40 km, biased to the point', () => {
     const url = new URL(buildSettlementsUrl(here, 'KEY'))
     expect(url.searchParams.get('filter')).toBe(
-      'circle:20.000000,10.000000,15000',
+      'circle:20.000000,10.000000,40000',
     )
     expect(url.searchParams.get('bias')).toBe('proximity:20.000000,10.000000')
     expect(url.searchParams.get('categories')).toContain(
@@ -319,10 +403,10 @@ describe('geoapify urls', () => {
     expect(url.searchParams.get('apiKey')).toBe('KEY')
   })
 
-  it('requests nature and attractions within 2.5 km', () => {
+  it('requests nature and attractions within 8 km', () => {
     const url = new URL(buildNearbyUrl(here, 'KEY'))
     expect(url.searchParams.get('filter')).toBe(
-      'circle:20.000000,10.000000,2500',
+      'circle:20.000000,10.000000,8000',
     )
     expect(url.searchParams.get('categories')).toContain('natural.water')
   })
