@@ -1,7 +1,9 @@
-// Resolves a place name for a position (Mapy.com reverse geocoding, cached).
+// Resolves a place name for a position (cached).
 //
-// - API key                   -> MAPY_API_KEY (secret; never logged, the request
-//                                URL carries it)
+// Order: Geoapify nearby places (settlement, then peak/lake/glacier, then
+// attraction) -> Mapy.com administrative reverse geocoding -> null.
+// - API keys                  -> GEOAPIFY_API_KEY (optional), MAPY_API_KEY
+//                                (secrets; never logged, request URLs carry them)
 // - results cached            -> public.place_lookups + places.source_ref
 // - end-user triggered only   -> requires a signed-in user
 // Attribution "© Seznam.cz a.s." / Mapy.com is shown wherever names appear.
@@ -13,6 +15,13 @@ import {
 } from 'npm:@supabase/supabase-js@2.49.1'
 
 import { handleOptions, jsonResponse } from '../_shared/http.ts'
+import {
+  buildNearbyUrl,
+  buildSettlementsUrl,
+  featuresOf,
+  GEOAPIFY_GEOCODE_SOURCE,
+  pickNearbyPlace,
+} from '../_shared/places/geoapify.ts'
 import {
   buildReverseUrl,
   lookupGridKey,
@@ -81,9 +90,59 @@ async function reverse(query: ReverseQuery, apiKey: string): Promise<unknown> {
   return await response.json()
 }
 
+const GEOAPIFY_TIMEOUT_MS = 6000
+let warnedNoGeoapifyKey = false
+
+async function geoapifyFetch(url: string): Promise<unknown> {
+  // Errors can embed the request URL (and so the key): rethrow bare.
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(GEOAPIFY_TIMEOUT_MS),
+  }).catch(() => {
+    throw new Error('geoapify network error')
+  })
+  if (!response.ok) {
+    throw new Error(`geoapify ${String(response.status)}`)
+  }
+  return await response.json()
+}
+
+/** Settlements first; nature/attractions only when no settlement is near. */
+async function geoapifyPlace(
+  query: ReverseQuery,
+  apiKey: string | undefined,
+): Promise<PlaceCandidate | null> {
+  if (apiKey === undefined || apiKey === '') {
+    if (!warnedNoGeoapifyKey) {
+      warnedNoGeoapifyKey = true
+      console.warn('resolve-place: GEOAPIFY_API_KEY is not configured')
+    }
+    return null
+  }
+  try {
+    const settlement = pickNearbyPlace(
+      featuresOf(await geoapifyFetch(buildSettlementsUrl(query, apiKey))),
+      query,
+    )
+    if (settlement !== null) {
+      return settlement
+    }
+    return pickNearbyPlace(
+      featuresOf(await geoapifyFetch(buildNearbyUrl(query, apiKey))),
+      query,
+    )
+  } catch (error) {
+    console.warn(
+      'resolve-place: geoapify failed, falling back to mapy',
+      error instanceof Error ? error.message : 'unknown',
+    )
+    return null
+  }
+}
+
 async function storePlace(
   service: SupabaseClient,
   candidate: PlaceCandidate,
+  geocodeSource: string,
 ): Promise<PlaceRow> {
   const existing = await service
     .from('places')
@@ -97,7 +156,7 @@ async function storePlace(
     .from('places')
     .insert({
       country_code: candidate.countryCode,
-      geocode_source: PLACE_GEOCODE_SOURCE,
+      geocode_source: geocodeSource,
       latitude: candidate.latitude,
       longitude: candidate.longitude,
       name: candidate.name.slice(0, 200),
@@ -178,10 +237,15 @@ Deno.serve(async (request) => {
       })
     }
 
-    const candidate = placeFromMapyResult(await reverse(query, mapyKey), query)
+    let candidate = await geoapifyPlace(query, Deno.env.get('GEOAPIFY_API_KEY'))
+    let source = GEOAPIFY_GEOCODE_SOURCE
+    if (candidate === null) {
+      candidate = placeFromMapyResult(await reverse(query, mapyKey), query)
+      source = PLACE_GEOCODE_SOURCE
+    }
 
     const place =
-      candidate === null ? null : await storePlace(service, candidate)
+      candidate === null ? null : await storePlace(service, candidate, source)
     await service
       .from('place_lookups')
       .upsert(
