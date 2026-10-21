@@ -64,7 +64,8 @@ export function lookupGridKey(query: ReverseQuery): string {
 
 // Administrative placeholders that are not places people name.
 const ADMIN_AREA_NAME =
-  /^(improvement district|area [a-z]\b|municipal district|county of|unorganized|special area|electoral area)|\bno\.\s*\d/i
+  /^(improvement district|area [a-z]\b|municipal district|county of|unorganized|special area|electoral area|municipality of|regional district|specialized municipality)|\b(county|district|electoral|improvement|municipality)\b|\barea\s+[a-z0-9]\b|administrativní\s+členění|\bno\.\s*\d/i
+const MUNICIPALITY_PREFIX = /^municipality of\s+/i
 const GENERIC_PREFIX = /^(provincie|teritorium|kraj|stát|okres)\s+/i
 
 function slug(value: string): string {
@@ -77,8 +78,24 @@ function slug(value: string): string {
 }
 
 function cleanName(value: string | undefined): string | null {
-  const name = typeof value === 'string' ? value.trim() : ''
+  const name =
+    typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
   return name === '' ? null : name
+}
+
+/** Cleaned name that is neither administrative nor non-Latin; null otherwise. */
+function usableName(value: string | undefined): string | null {
+  const name = cleanName(value)
+  const stripped =
+    name === null ? null : cleanName(name.replace(MUNICIPALITY_PREFIX, ''))
+  if (
+    stripped === null ||
+    ADMIN_AREA_NAME.test(stripped) ||
+    /\p{L}/u.test(stripped.replace(/[\p{Script=Latin}\P{L}]/gu, ''))
+  ) {
+    return null
+  }
+  return stripped
 }
 
 function stripGeneric(value: string | undefined): string | null {
@@ -122,10 +139,11 @@ export function placeFromMapyResult(
     return null
   }
 
-  const municipality = cleanName(
+  const municipality = usableName(
     entryOf(structure, 'regional.municipality')?.name,
   )
-  const region = stripGeneric(entryOf(structure, 'regional.region')?.name)
+  const regionName = stripGeneric(entryOf(structure, 'regional.region')?.name)
+  const region = usableName(regionName ?? undefined)
   const country = entryOf(structure, 'regional.country')
   const iso = country?.isoCode
   const countryCode =
@@ -135,14 +153,14 @@ export function placeFromMapyResult(
 
   let name: string | null
   let kind: string
-  if (municipality !== null && !ADMIN_AREA_NAME.test(municipality)) {
+  if (municipality !== null) {
     name = municipality
     kind = 'municipality'
   } else if (region !== null) {
     name = region
     kind = 'region'
   } else {
-    name = cleanName(country?.name)
+    name = usableName(country?.name)
     kind = 'country'
   }
   if (name === null) {

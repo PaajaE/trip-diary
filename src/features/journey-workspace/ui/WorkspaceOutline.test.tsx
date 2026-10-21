@@ -58,11 +58,13 @@ describe('WorkspaceOutline', () => {
     vi.unstubAllGlobals()
   })
 
-  it('renders stages, trips and moments with photo counts', () => {
+  it('renders stages and trips; moments appear when the day opens', () => {
     render(<Host onNavigate={vi.fn()} />)
     expect(screen.getByRole('navigation', { name: 'Outline' })).toBeTruthy()
     expect(screen.getByRole('button', { name: /^Segment 1/ })).toBeTruthy()
     expect(screen.getByRole('button', { name: /^Segment 2/ })).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /Lake walk/ })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /^Fri/ }))
     expect(screen.getByRole('button', { name: /Lake walk/ })).toBeTruthy()
     expect(screen.getAllByText('1 photo').length).toBeGreaterThan(0)
   })
@@ -70,6 +72,7 @@ describe('WorkspaceOutline', () => {
   it('reports the target and the segments to expand on click', () => {
     const onNavigate = vi.fn()
     render(<Host onNavigate={onNavigate} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Fri/ }))
     fireEvent.click(screen.getByRole('button', { name: /Lake walk/ }))
     expect(onNavigate).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -86,6 +89,7 @@ describe('WorkspaceOutline', () => {
 
   it('highlights the moment reported visible by the IntersectionObserver', () => {
     render(<Host onNavigate={vi.fn()} />)
+    fireEvent.click(screen.getByRole('button', { name: /^Fri/ }))
     expect(observed).toContain(`ws-moment-${mom(10).id}`)
     expect(
       screen.getByRole('button', { name: /Lake walk/ }),
@@ -143,13 +147,17 @@ describe('WorkspaceOutline', () => {
       )
     }
 
-    it('shows day rows with date, place and photo count; moments by place', () => {
+    it('shows day rows with date, day number, place and count; moments stay hidden', () => {
       renderIt()
+      const day = screen.getByRole('button', {
+        name: /^Fri.*Jan 2.*Day 1.*Banff/,
+      })
+      expect(day).toBeTruthy()
+      expect(day.textContent).toContain('Banff')
+      expect(screen.queryByRole('button', { name: /^09:23/ })).toBeNull()
+      fireEvent.click(day)
       expect(
-        screen.getByRole('button', { name: /Fri.*Jan 2.*Banff/ }),
-      ).toBeTruthy()
-      expect(
-        screen.getByRole('button', { name: /^09:23.* Banff/ }),
+        screen.getByRole('button', { name: /^Banff · 09:23/ }),
       ).toBeTruthy()
       expect(screen.getByText('Place names © Seznam.cz a.s.')).toBeTruthy()
     })
@@ -161,14 +169,14 @@ describe('WorkspaceOutline', () => {
         screen.getByRole('button', { name: /Expand in outline: Yukon/ }),
       )
       expect(screen.queryByRole('button', { name: /Dawson walk/ })).toBeNull()
-      fireEvent.click(screen.getByRole('button', { name: /Mon.*Feb 2/ }))
+      fireEvent.click(screen.getByRole('button', { name: /^Mon.*Feb 2/ }))
       expect(screen.getByRole('button', { name: /Dawson walk/ })).toBeTruthy()
     })
 
     it('scrolls to the first moment of a day', () => {
       const onNavigate = vi.fn()
       renderIt(onNavigate)
-      fireEvent.click(screen.getByRole('button', { name: /Fri.*Jan 2/ }))
+      fireEvent.click(screen.getByRole('button', { name: /^Fri.*Jan 2/ }))
       expect(onNavigate).toHaveBeenCalledWith(
         expect.objectContaining({
           elementId: expect.stringMatching(/^ws-day-/) as string,
@@ -182,12 +190,91 @@ describe('WorkspaceOutline', () => {
       const input = screen.getByRole('searchbox', { name: 'Filter outline' })
       fireEvent.change(input, { target: { value: 'banff' } })
       expect(
-        screen.getByRole('button', { name: /^09:23.* Banff/ }),
+        screen.getByRole('button', { name: /^Banff · 09:23/ }),
       ).toBeTruthy()
-      expect(screen.queryByRole('button', { name: /Sat/ })).toBeNull()
+      expect(screen.queryByRole('button', { name: /^Sat/ })).toBeNull()
       fireEvent.change(input, { target: { value: 'dawson' } })
       expect(screen.getByRole('button', { name: /Dawson walk/ })).toBeTruthy()
       expect(screen.queryByRole('button', { name: /Banff/ })).toBeNull()
     })
+  })
+})
+
+describe('WorkspaceOutline grouping', () => {
+  beforeEach(async () => {
+    vi.stubGlobal('IntersectionObserver', MockObserver)
+    await i18n.changeLanguage('en')
+  })
+  afterEach(() => {
+    cleanup()
+    vi.unstubAllGlobals()
+  })
+
+  it('groups consecutive moments with the same place and lists unnamed ones by time', () => {
+    const PLACE = uuid(501)
+    const OTHER = uuid(502)
+    const at = (n: number, h: string, over = {}) =>
+      mom(n, {
+        endsAt: `2026-01-02T${h}:30:00+00:00`,
+        startsAt: `2026-01-02T${h}:00:00+00:00`,
+        ...over,
+      })
+    const moments = [
+      at(10, '08', { placeId: PLACE }),
+      at(11, '09', { placeId: PLACE }),
+      at(12, '10', { placeId: PLACE }),
+      at(13, '11', { placeId: OTHER }),
+      at(14, '12'),
+      at(15, '13'),
+    ]
+    render(
+      <WorkspaceOutline
+        observeKey={0}
+        placeNames={
+          new Map([
+            [PLACE, 'Field'],
+            [OTHER, 'field '.trim() === 'field' ? 'Lake' : 'Lake'],
+          ])
+        }
+        tree={buildWorkspaceTree([seg(1)], moments, [])}
+        onNavigate={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /^Fri/ }))
+    // Czech/English zone Europe/Prague: 08:00Z is 09:00 local.
+    expect(
+      screen.getByRole('button', { name: 'Field · 09:00 AM–11:30 AM · 3×' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Lake · 12:00 PM' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '01:00 PM' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: '02:00 PM' })).toBeTruthy()
+  })
+
+  it('dedupes places of a day case-insensitively and shows at most two', () => {
+    const [a, b, c, d] = [uuid(601), uuid(602), uuid(603), uuid(604)]
+    const moments = [
+      mom(10, { placeId: a, startsAt: '2026-01-02T08:00:00+00:00' }),
+      mom(11, { placeId: b, startsAt: '2026-01-02T09:00:00+00:00' }),
+      mom(12, { placeId: c, startsAt: '2026-01-02T10:00:00+00:00' }),
+      mom(13, { placeId: d, startsAt: '2026-01-02T11:00:00+00:00' }),
+    ]
+    render(
+      <WorkspaceOutline
+        observeKey={0}
+        placeNames={
+          new Map([
+            [a, 'Banff'],
+            [b, 'banff'],
+            [c, 'Lake'],
+            [d, 'Peak'],
+          ])
+        }
+        tree={buildWorkspaceTree([seg(1)], moments, [])}
+        onNavigate={vi.fn()}
+      />,
+    )
+    const day = screen.getByRole('button', { name: /^Fri/ })
+    expect(day.textContent).toContain('Banff · Lake')
+    expect(day.textContent).not.toContain('Peak')
   })
 })

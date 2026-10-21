@@ -19,6 +19,11 @@ export const SETTLEMENT_RADIUS_M = {
 } as const
 export const NATURAL_RADIUS_M = 2_500
 export const ATTRACTION_RADIUS_M = 1_500
+/** Prominent (wikidata) peak, glacier or lake. */
+export const PROMINENT_RADIUS_M = 8_000
+/** "u <Settlement>" fallback radius. */
+export const NEAR_SETTLEMENT_RADIUS_M = 40_000
+export const NEAR_SOURCE_SUFFIX = ':near'
 
 /**
  * Request 1: settlements only. Suburbs and neighbourhoods are deliberately
@@ -33,7 +38,7 @@ export const SETTLEMENT_CATEGORIES = [
   'populated_place.hamlet',
 ] as const
 
-/** Request 2 (only when no settlement qualified): nature and attractions. */
+/** Request 2 (only when no settlement qualified), radius 8 km: nature and attractions. */
 export const NEARBY_CATEGORIES = [
   'natural.mountain.peak',
   'natural.mountain.glacier',
@@ -68,7 +73,7 @@ export function buildSettlementsUrl(
 ): string {
   return placesUrl(
     SETTLEMENT_CATEGORIES,
-    SETTLEMENT_RADIUS_M.city,
+    NEAR_SETTLEMENT_RADIUS_M,
     50,
     query,
     apiKey,
@@ -83,8 +88,8 @@ export function buildNearbyUrl(
 ): string {
   return placesUrl(
     NEARBY_CATEGORIES,
-    NATURAL_RADIUS_M,
-    40,
+    PROMINENT_RADIUS_M,
+    60,
     query,
     apiKey,
     language,
@@ -109,15 +114,38 @@ function text(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null
 }
 
-/** name:cs, then the localised name, then the OSM name, then name:en. */
+function clean(value: unknown): string | null {
+  const name = text(value)?.replace(/\s+/g, ' ').trim()
+  return name === undefined || name === '' ? null : name
+}
+
+/** True when the name has a letter outside the Latin script (CJK, Cyrillic, ...). */
+export function hasNonLatinLetters(name: string): boolean {
+  return /[\p{L}]/u.test(name.replace(/[\p{Script=Latin}\P{L}]/gu, ''))
+}
+
+/**
+ * name:cs, then name:en, then the localised/OSM name. Candidates with
+ * non-Latin letters are skipped; null when only such names exist.
+ */
 function featureName(properties: NonNullable<GeoapifyFeature['properties']>) {
   const raw = properties.datasource?.raw ?? {}
-  return (
-    text(raw['name:cs']) ??
-    text(properties.name) ??
-    text(raw['name']) ??
-    text(raw['name:en'])
-  )
+  for (const candidate of [
+    raw['name:cs'],
+    raw['name:en'],
+    properties.name,
+    raw['name'],
+  ]) {
+    const name = clean(candidate)
+    if (name !== null && !hasNonLatinLetters(name)) {
+      return name
+    }
+  }
+  return null
+}
+
+function hasWikidata(properties: NonNullable<GeoapifyFeature['properties']>) {
+  return text(properties.datasource?.raw?.['wikidata']) !== null
 }
 
 function haversineM(
@@ -151,30 +179,55 @@ function settlementRadius(categories: string[]): number | null {
   return null
 }
 
-function naturalOrAttractionRadius(categories: string[]): {
-  radius: number
-  tier: 'natural' | 'attraction'
-} | null {
+function isNearSettlement(categories: string[]): boolean {
+  return ['city', 'town', 'village'].some((kind) =>
+    categories.includes(`populated_place.${kind}`),
+  )
+}
+
+function isNatural(categories: string[]): boolean {
+  return categories.some(
+    (c) =>
+      c === 'natural.mountain.peak' ||
+      c === 'natural.mountain.glacier' ||
+      c === 'natural.water' ||
+      c.startsWith('natural.water.'),
+  )
+}
+
+function isProminentKind(categories: string[]): boolean {
+  return categories.some(
+    (c) =>
+      c === 'natural.mountain.peak' ||
+      c === 'natural.mountain.glacier' ||
+      c === 'natural.water',
+  )
+}
+
+/** Viewpoints, waterfalls and wikidata attractions; never art or memorials. */
+function isWorthyAttraction(
+  categories: string[],
+  properties: NonNullable<GeoapifyFeature['properties']>,
+): boolean {
+  if (!categories.some((c) => c.startsWith('tourism.attraction'))) {
+    return false
+  }
   if (
-    categories.some(
-      (c) =>
-        c === 'natural.mountain.peak' ||
-        c === 'natural.mountain.glacier' ||
-        c === 'natural.water' ||
-        c.startsWith('natural.water.'),
+    categories.some((c) =>
+      /^tourism\.(attraction\.(artwork|memorial)|sights)/.test(c),
     )
   ) {
-    return { radius: NATURAL_RADIUS_M, tier: 'natural' }
+    return false
   }
-  if (
-    categories.some(
-      (c) => c === 'tourism.attraction' || c === 'tourism.attraction.viewpoint',
-    ) &&
-    !categories.some((c) => c.startsWith('tourism.attraction.artwork'))
-  ) {
-    return { radius: ATTRACTION_RADIUS_M, tier: 'attraction' }
+  const raw = properties.datasource?.raw ?? {}
+  if (raw['tourism'] === 'artwork') {
+    return false
   }
-  return null
+  return (
+    categories.includes('tourism.attraction.viewpoint') ||
+    raw['waterway'] === 'waterfall' ||
+    hasWikidata(properties)
+  )
 }
 
 function sourceRefOf(properties: NonNullable<GeoapifyFeature['properties']>) {
@@ -188,14 +241,19 @@ function sourceRefOf(properties: NonNullable<GeoapifyFeature['properties']>) {
   return placeId === null ? null : `geoapify:${placeId}`.slice(0, 200)
 }
 
+type Tier = 'settlement' | 'natural' | 'attraction' | 'prominent' | 'near'
+
 /**
  * Picks the name for a position. Tiers, first non-empty wins:
  *  a. settlement: city/town within 15 km, village 8 km, hamlet 4 km. Within
- *     the tier the lowest distance/radius wins, so a hamlet 900 m away beats
- *     a town 10 km away but a town 3 km away beats a hamlet 1 km away;
+ *     the tier the lowest distance/radius wins;
  *  b. natural feature (peak, glacier, water) within 2.5 km, nearest;
- *  c. tourism attraction / viewpoint (never artwork) within 1.5 km, nearest.
- * Unnamed features are skipped. Returns null when nothing qualifies.
+ *  c. viewpoint, waterfall or wikidata attraction within 1.5 km, nearest
+ *     (artworks, memorials and plain "sights" never);
+ *  d. prominent natural feature (peak, glacier, lake with wikidata) within 8 km;
+ *  e. nearest city/town/village within 40 km, named "u <Settlement>" with a
+ *     sourceRef ending in ":near".
+ * Unnamed and non-Latin-only features are skipped. Null when nothing qualifies.
  */
 export function pickNearbyPlace(
   features: unknown,
@@ -204,9 +262,11 @@ export function pickNearbyPlace(
   if (!Array.isArray(features)) {
     return null
   }
-  const tiers: Record<'settlement' | 'natural' | 'attraction', Scored[]> = {
+  const tiers: Record<Tier, Scored[]> = {
     attraction: [],
     natural: [],
+    near: [],
+    prominent: [],
     settlement: [],
   }
   for (const feature of features as unknown[]) {
@@ -235,30 +295,63 @@ export function pickNearbyPlace(
       typeof properties.distance === 'number'
         ? properties.distance
         : haversineM(query.latitude, query.longitude, lat, lon)
+    const iso = text(properties.country_code)
+    const base = {
+      countryCode:
+        iso !== null && /^[a-z]{2}$/i.test(iso) ? iso.toUpperCase() : null,
+      latitude: lat,
+      longitude: lon,
+      region: text(properties.state)?.slice(0, 200) ?? null,
+    }
+    const add = (
+      tier: Tier,
+      radius: number,
+      label = name,
+      ref = sourceRef,
+    ): void => {
+      tiers[tier].push({
+        candidate: {
+          ...base,
+          name: label.slice(0, 200),
+          sourceRef: ref.slice(0, 200),
+        },
+        distance,
+        score: distance / radius,
+      })
+    }
 
     const settlement = settlementRadius(categories)
-    const other =
-      settlement === null ? naturalOrAttractionRadius(categories) : null
-    const radius = settlement ?? other?.radius ?? null
-    if (radius === null || distance > radius) {
+    if (settlement !== null) {
+      if (distance <= settlement) {
+        add('settlement', settlement)
+      }
+      if (
+        distance <= NEAR_SETTLEMENT_RADIUS_M &&
+        isNearSettlement(categories)
+      ) {
+        add(
+          'near',
+          NEAR_SETTLEMENT_RADIUS_M,
+          `u ${name}`,
+          sourceRef + NEAR_SOURCE_SUFFIX,
+        )
+      }
       continue
     }
-    const iso = text(properties.country_code)
-    tiers[
-      settlement !== null ? 'settlement' : (other?.tier ?? 'attraction')
-    ].push({
-      candidate: {
-        countryCode:
-          iso !== null && /^[a-z]{2}$/i.test(iso) ? iso.toUpperCase() : null,
-        latitude: lat,
-        longitude: lon,
-        name: name.slice(0, 200),
-        region: text(properties.state)?.slice(0, 200) ?? null,
-        sourceRef,
-      },
-      distance,
-      score: distance / radius,
-    })
+    if (isNatural(categories) && distance <= NATURAL_RADIUS_M) {
+      add('natural', NATURAL_RADIUS_M)
+    } else if (
+      isWorthyAttraction(categories, properties) &&
+      distance <= ATTRACTION_RADIUS_M
+    ) {
+      add('attraction', ATTRACTION_RADIUS_M)
+    } else if (
+      isProminentKind(categories) &&
+      hasWikidata(properties) &&
+      distance <= PROMINENT_RADIUS_M
+    ) {
+      add('prominent', PROMINENT_RADIUS_M)
+    }
   }
 
   const byScore = (a: Scored, b: Scored) =>
@@ -268,6 +361,8 @@ export function pickNearbyPlace(
     tiers.settlement.sort(byScore)[0]?.candidate ??
     tiers.natural.sort(byDistance)[0]?.candidate ??
     tiers.attraction.sort(byDistance)[0]?.candidate ??
+    tiers.prominent.sort(byDistance)[0]?.candidate ??
+    tiers.near.sort(byDistance)[0]?.candidate ??
     null
   )
 }

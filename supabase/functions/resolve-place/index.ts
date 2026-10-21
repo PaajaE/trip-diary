@@ -1,7 +1,7 @@
 // Resolves a place name for a position (cached).
 //
-// Order: Geoapify nearby places (settlement, then peak/lake/glacier, then
-// attraction) -> Mapy.com administrative reverse geocoding -> null.
+// Order: Geoapify nearby places (settlement, peak/lake/glacier, worthy
+// attraction, prominent feature, "u <settlement>") -> Mapy.com administrative reverse geocoding -> null.
 // - API keys                  -> GEOAPIFY_API_KEY (optional), MAPY_API_KEY
 //                                (secrets; never logged, request URLs carry them)
 // - results cached            -> public.place_lookups + places.source_ref
@@ -119,17 +119,19 @@ async function geoapifyPlace(
     return null
   }
   try {
-    const settlement = pickNearbyPlace(
-      featuresOf(await geoapifyFetch(buildSettlementsUrl(query, apiKey))),
-      query,
+    // Call 1 (40 km) serves the settlement tier and the "u <Settlement>"
+    // fallback; call 2 (8 km) only when no settlement is close enough.
+    const settlements = featuresOf(
+      await geoapifyFetch(buildSettlementsUrl(query, apiKey)),
     )
-    if (settlement !== null) {
+    const settlement = pickNearbyPlace(settlements, query)
+    if (settlement !== null && !settlement.sourceRef.endsWith(':near')) {
       return settlement
     }
-    return pickNearbyPlace(
-      featuresOf(await geoapifyFetch(buildNearbyUrl(query, apiKey))),
-      query,
+    const nearby = featuresOf(
+      await geoapifyFetch(buildNearbyUrl(query, apiKey)),
     )
+    return pickNearbyPlace([...settlements, ...nearby], query)
   } catch (error) {
     console.warn(
       'resolve-place: geoapify failed, falling back to mapy',

@@ -126,6 +126,32 @@ describe('placeFromMapyResult', () => {
     })
   })
 
+  it('never names a place after administrative units', () => {
+    const named = (municipality: string) => ({
+      items: [
+        {
+          regionalStructure: [
+            { name: municipality, type: 'regional.municipality' },
+            { name: 'provincie Alberta', type: 'regional.region' },
+            country,
+          ],
+        },
+      ],
+    })
+    for (const junk of [
+      'Clearwater County',
+      'Yellowhead County',
+      'administrativní členění Area C (Long Beach)',
+      'Improvement District No. 12',
+      'Electoral Area D',
+    ]) {
+      expect(placeFromMapyResult(named(junk), query)?.name).toBe('Alberta')
+    }
+    expect(
+      placeFromMapyResult(named('Municipality of Jasper'), query)?.name,
+    ).toBe('Jasper')
+  })
+
   it('is defensive about malformed responses', () => {
     expect(placeFromMapyResult(null, query)).toBeNull()
     expect(placeFromMapyResult({}, query)).toBeNull()

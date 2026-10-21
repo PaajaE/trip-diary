@@ -165,3 +165,38 @@ export function formatDayLabel(
     weekday: 'short',
   }).format(new Date(iso))
 }
+
+/** "Středa 3. června" / "Wednesday 3 June" in the capture zone. */
+export function formatDayHeading(
+  iso: string,
+  tz: string | null,
+  locale: string,
+): string {
+  const { zone } = resolveZone(tz)
+  // Plain "en" resolves to US order ("Wednesday, June 3"); use day-first.
+  const intlLocale = locale.startsWith('en') ? 'en-GB' : locale
+  const text = new Intl.DateTimeFormat(intlLocale, {
+    day: 'numeric',
+    month: 'long',
+    timeZone: zone,
+    weekday: 'long',
+  }).format(new Date(iso))
+  return text.charAt(0).toLocaleUpperCase(intlLocale) + text.slice(1)
+}
+
+/**
+ * Short span such as "2 min" or "1 h 15 min". Empty below one minute, for a
+ * missing or invalid end, or when the end is not after the start.
+ */
+export function formatSpan(startsAt: string, endsAt: string): string {
+  const ms = Date.parse(endsAt) - Date.parse(startsAt)
+  if (Number.isNaN(ms)) return ''
+  const minutes = Math.round(ms / 60_000)
+  if (minutes < 1) return ''
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  if (hours === 0) return `${String(rest)} min`
+  return rest === 0
+    ? `${String(hours)} h`
+    : `${String(hours)} h ${String(rest)} min`
+}

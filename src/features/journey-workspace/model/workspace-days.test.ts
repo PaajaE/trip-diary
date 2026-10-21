@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  dayNumber,
+  dayPlaceNames,
+  firstDayKey,
   groupMomentsByDay,
   localDayKey,
   momentOutlineLabel,
@@ -108,5 +111,56 @@ describe('momentOutlineLabel', () => {
     expect(momentOutlineLabel('Walk', 'Banff', '10:39')).toBe('Walk')
     expect(momentOutlineLabel(null, 'Banff', '10:39')).toBe('10:39 Banff')
     expect(momentOutlineLabel(null, null, '10:39')).toBe('10:39')
+  })
+})
+
+describe('dayPlaceNames', () => {
+  it('dedupes case-insensitively, skips empty names and caps the list', () => {
+    const [a, b, c, d, e] = [
+      uuid(701),
+      uuid(702),
+      uuid(703),
+      uuid(704),
+      uuid(705),
+    ]
+    const day = groupMomentsByDay([
+      entry(1, '2026-05-29T08:00:00Z', 'UTC', { placeId: a }),
+      entry(2, '2026-05-29T09:00:00Z', 'UTC', { placeId: b }),
+      entry(3, '2026-05-29T10:00:00Z', 'UTC', { placeId: c }),
+      entry(4, '2026-05-29T11:00:00Z', 'UTC', { placeId: d }),
+      entry(5, '2026-05-29T12:00:00Z', 'UTC', { placeId: e }),
+    ])[0]
+    const names = new Map([
+      [a, 'Banff'],
+      [b, 'BANFF'],
+      [c, ' '],
+      [d, 'Lake'],
+      [e, 'Peak'],
+    ])
+    if (day === undefined) throw new Error('no day')
+    expect(dayPlaceNames(day, (id) => names.get(id), 3)).toEqual([
+      'Banff',
+      'Lake',
+      'Peak',
+    ])
+    expect(dayPlaceNames(day, (id) => names.get(id), 2)).toEqual([
+      'Banff',
+      'Lake',
+    ])
+  })
+})
+
+describe('day numbers', () => {
+  it('counts local calendar days from the first moment of the journey', () => {
+    const entries = [
+      entry(1, '2026-06-03T09:00:00Z', 'America/Edmonton'),
+      entry(2, '2026-05-26T07:00:00Z', 'America/Edmonton'),
+    ]
+    const first = firstDayKey(entries)
+    expect(first).toBe('2026-05-26')
+    expect(dayNumber(first, '2026-05-26')).toBe(1)
+    expect(dayNumber(first, '2026-06-03')).toBe(9)
+    expect(dayNumber(first, UNKNOWN_DAY)).toBeNull()
+    expect(dayNumber(null, '2026-06-03')).toBeNull()
   })
 })
