@@ -9,7 +9,7 @@ import {
   createHoverStore,
   estimateMomentHeight,
   formatDayCaption,
-  meanPosition,
+  medoidPosition,
   placeBubbles,
   viewportCandidates,
   type MapPin,
@@ -172,7 +172,7 @@ describe('bubbles', () => {
     width: 10,
   })
 
-  it('places a stage bubble at the mean of its moments with coordinates', () => {
+  it('places a stage bubble on a real location of the cover', () => {
     const cover = med(30, {
       momentId: uuid(10),
       variants: [variant(uuid(30), 'large'), variant(uuid(30), 'thumb')],
@@ -187,11 +187,12 @@ describe('bubbles', () => {
       [cover],
     )
     const model = buildBubbleModel(tree, 'https://m.test')
+    // Cover belongs to moment 10: the bubble sits on its real location.
     expect(model.stages).toEqual([
       {
         id: uuid(1),
-        latitude: 15,
-        longitude: 30,
+        latitude: 10,
+        longitude: 20,
         title: 'Alps',
         url: 'https://m.test/k/thumb.webp',
       },
@@ -200,8 +201,15 @@ describe('bubbles', () => {
     expect(model.moments.has(uuid(11))).toBe(false)
   })
 
-  it('meanPosition is null without coordinates', () => {
-    expect(meanPosition([])).toBeNull()
+  it('medoidPosition is a real point, null without coordinates', () => {
+    expect(medoidPosition([])).toBeNull()
+    expect(
+      medoidPosition([
+        [14, 50],
+        [15, 50],
+        [-114, 51],
+      ]),
+    ).toEqual([14, 50])
   })
 
   it('selects pins in the viewport with a thumbnail, minus skipped', () => {

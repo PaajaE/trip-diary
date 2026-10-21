@@ -301,8 +301,8 @@ export interface BubbleModel {
 
 export const NO_BUBBLES: BubbleModel = { moments: new Map(), stages: [] }
 
-/** Mean of the finite coordinates; null when there are none. */
-export function meanPosition(
+/** The point nearest to the mean of all points (a real location), or null. */
+export function medoidPosition(
   coords: readonly (readonly [number, number])[],
 ): [number, number] | null {
   if (coords.length === 0) return null
@@ -312,7 +312,44 @@ export function meanPosition(
     lng += x
     lat += y
   }
-  return [lng / coords.length, lat / coords.length]
+  lng /= coords.length
+  lat /= coords.length
+  let best = coords[0]
+  let bestDistance = Infinity
+  for (const c of coords) {
+    const distance = (c[0] - lng) ** 2 + (c[1] - lat) ** 2
+    if (distance < bestDistance) {
+      best = c
+      bestDistance = distance
+    }
+  }
+  return best === undefined ? null : [best[0], best[1]]
+}
+
+/**
+ * Where a stage bubble sits: the cover's own coordinates, else those of the
+ * moment holding the cover, else the stage moment nearest to the mean. Always
+ * a real location, never an average over distant places.
+ */
+function stageAnchor(
+  root: WorkspaceSegment,
+  coords: readonly (readonly [number, number])[],
+): [number, number] | null {
+  const cover = root.cover
+  if (cover !== null) {
+    if (cover.latitude !== null && cover.longitude !== null)
+      return [cover.longitude, cover.latitude]
+    const stack = [root]
+    for (let node = stack.pop(); node !== undefined; node = stack.pop()) {
+      for (const entry of node.moments) {
+        const { latitude, longitude, id } = entry.moment
+        if (id === cover.momentId && latitude !== null && longitude !== null)
+          return [longitude, latitude]
+      }
+      stack.push(...node.children)
+    }
+  }
+  return medoidPosition(coords)
 }
 
 /** Cover thumbnails of moments and stage bubble positions. */
@@ -343,7 +380,7 @@ export function buildBubbleModel(
     return coords
   }
   for (const root of tree.roots) {
-    const mean = meanPosition(coordsOf(root))
+    const mean = stageAnchor(root, coordsOf(root))
     const url = root.cover === null ? null : getThumbUrl(root.cover, baseUrl)
     if (mean === null || url === null) continue
     stages.push({
