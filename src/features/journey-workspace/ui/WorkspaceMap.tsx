@@ -157,6 +157,31 @@ const REFRESH_DELAY_MS = 100
 
 type PinKind = 'focus' | 'thumb'
 
+/**
+ * maplibre owns the marker root: its class gives `position:absolute` and it
+ * writes the inline `transform`. The root is therefore a bare flex wrapper of
+ * fixed size that never gets position/top/left/transform; all visuals live on
+ * the inner element, which is the only thing restyled later.
+ */
+function wrapMarker(inner: HTMLElement, size: number): HTMLDivElement {
+  const root = document.createElement('div')
+  root.style.width = String(size) + 'px'
+  root.style.height = String(size) + 'px'
+  root.style.display = 'flex'
+  root.style.alignItems = 'center'
+  root.style.justifyContent = 'center'
+  root.style.pointerEvents = 'none'
+  inner.style.pointerEvents = 'auto'
+  root.append(inner)
+  return root
+}
+
+/** Stacking is set on the wrapper (it is a stacking context via transform). */
+function setStacking(inner: HTMLElement, zIndex: string) {
+  const root = inner.parentElement
+  if (root !== null) root.style.zIndex = zIndex
+}
+
 /** Size, ring and stacking of a pin; hovered/selected pins grow, not scale. */
 function styleMarker(
   el: HTMLElement,
@@ -180,7 +205,7 @@ function styleMarker(
   const ring = kind === 'thumb' ? 2 : 3
   el.style.width = String(size) + 'px'
   el.style.height = String(size) + 'px'
-  el.style.zIndex = raised ? '3' : kind === 'focus' ? '2' : '1'
+  setStacking(el, raised ? '3' : kind === 'focus' ? '2' : '1')
   if (photo) {
     el.style.border = String(ring) + `px solid ${raised ? ACCENT : '#fff'}`
     el.style.boxShadow = RING
@@ -386,11 +411,12 @@ export function WorkspaceMap({
         photo,
       )
       fillMarker(el, url, number)
+      const root = wrapMarker(el, 52)
       styleMarker(el, 'focus', photo, pin.id === selectedRef.current, false)
       markers.set(pin.id, {
         el,
         kind: 'focus',
-        marker: new maplibregl.Marker({ element: el })
+        marker: new maplibregl.Marker({ anchor: 'center', element: root })
           .setLngLat([pin.longitude, pin.latitude])
           .addTo(map),
         photo,
@@ -433,7 +459,7 @@ export function WorkspaceMap({
         el.ariaLabel = label
         el.dataset.stageId = stage.id
         el.style.cssText =
-          'box-sizing:border-box;position:relative;width:44px;height:44px;border-radius:9999px;border:3px solid #fff;background:#fff;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.35);z-index:1'
+          'box-sizing:border-box;position:relative;width:44px;height:44px;border-radius:9999px;border:3px solid #fff;background:#fff;padding:0;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.35)'
         const img = document.createElement('img')
         img.alt = ''
         img.decoding = 'async'
@@ -448,13 +474,15 @@ export function WorkspaceMap({
         tip.style.cssText =
           'position:absolute;left:50%;top:100%;transform:translateX(-50%);margin-top:4px;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis;padding:2px 8px;border-radius:8px;background:rgba(255,255,255,.95);color:#222;font:600 11px/16px system-ui,sans-serif;box-shadow:0 1px 3px rgba(0,0,0,.3);pointer-events:none'
         el.append(img, tip)
+        const root = wrapMarker(el, 44)
+        root.style.zIndex = '1'
         el.addEventListener('mouseenter', () => {
           tip.hidden = false
-          el.style.zIndex = '3'
+          setStacking(el, '3')
         })
         el.addEventListener('mouseleave', () => {
           tip.hidden = true
-          el.style.zIndex = '1'
+          setStacking(el, '1')
         })
         el.addEventListener('click', () => {
           const callback = onSelectStageRef.current
@@ -468,7 +496,7 @@ export function WorkspaceMap({
         })
         stages.set(stage.id, {
           el,
-          marker: new maplibregl.Marker({ element: el })
+          marker: new maplibregl.Marker({ anchor: 'center', element: root })
             .setLngLat([stage.longitude, stage.latitude])
             .addTo(map),
         })
@@ -528,6 +556,7 @@ export function WorkspaceMap({
           true,
         )
         fillMarker(el, url, null)
+        const root = wrapMarker(el, 40)
         styleMarker(
           el,
           'thumb',
@@ -538,7 +567,7 @@ export function WorkspaceMap({
         thumbs.set(pin.id, {
           el,
           kind: 'thumb',
-          marker: new maplibregl.Marker({ element: el })
+          marker: new maplibregl.Marker({ anchor: 'center', element: root })
             .setLngLat([pin.longitude, pin.latitude])
             .addTo(map),
           photo: true,

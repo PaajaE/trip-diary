@@ -23,6 +23,7 @@ const mapCalls = vi.hoisted(() => ({
   markerRemoved: 0,
   clickHandler: null as ((event: unknown) => void) | null,
   zoom: 5,
+  lngLats: [] as [number, number][],
   handlers: new Map<string, () => void>(),
   sources: new Map<string, { data: unknown }>(),
 }))
@@ -87,7 +88,8 @@ vi.mock('maplibre-gl', () => {
     constructor(options: { element: HTMLElement }) {
       this.el = options.element
     }
-    setLngLat() {
+    setLngLat(lngLat: [number, number]) {
+      mapCalls.lngLats.push(lngLat)
       mapCalls.setLngLat += 1
       return this
     }
@@ -205,6 +207,7 @@ describe('WorkspaceMap focus and stability', () => {
       markerRemoved: 0,
       clickHandler: null,
       zoom: 5,
+      lngLats: [],
       handlers: new Map(),
       sources: new Map(),
     })
@@ -461,5 +464,50 @@ describe('WorkspaceMap focus and stability', () => {
       bubble?.click()
     })
     expect(mapCalls.views).toBe(before + 1)
+  })
+
+  it('never gives marker roots position/top/left/transform; stage sits on a real location', () => {
+    const cover = covered(10)
+    state = {
+      status: 'ready',
+      tree: buildWorkspaceTree(
+        [seg(1, { coverMediaId: cover.id, title: 'Far' })],
+        [
+          mom(10, { latitude: 50, longitude: 14 }),
+          mom(11, { latitude: 51, longitude: -114 }),
+        ],
+        [cover],
+      ),
+    }
+    rtlRender(ui())
+    const roots = () =>
+      [...document.body.children].filter(
+        (el): el is HTMLElement =>
+          el instanceof HTMLElement &&
+          el.querySelector('[data-stage-id],[data-moment-id]') !== null,
+      )
+    const check = () => {
+      expect(roots().length).toBeGreaterThan(0)
+      for (const root of roots()) {
+        for (const prop of ['position', 'top', 'left', 'transform'] as const)
+          expect(root.style[prop]).toBe('')
+      }
+    }
+    check()
+    const stage = document.querySelector<HTMLElement>('[data-stage-id]')
+    act(() => {
+      stage?.dispatchEvent(new MouseEvent('mouseenter'))
+    })
+    check()
+    act(() => {
+      stage?.dispatchEvent(new MouseEvent('mouseleave'))
+      document
+        .querySelector<HTMLElement>(`[data-moment-id="${uuid(11)}"]`)
+        ?.click()
+    })
+    check()
+    // The stage bubble is on moment 10 (the cover's), not the ocean mean.
+    expect(mapCalls.lngLats).toContainEqual([14, 50])
+    expect(mapCalls.lngLats.some(([lng]) => lng > -100 && lng < 0)).toBe(false)
   })
 })
