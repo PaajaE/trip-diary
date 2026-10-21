@@ -9,3 +9,15 @@ export {
   type PlaceCandidate,
   type ReverseQuery,
 } from '../../../../supabase/functions/_shared/places/mapy.ts'
+export {
+  ATTRACTION_RADIUS_M,
+  buildNearbyUrl,
+  buildSettlementsUrl,
+  featuresOf,
+  GEOAPIFY_GEOCODE_SOURCE,
+  GEOAPIFY_PLACES_URL,
+  NATURAL_RADIUS_M,
+  pickNearbyPlace,
+  SETTLEMENT_RADIUS_M,
+  type GeoapifyFeature,
+} from '../../../../supabase/functions/_shared/places/geoapify.ts'
