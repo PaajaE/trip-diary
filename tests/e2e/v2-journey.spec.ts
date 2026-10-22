@@ -30,5 +30,8 @@ test('a new journey opens the v2 workspace and its quick note', async ({
   await expect(page.getByText('Zápis uložen')).toBeVisible()
 
   await page.getByRole('link', { name: 'Zobrazit v cestě' }).click()
+  // The overview only shows day cards; the stop text lives on the day page.
+  await page.locator('[data-day-card]').first().click()
+  await expect(page).toHaveURL(/\/j\/[^/]+\/workspace\/day\/[^/]+$/)
   await expect(page.getByText('Medvěd u cesty')).toBeVisible()
 })
