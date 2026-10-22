@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { dayElementId } from '@/features/journey-workspace/model/workspace-days'
 import {
   boundsOf,
+  clusterBubbles,
   buildBubbleModel,
   buildMapModel,
   computeFocus,
@@ -9,7 +10,6 @@ import {
   createHoverStore,
   formatDayCaption,
   medoidPosition,
-  placeBubbles,
   viewportCandidates,
   type MapPin,
 } from '@/features/journey-workspace/model/workspace-map'
@@ -202,13 +202,7 @@ describe('bubbles', () => {
     ).toEqual([14, 50])
   })
 
-  it('selects pins in the viewport with a thumbnail, minus skipped', () => {
-    const bubbles = new Map(
-      ['a', 'b', 'c', 'd'].map((id) => [
-        id,
-        { photoCount: 1, starred: false, url: id },
-      ]),
-    )
+  it('selects pins in the viewport, minus skipped', () => {
     const pins = [
       pin('a', 1, 1),
       pin('b', 50, 1),
@@ -217,29 +211,57 @@ describe('bubbles', () => {
     ]
     const bounds = { east: 5, north: 5, south: 0, west: 0 }
     expect(
-      viewportCandidates(pins, bounds, new Map([['c', 1]]), bubbles).map(
-        (p) => p.id,
-      ),
-    ).toEqual(['a'])
+      viewportCandidates(pins, bounds, new Map([['c', 1]])).map((p) => p.id),
+    ).toEqual(['a', 'x'])
   })
 
-  it('places by priority and drops bubbles near placed ones', () => {
+  it('clusters by priority and counts the bubbles it absorbs', () => {
     const c = (id: string, x: number, photoCount: number, starred = false) => ({
       id,
+      latitude: 0,
+      longitude: x / 10,
       photoCount,
       starred,
       x,
       y: 0,
     })
+    // Starred wins its neighbours; the one on the occupied pin is covered by it.
     expect(
-      placeBubbles(
-        [{ x: 200, y: 0 }],
-        [c('a', 30, 1), c('b', 20, 5), c('c', 40, 1, true), c('d', 190, 9)],
+      clusterBubbles(
+        [{ x: 300, y: 0 }],
+        [c('a', 30, 1), c('b', 20, 5), c('c', 40, 1, true), c('d', 290, 9)],
       ),
-    ).toEqual(['c'])
-    // Without the starred one the busier of two neighbours wins.
+    ).toEqual([
+      {
+        bounds: [
+          [2, 0],
+          [4, 0],
+        ],
+        count: 3,
+        id: 'c',
+      },
+    ])
+    // Without a star the busier of two neighbours wins; a far one stays alone.
     expect(
-      placeBubbles([], [c('a', 0, 1), c('b', 20, 5), c('e', 100, 1)]),
-    ).toEqual(['b', 'e'])
+      clusterBubbles([], [c('a', 0, 1), c('b', 20, 5), c('e', 200, 1)]).map(
+        ({ count, id }) => [id, count],
+      ),
+    ).toEqual([
+      ['b', 2],
+      ['e', 1],
+    ])
+  })
+
+  it('ranks a moment with a photo above a bare one', () => {
+    const c = (id: string, photoCount: number) => ({
+      id,
+      latitude: 0,
+      longitude: 0,
+      photoCount,
+      starred: false,
+      x: 0,
+      y: 0,
+    })
+    expect(clusterBubbles([], [c('a', 0), c('z', 2)])[0]?.id).toBe('z')
   })
 })

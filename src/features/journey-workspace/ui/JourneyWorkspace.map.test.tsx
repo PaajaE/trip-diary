@@ -243,17 +243,16 @@ describe('WorkspaceMap focus and stability', () => {
     vi.unstubAllGlobals()
   })
 
-  it('numbers only the hovered day: one line, others are dots', () => {
+  it('numbers only the hovered day: one line, no dot layer', () => {
     setTree()
     rtlRender(ui())
     // Nothing hovered: no numbers, no line, every stop is a dot.
     expect(mapCalls.markersAdded).toBe(0)
     expect(featureCount('workspace-day-line')).toBe(0)
-    expect(featureCount('workspace-dots')).toBe(3)
+    expect(mapCalls.sources.has('workspace-dots')).toBe(false)
     hoverFirstDay()
     expect(mapCalls.markersAdded).toBe(2)
     expect(featureCount('workspace-day-line')).toBe(1)
-    expect(featureCount('workspace-dots')).toBe(1)
     expect(screen.getByTestId('map-caption').textContent).toBe(
       'Fri 2 Jan · 2 places',
     )
@@ -271,20 +270,6 @@ describe('WorkspaceMap focus and stability', () => {
     hoverFirstDay()
     expect(mapCalls.views).toBe(1)
     expect(screen.queryByRole('button', { name: 'Zoom to day' })).toBeNull()
-  })
-
-  it('opens the day page when a dot is clicked', () => {
-    setTree()
-    rtlRender(ui())
-    act(() => {
-      mapCalls.clickHandler?.({ features: [{ properties: { id: uuid(12) } }] })
-    })
-    expect(navigate).toHaveBeenCalledWith({
-      params: { date: '2026-01-03', journeyId: 'j' },
-      search: {},
-      to: '/j/$journeyId/workspace/day/$date',
-    })
-    expect(mapCalls.views).toBe(1)
   })
 
   it('keeps the map and camera when only placeId / starred change', () => {
@@ -427,7 +412,7 @@ describe('WorkspaceMap focus and stability', () => {
     expect(mapCalls.constructed).toBe(1)
   })
 
-  it('draws no thumbnails when more than 40 moments qualify', async () => {
+  it('draws a thumbnail for every moment that has room, however many', async () => {
     mapCalls.zoom = 12
     const moments = [
       mom(10, { latitude: 46, longitude: 8 }),
@@ -449,7 +434,50 @@ describe('WorkspaceMap focus and stability', () => {
     rtlRender(ui())
     hoverFirstDay()
     await new Promise((resolve) => setTimeout(resolve, 200))
-    expect(markerIds()).toEqual([uuid(10)])
+    expect(markerIds()).toHaveLength(42)
+  })
+
+  it('merges colliding moments into one counted bubble that fits them', async () => {
+    mapCalls.zoom = 12
+    const moments = [
+      mom(10, { latitude: 46, longitude: 8 }),
+      mom(200, {
+        latitude: 47,
+        longitude: 20,
+        startsAt: '2026-01-05T10:00:00+00:00',
+      }),
+      mom(201, {
+        latitude: 47,
+        longitude: 20.1,
+        startsAt: '2026-01-05T10:00:00+00:00',
+      }),
+      mom(202, {
+        latitude: 47,
+        longitude: 20.2,
+        startsAt: '2026-01-05T10:00:00+00:00',
+      }),
+    ]
+    state = {
+      status: 'ready',
+      tree: buildWorkspaceTree([seg(1)], moments, [
+        covered(10),
+        covered(200),
+        covered(201),
+        covered(202),
+      ]),
+    }
+    rtlRender(ui())
+    hoverFirstDay()
+    await new Promise((resolve) => setTimeout(resolve, 200))
+    expect(markerIds()).toHaveLength(2)
+    const cluster = document.querySelector('[data-badge]')
+    expect(cluster?.textContent).toBe('3')
+    const views = mapCalls.views
+    act(() => {
+      fireEvent.click(cluster?.parentElement ?? document.body)
+    })
+    expect(mapCalls.views).toBe(views + 1)
+    expect(navigate).not.toHaveBeenCalled()
   })
 
   it('shows a stage bubble in the overview and fits the stage on click', () => {

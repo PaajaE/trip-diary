@@ -4,14 +4,13 @@ import { Crosshair, Maximize } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
+  clusterBubbles,
   computeView,
-  DETAIL_ZOOM,
   MAX_FIT_ZOOM,
-  MAX_THUMB_CANDIDATES,
   NO_BUBBLES,
   OVERVIEW_ZOOM,
-  placeBubbles,
   viewportCandidates,
+  type BubbleCluster,
   type BubbleModel,
   type DayFocus,
   type HoverStore,
@@ -35,7 +34,7 @@ interface WorkspaceMapProps {
   focus: DayFocus
   hover: HoverStore
   onReset: () => void
-  /** A pin or dot clicked. */
+  /** A pin clicked. */
   onSelect: (momentId: string) => void
   /** A stage bubble clicked; without it the map just fits the stage. */
   onSelectStage?: (segmentId: string) => void
@@ -51,11 +50,9 @@ interface WorkspaceMapProps {
 }
 
 const LINE_SOURCE = 'workspace-day-line'
-const DOT_SOURCE = 'workspace-dots'
 const FIT_PADDING = 60
 const PRIMARY = '#3d5c47'
 const ACCENT = '#c46a4a'
-const MUTED = '#5f675e'
 
 function applyView(
   map: maplibregl.Map,
@@ -82,12 +79,8 @@ function applyView(
   }
 }
 
-/** Dashed day line and out-of-focus dots; layers are added on first call. */
-function syncLayers(
-  map: maplibregl.Map,
-  pins: readonly MapPin[],
-  focus: DayFocus,
-): void {
+/** Dashed day line; the layer is added on first call. */
+function syncLayers(map: maplibregl.Map, focus: DayFocus): void {
   const line = {
     features:
       focus.line === null
@@ -104,28 +97,12 @@ function syncLayers(
           ],
     type: 'FeatureCollection' as const,
   }
-  const dots = {
-    features: pins
-      .filter((pin) => !focus.numbers.has(pin.id))
-      .map((pin) => ({
-        geometry: {
-          coordinates: [pin.longitude, pin.latitude],
-          type: 'Point' as const,
-        },
-        properties: { id: pin.id },
-        type: 'Feature' as const,
-      })),
-    type: 'FeatureCollection' as const,
-  }
   const lineSource = map.getSource<maplibregl.GeoJSONSource>(LINE_SOURCE)
-  const dotSource = map.getSource<maplibregl.GeoJSONSource>(DOT_SOURCE)
-  if (lineSource !== undefined && dotSource !== undefined) {
+  if (lineSource !== undefined) {
     lineSource.setData(line)
-    dotSource.setData(dots)
     return
   }
   map.addSource(LINE_SOURCE, { data: line, type: 'geojson' })
-  map.addSource(DOT_SOURCE, { data: dots, type: 'geojson' })
   map.addLayer({
     id: LINE_SOURCE,
     layout: { 'line-cap': 'butt', 'line-join': 'round' },
@@ -138,24 +115,12 @@ function syncLayers(
     source: LINE_SOURCE,
     type: 'line',
   })
-  map.addLayer({
-    id: DOT_SOURCE,
-    paint: {
-      'circle-color': MUTED,
-      'circle-opacity': 0.45,
-      'circle-radius': 3,
-      'circle-stroke-opacity': 0,
-      'circle-stroke-width': 6,
-    },
-    source: DOT_SOURCE,
-    type: 'circle',
-  })
 }
 
 const RING = '0 1px 4px rgba(0,0,0,.35)'
 const REFRESH_DELAY_MS = 100
 
-type PinKind = 'focus' | 'thumb'
+type PinKind = 'focus' | 'thumb' | 'cluster'
 
 /**
  * maplibre owns the marker root: its class gives `position:absolute` and it
@@ -191,21 +156,15 @@ function styleMarker(
   hovered: boolean,
 ) {
   const raised = active || hovered
-  const size = !photo
-    ? raised
-      ? 30
-      : 22
-    : kind === 'thumb'
-      ? raised
-        ? 40
-        : 28
-      : raised
-        ? 52
-        : 40
-  const ring = kind === 'thumb' ? 2 : 3
+  const sizes = {
+    bare: { cluster: [34, 28], focus: [30, 22], thumb: [26, 20] },
+    photo: { cluster: [52, 44], focus: [52, 40], thumb: [44, 34] },
+  }[photo ? 'photo' : 'bare'][kind]
+  const size = raised ? sizes[0] : sizes[1]
+  const ring = kind === 'focus' ? 3 : 2
   el.style.width = String(size) + 'px'
   el.style.height = String(size) + 'px'
-  setStacking(el, raised ? '3' : kind === 'focus' ? '2' : '1')
+  setStacking(el, raised ? '4' : kind === 'focus' ? '3' : '2')
   if (photo) {
     el.style.border = String(ring) + `px solid ${raised ? ACCENT : '#fff'}`
     el.style.boxShadow = RING
@@ -241,7 +200,7 @@ function fillMarker(
       const badge = document.createElement('span')
       badge.dataset.badge = ''
       badge.textContent = String(number)
-      badge.style.cssText = `position:absolute;right:-6px;bottom:-6px;width:18px;height:18px;border-radius:9999px;background:${PRIMARY};color:#fff;border:2px solid #fff;box-sizing:border-box;font:600 10px/14px system-ui,sans-serif;text-align:center`
+      badge.style.cssText = `position:absolute;right:-6px;bottom:-6px;min-width:20px;height:20px;padding:0 4px;border-radius:9999px;background:${PRIMARY};color:#fff;border:2px solid #fff;box-sizing:border-box;font:600 11px/16px system-ui,sans-serif;text-align:center`
       el.append(badge)
     }
   } else if (number !== null) {
@@ -268,6 +227,8 @@ function createPinElement(
 interface PinMarker {
   el: HTMLButtonElement
   kind: PinKind
+  /** Extent of a cluster's members; null for a lone pin. */
+  bounds: BubbleCluster['bounds']
   marker: maplibregl.Marker
   photo: boolean
 }
@@ -338,17 +299,7 @@ export function WorkspaceMap({
     loadedRef.current = false
     created.on('load', () => {
       loadedRef.current = true
-      syncLayers(created, pinsRef.current, focusRef.current)
-    })
-    created.on('click', DOT_SOURCE, (event) => {
-      const id: unknown = event.features?.[0]?.properties.id
-      if (typeof id === 'string') onSelectRef.current(id)
-    })
-    created.on('mouseenter', DOT_SOURCE, () => {
-      created.getCanvas().style.cursor = 'pointer'
-    })
-    created.on('mouseleave', DOT_SOURCE, () => {
-      created.getCanvas().style.cursor = ''
+      syncLayers(created, focusRef.current)
     })
     // Start on the current request (initially the whole journey), no animation.
     applyView(created, requestRef.current.view, false)
@@ -414,6 +365,7 @@ export function WorkspaceMap({
       const root = wrapMarker(el, 52)
       styleMarker(el, 'focus', photo, pin.id === selectedRef.current, false)
       markers.set(pin.id, {
+        bounds: null,
         el,
         kind: 'focus',
         marker: new maplibregl.Marker({ anchor: 'center', element: root })
@@ -422,7 +374,7 @@ export function WorkspaceMap({
         photo,
       })
     }
-    if (loadedRef.current) syncLayers(map, pins, focus)
+    if (loadedRef.current) syncLayers(map, focus)
   }, [map, pins, focus, bubbles])
 
   // Stage bubbles (overview) and small thumbnails (detail), from the camera.
@@ -440,7 +392,7 @@ export function WorkspaceMap({
       const model = bubblesRef.current
 
       // Overview: one bubble per stage with a cover.
-      const overview = zoom < OVERVIEW_ZOOM || current.numbers.size === 0
+      const overview = zoom < OVERVIEW_ZOOM
       const wantedStages = overview ? model.stages : []
       for (const [id, entry] of stages) {
         if (wantedStages.some((stage) => stage.id === id)) continue
@@ -502,13 +454,13 @@ export function WorkspaceMap({
         })
       }
 
-      // Detail: small thumbnails for out-of-focus moments, collision-free.
-      let keep: PlaceCandidate[] = []
-      let occupied: { x: number; y: number }[] = []
-      let candidates: MapPin[] = []
-      if (zoom >= DETAIL_ZOOM) {
+      // Detail: out-of-focus moments as thumbnails, merged into counted
+      // clusters where they would collide on screen.
+      let clusters: BubbleCluster[] = []
+      let visible = new Map<string, MapPin>()
+      if (!overview) {
         const box = map.getBounds()
-        candidates = viewportCandidates(
+        const inView = viewportCandidates(
           pinsRef.current,
           {
             east: box.getEast(),
@@ -517,60 +469,85 @@ export function WorkspaceMap({
             west: box.getWest(),
           },
           current.numbers,
-          model.moments,
         )
-        if (candidates.length > MAX_THUMB_CANDIDATES) candidates = []
-        occupied = pinsRef.current
+        visible = new Map(inView.map((pin) => [pin.id, pin]))
+        const occupied = pinsRef.current
           .filter((pin) => current.numbers.has(pin.id))
           .map((pin) => map.project([pin.longitude, pin.latitude]))
-        keep = candidates.flatMap((pin) => {
-          const bubble = model.moments.get(pin.id)
-          if (bubble === undefined) return []
-          const point = map.project([pin.longitude, pin.latitude])
-          return [
-            {
+        // Cluster every out-of-focus pin so counts stay right at the edges.
+        const candidates: PlaceCandidate[] = pinsRef.current
+          .filter((pin) => !current.numbers.has(pin.id))
+          .map((pin) => {
+            const bubble = model.moments.get(pin.id)
+            const point = map.project([pin.longitude, pin.latitude])
+            return {
               id: pin.id,
-              photoCount: bubble.photoCount,
-              starred: bubble.starred,
+              latitude: pin.latitude,
+              longitude: pin.longitude,
+              photoCount: bubble?.photoCount ?? 0,
+              starred: bubble?.starred ?? false,
               x: point.x,
               y: point.y,
-            },
-          ]
-        })
+            }
+          })
+        clusters = clusterBubbles(occupied, candidates).filter((cluster) =>
+          visible.has(cluster.id),
+        )
       }
-      const placed = new Set(placeBubbles(occupied, keep))
+      const wanted = new Set(clusters.map((cluster) => cluster.id))
       for (const [id, entry] of thumbs) {
-        if (placed.has(id)) continue
+        if (wanted.has(id)) continue
         entry.marker.remove()
         thumbs.delete(id)
       }
-      for (const pin of candidates) {
-        if (!placed.has(pin.id) || thumbs.has(pin.id)) continue
+      for (const cluster of clusters) {
+        const pin = visible.get(cluster.id)
+        if (pin === undefined) continue
         const url = model.moments.get(pin.id)?.url ?? null
-        if (url === null) continue
+        const photo = url !== null
+        const kind: PinKind = cluster.count > 1 ? 'cluster' : 'thumb'
+        const number = cluster.count > 1 ? cluster.count : null
+        const existing = thumbs.get(pin.id)
+        if (existing?.photo === photo) {
+          existing.kind = kind
+          existing.bounds = cluster.bounds
+          fillMarker(existing.el, url, number)
+          styleMarker(
+            existing.el,
+            kind,
+            photo,
+            pin.id === selectedRef.current,
+            pin.id === hover.get(),
+          )
+          continue
+        }
+        existing?.marker.remove()
         const el = createPinElement(
           pin,
           () => {
-            onSelectRef.current(pin.id)
+            const bounds = thumbs.get(pin.id)?.bounds ?? null
+            if (bounds === null) onSelectRef.current(pin.id)
+            else applyView(map, { bounds, type: 'bounds' }, true)
           },
-          true,
+          photo,
         )
-        fillMarker(el, url, null)
-        const root = wrapMarker(el, 40)
+        fillMarker(el, url, number)
+        const root = wrapMarker(el, 52)
         styleMarker(
           el,
-          'thumb',
-          true,
+          kind,
+          photo,
           pin.id === selectedRef.current,
           pin.id === hover.get(),
         )
         thumbs.set(pin.id, {
+          bounds: cluster.bounds,
           el,
-          kind: 'thumb',
+          kind,
           marker: new maplibregl.Marker({ anchor: 'center', element: root })
             .setLngLat([pin.longitude, pin.latitude])
             .addTo(map),
-          photo: true,
+          photo,
         })
       }
     }
