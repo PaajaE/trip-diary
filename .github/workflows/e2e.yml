@@ -39,14 +39,33 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ${{ runner.temp }}/supabase-images.tar.gz
-          key: supabase-images-cli-2.75.0-${{ hashFiles('supabase/config.toml') }}
+          key: supabase-images-${{ hashFiles('.github/workflows/e2e.yml', 'supabase/config.toml') }}
       - name: Load cached Supabase images
         if: steps.images.outputs.cache-hit == 'true'
         run: gunzip -c "$RUNNER_TEMP/supabase-images.tar.gz" | docker load
+      # The CLI pulls anonymously, which ghcr.io and public.ecr.aws throttle on
+      # shared runner IPs. Pull the pinned images ourselves with an
+      # authenticated ghcr.io login; supabase start skips images found locally.
+      # Versions match `supabase services` for CLI 2.75.0 (kong is not listed).
+      - name: Pull Supabase images (authenticated ghcr.io)
+        if: steps.images.outputs.cache-hit != 'true'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          pids=()
+          for image in postgres:17.6.1.075 gotrue:v2.186.0 postgrest:v14.3 \
+            storage-api:v1.35.3 edge-runtime:v1.70.0 postgres-meta:v0.95.2 kong:2.8.1; do
+            (for attempt in 1 2 3 4 5; do
+              docker pull -q "ghcr.io/supabase/$image" && exit 0
+              sleep $((attempt * 15))
+            done; exit 1) &
+            pids+=($!)
+          done
+          for pid in "${pids[@]}"; do wait "$pid"; done
       - name: Start local Supabase (retries on registry rate limits)
         env:
-          # ghcr.io rate-limits the e2e image set; the ECR mirror does not.
-          SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: ghcr.io
         run: |
           for attempt in 1 2 3 4; do
             if supabase start -x "$SUPABASE_EXCLUDE_E2E"; then exit 0; fi
@@ -59,7 +78,7 @@ jobs:
         if: steps.images.outputs.cache-hit != 'true'
         run: |
           docker image ls --format '{{.Repository}}:{{.Tag}}' \
-            | grep '^public.ecr.aws/supabase/' \
+            | grep '^ghcr.io/supabase/' \
             | xargs docker save | gzip -1 > "$RUNNER_TEMP/supabase-images.tar.gz"
       - name: Store Supabase images in cache
         if: steps.images.outputs.cache-hit != 'true'
