@@ -31,6 +31,18 @@ jobs:
         with:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
+      # Registries rate-limit anonymous pulls from shared GitHub runner IPs
+      # (ghcr.io and public.ecr.aws both did). The image set is pinned by the
+      # CLI version, so keep it in the Actions cache and only pull on a miss.
+      - name: Restore Supabase images
+        id: images
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ runner.temp }}/supabase-images.tar.gz
+          key: supabase-images-cli-2.75.0-${{ hashFiles('supabase/config.toml') }}
+      - name: Load cached Supabase images
+        if: steps.images.outputs.cache-hit == 'true'
+        run: gunzip -c "$RUNNER_TEMP/supabase-images.tar.gz" | docker load
       - name: Start local Supabase (retries on registry rate limits)
         env:
           # ghcr.io rate-limits the e2e image set; the ECR mirror does not.
@@ -43,6 +55,18 @@ jobs:
             sleep $((attempt * 30))
           done
           exit 1
+      - name: Save Supabase images
+        if: steps.images.outputs.cache-hit != 'true'
+        run: |
+          docker image ls --format '{{.Repository}}:{{.Tag}}' \
+            | grep '^public.ecr.aws/supabase/' \
+            | xargs docker save | gzip -1 > "$RUNNER_TEMP/supabase-images.tar.gz"
+      - name: Store Supabase images in cache
+        if: steps.images.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ runner.temp }}/supabase-images.tar.gz
+          key: ${{ steps.images.outputs.cache-primary-key }}
       - name: Configure local Supabase env
         run: |
           supabase status --output json > /tmp/supabase-status.json
