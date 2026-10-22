@@ -476,12 +476,13 @@ Zbývá: P2 (výběr a hromadné akce, přesun fotek v UI, operace s etapami, �
 
 ## Fáze 4d — mobilní editace a třídění dávky (2026-10-22, 📝 PROPOSED)
 
-| Krok                                  | Stav         | Poznámka                                                                      |
-| ------------------------------------- | ------------ | ----------------------------------------------------------------------------- |
-| Analýza stavu editace (web, iOS)      | ✅ hotovo    | Jedna aplikace pro obě platformy; na iPhonu kroky 3–6 Fáze 4c dosud neověřeny |
-| Rozhodnutí (třídění po nahrávání, A)  | ✅ potvrzeno | `media.reviewed_at`; stovky médií na dávku; foťák a sdílení mimo fázi         |
-| M0 ověření na iPhonu + mobilní mockup | ⏳ čeká      | Mockup schvaluje uživatel před kódem                                          |
-| DB: `media.reviewed_at`               | ⏳ čeká      | Migrace + pgTAP + typy (`db-specialist`)                                      |
-| M1–M4                                 | 📝 PROPOSED  | Viz plan-v2.md, Fáze 4d                                                       |
+| Krok                                   | Stav         | Poznámka                                                                      |
+| -------------------------------------- | ------------ | ----------------------------------------------------------------------------- |
+| Analýza stavu editace (web, iOS)       | ✅ hotovo    | Jedna aplikace pro obě platformy; na iPhonu kroky 3–6 Fáze 4c dosud neověřeny |
+| Rozhodnutí (třídění po nahrávání, A)   | ✅ potvrzeno | `media.reviewed_at`; stovky médií na dávku; foťák a sdílení mimo fázi         |
+| M0 ověření na iPhonu + mobilní mockup  | ⏳ čeká      | Mockup schvaluje uživatel před kódem                                          |
+| DB: `media.reviewed_at`                | ⏳ čeká      | Migrace + pgTAP + typy (`db-specialist`)                                      |
+| M1 dávka k roztřídění (`/j/:id/batch`) | 🧪 TESTED    | Jednotkové a komponentní testy; neověřeno na zařízení ani v prohlížeči        |
+| M2–M4                                  | 📝 PROPOSED  | Viz plan-v2.md, Fáze 4d                                                       |
 
 Na jindy: tmavý režim aplikace (Fáze 4d, mimo rozsah).

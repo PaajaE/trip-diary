@@ -186,7 +186,7 @@ export function OrganizeJourneyButton({ journeyId }: { journeyId: string }) {
   return (
     <>
       <button
-        className="min-h-10 rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
+        className="min-h-11 rounded-md border border-border px-3 py-1.5 text-sm font-semibold"
         type="button"
         onClick={() => {
           setOpen(true)

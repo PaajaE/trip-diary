@@ -4,7 +4,13 @@ import { useTranslation } from 'react-i18next'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import { cn } from '@/shared/lib/cn'
 
-export type JourneyTab = 'import' | 'members' | 'quick' | 'trash' | 'workspace'
+export type JourneyTab =
+  | 'batch'
+  | 'import'
+  | 'members'
+  | 'quick'
+  | 'trash'
+  | 'workspace'
 
 const TAB_BASE =
   'inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-4 text-sm font-semibold transition-colors sm:-mb-px sm:rounded-none sm:border-b-2 sm:px-3'
@@ -20,10 +26,13 @@ const TAB_IDLE =
  * otherwise (`publicPaths` is null for "not public", undefined while unknown).
  */
 export function JourneyTabs({
+  batchCount = 0,
   current,
   journeyId,
   publicPaths,
 }: {
+  /** Media waiting to be sorted; the "Batch" tab shows a badge when > 0. */
+  batchCount?: number
   current: JourneyTab
   journeyId: string
   publicPaths: PublicJourneyPaths | null | undefined
@@ -57,6 +66,30 @@ export function JourneyTabs({
             to="/j/$journeyId/import"
           >
             {t('owner.tabs.import')}
+          </Link>
+        </li>
+        <li>
+          <Link
+            aria-current={aria('batch')}
+            className={tab('batch')}
+            params={{ journeyId }}
+            to="/j/$journeyId/batch"
+          >
+            {t('owner.tabs.batch')}
+            {batchCount > 0 ? (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="min-w-5 rounded-full bg-primary px-1.5 text-center text-xs font-semibold leading-5 text-white"
+                  data-testid="batch-badge"
+                >
+                  {batchCount > 99 ? '99+' : batchCount}
+                </span>
+                <span className="sr-only">
+                  {t('mediaBatch.tabBadge', { count: batchCount })}
+                </span>
+              </>
+            ) : null}
           </Link>
         </li>
         <li>

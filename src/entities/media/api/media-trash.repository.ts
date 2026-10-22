@@ -51,12 +51,12 @@ function parseResult<T>(
   return parsed.data
 }
 
-interface RpcOutcome {
+export interface RpcOutcome {
   data: unknown
   error: { code?: string; message: string } | null
 }
 
-async function countRpc(
+export async function countRpc(
   mediaIds: readonly string[],
   call: (part: string[]) => PromiseLike<RpcOutcome>,
 ): Promise<number> {

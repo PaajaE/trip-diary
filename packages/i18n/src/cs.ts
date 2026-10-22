@@ -263,6 +263,7 @@ export const cs: TranslationResources = {
     tabs: {
       workspace: 'Pracovní plocha',
       import: 'Import',
+      batch: 'Dávka',
       quick: 'Rychlý zápis',
       members: 'Členové',
       trash: 'Koš',
@@ -450,6 +451,30 @@ export const cs: TranslationResources = {
       trek: 'Vícedenní túra {{index}}',
     },
   },
+  mediaBatch: {
+    title: 'Dávka k roztřídění',
+    description:
+      'Nově nahraná média čekají tady, dokud je nezařadíš do zastávek.',
+    remaining: 'Zbývá roztřídit: {{count}}',
+    tabBadge: '{{count}} čeká na roztřídění',
+    toolbar: 'Akce nad výběrem',
+    select: 'Vybrat',
+    selectDay: 'Vybrat den',
+    unselectDay: 'Zrušit výběr dne',
+    undated: 'Bez data',
+    items_one: '{{count}} položka',
+    items_few: '{{count}} položky',
+    items_many: '{{count}} položky',
+    items_other: '{{count}} položek',
+    done: 'Hotovo',
+    doneToast: 'Roztříděno: {{count}}',
+    doneFailed: 'Média se nepodařilo označit jako roztříděná.',
+    noStops: 'Zatím tu není žádná zastávka. Vytvoř novou.',
+    emptyTitle: 'Vše je roztříděno',
+    emptyDescription: 'Nová média se tu objeví, jakmile je nahraješ.',
+    loadError: 'Dávku se nepodařilo načíst.',
+    selectedTile: 'Vybráno',
+  },
   mediaImport: {
     dropActive: 'Pusťte soubory pro přidání',
     dropHint: 'Přetáhněte sem fotky',
@@ -492,6 +517,10 @@ export const cs: TranslationResources = {
     nothingToImport: 'Není nic nového k importu.',
     organizeOffer:
       'Média jsou v cestě. Chcete je automaticky uspořádat do momentů?',
+    batchLimit:
+      'Vybráno je {{count}} médií, jedna dávka jich ale pojme nejvýše {{max}}. Rozdělte import podle rozsahu dat a nahrajte je po částech.',
+    sortBatch: 'Roztřídit dávku',
+    sortOffer: 'Nahraná média čekají na roztřídění do zastávek.',
     pause: 'Pozastavit',
     pickedCount: 'Vybráno: {{count}}',
     pickedLimited:

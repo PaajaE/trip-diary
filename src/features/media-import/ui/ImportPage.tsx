@@ -6,6 +6,7 @@ import {
   type ChangeEvent,
   type DragEvent,
 } from 'react'
+import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { dexieUploadJobStore } from '@/entities/media/api/upload-jobs.store'
 import {
@@ -18,6 +19,7 @@ import {
   assetsToCandidates,
   createPhotoKitSource,
 } from '@/features/media-import/api/photokit-source'
+import { MAX_IMPORT_BATCH } from '@/features/media-import/model/limits'
 import { useImportQueue } from '@/features/media-import/api/use-import-queue'
 import {
   createWebFilesSource,
@@ -119,6 +121,8 @@ function ImportView({
     selected: number
   } | null>(null)
   const [error, setError] = useState<'accessDenied' | 'loadError' | null>(null)
+  // Size of a selection that is over the batch limit and was not queued.
+  const [overLimit, setOverLimit] = useState<number | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -158,6 +162,7 @@ function ImportView({
   async function scan() {
     setScanning(true)
     setError(null)
+    setOverLimit(null)
     setCandidates(null)
     try {
       let status = await getMediaLibraryStatus()
@@ -180,11 +185,16 @@ function ImportView({
   async function pickFromLibrary() {
     setPicking(true)
     setError(null)
+    setOverLimit(null)
     setPicked(null)
     try {
       const result = await pickMediaLibraryAssets()
       if (result.cancelled) return
       const found = assetsToCandidates(result.assets)
+      if (found.length > MAX_IMPORT_BATCH) {
+        setOverLimit(found.length)
+        return
+      }
       setPicked({
         left: Math.max(0, result.requested - result.resolved),
         selected: found.length,
@@ -214,6 +224,7 @@ function ImportView({
   async function handleFiles(files: File[]) {
     if (files.length === 0) return
     setError(null)
+    setOverLimit(null)
     try {
       const source = createWebFilesSource(files)
       sourceRef.current = source
@@ -227,6 +238,8 @@ function ImportView({
   async function startImport() {
     const source = sourceRef.current
     if (source === null || candidates === null) return
+    const { photos, videos } = summarizeCandidates(candidates)
+    if (photos + videos > MAX_IMPORT_BATCH) return
     await queue.enqueue(source.kind, candidates)
     setCandidates(null)
     queue.start()
@@ -234,6 +247,8 @@ function ImportView({
 
   const summary = candidates === null ? null : summarizeCandidates(candidates)
   const importable = summary === null ? 0 : summary.photos + summary.videos
+  const tooMany =
+    overLimit ?? (importable > MAX_IMPORT_BATCH ? importable : null)
   const { counts, current, runtime } = snapshot
   const waiting = counts.pending + counts.paused
   const busy = runtime === 'running' || runtime === 'waiting_online'
@@ -375,6 +390,14 @@ function ImportView({
               {t(`mediaImport.${error}`)}
             </p>
           )}
+          {tooMany === null ? null : (
+            <p className="text-sm text-destructive" role="alert">
+              {t('mediaImport.batchLimit', {
+                count: tooMany,
+                max: MAX_IMPORT_BATCH,
+              })}
+            </p>
+          )}
         </section>
       </Card>
 
@@ -412,7 +435,10 @@ function ImportView({
               </p>
             ) : null}
             <Button
-              disabled={importable === 0 && summary.skippedTotal === 0}
+              disabled={
+                tooMany !== null ||
+                (importable === 0 && summary.skippedTotal === 0)
+              }
               onClick={() => void startImport()}
             >
               {t('mediaImport.start')}
@@ -568,6 +594,16 @@ function ImportView({
                   {t('mediaImport.organizeOffer')}
                 </p>
                 <OrganizeJourneyButton journeyId={journeyId} />
+                <p className="pt-2 text-sm text-muted">
+                  {t('mediaImport.sortOffer')}
+                </p>
+                <Link
+                  className={buttonVariants({ variant: 'primary' })}
+                  params={{ journeyId }}
+                  to="/j/$journeyId/batch"
+                >
+                  {t('mediaImport.sortBatch')}
+                </Link>
               </div>
             ) : null}
           </Card>

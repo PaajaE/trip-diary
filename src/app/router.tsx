@@ -10,6 +10,7 @@ import {
   LazyAuthPage,
   LazyCreateJourneyPage,
   LazyDashboardPage,
+  LazyJourneyBatchRoutePage,
   LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
@@ -150,6 +151,13 @@ const journeyImportRoute = createRoute({
   component: LazyJourneyImportRoutePage,
 })
 
+const journeyBatchRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/batch',
+  component: LazyJourneyBatchRoutePage,
+})
+
 const tipsRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -253,6 +261,7 @@ const routeTree = rootRoute.addChildren([
   journeyWorkspaceDayRoute,
   journeyTrashRoute,
   journeyImportRoute,
+  journeyBatchRoute,
   journeyQuickNoteRoute,
   spacesRoute,
   tipsRoute,

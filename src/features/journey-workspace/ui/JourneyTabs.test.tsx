@@ -66,4 +66,36 @@ describe('JourneyTabs', () => {
       'The journey is not public yet, so there is no public page.',
     )
   })
+
+  it('links to the batch and shows a count badge only when media waits', () => {
+    const { rerender } = render(
+      <JourneyTabs current="workspace" journeyId="j" publicPaths={null} />,
+    )
+    expect(screen.getByRole('link', { name: 'Batch' })).toHaveAttribute(
+      'href',
+      '/j/$journeyId/batch',
+    )
+    expect(screen.queryByTestId('batch-badge')).toBeNull()
+    rerender(
+      <JourneyTabs
+        batchCount={12}
+        current="batch"
+        journeyId="j"
+        publicPaths={null}
+      />,
+    )
+    expect(screen.getByTestId('batch-badge')).toHaveTextContent('12')
+    expect(
+      screen.getByRole('link', { name: /Batch.*12 waiting to be sorted/ }),
+    ).toHaveAttribute('aria-current', 'page')
+    rerender(
+      <JourneyTabs
+        batchCount={1500}
+        current="workspace"
+        journeyId="j"
+        publicPaths={null}
+      />,
+    )
+    expect(screen.getByTestId('batch-badge')).toHaveTextContent('99+')
+  })
 })

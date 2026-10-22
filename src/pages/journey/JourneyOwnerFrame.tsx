@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useJourneyQuery } from '@/entities/journey/api/use-journey-query'
 import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
+import { useUnreviewedCountQuery } from '@/entities/media/api/use-unreviewed-media-query'
 import { getJourneyPublicPaths } from '@/entities/sharing/api/public-sharing.repository'
 import {
   JourneyTabs,
@@ -44,6 +45,7 @@ export function JourneyOwnerFrame({
     queryFn: () => getJourneyPublicPaths(journeyId),
     queryKey: journeyQueryKeys.publicPaths(journeyId),
   })
+  const batchCount = useUnreviewedCountQuery(journeyId).data ?? 0
   const journeyTitle = journeyQuery.data?.title ?? ''
   const myJourneys = (
     <Link className={CRUMB_LINK} to="/dashboard">
@@ -78,6 +80,7 @@ export function JourneyOwnerFrame({
           : { descriptionClassName })}
       />
       <JourneyTabs
+        batchCount={batchCount}
         current={current}
         journeyId={journeyId}
         publicPaths={

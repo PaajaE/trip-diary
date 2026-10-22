@@ -7,6 +7,8 @@ export interface DaySelection {
   /** Selection mode: on while something is selected or after "Select photos". */
   mode: boolean
   setMode: (on: boolean) => void
+  /** Adds (`on`) or removes every given id, e.g. "select the whole day". */
+  setMany: (ids: readonly string[], on: boolean) => void
   /** Toggles one id; with `range` also everything between the last toggled id and it. */
   toggle: (id: string, order: readonly string[], range: boolean) => void
 }
@@ -41,6 +43,26 @@ export function useDaySelection(): DaySelection {
     [anchor],
   )
 
+  const setMany = useCallback((many: readonly string[], on: boolean) => {
+    setIds((current) => {
+      const next = new Set(current)
+      for (const id of many) {
+        if (on) next.add(id)
+        else next.delete(id)
+      }
+      return next
+    })
+    setAnchor(null)
+  }, [])
+
   const has = useCallback((id: string) => ids.has(id), [ids])
-  return { clear, has, ids, mode: forced || ids.size > 0, setMode, toggle }
+  return {
+    clear,
+    has,
+    ids,
+    mode: forced || ids.size > 0,
+    setMany,
+    setMode,
+    toggle,
+  }
 }

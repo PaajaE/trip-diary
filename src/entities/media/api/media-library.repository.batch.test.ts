@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { assignMediaBatchToMoment } from '@/entities/media/api/media-library.repository'
+import {
+  assignMediaBatchToMoment,
+  detachMediaFromMoment,
+} from '@/entities/media/api/media-library.repository'
 
 let result: { error: unknown } = { error: null }
 const chain: Record<string, ReturnType<typeof vi.fn>> = {}
@@ -30,5 +33,22 @@ describe('assignMediaBatchToMoment', () => {
     })
     await assignMediaBatchToMoment([], 'm')
     expect(from).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('detachMediaFromMoment', () => {
+  it('clears moment_id for all ids at once and skips empty input', async () => {
+    await detachMediaFromMoment(['a', 'b'])
+    expect(chain.update).toHaveBeenCalledWith({ moment_id: null })
+    expect(chain.in).toHaveBeenCalledWith('id', ['a', 'b'])
+    await detachMediaFromMoment([])
+    expect(from).toHaveBeenCalledTimes(1)
+  })
+
+  it('maps errors', async () => {
+    result = { error: { message: 'x' } }
+    await expect(detachMediaFromMoment(['a'])).rejects.toMatchObject({
+      code: 'update_failed',
+    })
   })
 })
