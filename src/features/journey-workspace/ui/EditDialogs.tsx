@@ -4,7 +4,7 @@ import type { DeleteMomentResult } from '@/features/journey-workspace/api/use-wo
 import type { DeleteMomentMode } from '@/entities/moment/api/moment.repository'
 import {
   formatInstantDate,
-  formatInstantTime,
+  formatLocalTime,
 } from '@/features/journey-workspace/lib/format-range'
 import type {
   BoundaryCandidate,
@@ -16,7 +16,7 @@ import {
 } from '@/features/journey-workspace/ui/WorkspaceDialog'
 
 function stamp(iso: string, tz: string | null, locale: string): string {
-  return `${formatInstantDate(iso, tz, locale)}, ${formatInstantTime(iso, tz, locale)}`
+  return `${formatInstantDate(iso, tz, locale)}, ${formatLocalTime(iso, tz, locale)}`
 }
 
 function Actions({

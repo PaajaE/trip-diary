@@ -8,8 +8,17 @@
 export const MAPY_RGEOCODE_URL = 'https://api.mapy.cz/v1/rgeocode'
 export const PLACE_GEOCODE_SOURCE = 'mapy-com'
 
+export type PlaceKind =
+  | 'settlement'
+  | 'natural'
+  | 'attraction'
+  | 'near'
+  | 'region'
+  | 'country'
+
 export interface PlaceCandidate {
   countryCode: string | null
+  kind: PlaceKind
   latitude: number
   longitude: number
   name: string
@@ -152,7 +161,7 @@ export function placeFromMapyResult(
       : null
 
   let name: string | null
-  let kind: string
+  let kind: 'municipality' | 'region' | 'country'
   if (municipality !== null) {
     name = municipality
     kind = 'municipality'
@@ -180,6 +189,7 @@ export function placeFromMapyResult(
 
   return {
     countryCode,
+    kind: kind === 'municipality' ? 'settlement' : kind,
     latitude: hasPosition ? lat : query.latitude,
     longitude: hasPosition ? lon : query.longitude,
     name,

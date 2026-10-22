@@ -353,6 +353,55 @@ nevolá.
 Brána: na Kanadě jde v produkci najít libovolný den do 10 s z osnovy, smazat a obnovit
 fotku a projít moment v prohlížeči bez opuštění klávesnice.
 
+#### Fáze 4c — Atlas cesty (2026-10-21)
+
+Koncept s klikacím prototypem: https://claude.ai/artifact/FpjvmFkyzQv3weqbL45FVY
+(soukromý artefakt). Vychází z rešerše Polarsteps, Apple Fotky a Deník, Google Fotky,
+Lightroom, Day One a FindPenguins.
+
+Tři úrovně jako přiblížení mapy:
+
+- **Cesta (přehled):**
+  - etapy vlevo s pokrokem;
+  - karty dnů s mozaikou a hlavní fotkou;
+  - mapa s bublinami etap;
+  - lišta úkolů: návrhy ke schválení, dny bez textu, dny k výběru fotek.
+- **Den (panel s vlastní adresou `/workspace/den/<datum>`):**
+  - mapa dne s očíslovanými zastávkami a text dne;
+  - zastávky s mřížkou fotek a vlastním textem;
+  - výběr a hromadné akce, šipkami předchozí a další den.
+- **Fotka:** prohlížeč (hotovo) a režim Výběr nejlepších (klávesy ★ / skrýt / další).
+
+Navíc:
+
+- **Detail etapy:** název navržený z míst, úvodní text, posun hranic, přehled dnů.
+- **Návrh uspořádání:** zobrazí se na časovém pásu celé cesty a přijme se najednou
+  (místo karet po jednom).
+- **Text na každé úrovni:** popisek fotky, text zastávky, **zápis dne (nové)**, text výletu
+  nebo treku, text etapy a shrnutí cesty.
+
+Fáze:
+
+1. **Správná data:**
+   - pásmo z polohy (konec „UTC“);
+   - dny mimo etapy na svém místě v čase;
+   - rozsah dat u dlouhých úseků;
+   - přilepené nadpisy bez prosvítání.
+2. **Automatika v2:** jeden průběh pro celou cestu, rozpoznání vícedenního treku,
+   názvy etap z míst, spojení drobných momentů do zastávek.
+3. Přehled dnů a lišta úkolů.
+4. Detail dne (včetně tabulky zápisů ke dni).
+5. Detail etapy a návrh uspořádání na časovém pásu.
+6. Výběr nejlepších.
+
+Prototyp je závazná vizuální předloha (karty dnů, detail dne, etapa, mapa s bublinami). Každá
+obrazovka se navrhuje i ověřuje také na mobilu (~390 px): detail dne přes celou obrazovku,
+etapy jako vodorovný pás nad dny, mapa jako přepínač.
+
+Brána: na Kanadě je trek kolem Mt Assiniboine (26. 9. – 1. 10.) jedna etapa, žádné
+duplicitní názvy etap, žádný čas v UTC a celou cestu jde projít po dnech bez scrollování
+přes stovky fotek.
+
 ### Fáze 5 — Prezentační vrstva
 
 - **Rozhodnutí na začátku fáze:** předgenerované veřejné stránky (při publikaci)
@@ -459,3 +508,7 @@ dalších samostatných reportů.
 8. **Pracovní plocha (2026-10-18):** smazání fotky jde do koše na 30 dní. Skrývání
    z veřejné stránky nebude, stačí smazání. Den je jen odvozená úroveň v UI. Názvy
    z míst jsou vždy jen návrh ke schválení. Pořadí P1 → P2 → P3 (kap. 5, Fáze 4b).
+9. **Atlas cesty (2026-10-21):** moment se v rozhraní jmenuje **zastávka** (v datech
+   zůstává `moments`). Etapa zůstává etapou (název „kapitola“ zamítnut). Zápis ke dni
+   ano, vedle textů fotky, zastávky, výletu, etapy a cesty. Detail dne je panel
+   s vlastní adresou. Výběr nejlepších ano. Pořadí kap. 5, Fáze 4c.

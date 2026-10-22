@@ -1,3 +1,4 @@
+import { timeZoneAt } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { Moment } from '@/entities/moment/model/moment'
 import type { Segment } from '@/entities/segment/model/segment'
@@ -7,7 +8,10 @@ export interface WorkspaceMoment {
   media: MediaItem[]
   moment: Moment
   photoCount: number
-  /** Zone for display: first media capture zone, else the segment zone. */
+  /**
+   * Zone for display: first media capture zone, else the zone at the moment's
+   * coordinates, else the segment zone, else the journey home zone.
+   */
   tz: string | null
   videoCount: number
 }
@@ -59,6 +63,15 @@ function contains(segment: Segment, instant: number): boolean {
   return time(segment.startsAt) <= instant && instant <= time(segment.endsAt)
 }
 
+function coordinateZone(moment: Moment): string | null {
+  if (moment.latitude === null || moment.longitude === null) return null
+  try {
+    return timeZoneAt(moment.latitude, moment.longitude)
+  } catch {
+    return null
+  }
+}
+
 function countKinds(media: MediaItem[]): { photos: number; videos: number } {
   let videos = 0
   for (const item of media) if (item.kind === 'video') videos += 1
@@ -75,6 +88,7 @@ export function buildWorkspaceTree(
   allSegments: Segment[],
   moments: Moment[],
   media: MediaItem[],
+  homeTz: string | null = null,
 ): WorkspaceTree {
   // Rejected suggestions keep their row but never take part in the tree.
   const segments = allSegments.filter((s) => s.origin !== 'rejected')
@@ -171,8 +185,9 @@ export function buildWorkspaceTree(
       photoCount: counts.photos,
       tz:
         items.find((i) => i.capturedTz !== null)?.capturedTz ??
+        coordinateZone(moment) ??
         owner?.tz ??
-        null,
+        homeTz,
       videoCount: counts.videos,
     }
     if (owner === null) looseMoments.push(node)
@@ -227,4 +242,50 @@ export function collectMoments(tree: WorkspaceTree): WorkspaceMoment[] {
   }
   tree.roots.forEach(walk)
   return out.sort((a, b) => byMomentOrder(a.moment, b.moment))
+}
+
+export type TimelineEntry =
+  | { kind: 'segment'; node: WorkspaceSegment }
+  | {
+      kind: 'loose'
+      moments: WorkspaceMoment[]
+      /** Unique day-heading scope of this run, e.g. "loose-2". */
+      scope: string
+    }
+
+/**
+ * Strictly chronological top level: root segments by start, with runs of
+ * loose moments placed between them by time. Roots without a start go last.
+ */
+export function buildTimeline(tree: WorkspaceTree): TimelineEntry[] {
+  const out: TimelineEntry[] = []
+  const loose = [...tree.looseMoments].sort((a, b) =>
+    byMomentOrder(a.moment, b.moment),
+  )
+  let index = 0
+  let run: WorkspaceMoment[] = []
+  let runSlot = 0
+  const flush = () => {
+    if (run.length > 0)
+      out.push({
+        kind: 'loose',
+        moments: run,
+        scope: `loose-${String(runSlot)}`,
+      })
+    run = []
+  }
+  for (const [slot, root] of [...tree.roots, null].entries()) {
+    const rootStart =
+      root === null ? Number.POSITIVE_INFINITY : time(root.segment.startsAt)
+    while (index < loose.length) {
+      const entry = loose[index]
+      if (entry === undefined || time(entry.moment.startsAt) >= rootStart) break
+      if (run.length === 0) runSlot = slot
+      run.push(entry)
+      index += 1
+    }
+    flush()
+    if (root !== null) out.push({ kind: 'segment', node: root })
+  }
+  return out
 }

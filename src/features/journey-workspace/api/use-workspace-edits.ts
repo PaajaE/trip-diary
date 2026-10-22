@@ -87,6 +87,8 @@ export interface WorkspaceEdits {
   ) => Promise<DeleteMomentResult>
   /** Moves media to the trash; Undo restores them. */
   trashMedia: (items: readonly MediaItem[]) => Promise<boolean>
+  /** Brings media back from the trash (the culling view's Undo). */
+  restoreMedia: (items: readonly MediaItem[]) => Promise<boolean>
   /** Moves the shared edge of two adjacent segments; Undo moves it back. */
   moveBoundary: (
     before: Segment,
@@ -274,6 +276,17 @@ export function useWorkspaceEdits(journeyId: string): WorkspaceEdits {
             await putCoversBack()
           },
         })
+      },
+      restoreMedia: async (items) => {
+        try {
+          await restoreMedia(items.map((item) => item.id))
+        } catch {
+          return false
+        }
+        await invalidateTrashChange(queryClient, journeyId).catch(
+          () => undefined,
+        )
+        return true
       },
       mergeMoments: (targetId, sourceId) =>
         run({

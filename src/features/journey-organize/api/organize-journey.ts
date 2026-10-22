@@ -1,6 +1,7 @@
 import {
   isPlanEmpty,
   planOrganization,
+  type NameLabels,
   type OrganizationPlan,
   type SegmentTitleInput,
 } from '@trip-diary/core/automation'
@@ -14,6 +15,8 @@ import {
   deleteAutoMoments,
   listJourneyMoments,
 } from '@/entities/moment/api/moment.repository'
+import { listPlacesByIds } from '@/entities/place/api/place.repository'
+import { derivePlace } from '@/features/journey-organize/lib/place-kind'
 import {
   createSegments,
   deleteSuggestedSegments,
@@ -72,8 +75,11 @@ export interface OrganizeDeps {
   deleteSegments: typeof deleteSuggestedSegments
   getHomeTz: typeof getJourneyHomeTz
   getUserId: typeof getCurrentUserId
+  /** Labels of place-based titles; Czech when omitted. */
+  labels?: NameLabels
   listMedia: typeof listJourneyMedia
   listMoments: typeof listJourneyMoments
+  listPlaces: typeof listPlacesByIds
   listSegments: typeof listJourneySegmentsIncludingRejected
   newId: () => string
   onProgress?: (progress: OrganizeProgress) => void
@@ -100,6 +106,7 @@ export function resolveDeps(
     getUserId: getCurrentUserId,
     listMedia: listJourneyMedia,
     listMoments: listJourneyMoments,
+    listPlaces: listPlacesByIds,
     listSegments: listJourneySegmentsIncludingRejected,
     newId: () => crypto.randomUUID(),
     segmentTitle: defaultSegmentTitle,
@@ -132,6 +139,16 @@ export async function previewOrganization(
       deps.listSegments(journeyId),
       deps.getHomeTz(journeyId),
     ])
+    // Place names are optional input: without them titles fall back to numbers.
+    const placeIds = moments.flatMap((moment) =>
+      moment.placeId === null ? [] : [moment.placeId],
+    )
+    const places = new Map(
+      (placeIds.length === 0
+        ? []
+        : await deps.listPlaces(placeIds).catch(() => [])
+      ).map((place) => [place.id, place]),
+    )
     return planOrganization(
       {
         media: media
@@ -143,24 +160,45 @@ export async function previewOrganization(
             longitude: item.longitude,
             momentId: item.momentId,
           })),
-        moments: moments.map((moment) => ({
-          endsAt: moment.endsAt,
-          id: moment.id,
-          locked: moment.locked,
-          origin: moment.origin,
-          startsAt: moment.startsAt,
-        })),
+        moments: moments.map((moment) => {
+          const place =
+            moment.placeId === null ? undefined : places.get(moment.placeId)
+          const derived =
+            place === undefined
+              ? undefined
+              : derivePlace({
+                  kind: place.kind,
+                  name: place.name,
+                  region: place.region,
+                })
+          return {
+            endsAt: moment.endsAt,
+            id: moment.id,
+            locked: moment.locked,
+            origin: moment.origin,
+            ...(derived === undefined
+              ? {}
+              : {
+                  placeCountry: place?.countryCode ?? undefined,
+                  placeKind: derived.kind,
+                  placeName: derived.name,
+                }),
+            startsAt: moment.startsAt,
+          }
+        }),
         segments: segments.map((segment) => ({
           endsAt: segment.endsAt,
           id: segment.id,
           kind: segment.kind,
           origin: segment.origin,
           startsAt: segment.startsAt,
+          title: segment.title,
           tripType: segment.tripType,
         })),
       },
       {
         homeTz: homeTz ?? 'UTC',
+        ...(deps.labels === undefined ? {} : { labels: deps.labels }),
         newId: deps.newId,
         segmentTitle: deps.segmentTitle,
       },

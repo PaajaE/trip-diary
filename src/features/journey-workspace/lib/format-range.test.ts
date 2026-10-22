@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  browserZone,
   formatCompactRange,
   formatDayHeading,
   formatDuration,
   formatInstantTime,
+  formatLocalTime,
+  formatMomentSpan,
+  mediaDisplayZone,
   formatRange,
   formatSpan,
 } from '@/features/journey-workspace/lib/format-range'
@@ -18,9 +22,10 @@ describe('format-range', () => {
     expect(formatInstantTime(INSTANT, 'UTC', 'en-GB')).toBe('10:30')
   })
 
-  it('names the zone explicitly when none is known', () => {
-    expect(formatInstantTime(INSTANT, null, 'en-GB')).toContain('UTC')
-    expect(formatInstantTime(INSTANT, 'Not/AZone', 'en-GB')).toContain('UTC')
+  it('falls back to the device zone without naming UTC when none is known', () => {
+    const device = formatLocalTime(INSTANT, browserZone(), 'en-GB')
+    expect(formatInstantTime(INSTANT, null, 'en-GB')).toBe(device)
+    expect(formatInstantTime(INSTANT, 'Not/AZone', 'en-GB')).toBe(device)
   })
 
   it('uses the zone to decide whether a range spans days', () => {
@@ -89,7 +94,7 @@ describe('format-range', () => {
         withYear: true,
       })
       expect(text).not.toContain('UTC')
-      expect(text).toContain('10:30')
+      expect(text).toContain(formatLocalTime(INSTANT, null, 'en-GB'))
     })
   })
 })
@@ -119,5 +124,97 @@ describe('formatSpan', () => {
     expect(formatSpan(at, '2026-06-03T10:00:20+00:00')).toBe('')
     expect(formatSpan(at, at)).toBe('')
     expect(formatSpan(at, 'garbage')).toBe('')
+  })
+})
+
+describe('formatLocalTime', () => {
+  it('never prints a zone label, even without a known zone', () => {
+    expect(formatLocalTime(INSTANT, 'Asia/Tokyo', 'en-GB')).toBe('19:30')
+    for (const tz of [null, 'Not/AZone']) {
+      const text = formatLocalTime(INSTANT, tz, 'en-GB')
+      expect(text).toMatch(/^\d{2}:\d{2}$/)
+      expect(text).not.toContain('UTC')
+    }
+  })
+})
+
+describe('mediaDisplayZone', () => {
+  const base = { capturedTz: null, latitude: null, longitude: null }
+  it('prefers capture zone, then coordinates, then the moment zone', () => {
+    expect(
+      mediaDisplayZone({ ...base, capturedTz: 'Asia/Tokyo' }, 'Europe/Paris'),
+    ).toBe('Asia/Tokyo')
+    expect(
+      mediaDisplayZone(
+        { ...base, latitude: 43.65, longitude: -79.38 },
+        'Europe/Paris',
+      ),
+    ).toBe('America/Toronto')
+    expect(mediaDisplayZone(base, 'Europe/Paris')).toBe('Europe/Paris')
+    expect(mediaDisplayZone(base, null)).toBeNull()
+  })
+})
+
+describe('formatMomentSpan', () => {
+  const Z = 'America/Toronto'
+  it('keeps the duration for short moments within one local day', () => {
+    expect(
+      formatMomentSpan(
+        '2026-05-26T14:00:00+00:00',
+        '2026-05-26T15:15:00+00:00',
+        Z,
+        'en',
+      ),
+    ).toBe('1 h 15 min')
+  })
+
+  it('shows dates for a moment of 12 h or more', () => {
+    expect(
+      formatMomentSpan(
+        '2026-05-26T14:00:00+00:00',
+        '2026-05-27T14:50:00+00:00',
+        Z,
+        'cs',
+      ),
+    ).toBe('26.\u201327. 5.')
+    expect(
+      formatMomentSpan(
+        '2026-05-26T14:00:00+00:00',
+        '2026-05-27T14:50:00+00:00',
+        Z,
+        'en',
+      ),
+    ).toBe('26\u201327 May')
+  })
+
+  it('shows dates when a short moment crosses a local midnight', () => {
+    // 23:30 to 00:30 in Toronto (UTC-4 in May).
+    expect(
+      formatMomentSpan(
+        '2026-05-27T03:30:00+00:00',
+        '2026-05-27T04:30:00+00:00',
+        Z,
+        'cs',
+      ),
+    ).toBe('26.\u201327. 5.')
+  })
+
+  it('handles a month boundary and a single day of 12 h or more', () => {
+    expect(
+      formatMomentSpan(
+        '2026-09-30T10:00:00+00:00',
+        '2026-10-02T10:00:00+00:00',
+        'UTC',
+        'cs',
+      ),
+    ).toBe('30. 9.\u20132. 10.')
+    expect(
+      formatMomentSpan(
+        '2026-05-26T06:00:00+00:00',
+        '2026-05-26T19:00:00+00:00',
+        'UTC',
+        'cs',
+      ),
+    ).toBe('26. 5.')
   })
 })

@@ -7,7 +7,8 @@ import type { MediaItem } from '@/entities/media/model/media-library'
 import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-workspace-edits'
 import {
   formatInstantDate,
-  formatInstantTime,
+  formatLocalTime,
+  mediaDisplayZone,
 } from '@/features/journey-workspace/lib/format-range'
 import { getViewerUrls } from '@/features/journey-workspace/lib/media-thumb'
 import type { CoverTarget } from '@/features/journey-workspace/model/cover-targets'
@@ -19,6 +20,8 @@ export interface ViewerGroup {
   id: string
   items: MediaItem[]
   title: string
+  /** Resolved zone of the moment; fallback for media without a zone. */
+  tz?: string | null
 }
 
 export interface MediaViewerProps {
@@ -230,6 +233,7 @@ export function MediaViewer({
 
   if (entry === undefined) return null
   const { group, item } = entry
+  const zone = mediaDisplayZone(item, group.tz ?? null)
   const { imageUrl, videoUrl } = getViewerUrls(item, baseUrl)
   const itemTargets = targets.get(item.id) ?? []
   const level = (target: CoverTarget) =>
@@ -373,7 +377,7 @@ export function MediaViewer({
           </p>
           <p className="text-sm text-muted">
             {item.capturedAt !== null
-              ? `${formatInstantDate(item.capturedAt, item.capturedTz, locale)}, ${formatInstantTime(item.capturedAt, item.capturedTz, locale)}`
+              ? `${formatInstantDate(item.capturedAt, zone, locale)}, ${formatLocalTime(item.capturedAt, zone, locale)}`
               : t('viewer.noDate')}
           </p>
           <p

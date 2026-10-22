@@ -5,7 +5,6 @@ import {
   firstDayKey,
   groupMomentsByDay,
   localDayKey,
-  momentOutlineLabel,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
@@ -103,14 +102,6 @@ describe('groupMomentsByDay', () => {
       entry(4, '2026-05-29T11:00:00Z', 'UTC', { placeId: c }),
     ])
     expect(day?.placeIds).toEqual([a, b])
-  })
-})
-
-describe('momentOutlineLabel', () => {
-  it('prefers the title, then time plus place, then time', () => {
-    expect(momentOutlineLabel('Walk', 'Banff', '10:39')).toBe('Walk')
-    expect(momentOutlineLabel(null, 'Banff', '10:39')).toBe('10:39 Banff')
-    expect(momentOutlineLabel(null, null, '10:39')).toBe('10:39')
   })
 })
 

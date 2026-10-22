@@ -230,17 +230,6 @@ export function buildMapModel(
   return { dayOfElement, dayOfMoment, days, expandFor, pins, scopes }
 }
 
-/** Estimated rendered height (px) of a moment block, for lazy placeholders. */
-export function estimateMomentHeight(
-  mediaCount: number,
-  hasBody: boolean,
-  gridLimit = 6,
-): number {
-  const tiles = Math.min(mediaCount, gridLimit)
-  const rows = Math.ceil(tiles / 3)
-  return 88 + (hasBody ? 56 : 0) + (rows > 0 ? 8 + rows * 120 : 0)
-}
-
 /** Tiny pub/sub for the hovered moment, so hovering never re-renders the tree. */
 export interface HoverStore {
   get: () => string | null

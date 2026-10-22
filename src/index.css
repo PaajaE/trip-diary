@@ -11,6 +11,12 @@
   --color-accent: #c46a4a;
   --color-accent-strong: #99472b;
   --color-destructive: #a43d3d;
+  --color-sunk: #f1ede4;
+  --color-faint: #8b9289;
+  --color-primary-soft: #e3ebe4;
+  --color-accent-soft: #f6e4dc;
+  --color-warn: #a8741a;
+  --color-warn-soft: #f5ead2;
   --radius-sm: 0.5rem;
   --radius-md: 1rem;
   --radius-lg: 1.25rem;
@@ -72,4 +78,11 @@ a {
 @utility reader-display {
   font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
   font-weight: 600;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }

@@ -1,3 +1,4 @@
+import { browserZone } from '@/features/journey-workspace/lib/format-range'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
 
 /** Scope id of the day groups of moments that belong to no segment. */
@@ -7,18 +8,20 @@ export const LOOSE_SCOPE = 'loose'
 export const UNKNOWN_DAY = 'unknown'
 
 function safeZone(tz: string | null): string {
-  if (tz === null) return 'UTC'
-  try {
-    new Intl.DateTimeFormat('en', { timeZone: tz })
-    return tz
-  } catch {
-    return 'UTC'
+  if (tz !== null) {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: tz })
+      return tz
+    } catch {
+      /* fall through to the device zone */
+    }
   }
+  return browserZone()
 }
 
 /**
  * Local calendar day ("2026-05-29") of an instant in an IANA zone. A missing
- * or invalid zone means UTC; a missing or invalid instant has no day (null).
+ * or invalid zone means the device zone; a missing or invalid instant has no day (null).
  */
 export function localDayKey(
   iso: string | null,
@@ -86,16 +89,6 @@ export function groupMomentsByDay(
   return [...ordered.filter((day) => day.key !== UNKNOWN_DAY), ...unknown]
 }
 
-/** Outline label of a moment: title, else "time place", else "time". */
-export function momentOutlineLabel(
-  title: string | null,
-  place: string | null,
-  time: string,
-): string {
-  if (title !== null) return title
-  return place === null ? time : `${time} ${place}`
-}
-
 /** DOM id of a day heading inside a segment (or the loose-moments group). */
 export const dayElementId = (scopeId: string, dayKey: string) =>
   `ws-day-${scopeId}-${dayKey}`
@@ -129,10 +122,11 @@ export function dayPlaceNames(
 /** Earliest local day key among moments (the journey's "Den 1"), or null. */
 export function firstDayKey(
   entries: readonly WorkspaceMoment[],
+  fallbackTz: string | null = null,
 ): string | null {
   let first: string | null = null
   for (const entry of entries) {
-    const key = localDayKey(entry.moment.startsAt, entry.tz)
+    const key = localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
     if (key !== null && (first === null || key < first)) first = key
   }
   return first

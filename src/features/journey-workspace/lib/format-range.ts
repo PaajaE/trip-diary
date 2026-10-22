@@ -1,15 +1,46 @@
+import { timeZoneAt } from '@trip-diary/core/automation'
+
 /**
- * Formats experience times in the zone they were captured in, never the
- * device zone. A missing zone falls back to UTC and says so explicitly.
+ * Formats experience times in the zone they were captured in. A missing or
+ * invalid zone falls back to the device zone; a zone label is never printed.
  */
-function resolveZone(tz: string | null): { showZone: boolean; zone: string } {
-  if (tz === null) return { showZone: true, zone: 'UTC' }
+function resolveZone(tz: string | null): { zone: string } {
+  return { zone: validZone(tz) ?? browserZone() }
+}
+
+/** IANA zone of the device; last resort when nothing else is known. */
+export function browserZone(): string {
+  try {
+    return new Intl.DateTimeFormat().resolvedOptions().timeZone
+  } catch {
+    return 'UTC'
+  }
+}
+
+function validZone(tz: string | null): string | null {
+  if (tz === null) return null
   try {
     new Intl.DateTimeFormat('en', { timeZone: tz })
-    return { showZone: false, zone: tz }
+    return tz
   } catch {
-    return { showZone: true, zone: 'UTC' }
+    return null
   }
+}
+
+/**
+ * Clock time in the experience zone without any zone label. A missing or
+ * invalid zone falls back to the device zone, never to a printed "UTC".
+ */
+export function formatLocalTime(
+  iso: string,
+  tz: string | null,
+  locale: string,
+): string {
+  return new Intl.DateTimeFormat(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: validZone(tz) ?? browserZone(),
+  }).format(new Date(iso))
 }
 
 function dayKey(date: Date, zone: string): string {
@@ -33,13 +64,7 @@ export function formatInstantTime(
   tz: string | null,
   locale: string,
 ): string {
-  const { showZone, zone } = resolveZone(tz)
-  return new Intl.DateTimeFormat(locale, {
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZone: zone,
-    ...(showZone ? { timeZoneName: 'short' as const } : {}),
-  }).format(new Date(iso))
+  return formatLocalTime(iso, tz, locale)
 }
 
 export function formatInstantDate(
@@ -152,20 +177,6 @@ export function formatDuration(durationMs: number): string {
 }
 
 /** Weekday and compact date in the capture zone, e.g. "pá 29. 5.". */
-export function formatDayLabel(
-  iso: string,
-  tz: string | null,
-  locale: string,
-): string {
-  const { zone } = resolveZone(tz)
-  return new Intl.DateTimeFormat(locale, {
-    day: 'numeric',
-    month: locale.startsWith('cs') ? 'numeric' : 'short',
-    timeZone: zone,
-    weekday: 'short',
-  }).format(new Date(iso))
-}
-
 /** "Středa 3. června" / "Wednesday 3 June" in the capture zone. */
 export function formatDayHeading(
   iso: string,
@@ -199,4 +210,79 @@ export function formatSpan(startsAt: string, endsAt: string): string {
   return rest === 0
     ? `${String(hours)} h`
     : `${String(hours)} h ${String(rest)} min`
+}
+
+const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000
+
+/**
+ * Text under a moment's start time. A moment that lasts 12 h or more, or that
+ * crosses a local midnight, shows its dates ("26.-27. 5." / "26-27 May");
+ * anything shorter shows the plain duration. Empty when there is nothing
+ * meaningful to show.
+ */
+export function formatMomentSpan(
+  startsAt: string,
+  endsAt: string,
+  tz: string | null,
+  locale: string,
+): string {
+  const startMs = Date.parse(startsAt)
+  const endMs = Date.parse(endsAt)
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+    return formatSpan(startsAt, endsAt)
+  }
+  const zone = validZone(tz) ?? browserZone()
+  const start = new Date(startMs)
+  const end = new Date(endMs)
+  const crossesMidnight = dayKey(start, zone) !== dayKey(end, zone)
+  if (endMs - startMs < TWELVE_HOURS_MS && !crossesMidnight) {
+    return formatSpan(startsAt, endsAt)
+  }
+  const cs = locale.startsWith('cs')
+  const part = (date: Date) => {
+    const parts = new Intl.DateTimeFormat(cs ? 'cs' : 'en-GB', {
+      day: 'numeric',
+      month: cs ? 'numeric' : 'short',
+      timeZone: zone,
+    }).formatToParts(date)
+    const pick = (type: string) =>
+      parts.find((x) => x.type === type)?.value ?? ''
+    return { day: pick('day'), month: pick('month') }
+  }
+  const a = part(start)
+  const b = part(end)
+  if (a.day === b.day && a.month === b.month) {
+    return cs ? `${a.day}. ${a.month}.` : `${a.day} ${a.month}`
+  }
+  if (a.month === b.month) {
+    return cs
+      ? `${a.day}.\u2013${b.day}. ${a.month}.`
+      : `${a.day}\u2013${b.day} ${a.month}`
+  }
+  return cs
+    ? `${a.day}. ${a.month}.\u2013${b.day}. ${b.month}.`
+    : `${a.day} ${a.month} \u2013 ${b.day} ${b.month}`
+}
+
+/**
+ * Zone of a media item for display: its capture zone, else the zone at its
+ * coordinates, else the zone of its moment (may be null: device zone).
+ */
+export function mediaDisplayZone(
+  item: {
+    capturedTz: string | null
+    latitude: number | null
+    longitude: number | null
+  },
+  momentTz: string | null,
+): string | null {
+  if (item.capturedTz !== null) return item.capturedTz
+  if (item.latitude !== null && item.longitude !== null) {
+    try {
+      return timeZoneAt(item.latitude, item.longitude)
+    } catch {
+      /* fall through */
+    }
+  }
+  return momentTz
 }

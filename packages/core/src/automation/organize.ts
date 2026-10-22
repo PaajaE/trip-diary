@@ -2,14 +2,22 @@ import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
 import { clusterMoments } from './moments.ts'
 import {
-  findTripsAroundBase,
-  planStages,
-  type StageDay,
-  type StageKind,
-  type StagePlanOptions,
-  type StageTrip,
-  type StageTripKind,
-} from './stages.ts'
+  findJourneyTrips,
+  planJourney,
+  type DayPlace,
+  type JourneyDay,
+  type JourneyStageKind,
+  type JourneyTrip,
+  type PlaceKind,
+} from './journey-plan.ts'
+import {
+  CS_NAME_LABELS,
+  nameStage,
+  tripNames,
+  stageHomeName,
+  type NameLabels,
+} from './names.ts'
+import type { StagePlanOptions, StageTripKind } from './stages.ts'
 import { wallClockToInstant } from './time-zone.ts'
 import type { SuggestedTripType } from './trips.ts'
 
@@ -27,6 +35,12 @@ export interface OrganizeMoment {
   id: string
   locked: boolean
   origin: 'auto' | 'manual'
+  /** Kind of the moment's place, when it is known (names the suggestions). */
+  placeKind?: PlaceKind | undefined
+  /** Country code of the moment's place, when it is known. */
+  placeCountry?: string | undefined
+  /** Display name of the moment's place, when it is known. */
+  placeName?: string | undefined
   startsAt: string
 }
 
@@ -36,18 +50,23 @@ export interface OrganizeSegment {
   kind: 'stage' | 'trip'
   origin: 'manual' | 'suggested' | 'accepted' | 'rejected'
   startsAt: string
+  /** Stored title; lets an unchanged suggestion be replaced by a better name. */
+  title?: string | undefined
   tripType: string | null
 }
 
 export interface SegmentTitleInput {
   kind: 'stage' | 'trip'
-  /** 1-based position among the suggestions of the same kind. */
+  /**
+   * 1-based position among all suggestions of the same kind in the whole
+   * journey (also those already stored), so fallback numbering is contiguous.
+   */
   index: number
   /** First local date (YYYY-MM-DD) covered by the suggestion. */
   startsOn: string
   tripType: SuggestedTripType | null
   /** What kind of stage this is (null for trips). */
-  stageKind: StageKind | null
+  stageKind: JourneyStageKind | null
 }
 
 export interface OrganizeOptions {
@@ -55,7 +74,9 @@ export interface OrganizeOptions {
   homeTz: string
   /** Generates ids for new rows (client-generated uuids). */
   newId: () => string
-  /** Localised title of a suggested segment (titles are required in the DB). */
+  /** Labels of place-based titles (Czech by default). */
+  labels?: NameLabels
+  /** Fallback title when no place names the segment (titles are required). */
   segmentTitle: (input: SegmentTitleInput) => string
   stages?: StagePlanOptions
   /** A rejected stage starting this close blocks a new suggestion. */
@@ -86,7 +107,7 @@ export interface PlannedSegment {
   /** Short English diagnostic of why the stage looks like this (not UI text). */
   reason?: string
   /** Kind of a stage suggestion; stored as a plain stage in the database. */
-  stageKind?: StageKind
+  stageKind?: JourneyStageKind
   startsAt: string
   title: string
   tripType: SuggestedTripType | null
@@ -247,9 +268,64 @@ function iso(ms: number): string {
   return new Date(ms).toISOString()
 }
 
-/** Located days for staging; days without GPS do not take part. */
-function toStageDays(days: readonly ZonedDaySummary[]): StageDay[] {
-  const out: StageDay[] = []
+interface PlaceInfo {
+  country: string | undefined
+  kind: PlaceKind | undefined
+  name: string
+}
+
+/** Place of each media item, taken from the moment it currently belongs to. */
+function placesOfMedia(input: OrganizeInput): Map<string, PlaceInfo> {
+  const byMoment = new Map<string, PlaceInfo>()
+  for (const moment of input.moments) {
+    const name = moment.placeName?.trim()
+    if (name !== undefined && name !== '') {
+      byMoment.set(moment.id, {
+        country: moment.placeCountry,
+        kind: moment.placeKind,
+        name,
+      })
+    }
+  }
+  const out = new Map<string, PlaceInfo>()
+  for (const item of input.media) {
+    const place =
+      item.momentId === null ? undefined : byMoment.get(item.momentId)
+    if (place !== undefined) out.set(item.id, place)
+  }
+  return out
+}
+
+function placesOfDay(
+  day: ZonedDaySummary,
+  placeOf: ReadonlyMap<string, PlaceInfo>,
+): DayPlace[] {
+  const tally = new Map<string, DayPlace>()
+  for (const id of day.mediaIds) {
+    const place = placeOf.get(id)
+    if (place === undefined) continue
+    const key = `${place.kind ?? ''}|${place.name}`
+    const known = tally.get(key)
+    if (known === undefined) {
+      tally.set(key, {
+        country: place.country,
+        kind: place.kind,
+        name: place.name,
+        photos: 1,
+      })
+    } else {
+      known.photos += 1
+    }
+  }
+  return [...tally.values()]
+}
+
+/** Located days for planning; days without GPS do not take part. */
+function toJourneyDays(
+  days: readonly ZonedDaySummary[],
+  placeOf: ReadonlyMap<string, PlaceInfo>,
+): JourneyDay[] {
+  const out: JourneyDay[] = []
   for (const day of days) {
     if (
       day.centroid !== null &&
@@ -263,6 +339,7 @@ function toStageDays(days: readonly ZonedDaySummary[]): StageDay[] {
         last: day.lastPoint,
         mediaIds: day.mediaIds,
         photoCount: day.points.length,
+        places: placesOfDay(day, placeOf),
         points: day.points,
         timeZone: day.timeZone,
       })
@@ -283,6 +360,7 @@ function planSegments(
   OrganizationPlan,
   'segmentsToDelete' | 'stageSuggestions' | 'tripSuggestions'
 > {
+  const labels = options.labels ?? CS_NAME_LABELS
   const tolerance =
     options.rejectedBoundaryToleranceMs ??
     DEFAULT_REJECTED_BOUNDARY_TOLERANCE_MS
@@ -300,56 +378,83 @@ function planSegments(
   // about time, not about moment membership.
   const { dated } = sortDated(input.media.map(toPoint))
   const timeOf = new Map(dated.map((item) => [item.id, item.time]))
+  const placeOf = placesOfMedia(input)
 
   interface Candidate {
     kind: 'stage' | 'trip'
+    /** Place-based names, best first (empty when the places know none). */
+    names: string[]
     range: Range
     reason?: string
-    stageKind?: StageKind
+    stageKind?: JourneyStageKind
     startsOn: string
     tripType: SuggestedTripType | null
   }
 
   interface FreshWindow {
+    home: string | null
     range: Range
-    trips: StageTrip[]
+    trips: JourneyTrip[]
   }
 
-  // Stages: smart organiser over located local days (zone per day by GPS).
+  const latestOf = (stageDays: readonly JourneyDay[]): number =>
+    Math.max(
+      ...stageDays
+        .flatMap((day) => day.mediaIds)
+        .map((id) => timeOf.get(id) ?? Number.NEGATIVE_INFINITY),
+    )
+
+  // Stages: one pass over the whole journey (zone per day by GPS).
   const stages: Candidate[] = []
   const stageTrips: FreshWindow[] = []
   const first = dated[0]
   const last = dated[dated.length - 1]
   if (first !== undefined && last !== undefined) {
-    const planned = planStages(
-      toStageDays(summarizeZonedDays(dated, options.homeTz)),
+    const planned = planJourney(
+      toJourneyDays(summarizeZonedDays(dated, options.homeTz), placeOf),
       options.stages,
     )
     const starts = planned.map((stage, index) => {
       const day = stage.days[0]
       if (day === undefined || index === 0) return first.time
-      const earliest = Math.min(
+      return Math.min(
         dayStartMs(day.date, day.timeZone),
         ...day.mediaIds.map((id) => timeOf.get(id) ?? Number.POSITIVE_INFINITY),
       )
-      return earliest
     })
     planned.forEach((stage, index) => {
       const start = starts[index] ?? first.time
-      const end = starts[index + 1] ?? last.time
+      const isLast = index === planned.length - 1
+      // After a long photo gap the stage ends with its own last photo, so
+      // the silence is not covered; otherwise it runs up to the next stage.
+      const end = isLast
+        ? last.time
+        : stage.gapAfter
+          ? latestOf(stage.days)
+          : (starts[index + 1] ?? last.time)
       const range = {
         end: end > start ? end : start + MIN_SEGMENT_MS,
         start,
       }
       stages.push({
         kind: 'stage',
+        names: [
+          nameStage(stage, labels, {
+            next: planned[index + 1],
+            previous: planned[index - 1],
+          }) ?? [],
+        ].flat(),
         range,
         reason: stage.reason,
         stageKind: stage.kind,
         startsOn: stage.days[0]?.date ?? '',
         tripType: null,
       })
-      stageTrips.push({ range, trips: stage.trips })
+      stageTrips.push({
+        home: stageHomeName(stage),
+        range,
+        trips: stage.trips,
+      })
     })
   }
   const keptStageRanges = keptSegments
@@ -398,27 +503,27 @@ function planSegments(
   const rejectedTrips = rejected
     .filter((segment) => segment.kind === 'trip')
     .map((segment) => ({ range: rangeOf(segment), type: segment.tripType }))
-  const found: StageTrip[] = freshWindows.flatMap((window) => window.trips)
+  interface Found {
+    home: string | null
+    trip: JourneyTrip
+  }
+  const found: Found[] = freshWindows.flatMap((window) =>
+    window.trips.map((trip) => ({ home: window.home, trip })),
+  )
   const freshRanges = new Set(freshWindows.map((window) => window.range))
+  const tripsOfMedia = (items: typeof dated): Found[] =>
+    findJourneyTrips(
+      toJourneyDays(summarizeZonedDays(items, options.homeTz), placeOf),
+    ).map((trip) => ({ home: null, trip }))
   windows.forEach((window, index) => {
     if (freshRanges.has(window)) return
     const bucket = buckets[index] ?? []
     if (bucket.length === 0) return
-    found.push(
-      ...findTripsAroundBase(
-        toStageDays(summarizeZonedDays(bucket, options.homeTz)),
-      ),
-    )
+    found.push(...tripsOfMedia(bucket))
   })
-  if (loose.length > 0) {
-    found.push(
-      ...findTripsAroundBase(
-        toStageDays(summarizeZonedDays(loose, options.homeTz)),
-      ),
-    )
-  }
+  if (loose.length > 0) found.push(...tripsOfMedia(loose))
   const trips: Candidate[] = []
-  for (const trip of found) {
+  for (const { home, trip } of found) {
     const tripType = tripTypeOf(trip.kind)
     const times = trip.days
       .flatMap((day) => day.mediaIds)
@@ -439,6 +544,11 @@ function planSegments(
     }
     trips.push({
       kind: 'trip',
+      names: tripNames(
+        trip,
+        labels,
+        home === null ? new Set<string>() : new Set([home]),
+      ),
       range,
       startsOn: trip.days[0]?.date ?? '',
       tripType,
@@ -446,26 +556,58 @@ function planSegments(
   }
   trips.sort((a, b) => a.range.start - b.range.start)
 
-  // Replace the old suggestions; identical ones stay (idempotence).
+  // Titles: place names, else numbered by position in the whole journey. No
+  // two titles are equal (also not to hand-made or accepted segments).
   const fresh = [...freshStages, ...trips]
-  const existingKeys = new Map(
-    existingSuggested.map((segment) => [
-      segmentKey(segment.kind, segment.tripType, rangeOf(segment)),
-      segment.id,
-    ]),
+  const taken = new Set(
+    keptSegments.flatMap((segment) =>
+      segment.title === undefined ? [] : [segment.title],
+    ),
   )
-  const keptKeys = new Set<string>()
+  const ordinals = { stage: 0, trip: 0 }
+  const titleOf = new Map<Candidate, string>()
+  for (const candidate of fresh) {
+    ordinals[candidate.kind] += 1
+    const free = candidate.names.find((name) => !taken.has(name))
+    const base =
+      free ??
+      candidate.names[0] ??
+      options.segmentTitle({
+        index: ordinals[candidate.kind],
+        kind: candidate.kind,
+        stageKind: candidate.stageKind ?? null,
+        startsOn: candidate.startsOn,
+        tripType: candidate.tripType,
+      })
+    let title = base
+    for (let count = 2; taken.has(title); count += 1) {
+      title = labels.repeat(base, count)
+    }
+    taken.add(title)
+    titleOf.set(candidate, title)
+  }
+
+  // Replace the old suggestions; identical ones stay (idempotence).
+  const existingByKey = new Map<string, OrganizeSegment[]>()
+  for (const segment of existingSuggested) {
+    const key = segmentKey(segment.kind, segment.tripType, rangeOf(segment))
+    existingByKey.set(key, [...(existingByKey.get(key) ?? []), segment])
+  }
+  const keptIds = new Set<string>()
   const toCreate: Candidate[] = []
   for (const candidate of fresh) {
     const key = segmentKey(candidate.kind, candidate.tripType, candidate.range)
-    if (existingKeys.has(key) && !keptKeys.has(key)) keptKeys.add(key)
-    else toCreate.push(candidate)
+    const title = titleOf.get(candidate)
+    const match = existingByKey
+      .get(key)
+      ?.find(
+        (segment) =>
+          !keptIds.has(segment.id) &&
+          (segment.title === undefined || segment.title === title),
+      )
+    if (match === undefined) toCreate.push(candidate)
+    else keptIds.add(match.id)
   }
-  const keptIds = new Set(
-    [...keptKeys]
-      .map((key) => existingKeys.get(key))
-      .filter((id) => id !== undefined),
-  )
   const segmentsToDelete = existingSuggested
     .filter((segment) => !keptIds.has(segment.id))
     .map((segment) => segment.id)
@@ -483,13 +625,7 @@ function planSegments(
         ? {}
         : { stageKind: candidate.stageKind }),
       startsAt: iso(candidate.range.start),
-      title: options.segmentTitle({
-        index: counters[candidate.kind],
-        kind: candidate.kind,
-        stageKind: candidate.stageKind ?? null,
-        startsOn: candidate.startsOn,
-        tripType: candidate.tripType,
-      }),
+      title: titleOf.get(candidate) ?? '',
       tripType: candidate.tripType,
     }
   })

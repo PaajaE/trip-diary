@@ -65,6 +65,7 @@ describe('pickNearbyPlace', () => {
     )
     expect(place).toMatchObject({
       countryCode: 'CA',
+      kind: 'settlement',
       name: 'Lake Louise',
       region: 'Alberta',
       sourceRef: 'geoapify:n1000',
@@ -354,6 +355,28 @@ describe('pickNearbyPlace v3', () => {
     ).toBeNull()
   })
 
+  it('tags the picked candidate with its kind', () => {
+    const attr = { categories: ['tourism.attraction'], distance: 300 }
+    expect(
+      pick({ ...attr, name: 'Falls', raw: { waterway: 'waterfall' } })?.kind,
+    ).toBe('attraction')
+    expect(
+      pick({
+        categories: ['natural.mountain.peak'],
+        distance: 991,
+        name: 'Magog',
+      })?.kind,
+    ).toBe('natural')
+    expect(
+      pick({
+        categories: ['natural.mountain.peak'],
+        distance: 6000,
+        name: 'Mount Field',
+        raw: { wikidata: 'Q3' },
+      })?.kind,
+    ).toBe('natural')
+  })
+
   it('uses a prominent peak/lake within 8 km but not a plain one', () => {
     const peak = { categories: ['natural.mountain.peak'], distance: 6000 }
     expect(pick({ ...peak, name: 'Mount Field' })).toBeNull()
@@ -373,6 +396,7 @@ describe('pickNearbyPlace v3', () => {
     }
     const place = pick(far)
     expect(place).toMatchObject({
+      kind: 'near',
       name: 'u Banff',
       sourceRef: 'geoapify:n1000:near',
     })

@@ -111,6 +111,44 @@ export type Database = {
         }
         Relationships: []
       }
+      day_notes: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string | null
+          id: string
+          journey_id: string
+          local_date: string
+          updated_at: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journey_id: string
+          local_date: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          journey_id?: string
+          local_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: 'day_notes_journey_id_fkey'
+            columns: ['journey_id']
+            isOneToOne: false
+            referencedRelation: 'journeys'
+            referencedColumns: ['id']
+          },
+        ]
+      }
       entries: {
         Row: {
           body: string
@@ -1264,6 +1302,7 @@ export type Database = {
           created_at: string
           geocode_source: string
           id: string
+          kind: string | null
           latitude: number
           longitude: number
           name: string
@@ -1276,6 +1315,7 @@ export type Database = {
           created_at?: string
           geocode_source: string
           id?: string
+          kind?: string | null
           latitude: number
           longitude: number
           name: string
@@ -1288,6 +1328,7 @@ export type Database = {
           created_at?: string
           geocode_source?: string
           id?: string
+          kind?: string | null
           latitude?: number
           longitude?: number
           name?: string

@@ -26,6 +26,14 @@ export function optionalUuid(): Parser<string> {
   }
 }
 
+/** A flag such as `?cull=true`; the router's JSON parsing also yields `1`. */
+export function optionalFlag(): Parser<true> {
+  return (value) =>
+    value === true || value === 'true' || value === 1 || value === '1'
+      ? true
+      : undefined
+}
+
 export function optionalEnum<const T extends string>(
   options: readonly T[],
 ): Parser<T> {

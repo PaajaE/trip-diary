@@ -28,7 +28,7 @@ fáze, brány a rozhodnutí (kap. 9). Stav fází se zapisuje do `docs/v2-status
 - UI nevolá Supabase přímo, jde přes repozitáře v `entities/*/api`.
 - Časy médií: přesný okamžik (UTC) + IANA časové pásmo. Nikdy `new Date()` jako čas zážitku.
 - Texty UI česky i anglicky v `packages/i18n`. Názvosloví v2:
-  Cesta → Etapa → Výlet → Moment → Fotka/Video, Tip.
+  Cesta → Etapa → Výlet → Moment (v UI „zastávka“) → Fotka/Video, Tip.
 - Nové plány a reporty nepřidávat jako další soubory do `docs/`. Aktualizovat
   `plan-v2.md`, případně `v2-status.md`.
 

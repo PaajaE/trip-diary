@@ -75,6 +75,7 @@ describe('placeFromMapyResult', () => {
   it('uses the municipality and its item position', () => {
     expect(placeFromMapyResult(calgary, query)).toEqual({
       countryCode: 'CA',
+      kind: 'settlement',
       latitude: 51.0447,
       longitude: -114.0719,
       name: 'Calgary',
@@ -85,6 +86,7 @@ describe('placeFromMapyResult', () => {
 
   it('falls back to the region for administrative placeholders', () => {
     expect(placeFromMapyResult(lakeLouise, query)).toMatchObject({
+      kind: 'region',
       latitude: 51.417,
       longitude: -116.18,
       name: 'Alberta',
@@ -103,6 +105,7 @@ describe('placeFromMapyResult', () => {
     }
     expect(placeFromMapyResult(result, query)).toMatchObject({
       countryCode: 'CA',
+      kind: 'country',
       name: 'Kanada',
       region: null,
     })

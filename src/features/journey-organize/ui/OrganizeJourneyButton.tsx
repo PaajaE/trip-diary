@@ -32,7 +32,7 @@ export function OrganizeDialog({
   journeyId: string
   onClose: () => void
 }) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const [state, setState] = useState<State>({ status: 'loading' })
@@ -41,6 +41,17 @@ export function OrganizeDialog({
   useEffect(() => {
     let cancelled = false
     previewOrganization(journeyId, {
+      labels: {
+        locale: i18n.language,
+        and: (first, second) => t('autoOrganize.names.and', { first, second }),
+        dayTrip: (name) => t('autoOrganize.names.dayTrip', { name }),
+        repeat: (title, count) =>
+          t('autoOrganize.names.repeat', { count, title }),
+        stay: (name) => t('autoOrganize.names.stay', { name }),
+        travel: (from, to) => t('autoOrganize.names.travel', { from, to }),
+        trek: (name) => t('autoOrganize.names.trek', { name }),
+        trekAround: (name) => t('autoOrganize.names.trekAround', { name }),
+      },
       segmentTitle: ({ index, kind, stageKind, tripType }) =>
         kind === 'stage' || tripType === null
           ? stageKind === null
@@ -58,7 +69,7 @@ export function OrganizeDialog({
     return () => {
       cancelled = true
     }
-  }, [journeyId, attempt, t])
+  }, [journeyId, attempt, t, i18n.language])
 
   const reload = useCallback(() => {
     setState({ status: 'loading' })

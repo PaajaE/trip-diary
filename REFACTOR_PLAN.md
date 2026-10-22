@@ -1,7 +1,7 @@
 # REFACTOR_PLAN — předání do nové session
 
-**Stav k:** 2026-10-09 · **Větev k pokračování:** `v2/phase-2-upload` (HEAD `2c1700d` + 4 necommitnuté soubory)
-**Zdroje pravdy, které se nekopírují sem:** [docs/plan-v2.md](docs/plan-v2.md) (cíl, model, fáze, rozhodnutí v kap. 9) a [docs/v2-status.md](docs/v2-status.md) (výsledky po fázích). Tento soubor je jen přehled stavu a postupu; po dokončení refaktoru ho smazat.
+**Stav k:** 2026-10-22 · **Větev k pokračování:** `feat/workspace-data-correctness` (z `main` po PR #26, **vše necommitnuté**, viz oddíl K)
+**Zdroje pravdy, které se nekopírují sem:** [docs/plan-v2.md](docs/plan-v2.md) (cíl, model, fáze, rozhodnutí v kap. 9; pracovní plocha = Fáze 4b a 4c) a [docs/v2-status.md](docs/v2-status.md) (výsledky po fázích). Oddíly A–J níže jsou historický stav k 2026-10-09; aktuální práce je v oddílu K.
 
 Legenda: ✅ ověřeno v této session (příkaz/výsledek uveden) · 🟡 provedeno, neověřeno · 📝 jen navrženo · ⏳ nedokončeno
 
@@ -132,3 +132,50 @@ Po review (T1) doplněno: stránkování výpisu R2, chyba `delete_failed` (502)
 ## J. Pravidla práce (orchestrace)
 
 Postup a role jsou v `CLAUDE.md` (sekce Orchestration) a ve skillu `.claude/skills/refactor-task/`. Stavové značky: ✅ VERIFIED/TESTED · 🟡 IMPLEMENTED · 📝 PROPOSED · ⏳ otevřeno · UNVERIFIED · BLOCKED · DEFERRED. Před úkoly T2/T3 musí běžet Docker (při poslední kontrole neběžel).
+
+## K. Pracovní plocha „Atlas cesty“ (2026-10-18 až 10-22)
+
+### K.1 Co je v produkci (`main`, nasazeno přes `pages.yml`)
+
+| PR  | Obsah                                                                                                                                                                                               | Ověření                                                                  |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| #22 | Fáze 4b P1: koš (`deleted_at`, `trash/restore/claim_media_purge/purge_media`), `move_media`, `create_moment_from_media`, `delete_moment`; prohlížeč fotek; osnova po dnech; mapa; líné vykreslování | pgTAP, `pnpm check`, revize (3 vážné nálezy opraveny), lokální prohlížeč |
+| #23 | `resolve-place` na Mapy.com (Nominatim z edge vrací 403)                                                                                                                                            | log funkce, volání v produkci                                            |
+| #24 | Názvy míst přes Geoapify (sídla, vrcholy) + přepočet                                                                                                                                                | lokálně proti živým API, produkce                                        |
+| #25 | Klidná plocha: zastávky podle míst, nadpisy dnů, mapa s fotobublinami, názvy míst v3 (+ migrace přepočtu)                                                                                           | lokální prohlížeč, produkce                                              |
+| #26 | Ukotvení bublin na mapě (obal markeru bez `position`)                                                                                                                                               | produkce: markery `absolute`, bubliny na místě                           |
+
+Secrets v produkci (jen názvy): `MAPY_API_KEY`, `GEOAPIFY_API_KEY` (bezplatný tarif 3 000/den). Na `main` je ochrana větve s povinnými kontrolami `quality` a `database-security`; auto-merge je v repozitáři povolený.
+
+### K.2 Necommitnuto na `feat/workspace-data-correctness` (🟡, nic z toho není v produkci)
+
+Koncept „Atlas cesty“ (rozhodnutí 9, Fáze 4c v `docs/plan-v2.md`; klikací prototyp jako soukromý artefakt, odkaz v plánu) je závazná vizuální předloha včetně mobilu.
+
+| Krok Fáze 4c                                                                                                              | Stav                                                                                    | Hlavní soubory                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| 1 Správná data (bez UTC, rozsahy dat, dny mimo etapy chronologicky, neprůhledný nadpis dne, „zastávka“ v UI)              | IMPLEMENTED, lokální prohlížeč ✅                                                       | `features/journey-workspace/lib/format-range.ts`, `model/workspace-tree.ts`                                     |
+| 2a Typ místa (`places.kind`) + přepočet                                                                                   | TESTED (pgTAP)                                                                          | migrace `20261022120000_v2_place_kind.sql`, `_shared/places/*`, `resolve-place`                                 |
+| 2b Automatika v2 (jeden průběh, mezery > 2 dny = hranice, trek, pobyt na základně, názvy z míst, slučování 1denních etap) | IMPLEMENTED, vyhodnoceno na skutečných datech Kanady mimo repo                          | `packages/core/src/automation/{journey-plan,names,organize}.ts`, `features/journey-organize/*`                  |
+| 3 Přehled dnů (lišta úkolů, etapy s pokrokem, karty dnů, mapa, mobil)                                                     | IMPLEMENTED, jen jsdom                                                                  | `ui/JourneyWorkspace.tsx`, `ui/{OverviewTaskBar,StageRail,DayCards}.tsx`, `model/workspace-{overview,tasks}.ts` |
+| 4 Detail dne (routa `/j/$journeyId/workspace/day/$date`, mapa dne, zastávky, zápis dne, výběr a hromadné akce)            | IMPLEMENTED a napojeno do routy; lokální prohlížeč desktop + 390 px ✅                  | `ui/day/*`, `model/day-stops.ts`, `entities/day-note/*`, `ui/JourneyWorkspaceDay.tsx`                           |
+| 4 DB: zápisy ke dni (`day_notes`, RLS, `dayNotes` ve `get_public_journey`)                                                | TESTED (pgTAP 576)                                                                      | migrace `20261023120000_v2_day_notes.sql`                                                                       |
+| 5 Detail etapy + návrh uspořádání na časovém pásu                                                                         | 📝 PROPOSED                                                                             | —                                                                                                               |
+| 6 Výběr nejlepších (klávesy S/X/←/→/U/F)                                                                                  | IMPLEMENTED, napojeno (tlačítko v detailu dne, úkol `?cull=true`); lokálně ✅ na mobilu | `ui/cull/CullView.tsx`, `model/cull.ts`                                                                         |
+
+Napojení hotovo (2026-10-22): detail dne v routě, akce zastávek (⋯ menu), Výběr nejlepších, zápisy dne jako „text“, návrat na pozici v přehledu; nepoužívaný kód smazán. Zbývá: „Sloučit zastávky“, „Přesunout do jiného dne“, „Rozdělit den tady“ jsou zatím neaktivní tlačítka.
+
+Poslední ověření: `pnpm check` ✅ (777 testů po napojení a úklidu), `pnpm db:test` ✅ 576. V reálném prohlížeči a na iPhonu kroky 3–6 neověřeny.
+
+### K.3 Další kroky
+
+1. Dokončit napojení (K.2), `pnpm check`, lokální kontrola v prohlížeči na desktopu i v šířce ~390 px (lokální stack + testovací cesta: skript `seed-local.mjs` ve scratchpadu, testovací obrázky přes `VITE_MEDIA_BASE_URL` v `.env.development.local`, po kontrole smazat).
+2. Ukázat uživateli snímky, po schválení commit, PR s auto-merge, nasazení. Po nasazení otevřít Kanadu: migrace `place_kind` vynutí nové doplnění míst (~340 zastávek, ~2 s/zastávka), pak „Uspořádat automaticky“ s automatikou v2.
+3. Krok 5 (detail etapy, návrh uspořádání na časovém pásu), národní parky v názvech míst (polygon parku uložený jednou), automatické vysypání koše po 30 dnech (není).
+
+### K.4 Poznatky a rizika
+
+- Skutečná metadata Kanady (časy, souřadnice, názvy míst) leží jen v `/private/tmp/claude-501/kanada-data/` — **nikdy je nekopírovat do repozitáře** (je veřejný).
+- Nominatim i veřejný Overpass blokují Supabase edge (403/406/timeout); geokódování jde přes Geoapify → Mapy.com.
+- Fotky Kanady mezi 17. a 28. 9. v cestě chybí; trek kolem Mt Assiniboine má data jen 29. 9.–1. 10.
+- Ochrana auto módu nedovolí agentovi nasazovat do produkce mimo workflow; dočasné testovací funkce spouští uživatel ručně.
+- Místa v divočině bez sídla v okolí končí jako „u X“ nebo region; parky zatím nejsou.
