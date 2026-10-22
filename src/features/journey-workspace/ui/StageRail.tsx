@@ -1,8 +1,10 @@
+import { ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type {
   OverviewChapter,
   StripDay,
 } from '@/features/journey-workspace/model/workspace-overview'
+import { STRIP_PALETTE } from '@/features/journey-workspace/lib/stage-colors'
 import { BASE_URL } from '@/features/journey-workspace/lib/moment-labels'
 import {
   chapterRange,
@@ -10,9 +12,6 @@ import {
 } from '@/features/journey-workspace/lib/chapter-labels'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import { cn } from '@/shared/lib/cn'
-
-/** Colours of the day strip bars, cycled over the chapters. */
-const STRIP_PALETTE = ['#9bb59f', '#7f9fb4', '#c9a479', '#a7b98a', '#d9a07f']
 
 /** Ring showing the share of days that already have text. */
 export function ProgressRing({
@@ -90,14 +89,104 @@ interface RailProps {
   onJump: (chapterId: string) => void
 }
 
-/** Left column: chapters with cover, range and progress ring. */
-export function StageRail({ activeId, chapters, locale, onJump }: RailProps) {
+const RAIL_BUTTON =
+  'inline-flex items-center justify-center rounded-lg border border-border bg-surface text-primary hover:bg-sunk'
+
+function stageColor(chapter: OverviewChapter): string {
+  return STRIP_PALETTE[chapter.colorIndex % STRIP_PALETTE.length] ?? '#9bb59f'
+}
+
+/** Narrow rail: an expand button and one round thumb per stage. */
+function CollapsedRail({
+  activeId,
+  chapters,
+  locale,
+  onJump,
+  onToggle,
+}: RailProps & { onToggle: () => void }) {
   const { t } = useTranslation()
   return (
+    <div className="flex flex-col items-center gap-2">
+      <button
+        aria-label={t('workspace.layout.expandRail')}
+        className={cn(RAIL_BUTTON, 'size-9')}
+        title={`${t('workspace.layout.expandRail')} ( [ )`}
+        type="button"
+        onClick={onToggle}
+      >
+        <ChevronsRight aria-hidden="true" size={16} />
+      </button>
+      <ul className="m-0 flex list-none flex-col items-center gap-2 p-1 pb-3">
+        {chapters.map((chapter) => {
+          const range = chapterRange(chapter, locale)
+          const label = [
+            chapterTitle(chapter, t('workspace.looseMoments')),
+            range,
+          ]
+            .filter((part) => part !== '')
+            .join(' · ')
+          const active = chapter.id === activeId
+          return (
+            <li key={chapter.id}>
+              <button
+                aria-current={active ? 'true' : undefined}
+                aria-label={label}
+                className="flex size-9 items-center justify-center rounded-full"
+                style={{
+                  boxShadow: `0 0 0 2px var(--color-background), 0 0 0 ${active ? '5' : '3'}px ${stageColor(chapter)}`,
+                }}
+                title={label}
+                type="button"
+                onClick={() => {
+                  onJump(chapter.id)
+                }}
+              >
+                <Thumb chapter={chapter} className="size-9 rounded-full" />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
+}
+
+/** Left column: chapters with cover, range and progress ring. */
+export function StageRail({
+  activeId,
+  chapters,
+  collapsed,
+  locale,
+  onJump,
+  onToggle,
+}: RailProps & { collapsed: boolean; onToggle: () => void }) {
+  const { t } = useTranslation()
+  if (collapsed)
+    return (
+      <CollapsedRail
+        activeId={activeId}
+        chapters={chapters}
+        locale={locale}
+        onJump={onJump}
+        onToggle={onToggle}
+      />
+    )
+  return (
     <div className="flex flex-col gap-0.5">
-      <h2 className="px-2 pb-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-        {t('workspace.overview.stages')}
-      </h2>
+      <div className="flex items-center justify-between pb-2 pl-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
+          {t('workspace.overview.stages')}
+        </h2>
+        <button
+          aria-label={t('workspace.layout.collapseRail')}
+          className={cn(RAIL_BUTTON, 'size-8')}
+          title={`${t('workspace.layout.collapseRail')} ( [ )`}
+          type="button"
+          onClick={onToggle}
+        >
+          <ChevronsLeft aria-hidden="true" size={16} />
+        </button>
+      </div>
       <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
         {chapters.map((chapter) => {
           const title = chapterTitle(chapter, t('workspace.looseMoments'))

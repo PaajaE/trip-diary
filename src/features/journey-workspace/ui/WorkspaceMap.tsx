@@ -19,6 +19,7 @@ import {
   type MapView,
   type PlaceCandidate,
 } from '@/features/journey-workspace/model/workspace-map'
+import { cn } from '@/shared/lib/cn'
 import { getAppMapStyle } from '@/shared/lib/map-style'
 
 /** What the map should show; a new `nonce` re-applies the same view. */
@@ -32,6 +33,8 @@ interface WorkspaceMapProps {
   bubbles?: BubbleModel
   /** Short description of the focused day ("Wed 3 Jun · 5 places"). */
   caption: string | null
+  /** Fill the parent's height instead of the fixed map height. */
+  fill?: boolean
   focus: DayFocus
   hover: HoverStore
   onReset: () => void
@@ -280,6 +283,7 @@ interface StageMarker {
 export function WorkspaceMap({
   bubbles = NO_BUBBLES,
   caption,
+  fill = false,
   focus,
   hover,
   onReset,
@@ -621,10 +625,13 @@ export function WorkspaceMap({
 
   const chip = 'rounded-lg border border-border bg-background/95 shadow-soft'
   return (
-    <div className="relative">
+    <div className={cn('relative', fill && 'h-full')}>
       <div
         aria-label={t('workspace.map')}
-        className="h-80 overflow-hidden rounded-lg border border-border lg:h-[calc(100vh-9rem)]"
+        className={cn(
+          'overflow-hidden rounded-lg border border-border',
+          fill ? 'h-full' : 'h-80 lg:h-[calc(100vh-9rem)]',
+        )}
         ref={containerRef}
         role="region"
       />
