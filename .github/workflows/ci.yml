@@ -49,23 +49,38 @@ jobs:
       - run: pnpm check
 
   # Database checks run on every push to main and on PRs that touch the database.
+  # The job itself always runs (a skipped required check never triggers
+  # auto-merge); without database changes it passes after the first step.
   database-security:
     needs: changes
-    if: github.event_name != 'pull_request' || needs.changes.outputs.database == 'true'
     runs-on: ubuntu-latest
+    env:
+      RUN_DB: ${{ github.event_name != 'pull_request' || needs.changes.outputs.database == 'true' }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - if: env.RUN_DB != 'true'
+        run: echo "No database changes in this PR, skipping database checks."
+      - if: env.RUN_DB == 'true'
+        uses: actions/checkout@v4
+      - if: env.RUN_DB == 'true'
+        uses: pnpm/action-setup@v4
+      - if: env.RUN_DB == 'true'
+        uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-      - uses: supabase/setup-cli@v1
+      - if: env.RUN_DB == 'true'
+        uses: supabase/setup-cli@v1
         with:
           version: 2.75.0
-      - run: pnpm install --frozen-lockfile
-      - run: supabase start -x "$SUPABASE_EXCLUDE"
-      - run: pnpm db:lint
-      - run: pnpm db:test
-      - run: pnpm db:types
-      - run: git diff --exit-code -- src/shared/api/database.types.ts
+      - if: env.RUN_DB == 'true'
+        run: pnpm install --frozen-lockfile
+      - if: env.RUN_DB == 'true'
+        run: supabase start -x "$SUPABASE_EXCLUDE"
+      - if: env.RUN_DB == 'true'
+        run: pnpm db:lint
+      - if: env.RUN_DB == 'true'
+        run: pnpm db:test
+      - if: env.RUN_DB == 'true'
+        run: pnpm db:types
+      - if: env.RUN_DB == 'true'
+        run: git diff --exit-code -- src/shared/api/database.types.ts
