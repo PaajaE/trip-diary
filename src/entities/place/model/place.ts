@@ -1,9 +1,21 @@
 import { z } from 'zod'
 
+export const placeKindSchema = z.enum([
+  'settlement',
+  'natural',
+  'attraction',
+  'near',
+  'region',
+  'country',
+])
+export type StoredPlaceKind = z.infer<typeof placeKindSchema>
+
 /** A named place (Mapy.com reverse geocoding); shown with PlaceAttribution. */
 export const placeSchema = z.object({
   countryCode: z.string().nullable(),
   id: z.uuid(),
+  /** Null for places resolved before kinds existed (or an unknown value). */
+  kind: placeKindSchema.nullish().catch(null),
   latitude: z.number(),
   longitude: z.number(),
   name: z.string(),

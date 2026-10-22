@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { groupMomentsByDay } from '@/features/journey-workspace/model/workspace-days'
 import {
   buildWorkspaceTree,
+  buildTimeline,
   collectMoments,
   isWorkspaceEmpty,
 } from '@/features/journey-workspace/model/workspace-tree'
@@ -133,5 +135,88 @@ describe('rejected segments', () => {
     const rejected = seg(2, { origin: 'rejected' })
     const tree = buildWorkspaceTree([kept, rejected], [], [])
     expect(tree.roots.map((r) => r.segment.id)).toEqual([kept.id])
+  })
+})
+
+describe('moment display zone', () => {
+  it('prefers media zone, then coordinates, then segment, then home zone', () => {
+    const stage = seg(1, { tz: 'Asia/Tokyo' })
+    const withMedia = mom(10)
+    const withCoords = mom(11, { latitude: 43.65, longitude: -79.38 })
+    const plain = mom(12)
+    const media = [
+      med(20, { capturedTz: 'Europe/Paris', momentId: withMedia.id }),
+      med(21, { capturedTz: null, momentId: withCoords.id }),
+    ]
+    const tree = buildWorkspaceTree(
+      [stage],
+      [withMedia, withCoords, plain],
+      media,
+    )
+    const tz = (id: string) =>
+      collectMoments(tree).find((x) => x.moment.id === id)?.tz
+    expect(tz(withMedia.id)).toBe('Europe/Paris')
+    expect(tz(withCoords.id)).toBe('America/Toronto')
+    expect(tz(plain.id)).toBe('Asia/Tokyo')
+    const loose = buildWorkspaceTree([], [plain], [], 'Europe/Prague')
+    expect(loose.looseMoments[0]?.tz).toBe('Europe/Prague')
+    expect(buildWorkspaceTree([], [plain], []).looseMoments[0]?.tz).toBeNull()
+  })
+
+  it('groups a late-evening import into the local day via its coordinates', () => {
+    // 01:30 UTC on the 3rd is still the 2nd in Toronto.
+    const m = mom(10, {
+      latitude: 43.65,
+      longitude: -79.38,
+      startsAt: '2026-01-03T01:30:00+00:00',
+    })
+    const tree = buildWorkspaceTree([], [m], [])
+    expect(groupMomentsByDay(tree.looseMoments)[0]?.key).toBe('2026-01-02')
+  })
+})
+
+describe('buildTimeline', () => {
+  it('interleaves loose moments between segments by time', () => {
+    const a = seg(1, {
+      endsAt: '2026-01-10T00:00:00+00:00',
+      startsAt: '2026-01-05T00:00:00+00:00',
+    })
+    const b = seg(2, {
+      endsAt: '2026-10-10T00:00:00+00:00',
+      startsAt: '2026-10-06T00:00:00+00:00',
+    })
+    const before = mom(10, {
+      endsAt: '2026-01-01T01:00:00+00:00',
+      startsAt: '2026-01-01T00:00:00+00:00',
+    })
+    const between = mom(11, {
+      endsAt: '2026-09-29T01:00:00+00:00',
+      startsAt: '2026-09-29T00:00:00+00:00',
+    })
+    const between2 = mom(12, {
+      endsAt: '2026-09-30T01:00:00+00:00',
+      startsAt: '2026-09-30T00:00:00+00:00',
+    })
+    const after = mom(13, {
+      endsAt: '2026-12-01T01:00:00+00:00',
+      startsAt: '2026-12-01T00:00:00+00:00',
+    })
+    const tree = buildWorkspaceTree(
+      [b, a],
+      [after, between2, before, between],
+      [],
+    )
+    const timeline = buildTimeline(tree)
+    expect(
+      timeline.map((e) =>
+        e.kind === 'segment'
+          ? e.node.segment.id
+          : e.moments.map((x) => x.moment.id).join('+'),
+      ),
+    ).toEqual([before.id, a.id, `${between.id}+${between2.id}`, b.id, after.id])
+    const scopes = timeline.flatMap((e) =>
+      e.kind === 'loose' ? [e.scope] : [],
+    )
+    expect(new Set(scopes).size).toBe(scopes.length)
   })
 })

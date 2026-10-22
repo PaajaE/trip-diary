@@ -34,13 +34,15 @@ import {
 interface PlaceRow {
   country_code: string | null
   id: string
+  kind: string | null
   latitude: number
   longitude: number
   name: string
   region: string | null
 }
 
-const PLACE_COLUMNS = 'id, name, country_code, region, latitude, longitude'
+const PLACE_COLUMNS =
+  'id, name, country_code, region, latitude, longitude, kind'
 
 function env(name: string): string {
   const value = Deno.env.get(name)
@@ -72,6 +74,7 @@ function toResponsePlace(row: PlaceRow) {
   return {
     countryCode: row.country_code,
     id: row.id,
+    kind: row.kind,
     latitude: row.latitude,
     longitude: row.longitude,
     name: row.name,
@@ -159,6 +162,7 @@ async function storePlace(
     .insert({
       country_code: candidate.countryCode,
       geocode_source: geocodeSource,
+      kind: candidate.kind,
       latitude: candidate.latitude,
       longitude: candidate.longitude,
       name: candidate.name.slice(0, 200),

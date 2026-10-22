@@ -276,6 +276,36 @@ describe('MediaViewer', () => {
     )
   }
 
+  it('resolves a missing capture zone from coordinates, then the moment, with no zone label', () => {
+    const at = '2026-05-26T23:30:00+00:00'
+    const withCoords = med(20, {
+      capturedAt: at,
+      capturedTz: null,
+      latitude: 43.65,
+      longitude: -79.38,
+    })
+    const { unmount } = render(
+      bare([{ id: 'a', items: [withCoords], title: 'X', tz: 'Asia/Tokyo' }]),
+      { wrapper },
+    )
+    // Toronto (UTC-4): 7:30 PM, not Tokyo and not UTC.
+    expect(screen.getByText(/7:30 PM|07:30 PM/)).toBeTruthy()
+    unmount()
+    const bareMedia = med(20, {
+      capturedAt: at,
+      capturedTz: null,
+      latitude: null,
+      longitude: null,
+    })
+    render(
+      bare([{ id: 'a', items: [bareMedia], title: 'X', tz: 'Asia/Tokyo' }]),
+      { wrapper },
+    )
+    // Moment zone Tokyo: 8:30 AM next day.
+    expect(screen.getByText(/08:30 AM/)).toBeTruthy()
+    expect(screen.queryByText(/UTC/)).toBeNull()
+  })
+
   it('restores focus without scrolling the page', () => {
     const focus = vi.spyOn(HTMLElement.prototype, 'focus')
     render(<Harness />, { wrapper })

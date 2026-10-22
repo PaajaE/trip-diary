@@ -14,6 +14,7 @@ import {
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
   LazyJourneyTrashRoutePage,
+  LazyJourneyWorkspaceDayRoutePage,
   LazyJourneyWorkspaceRoutePage,
   LazyMediaLibraryDiagnosticsPage,
   LazyVideoUploadDevPage,
@@ -32,7 +33,7 @@ import {
   LazyPublicSpaceRoutePage,
 } from '@/app/lazy-pages'
 import { AppShell } from '@/app/AppShell'
-import { optionalEnum, searchSchema } from '@/app/search-params'
+import { optionalEnum, optionalFlag, searchSchema } from '@/app/search-params'
 import { requireAuth } from '@/features/auth/routing/require-auth'
 import { HomePage } from '@/pages/home/HomePage'
 
@@ -121,6 +122,16 @@ const journeyWorkspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/workspace',
   component: LazyJourneyWorkspaceRoutePage,
+})
+
+// Day page of the workspace: full-screen panel with its own address.
+const journeyWorkspaceDayRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/workspace/day/$date',
+  component: LazyJourneyWorkspaceDayRoutePage,
+  // ?cull=true opens the day straight in culling ("Výběr nejlepších").
+  validateSearch: searchSchema({ cull: optionalFlag() }),
 })
 
 const journeyTrashRoute = createRoute({
@@ -237,6 +248,7 @@ const routeTree = rootRoute.addChildren([
   journeyRoute,
   journeyMembersRoute,
   journeyWorkspaceRoute,
+  journeyWorkspaceDayRoute,
   journeyTrashRoute,
   journeyImportRoute,
   journeyQuickNoteRoute,

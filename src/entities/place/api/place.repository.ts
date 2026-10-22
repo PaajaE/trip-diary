@@ -17,7 +17,7 @@ export async function listPlacesByIds(
   for (let i = 0; i < unique.length; i += CHUNK) {
     const { data, error } = await getSupabaseClient()
       .from('places')
-      .select('id, name, country_code, region, latitude, longitude')
+      .select('id, name, country_code, kind, region, latitude, longitude')
       .in('id', unique.slice(i, i + CHUNK))
     if (error !== null) {
       throw new PlaceError('list_failed', error.message, error)
@@ -26,6 +26,7 @@ export async function listPlacesByIds(
       const parsed = placeSchema.safeParse({
         countryCode: row.country_code,
         id: row.id,
+        kind: row.kind,
         latitude: row.latitude,
         longitude: row.longitude,
         name: row.name,

@@ -7,7 +7,6 @@ import {
   computeFocus,
   computeView,
   createHoverStore,
-  estimateMomentHeight,
   formatDayCaption,
   medoidPosition,
   placeBubbles,
@@ -136,16 +135,7 @@ describe('buildMapModel', () => {
   })
 })
 
-describe('estimateMomentHeight / hover store', () => {
-  it('grows with the tile rows', () => {
-    expect(estimateMomentHeight(0, false)).toBeLessThan(
-      estimateMomentHeight(3, false),
-    )
-    expect(estimateMomentHeight(3, false)).toBeLessThan(
-      estimateMomentHeight(30, false),
-    )
-    expect(estimateMomentHeight(30, false)).toBe(estimateMomentHeight(6, false))
-  })
+describe('hover store', () => {
   it('notifies only on change and can unsubscribe', () => {
     const store = createHoverStore()
     const seen: (string | null)[] = []

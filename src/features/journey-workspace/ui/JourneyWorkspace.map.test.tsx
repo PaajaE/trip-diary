@@ -2,10 +2,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   act,
   cleanup,
+  fireEvent,
   render as rtlRender,
   screen,
 } from '@testing-library/react'
-import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
@@ -114,8 +114,14 @@ vi.mock('maplibre-gl', () => {
   }
 })
 vi.mock('maplibre-gl/dist/maplibre-gl.css', () => ({}))
-vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children }: { children: ReactNode }) => <a href="/i">{children}</a>,
+const navigate = vi.hoisted(() => vi.fn())
+vi.mock('@tanstack/react-router', async () => {
+  const { MockLink } = await import('@/features/journey-workspace/test-router')
+  return { Link: MockLink, useNavigate: () => navigate }
+})
+const dayNotes = vi.hoisted(() => ({ byDate: new Map<string, string>() }))
+vi.mock('@/entities/day-note/api/use-day-notes', () => ({
+  useDayNotes: () => ({ byDate: dayNotes.byDate, save: vi.fn() }),
 }))
 vi.mock('@/features/moment-tags/api/use-moment-tags', () => ({
   useJourneyMomentTags: () => ({
@@ -184,9 +190,13 @@ function ui() {
   )
 }
 
-const observer = vi.hoisted(() => ({
-  callbacks: [] as ((entries: unknown[]) => void)[],
-}))
+/** Hovering the first day card lights up that day's stops on the map. */
+function hoverFirstDay() {
+  const card = document.querySelector('[data-day-card]')
+  act(() => {
+    fireEvent.mouseEnter(card!)
+  })
+}
 
 function featureCount(id: string): number {
   const data = mapCalls.sources.get(id)?.data as
@@ -211,18 +221,15 @@ describe('WorkspaceMap focus and stability', () => {
       handlers: new Map(),
       sources: new Map(),
     })
-    observer.callbacks = []
+    navigate.mockReset()
     vi.stubGlobal(
       'IntersectionObserver',
       class {
-        constructor(cb: (entries: unknown[]) => void) {
-          observer.callbacks.push(cb)
-        }
         observe = vi.fn()
         disconnect = vi.fn()
       },
     )
-    // Wide screen: the outline (which reports the day in view) is mounted.
+    // Wide screen: the map column is mounted.
     vi.stubGlobal('matchMedia', (query: string) => ({
       addEventListener: vi.fn(),
       matches: true,
@@ -236,55 +243,54 @@ describe('WorkspaceMap focus and stability', () => {
     vi.unstubAllGlobals()
   })
 
-  it('numbers only the focused day: one line, others are dots', () => {
+  it('numbers only the hovered day: one line, others are dots', () => {
     setTree()
     rtlRender(ui())
+    // Nothing hovered: no numbers, no line, every stop is a dot.
+    expect(mapCalls.markersAdded).toBe(0)
+    expect(featureCount('workspace-day-line')).toBe(0)
+    expect(featureCount('workspace-dots')).toBe(3)
+    hoverFirstDay()
     expect(mapCalls.markersAdded).toBe(2)
     expect(featureCount('workspace-day-line')).toBe(1)
     expect(featureCount('workspace-dots')).toBe(1)
     expect(screen.getByTestId('map-caption').textContent).toBe(
       'Fri 2 Jan · 2 places',
     )
-  })
-
-  it('does not move the camera on passive focus change, offers zoom to day', () => {
-    setTree()
-    rtlRender(ui())
-    expect(mapCalls.views).toBe(1)
     act(() => {
-      for (const cb of observer.callbacks)
-        cb([{ isIntersecting: true, target: { id: `ws-moment-${uuid(12)}` } }])
+      fireEvent.mouseLeave(document.querySelector('[data-day-card]')!)
     })
-    expect(mapCalls.views).toBe(1)
-    // Day 3 has one point: no line, no out-of-focus marker left of day 2.
     expect(featureCount('workspace-day-line')).toBe(0)
-    expect(featureCount('workspace-dots')).toBe(2)
-    act(() => {
-      screen.getByRole('button', { name: 'Zoom to day' }).click()
-    })
-    expect(mapCalls.views).toBe(2)
+    expect(screen.queryByTestId('map-caption')).toBeNull()
+  })
+
+  it('never moves the camera on hover and offers no zoom-to-day', () => {
+    setTree()
+    rtlRender(ui())
+    expect(mapCalls.views).toBe(1)
+    hoverFirstDay()
+    expect(mapCalls.views).toBe(1)
     expect(screen.queryByRole('button', { name: 'Zoom to day' })).toBeNull()
   })
 
-  it('moves the camera when a dot is clicked (explicit navigation)', () => {
+  it('opens the day page when a dot is clicked', () => {
     setTree()
     rtlRender(ui())
     act(() => {
-      for (const cb of observer.callbacks)
-        cb([{ isIntersecting: true, target: { id: `ws-moment-${uuid(12)}` } }])
+      mapCalls.clickHandler?.({ features: [{ properties: { id: uuid(12) } }] })
+    })
+    expect(navigate).toHaveBeenCalledWith({
+      params: { date: '2026-01-03', journeyId: 'j' },
+      search: {},
+      to: '/j/$journeyId/workspace/day/$date',
     })
     expect(mapCalls.views).toBe(1)
-    act(() => {
-      mapCalls.clickHandler?.({ features: [{ properties: { id: uuid(10) } }] })
-    })
-    expect(mapCalls.views).toBe(2)
-    expect(featureCount('workspace-day-line')).toBe(1)
-    expect(screen.queryByRole('button', { name: 'Zoom to day' })).toBeNull()
   })
 
   it('keeps the map and camera when only placeId / starred change', () => {
     setTree()
     const view = rtlRender(ui())
+    hoverFirstDay()
     expect(mapCalls.constructed).toBe(1)
     expect(mapCalls.views).toBe(1)
     expect(mapCalls.markersAdded).toBe(2)
@@ -301,6 +307,7 @@ describe('WorkspaceMap focus and stability', () => {
   it('moves a pin in place without recreating the map or the camera', () => {
     setTree()
     const view = rtlRender(ui())
+    hoverFirstDay()
     const before = mapCalls.setLngLat
     setTree({ lat: 50 })
     view.rerender(ui())
@@ -346,6 +353,7 @@ describe('WorkspaceMap focus and stability', () => {
       tree: buildWorkspaceTree([seg(1)], moments, [covered(10)]),
     }
     rtlRender(ui())
+    hoverFirstDay()
     const photo = document.querySelector<HTMLElement>(
       `[data-moment-id="${uuid(10)}"]`,
     )
@@ -403,6 +411,7 @@ describe('WorkspaceMap focus and stability', () => {
       ]),
     }
     rtlRender(ui())
+    hoverFirstDay()
     await vi.waitFor(() => {
       expect(markerIds()).toEqual(
         [uuid(10), uuid(11), uuid(12), uuid(14)].sort(),
@@ -438,6 +447,7 @@ describe('WorkspaceMap focus and stability', () => {
       ]),
     }
     rtlRender(ui())
+    hoverFirstDay()
     await new Promise((resolve) => setTimeout(resolve, 200))
     expect(markerIds()).toEqual([uuid(10)])
   })

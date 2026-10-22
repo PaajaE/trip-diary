@@ -47,6 +47,24 @@ export {
   type StageTripKind,
 } from './stages.ts'
 export {
+  findJourneyTrips,
+  planJourney,
+  splitAtGaps,
+  type DayPlace,
+  type JourneyDay,
+  type JourneyPlanOptions,
+  type JourneyStage,
+  type JourneyStageKind,
+  type JourneyTrip,
+  type PlaceKind,
+} from './journey-plan.ts'
+export {
+  CS_NAME_LABELS,
+  nameStage,
+  nameTrip,
+  type NameLabels,
+} from './names.ts'
+export {
   resolveCaptureZone,
   timeZoneAt,
   wallClockToInstant,

@@ -5,7 +5,7 @@
 // Pure and dependency-free so it runs in Deno and is unit-tested from
 // @trip-diary/core. Never log the URLs: they carry the API key.
 
-import type { PlaceCandidate, ReverseQuery } from './mapy.ts'
+import type { PlaceCandidate, PlaceKind, ReverseQuery } from './mapy.ts'
 
 export const GEOAPIFY_PLACES_URL = 'https://api.geoapify.com/v2/places'
 export const GEOAPIFY_GEOCODE_SOURCE = 'geoapify'
@@ -243,6 +243,14 @@ function sourceRefOf(properties: NonNullable<GeoapifyFeature['properties']>) {
 
 type Tier = 'settlement' | 'natural' | 'attraction' | 'prominent' | 'near'
 
+const TIER_KIND: Record<Tier, PlaceKind> = {
+  attraction: 'attraction',
+  natural: 'natural',
+  near: 'near',
+  prominent: 'natural',
+  settlement: 'settlement',
+}
+
 /**
  * Picks the name for a position. Tiers, first non-empty wins:
  *  a. settlement: city/town within 15 km, village 8 km, hamlet 4 km. Within
@@ -312,6 +320,7 @@ export function pickNearbyPlace(
       tiers[tier].push({
         candidate: {
           ...base,
+          kind: TIER_KIND[tier],
           name: label.slice(0, 200),
           sourceRef: ref.slice(0, 200),
         },

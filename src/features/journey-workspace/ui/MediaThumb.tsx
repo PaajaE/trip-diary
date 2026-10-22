@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { formatDuration } from '@/features/journey-workspace/lib/format-range'
 import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { cn } from '@/shared/lib/cn'
 
 interface MediaThumbProps {
   baseUrl: string
@@ -19,7 +20,10 @@ export function MediaThumb({
   const isVideo = item.kind === 'video'
   return (
     <span
-      className={`relative inline-block shrink-0 overflow-hidden rounded-sm bg-surface ${className}`}
+      className={cn(
+        'relative inline-block shrink-0 overflow-hidden rounded-sm bg-surface',
+        className,
+      )}
       data-testid="media-thumb"
     >
       {url !== null ? (

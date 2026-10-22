@@ -105,6 +105,26 @@ function applyPlan(
   }
 }
 
+/** Several well separated places, each visited for a few days. */
+function smartLikeMedia(): OrganizeMedia[] {
+  const places: (readonly [number, number])[] = [CANMORE, VANCOUVER, MORAINE]
+  const media: OrganizeMedia[] = []
+  places.forEach((place, p) => {
+    for (let d = 0; d < 4; d += 1) {
+      const date = new Date(Date.UTC(2026, 6, 1 + p * 5 + d))
+        .toISOString()
+        .slice(0, 10)
+      media.push(
+        photo(`s${String(p)}${String(d)}a`, `${date}T10:00:00Z`, place),
+      )
+      media.push(
+        photo(`s${String(p)}${String(d)}b`, `${date}T18:00:00Z`, place),
+      )
+    }
+  })
+  return media
+}
+
 describe('planOrganization', () => {
   it('creates moments with range, centroid and members from clusters', () => {
     const plan = planOrganization(empty(journeyMedia()), options())
@@ -394,6 +414,152 @@ describe('planOrganization', () => {
 
   it('returns an empty plan for a journey without media', () => {
     expect(isPlanEmpty(planOrganization(empty([]), options()))).toBe(true)
+  })
+
+  describe('titles and gaps', () => {
+    function placed(): OrganizeInput {
+      const media = journeyMedia().map((item) => ({
+        ...item,
+        momentId: item.id.startsWith('v') ? 'mv' : 'mc',
+      }))
+      const moment = (id: string, placeName: string): OrganizeMoment => ({
+        endsAt: '2026-09-06T18:00:00Z',
+        id,
+        locked: false,
+        origin: 'auto',
+        placeKind: undefined,
+        placeName,
+        startsAt: '2026-09-01T09:00:00Z',
+      })
+      return {
+        media,
+        moments: [moment('mc', 'Canmore'), moment('mv', 'Vancouver')],
+        segments: [],
+      }
+    }
+
+    it('names suggestions from the places of their moments', () => {
+      const plan = planOrganization(placed(), options())
+      const titles = plan.stageSuggestions.map((s) => s.title)
+      expect(titles.join('|')).toContain('Canmore')
+      expect(titles.join('|')).toContain('Vancouver')
+    })
+
+    it('numbers fallback titles contiguously and never repeats a title', () => {
+      const plan = planOrganization(empty(smartLikeMedia()), {
+        ...options(),
+        segmentTitle: () => 'Same',
+      })
+      const all = [...plan.stageSuggestions, ...plan.tripSuggestions]
+      expect(new Set(all.map((s) => s.title)).size).toBe(all.length)
+
+      const numbered = planOrganization(empty(smartLikeMedia()), options())
+      const stageIndexes = numbered.stageSuggestions.map((s) =>
+        Number(s.title.split('-').pop()),
+      )
+      expect(stageIndexes).toEqual(stageIndexes.map((_, i) => i + 1))
+    })
+
+    it('does not repeat the title of a manual or accepted segment', () => {
+      const input = placed()
+      const first = planOrganization(input, options())
+      const taken = first.stageSuggestions[0]?.title ?? ''
+      const plan = planOrganization(
+        {
+          ...input,
+          segments: [
+            {
+              endsAt: '2020-01-01T00:00:00Z',
+              id: 'manual',
+              kind: 'stage',
+              origin: 'manual',
+              startsAt: '2020-01-01T00:00:00Z',
+              title: taken,
+              tripType: null,
+            },
+          ],
+        },
+        options(),
+      )
+      expect(plan.stageSuggestions.map((s) => s.title)).not.toContain(taken)
+    })
+
+    it('replaces an unchanged suggestion whose title is now better', () => {
+      const input = placed()
+      const plan = planOrganization(input, options())
+      const stale = plan.stageSuggestions.map(
+        (s): OrganizeSegment => ({
+          endsAt: s.endsAt,
+          id: `old-${s.id}`,
+          kind: 'stage',
+          origin: 'suggested',
+          startsAt: s.startsAt,
+          title: 'Etapa 1',
+          tripType: null,
+        }),
+      )
+      const again = planOrganization({ ...input, segments: stale }, options())
+      expect(again.segmentsToDelete.sort()).toEqual(
+        stale.map((s) => s.id).sort(),
+      )
+      expect(again.stageSuggestions).toHaveLength(stale.length)
+    })
+
+    it('uses another place of a trip when its name is already taken', () => {
+      const trip = (id: string, day: string) => [
+        photo(`${id}1`, `${day}T09:00:00Z`, CANMORE, `${id}a`),
+        photo(`${id}2`, `${day}T12:00:00Z`, MORAINE, `${id}a`),
+        photo(`${id}3`, `${day}T13:00:00Z`, MORAINE, `${id}b`),
+        photo(`${id}4`, `${day}T17:00:00Z`, CANMORE, `${id}a`),
+      ]
+      const media = [
+        ...trip('x', '2026-09-01'),
+        photo('q', '2026-09-02T09:00:00Z', CANMORE, 'xa'),
+        photo('r', '2026-09-02T17:00:00Z', CANMORE, 'xa'),
+        ...trip('y', '2026-09-03'),
+      ]
+      const moment = (id: string, name: string): OrganizeMoment => ({
+        endsAt: '2026-09-01T00:00:00Z',
+        id,
+        locked: false,
+        origin: 'auto',
+        placeKind: 'settlement',
+        placeName: name,
+        startsAt: '2026-09-01T00:00:00Z',
+      })
+      const plan = planOrganization(
+        {
+          media,
+          moments: [
+            moment('xa', 'Canmore'),
+            moment('xb', 'Moraine'),
+            moment('ya', 'Canmore'),
+            moment('yb', 'Moraine'),
+          ],
+          segments: [],
+        },
+        options(),
+      )
+      const titles = plan.tripSuggestions.map((t) => t.title)
+      expect(new Set(titles).size).toBe(titles.length)
+    })
+
+    it('does not cover a long photo gap with a stage', () => {
+      const media = [
+        photo('a1', '2026-09-01T09:00:00Z', CANMORE),
+        photo('a2', '2026-09-02T09:00:00Z', CANMORE),
+        photo('a3', '2026-09-03T09:00:00Z', CANMORE),
+        photo('b1', '2026-09-20T09:00:00Z', VANCOUVER),
+        photo('b2', '2026-09-21T09:00:00Z', VANCOUVER),
+      ]
+      const plan = planOrganization(empty(media), options())
+      const [one, two] = plan.stageSuggestions
+      expect(plan.stageSuggestions).toHaveLength(2)
+      expect(one?.endsAt).toBe('2026-09-03T09:00:00.000Z')
+      expect(Date.parse(two?.startsAt ?? '')).toBeGreaterThan(
+        Date.parse('2026-09-19T00:00:00Z'),
+      )
+    })
   })
 
   describe('smart stages', () => {
