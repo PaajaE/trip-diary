@@ -381,7 +381,7 @@ export function JourneyWorkspace({ journeyId }: { journeyId: string }) {
       .join(' · ')
     body = (
       <div
-        className="overflow-hidden rounded-[18px] border border-border bg-background shadow-soft"
+        className="overflow-clip rounded-[18px] border border-border bg-background shadow-soft"
         data-testid="workspace-overview"
       >
         <OverviewTaskBar tasks={overview.tasks} onOpen={openTask} />
