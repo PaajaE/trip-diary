@@ -260,12 +260,8 @@ export function createHoverStore(): HoverStore {
 
 /** Zoom below which the overview (stage bubbles) is shown. */
 export const OVERVIEW_ZOOM = 8
-/** Zoom from which out-of-focus moments may get small thumbnails. */
-export const DETAIL_ZOOM = 11
-/** More viewport candidates than this and no thumbnails are drawn. */
-export const MAX_THUMB_CANDIDATES = 40
 /** Minimum screen distance (px) between the centers of two bubbles. */
-export const MIN_BUBBLE_DISTANCE = 34
+export const MIN_BUBBLE_DISTANCE = 44
 
 export interface MomentBubble {
   photoCount: number
@@ -357,10 +353,19 @@ export function buildBubbleModel(
     })
   }
   const stages: StageBubble[] = []
+  const top: { entry: WorkspaceMoment | null } = { entry: null }
+  const topEntry = () => top.entry
+  const rankOf = (entry: WorkspaceMoment) =>
+    (entry.cover?.starred === true ? 1e6 : 0) + entry.photoCount
   const coordsOf = (node: WorkspaceSegment): [number, number][] => {
     const coords: [number, number][] = []
     for (const entry of node.moments) {
       add(entry)
+      if (
+        moments.has(entry.moment.id) &&
+        (top.entry === null || rankOf(entry) > rankOf(top.entry))
+      )
+        top.entry = entry
       const { latitude, longitude } = entry.moment
       if (latitude !== null && longitude !== null)
         coords.push([longitude, latitude])
@@ -369,8 +374,20 @@ export function buildBubbleModel(
     return coords
   }
   for (const root of tree.roots) {
-    const mean = stageAnchor(root, coordsOf(root))
-    const url = root.cover === null ? null : getThumbUrl(root.cover, baseUrl)
+    top.entry = null
+    const coords = coordsOf(root)
+    let mean = stageAnchor(root, coords)
+    let url = root.cover === null ? null : getThumbUrl(root.cover, baseUrl)
+    // A stage without a cover of its own borrows its best moment's photo.
+    const fallback: WorkspaceMoment | null = url === null ? topEntry() : null
+    if (fallback !== null) {
+      url = moments.get(fallback.moment.id)?.url ?? null
+      const { latitude, longitude } = fallback.moment
+      mean =
+        latitude !== null && longitude !== null
+          ? [longitude, latitude]
+          : medoidPosition(coords)
+    }
     if (mean === null || url === null) continue
     stages.push({
       id: root.segment.id,
@@ -391,17 +408,15 @@ export interface ViewportBounds {
   west: number
 }
 
-/** Pins inside the viewport that have a thumbnail and are not skipped. */
+/** Pins inside the viewport that are not skipped. */
 export function viewportCandidates(
   pins: readonly MapPin[],
   bounds: ViewportBounds,
   skip: ReadonlyMap<string, unknown>,
-  bubbles: ReadonlyMap<string, MomentBubble>,
 ): MapPin[] {
   return pins.filter(
     (pin) =>
       !skip.has(pin.id) &&
-      bubbles.has(pin.id) &&
       pin.latitude >= bounds.south &&
       pin.latitude <= bounds.north &&
       (bounds.west <= bounds.east
@@ -417,23 +432,37 @@ export interface ScreenPoint {
 
 export interface PlaceCandidate extends ScreenPoint {
   id: string
+  latitude: number
+  longitude: number
+  /** Photo moments outrank bare ones; 0 for a moment without a cover. */
   photoCount: number
   starred: boolean
 }
 
+export interface BubbleCluster {
+  /** [west, south] / [east, north] of every member, null for a lone pin. */
+  bounds: [[number, number], [number, number]] | null
+  /** Members including the winner; 1 = a plain pin. */
+  count: number
+  /** The winning candidate, whose own location the bubble sits on. */
+  id: string
+}
+
 /**
- * Greedy collision avoidance: candidates by priority (starred cover, then
- * photo count, then id), each kept only if its center is at least
- * `minDistance` from every already placed bubble. `occupied` (focused-day
- * bubbles) is placed first and always wins.
+ * Greedy clustering in screen space. Candidates by priority (starred cover,
+ * then photo count, then id); each one either starts a bubble (at least
+ * `minDistance` from every placed bubble) or joins the nearest one, so nothing
+ * on the map silently disappears. `occupied` (focused-day pins) is placed
+ * first and always wins; candidates landing on it are covered by its pin.
  */
-export function placeBubbles(
+export function clusterBubbles(
   occupied: readonly ScreenPoint[],
   candidates: readonly PlaceCandidate[],
   minDistance = MIN_BUBBLE_DISTANCE,
-): string[] {
+): BubbleCluster[] {
   const placed: ScreenPoint[] = [...occupied]
-  const kept: string[] = []
+  const members = new Map<ScreenPoint, PlaceCandidate[]>()
+  const order: PlaceCandidate[] = []
   const sorted = [...candidates].sort(
     (a, b) =>
       Number(b.starred) - Number(a.starred) ||
@@ -441,12 +470,32 @@ export function placeBubbles(
       a.id.localeCompare(b.id),
   )
   for (const c of sorted) {
-    const clear = placed.every(
-      (p) => Math.hypot(p.x - c.x, p.y - c.y) >= minDistance,
-    )
-    if (!clear) continue
-    placed.push(c)
-    kept.push(c.id)
+    let nearest: ScreenPoint | null = null
+    let nearestDistance = Infinity
+    for (const p of placed) {
+      const distance = Math.hypot(p.x - c.x, p.y - c.y)
+      if (distance < nearestDistance) {
+        nearest = p
+        nearestDistance = distance
+      }
+    }
+    if (nearest === null || nearestDistance >= minDistance) {
+      placed.push(c)
+      members.set(c, [c])
+      order.push(c)
+    } else {
+      members.get(nearest)?.push(c)
+    }
   }
-  return kept
+  return order.map((winner) => {
+    const all = members.get(winner) ?? [winner]
+    return {
+      bounds:
+        all.length > 1
+          ? boundsOf(all.map((m) => [m.longitude, m.latitude] as const))
+          : null,
+      count: all.length,
+      id: winner.id,
+    }
+  })
 }
