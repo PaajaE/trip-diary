@@ -473,3 +473,15 @@ Větev `feat/workspace-curation`, necommitnuto. Plán: `plan-v2.md`, Fáze 4b a 
 Kontroly: `pnpm check` ✅ (145 souborů, 697 testů + 2 očekávané fail), `pnpm db:test` ✅ 543. Nezávislá revize: 3 vážné nálezy opraveny (souběh trvalého smazání a obnovení, únik nezveřejněných fotek přes `delete_moment`/`move_media`, doplňování míst u čtenářů).
 
 Zbývá: P2 (výběr a hromadné akce, přesun fotek v UI, operace s etapami, „Přijmout vše“), P3, automatické vysypání koše (cron nebo edge funkce), nasazení migrace na produkci.
+
+## Fáze 4d — mobilní editace a třídění dávky (2026-10-22, 📝 PROPOSED)
+
+| Krok                                  | Stav         | Poznámka                                                                      |
+| ------------------------------------- | ------------ | ----------------------------------------------------------------------------- |
+| Analýza stavu editace (web, iOS)      | ✅ hotovo    | Jedna aplikace pro obě platformy; na iPhonu kroky 3–6 Fáze 4c dosud neověřeny |
+| Rozhodnutí (třídění po nahrávání, A)  | ✅ potvrzeno | `media.reviewed_at`; stovky médií na dávku; foťák a sdílení mimo fázi         |
+| M0 ověření na iPhonu + mobilní mockup | ⏳ čeká      | Mockup schvaluje uživatel před kódem                                          |
+| DB: `media.reviewed_at`               | ⏳ čeká      | Migrace + pgTAP + typy (`db-specialist`)                                      |
+| M1–M4                                 | 📝 PROPOSED  | Viz plan-v2.md, Fáze 4d                                                       |
+
+Na jindy: tmavý režim aplikace (Fáze 4d, mimo rozsah).
