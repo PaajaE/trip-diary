@@ -87,6 +87,9 @@ jobs:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
       - name: Start local Supabase (retries on registry rate limits)
+        env:
+          # ghcr.io rate-limits the e2e image set; the ECR mirror does not.
+          SUPABASE_INTERNAL_IMAGE_REGISTRY: public.ecr.aws
         run: |
           for attempt in 1 2 3 4; do
             if supabase start -x "$SUPABASE_EXCLUDE_E2E"; then exit 0; fi
