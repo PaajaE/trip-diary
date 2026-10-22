@@ -311,7 +311,7 @@ export function ChapterSection({
           ))}
         </ul>
       ) : null}
-      <div className="grid grid-cols-1 gap-3.5 min-[520px]:grid-cols-2 min-[760px]:grid-cols-[repeat(auto-fill,minmax(210px,1fr))]">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-3.5">
         {chapter.days.map((day) => (
           <DayCard
             day={day}

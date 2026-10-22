@@ -122,6 +122,8 @@ const journeyWorkspaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/workspace',
   component: LazyJourneyWorkspaceRoutePage,
+  // ?map=full opens the map over the whole workspace; Back closes it.
+  validateSearch: searchSchema({ map: optionalEnum(['full'] as const) }),
 })
 
 // Day page of the workspace: full-screen panel with its own address.
