@@ -86,7 +86,15 @@ jobs:
         with:
           version: 2.75.0
       - run: pnpm install --frozen-lockfile
-      - run: supabase start -x "$SUPABASE_EXCLUDE_E2E"
+      - name: Start local Supabase (retries on registry rate limits)
+        run: |
+          for attempt in 1 2 3 4; do
+            if supabase start -x "$SUPABASE_EXCLUDE_E2E"; then exit 0; fi
+            echo "supabase start failed (attempt $attempt), retrying in $((attempt * 30)) s"
+            supabase stop --no-backup || true
+            sleep $((attempt * 30))
+          done
+          exit 1
       - name: Configure local Supabase env
         run: |
           supabase status --output json > /tmp/supabase-status.json
