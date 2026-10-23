@@ -278,6 +278,60 @@ describe('ImportPage', () => {
     ).toBeTruthy()
   })
 
+  it('links the finished import to the batch to sort', () => {
+    state.snapshot = snapshot([job({ sourceId: 'a|1|2', state: 'done' })])
+    render(<ImportPage journeyId="j" />)
+    expect(screen.getByRole('link', { name: 'Sort the batch' })).toBeTruthy()
+  })
+
+  it('does not offer the batch while the import still runs', () => {
+    state.snapshot = snapshot(
+      [job({ sourceId: 'a|1|2', state: 'done' }), job({ state: 'pending' })],
+      'running',
+    )
+    render(<ImportPage journeyId="j" />)
+    expect(screen.queryByRole('link', { name: 'Sort the batch' })).toBeNull()
+  })
+
+  describe('batch limit of 500 media', () => {
+    function drop(count: number) {
+      const files = Array.from(
+        { length: count },
+        (_, i) => new File(['x'], `p${String(i)}.jpg`, { type: 'image/jpeg' }),
+      )
+      fireEvent.drop(screen.getByTestId('import-dropzone'), {
+        dataTransfer: { files },
+      })
+    }
+
+    it('blocks 501 files, explains how to split and enqueues nothing', async () => {
+      render(<ImportPage journeyId="j" />)
+      drop(501)
+      const alert = await screen.findByRole('alert')
+      expect(alert).toHaveTextContent(
+        '501 items are selected, but one batch holds at most 500.',
+      )
+      expect(alert).toHaveTextContent('Split the import by date range')
+      expect(alert).not.toHaveTextContent(/anyway/i)
+      const start = screen.getByRole('button', { name: 'Start import' })
+      expect(start).toBeDisabled()
+      fireEvent.click(start)
+      expect(queue.enqueue).not.toHaveBeenCalled()
+      expect(queue.start).not.toHaveBeenCalled()
+    })
+
+    it('allows exactly 500 files', async () => {
+      render(<ImportPage journeyId="j" />)
+      drop(500)
+      expect(await screen.findByText('Photos: 500')).toBeTruthy()
+      expect(screen.queryByRole('alert')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
+      await waitFor(() => {
+        expect(queue.enqueue).toHaveBeenCalled()
+      })
+    })
+  })
+
   describe('native photo library', () => {
     beforeEach(() => {
       state.native = true
@@ -352,6 +406,49 @@ describe('ImportPage', () => {
       expect(
         screen.getByRole('button', { name: 'Scan the photo library' }),
       ).toBeTruthy()
+    })
+
+    it('does not queue more than 500 picked assets and suggests splitting', async () => {
+      pickAssets.mockResolvedValue({
+        assets: Array.from({ length: 501 }, (_, i) => ({
+          id: `A${String(i)}`,
+          mediaType: 'image',
+        })),
+        cancelled: false,
+        requested: 501,
+        resolved: 501,
+      })
+      render(<ImportPage journeyId="j" />)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Choose from library' }),
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        'Split the import by date range',
+      )
+      expect(queue.enqueue).not.toHaveBeenCalled()
+      expect(queue.start).not.toHaveBeenCalled()
+      expect(screen.queryByText(/Selected:/)).toBeNull()
+    })
+
+    it('blocks a scan above 500 items', async () => {
+      photoKitList.mockResolvedValue(
+        Array.from({ length: 501 }, (_, i) => ({
+          capturedAt: '2026-09-12T10:00:00.000Z',
+          durationMs: null,
+          latitude: null,
+          longitude: null,
+          mediaType: 'photo',
+          sourceId: `S${String(i)}`,
+        })),
+      )
+      render(<ImportPage journeyId="j" />)
+      fireEvent.click(
+        screen.getByRole('button', { name: 'Scan the photo library' }),
+      )
+      expect(await screen.findByRole('alert')).toHaveTextContent('at most 500')
+      expect(
+        screen.getByRole('button', { name: 'Start import' }),
+      ).toBeDisabled()
     })
 
     it('does nothing when the picker is cancelled', async () => {

@@ -120,6 +120,12 @@ export const LazyJourneyImportRoutePage = lazy(() =>
   ),
 )
 
+export const LazyJourneyBatchRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyBatchRoutePage').then(
+    ({ JourneyBatchRoutePage }) => ({ default: JourneyBatchRoutePage }),
+  ),
+)
+
 export const LazyJourneyWorkspaceRoutePage = lazy(() =>
   import('@/pages/journey/JourneyWorkspaceRoutePage').then(
     ({ JourneyWorkspaceRoutePage }) => ({

@@ -262,6 +262,7 @@ export const en = {
     tabs: {
       workspace: 'Workspace',
       import: 'Import',
+      batch: 'Batch',
       quick: 'Quick note',
       members: 'Members',
       trash: 'Trash',
@@ -450,6 +451,30 @@ export const en = {
       trek: 'Multi-day trek {{index}}',
     },
   },
+  mediaBatch: {
+    title: 'Batch to sort',
+    description:
+      'Newly uploaded media wait here until you put them into stops.',
+    remaining: 'Left to sort: {{count}}',
+    tabBadge: '{{count}} waiting to be sorted',
+    toolbar: 'Actions on the selection',
+    select: 'Select',
+    selectDay: 'Select day',
+    unselectDay: 'Deselect day',
+    undated: 'No date',
+    items_one: '{{count}} item',
+    items_few: '{{count}} items',
+    items_many: '{{count}} items',
+    items_other: '{{count}} items',
+    done: 'Done',
+    doneToast: 'Sorted: {{count}}',
+    doneFailed: 'Could not mark the media as sorted.',
+    noStops: 'There is no stop yet. Create a new one.',
+    emptyTitle: 'Everything is sorted',
+    emptyDescription: 'New media will show up here as soon as you upload it.',
+    loadError: 'Could not load the batch.',
+    selectedTile: 'Selected',
+  },
   mediaImport: {
     dropActive: 'Drop to add the files',
     dropHint: 'Drag photos here',
@@ -492,6 +517,10 @@ export const en = {
     nothingToImport: 'Nothing new to import.',
     organizeOffer:
       'The media is in the journey. Organize it into moments automatically?',
+    batchLimit:
+      '{{count}} items are selected, but one batch holds at most {{max}}. Split the import by date range and upload it in parts.',
+    sortBatch: 'Sort the batch',
+    sortOffer: 'The uploaded media is waiting to be sorted into stops.',
     pause: 'Pause',
     pickedCount: 'Selected: {{count}}',
     pickedLimited:

@@ -402,6 +402,74 @@ Brána: na Kanadě je trek kolem Mt Assiniboine (26. 9. – 1. 10.) jedna etapa,
 duplicitní názvy etap, žádný čas v UTC a celou cestu jde projít po dnech bez scrollování
 přes stovky fotek.
 
+#### Fáze 4d — Mobilní editace a třídění dávky (iOS, 2026-10-22, 📝 PROPOSED)
+
+Výchozí stav: plocha, detail dne, Výběr nejlepších a koš jsou jedna React aplikace
+pro web i iOS (Capacitor). Funkce na iOS tedy existují, ale ovládání je odvozené
+z desktopu a na iPhonu je neověřené. Nativní jsou jen PhotoKit, export médií a upload
+videí na pozadí. Slabá místa mobilu:
+
+- vstup do výběru fotek je jen malý kruh v rohu dlaždice (chip „Vybrat fotky“ je
+  v postranním panelu, který je na úzké obrazovce skrytý); chybí podržení a tažení;
+- Výběr nejlepších je navržený na klávesy; chybí velká tlačítka dole a haptika;
+- přesun fotek je výběr ze seznamu zastávek; chybí „do předchozí / další zastávky“;
+- import ukazuje jen počty a řádky fronty, ne co se právě nahrálo; fotky se nahrávají
+  JS frontou, která se po uspání aplikace zastaví (videa běží na pozadí nativně).
+
+Rozhodnutí (2026-10-22):
+
+- **Třídění až po nahrávání.** Nahrávání je samostatná obrazovka (průběh, pauza,
+  opakování); souběžné třídění se nedělá.
+- **Rozsah: stovky médií na dávku.** Nad ~500 položek import uživatele varuje
+  a nasměruje na rozdělení podle rozsahu dat. Virtualizace seznamu není potřeba,
+  stačí líné miniatury (ověřit na zařízení).
+- **Foťák a „Sdílet do aplikace“ nejsou součástí fáze.**
+- **Stav „roztříděno“ v databázi: varianta A,** `media.reviewed_at` (timestamptz,
+  null = čeká na roztřídění). Funguje po restartu i na webu. Migrace a pgTAP
+  (RLS: jen člen s právem úprav) jsou první krok, který navrhuje `db-specialist`
+  ještě před kódem.
+
+Rozhodnutí po schválení mockupu M0 (2026-10-22, mockup schválen):
+
+- **Co je „roztříděno“:** přesun do zastávky, nová zastávka, koš a „Hotovo“
+  nastaví `reviewed_at`. Samotná ★ ne.
+- **Roztříděné fotky z dávky mizí;** zbývá jen to, co čeká. Chybu vrací Undo (toast).
+  Žádný filtr „Roztříděné“.
+- **Výběr tažením:** souvislý rozsah v pořadí čtení, ne obdélník.
+- **Pevný limit 500 médií na dávku.** Větší výběr se nespustí; aplikace nabídne
+  rozdělení podle rozsahu dat. Žádné „nahrát přesto“.
+- **Rychlé třídění** je vstup z dávky a je i na webu (stejná aplikace; na webu navíc
+  klávesy jako ve Výběru nejlepších).
+- **Na jindy:** tmavý režim. Aplikace má zatím jen světlé tokeny; paleta z mockupu je
+  jen návrh.
+
+Kroky:
+
+1. **M0 — ověření a mockup.** Projít stávající plochu na iPhonu (kroky 3–6 Fáze 4c,
+   výkon posunu, paměť WKWebView, klávesnice u zápisu dne). Klikací mobilní mockup
+   tří obrazovek (průběh nahrávání, dávka k roztřídění, rychlé třídění) ke schválení;
+   po schválení je závazná předloha.
+2. **DB.** `media.reviewed_at`, RPC pro označení roztříděného (hromadně), pgTAP,
+   generované typy.
+3. **M1 — dávka k roztřídění.** Po dokončení nahrávání obrazovka s mřížkou po dnech,
+   počítadlo „zbývá roztřídit“, tlačítko „Uspořádat automaticky“. Nové záložky
+   mobilní navigace (spodní lišta místo řady záložek).
+4. **M2 — dotykové třídění.**
+   - Rychlé třídění: velká fotka, tlačítka ★ / další / koš dole, swipe nahoru = koš,
+     haptika, Undo. Logika zůstává v `model/cull.ts`, mění se jen UI.
+   - Mřížkový výběr: podržení spustí výběr, tažení označí rozsah (nahrazuje Shift),
+     spodní lišta akcí.
+   - „Přesunout do“ jako spodní list s náhledy zastávek a tlačítky předchozí / další.
+5. **M3 — odolnost nahrávání.** Displej zůstává zapnutý, `beginBackgroundTask`
+   dokončí rozpracovanou fotku a fronta naváže po návratu. Plný background
+   `URLSession` pro fotky je volitelný spike až podle výsledků M0.
+6. **M4 — dodělat neaktivní akce:** sloučit zastávky, přesunout do jiného dne,
+   rozdělit den (na mobilu jako akce nad výběrem).
+
+Brána: dávka ~300 fotek se z iPhonu nahraje a roztřídí do zastávek jen telefonem;
+zamčení telefonu nebo přepnutí aplikace uprostřed nahrávání nic neztratí ani nezdvojí;
+každá nová obrazovka je ověřená na zařízení a ve ~390 px.
+
 ### Fáze 5 — Prezentační vrstva
 
 - **Rozhodnutí na začátku fáze:** předgenerované veřejné stránky (při publikaci)

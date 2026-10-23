@@ -141,3 +141,17 @@ export async function assignMediaBatchToMoment(
     throw new MediaLibraryError('update_failed', error.message, error)
   }
 }
+
+/** Detaches many media from their moments (Undo of a move from "no moment"). */
+export async function detachMediaFromMoment(
+  mediaIds: readonly string[],
+): Promise<void> {
+  if (mediaIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('media')
+    .update({ moment_id: null })
+    .in('id', [...mediaIds])
+  if (error !== null) {
+    throw new MediaLibraryError('update_failed', error.message, error)
+  }
+}

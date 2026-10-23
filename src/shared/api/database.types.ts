@@ -852,6 +852,7 @@ export type Database = {
           moment_id: string | null
           owner_id: string
           purge_claimed_at: string | null
+          reviewed_at: string | null
           segment_override_id: string | null
           source_asset_id: string | null
           starred: boolean
@@ -880,6 +881,7 @@ export type Database = {
           moment_id?: string | null
           owner_id: string
           purge_claimed_at?: string | null
+          reviewed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
           starred?: boolean
@@ -908,6 +910,7 @@ export type Database = {
           moment_id?: string | null
           owner_id?: string
           purge_claimed_at?: string | null
+          reviewed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
           starred?: boolean
@@ -1957,6 +1960,10 @@ export type Database = {
           space_handle: string
           updated_at: string
         }[]
+      }
+      mark_media_reviewed: {
+        Args: { p_media_ids: string[]; p_reviewed?: boolean }
+        Returns: number
       }
       media_batch_journey: {
         Args: { p_fn: string; p_media_ids: string[] }
