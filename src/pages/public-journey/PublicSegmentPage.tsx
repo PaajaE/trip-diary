@@ -21,11 +21,12 @@ import {
   formatDateRange,
   formatDistance,
 } from '@/features/public-journey/lib/format'
+import { publicMomentTitle } from '@/features/public-journey/lib/moment-title'
 import { PublicMapSection } from '@/features/public-journey/ui/LazyPublicJourneyMap'
 import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { MediaGallery } from '@/features/public-journey/ui/MediaGallery'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
-import { Crumbs } from '@/pages/public-journey/Crumbs'
+import { Crumbs } from '@/features/public-journey/ui/Crumbs'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 
@@ -257,7 +258,7 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
                     params={{ journeySlug, momentId: moment.id, spaceHandle }}
                     to="/$spaceHandle/$journeySlug/m/$momentId"
                   >
-                    {moment.title ?? t('publicJourney.untitledMoment')}
+                    {publicMomentTitle(model, moment, t, i18n.language)}
                   </Link>
                   {moment.body !== '' ? (
                     <p className="whitespace-pre-line leading-7">

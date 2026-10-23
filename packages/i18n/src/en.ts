@@ -1135,6 +1135,8 @@ export const en = {
     routeMap: 'Map of the whole journey',
     segmentNotFound: 'This stage or trip does not exist.',
     selectedPhotos: 'Selected photos',
+    stageBadge: 'Stage {{n}}',
+    stageOf: 'Stage {{n}} of {{total}}',
     stages: 'Stages',
     timeline: 'Timeline',
     trackMap: 'Track map',
@@ -1145,7 +1147,7 @@ export const en = {
       trek: 'Trek',
     },
     trips: 'Trips',
-    untitledMoment: 'Moment',
+    untitledMoment: 'Stop {{time}}',
   },
   publicReader: {
     journeyError: 'This public trip could not be loaded.',

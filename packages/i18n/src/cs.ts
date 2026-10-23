@@ -1133,6 +1133,8 @@ export const cs: TranslationResources = {
     routeMap: 'Mapa celé cesty',
     segmentNotFound: 'Tato etapa nebo výlet neexistuje.',
     selectedPhotos: 'Vybrané fotky',
+    stageBadge: 'Etapa {{n}}',
+    stageOf: 'Etapa {{n}} z {{total}}',
     stages: 'Etapy',
     timeline: 'Časová osa',
     trackMap: 'Mapa trasy',
@@ -1143,7 +1145,7 @@ export const cs: TranslationResources = {
       trek: 'Trek',
     },
     trips: 'Výlety',
-    untitledMoment: 'Moment',
+    untitledMoment: 'Zastávka {{time}}',
   },
   publicReader: {
     journeyError: 'Veřejnou cestu se nepodařilo načíst.',

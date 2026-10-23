@@ -6,17 +6,7 @@ import type {
   PublicSegment,
   PublicTrack,
 } from '@trip-diary/core/public-journey'
-
-export const STAGE_COLORS = [
-  '#285943',
-  '#b85f42',
-  '#3b6ea5',
-  '#8a5a9e',
-  '#c49a2c',
-  '#2c8a8a',
-  '#a33b5c',
-  '#5f7a2c',
-] as const
+import { stagePaletteColor } from '@/shared/lib/stage-palette'
 
 /** One calendar day of a stage: its moments plus the author's day note. */
 export interface JourneyDay {
@@ -147,7 +137,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   const stageColor = (segmentId: string): string => {
     const stage = stageOf(segmentId)
     const index = stage === null ? 0 : colorIndex.get(stage.id)
-    return STAGE_COLORS[(index ?? 0) % STAGE_COLORS.length] ?? STAGE_COLORS[0]
+    return stagePaletteColor(index ?? 0)
   }
 
   const tripsOfStage = (stageId: string): PublicSegment[] =>
