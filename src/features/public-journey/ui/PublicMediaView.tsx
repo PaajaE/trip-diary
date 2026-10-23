@@ -1,4 +1,6 @@
 import type { PublicMedia } from '@trip-diary/core/public-journey'
+import { useState } from 'react'
+import { cn } from '@/shared/lib/cn'
 import {
   resolveImage,
   resolveVideo,
@@ -29,6 +31,9 @@ export function PublicMediaView({
   sizes,
 }: PublicMediaViewProps) {
   const alt = media.caption ?? ''
+  // Lazy images fade in once loaded (no hard pop on the tile colour); the
+  // hero and an image that is already complete (cache) show at once.
+  const [loaded, setLoaded] = useState(false)
   if (media.kind === 'video' && playable) {
     const video = resolveVideo(media)
     if (video !== null) {
@@ -64,11 +69,27 @@ export function PublicMediaView({
   return (
     <img
       alt={alt}
-      className={className}
+      className={cn(
+        className,
+        !priority &&
+          'transition-opacity duration-300 motion-reduce:transition-none',
+        !priority && !loaded && 'opacity-0',
+      )}
       decoding="async"
       fetchPriority={priority ? 'high' : 'auto'}
       height={image.height}
       loading={priority ? 'eager' : 'lazy'}
+      ref={(element) => {
+        if (element?.complete === true && element.naturalWidth > 0) {
+          setLoaded(true)
+        }
+      }}
+      onError={() => {
+        setLoaded(true)
+      }}
+      onLoad={() => {
+        setLoaded(true)
+      }}
       sizes={sizes}
       src={swap(image.src)}
       style={{

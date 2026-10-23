@@ -27,51 +27,25 @@ import {
   SegmentTextEditor,
 } from '@/features/journey-workspace/ui/TextEditing'
 import { cn } from '@/shared/lib/cn'
+import { MosaicGrid } from '@/shared/ui/MosaicGrid'
 
 const BADGE =
   'inline-flex items-center gap-1 rounded-full bg-sunk px-[7px] py-px text-muted'
 
 function Mosaic({ day }: { day: OverviewDay }) {
-  const [hero, second, third] = day.mosaic
-  if (hero === undefined)
-    return (
-      <span
-        className="flex aspect-[16/10] items-center justify-center bg-sunk text-faint"
-        data-testid="day-mosaic"
-      >
-        <ImageIcon aria-hidden="true" size={28} />
-      </span>
-    )
-  const cell = 'block min-h-0 min-w-0 overflow-hidden'
-  const thumb = (item: typeof hero) => (
-    <MediaThumb
-      baseUrl={BASE_URL}
-      className="block h-full w-full rounded-none"
-      item={item}
-    />
-  )
   return (
-    <span
-      className={cn(
-        'grid aspect-[16/10] gap-0.5 bg-sunk',
-        second === undefined
-          ? 'grid-cols-1'
-          : 'grid-cols-[2fr_1fr] grid-rows-2',
-      )}
-      data-testid="day-mosaic"
-    >
-      <span className={cn(cell, second !== undefined && 'row-span-2')}>
-        {thumb(hero)}
-      </span>
-      {second === undefined ? null : (
-        <span className={cn(cell, third === undefined && 'row-span-2')}>
-          {thumb(second)}
-        </span>
-      )}
-      {third === undefined ? null : (
-        <span className={cell}>{thumb(third)}</span>
-      )}
-    </span>
+    <MosaicGrid
+      cells={day.mosaic.map((item) => (
+        <MediaThumb
+          baseUrl={BASE_URL}
+          className="block h-full w-full rounded-none"
+          item={item}
+          key={item.id}
+        />
+      ))}
+      empty={<ImageIcon aria-hidden="true" size={28} />}
+      testId="day-mosaic"
+    />
   )
 }
 

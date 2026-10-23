@@ -40,8 +40,15 @@ export const MAP_VARIANTS: readonly Kind[] = [
   'large',
 ]
 
-/** Width / height of a media item, 4:3 when unknown, clamped to 0.5..2.2. */
-export function aspectOf(item: Pick<MediaItem, 'height' | 'width'>): number {
+/**
+ * Width / height a tile shows, 4:3 when unknown. Clamped to `min..max` so a
+ * panorama never becomes a low strip (it is cropped; the viewer shows it whole).
+ */
+export function aspectOf(
+  item: Pick<MediaItem, 'height' | 'width'>,
+  min = 0.75,
+  max = 1.8,
+): number {
   if (item.width === null || item.height === null) return 4 / 3
-  return Math.min(2.2, Math.max(0.5, item.width / item.height))
+  return Math.min(max, Math.max(min, item.width / item.height))
 }

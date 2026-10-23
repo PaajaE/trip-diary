@@ -1,7 +1,9 @@
 // Pure helpers for scripts/prerender-public.mjs (no I/O, no network).
 // Image URL logic mirrors src/entities/public-journey/lib/media-url.ts.
 import {
+  buildJourneyStats,
   buildMapPreview,
+  formatJourneyPeriod,
   MAP_PREVIEW_BACKGROUND,
   mapPreviewSvg,
 } from '@trip-diary/core/public-journey'
@@ -40,6 +42,19 @@ export function trimSlash(value) {
 
 export function mediaUrl(storageKey, baseUrl = DEFAULT_MEDIA_BASE_URL) {
   return `${trimSlash(baseUrl)}/${storageKey.replace(/^\/+/, '')}`
+}
+
+/** First sentence of a text shortened to a title; mirrors firstSentence() in the app. */
+export function firstSentence(text, max = 60) {
+  const flat = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (flat === '') return ''
+  const end = flat.search(/[.!?…](\s|$)/)
+  const sentence = end === -1 ? flat : flat.slice(0, end)
+  return sentence.length <= max
+    ? sentence
+    : `${sentence.slice(0, max - 1).trimEnd()}…`
 }
 
 export function summarize(text, max = 160) {
@@ -149,6 +164,9 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
     j.coverMediaId === null ? undefined : mediaById.get(j.coverMediaId)
   const shellMedia = coverMedia ?? photos.find((m) => m.starred) ?? photos[0]
   const shellHero = resolveHero(shellMedia, mediaBaseUrl)
+  const firstStage = tree.segments
+    .filter((x) => x.kind === 'stage' && isSafePathSegment(x.id))
+    .sort((a, b) => a.position - b.position)[0]
   const pages = [
     {
       description: summarize(j.summary) || `${j.title} · ${site}`,
@@ -161,11 +179,15 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
           : {
               eyebrow: site,
               hero: shellHero,
-              period:
-                j.startsAt === null
-                  ? null
-                  : `${j.startsAt}${j.endsAt === null ? '' : ` – ${j.endsAt}`}`,
               mapPreview: buildMapPreview(tree),
+              periods: {
+                cs: formatJourneyPeriod(j.startsAt, j.endsAt, 'cs'),
+                en: formatJourneyPeriod(j.startsAt, j.endsAt, 'en'),
+              },
+              startPath:
+                firstStage === undefined ? null : `${base}/e/${firstStage.id}`,
+              stats: buildJourneyStats(tree),
+              status: j.status,
               summary: j.summary,
               title: j.title,
             },
@@ -189,7 +211,9 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
   }
   for (const m of tree.moments) {
     if (!isSafePathSegment(m.id)) continue
-    const title = m.title ?? j.title
+    // Same fallback as publicMomentTitle(): title, first sentence, journey.
+    const own = (m.title ?? '').trim() || firstSentence(m.body)
+    const title = own || j.title
     pages.push({
       description: summarize(m.body) || `${title} · ${j.title}`,
       dir: `${handle}/${slug}/m/${m.id}`,
@@ -198,7 +222,7 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
         tree.media.filter((x) => x.momentId === m.id),
       ),
       kind: 'moment',
-      title: m.title === null ? j.title : `${m.title} · ${j.title}`,
+      title: own === '' ? j.title : `${own} · ${j.title}`,
       urlPath: `${base}/m/${m.id}`,
     })
   }
@@ -347,7 +371,7 @@ export function bootScript(srcs, preload = { css: [], js: [] }, dataUrl) {
  * src/pages/public-journey/PublicJourneyPage.tsx (classes, sizes, dimensions);
  * keep both in sync. Removed by releasePrerenderShell() once React has rendered.
  */
-export const HERO_SIZES = '(min-width: 1024px) 1024px, 100vw'
+export const HERO_SIZES = '100vw'
 export const SHELL_ID = 'prerender-shell'
 
 /**
@@ -366,9 +390,10 @@ function bilingual(strings, key) {
 }
 
 /**
- * Route heading + map-sized placeholder (tone of the real map, pins and route
- * from the data) so the first viewport is visually complete before MapLibre.
- * Mirrors the route section of PublicJourneyPage and PublicMapSection.
+ * Route section: heading, hint, strip-sized gap and the map-sized placeholder
+ * (tone of the real map, pins and route from the data), so the first
+ * viewport is visually complete before MapLibre. Mirrors the route section of
+ * PublicJourneyPage and PublicMapSection.
  */
 function routeSectionHtml(mapPreview, strings) {
   const box =
@@ -381,11 +406,62 @@ function routeSectionHtml(mapPreview, strings) {
     mapPreview === null || mapPreview === undefined
       ? ''
       : mapPreviewSvg(mapPreview)
-  return `<section aria-labelledby="route-heading-shell" class="space-y-3"><h2 class="text-xl font-semibold" id="route-heading-shell">${bilingual(strings, 'route')}</h2><section><div aria-hidden="true" class="relative h-[22rem] w-full overflow-hidden rounded-lg border border-border ${box} sm:h-[28rem]"${tone}>${svg}</div><p class="mt-3 text-xs leading-5 text-muted">${bilingual(strings, 'attribution')}</p></section></section>`
+  return `<section aria-labelledby="route-heading-shell" class="scroll-mt-16 space-y-4" id="route"><div><h2 class="reader-display text-3xl" id="route-heading-shell">${bilingual(strings, 'route')}</h2><p class="mt-1 text-sm text-muted">${bilingual(strings, 'routeHint')}</p></div><div class="h-1.5"></div><div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]"><section><div aria-hidden="true" class="relative h-[22rem] w-full overflow-hidden rounded-lg border border-border ${box} sm:h-[28rem]"${tone}>${svg}</div><p class="mt-3 text-xs leading-5 text-muted">${bilingual(strings, 'attribution')}</p></section></div></section>`
 }
 
+const BUTTON =
+  'inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold'
+
+/** Same text in both languages, picked by the locale script. */
+function bilingualText(texts) {
+  return ['cs', 'en']
+    .map(
+      (l) =>
+        `<span data-l="${l}"${l === 'cs' ? '' : ' hidden'}>${escapeHtml(texts[l] ?? '')}</span>`,
+    )
+    .join('')
+}
+
+function statsHtml(stats, strings) {
+  const items = [
+    ['statDays', String(stats.days)],
+    ...(stats.stages > 0 ? [['statStages', String(stats.stages)]] : []),
+    ...(stats.distanceKm > 0
+      ? [['statRoute', `${String(stats.distanceKm)} km`]]
+      : []),
+    ...(stats.media > 0 ? [['statMedia', String(stats.media)]] : []),
+  ]
+  return `<dl class="flex flex-wrap gap-x-6 gap-y-2">${items
+    .map(
+      ([key, value]) =>
+        `<div class="flex flex-col-reverse"><dt class="text-xs text-white/80">${bilingual(strings, key)}</dt><dd class="reader-display text-xl tabular-nums text-white">${escapeHtml(value)}</dd></div>`,
+    )
+    .join('')}</dl>`
+}
+
+const STATUS_KEYS = {
+  active: 'statusActive',
+  completed: 'statusCompleted',
+  planning: 'statusPlanning',
+}
+
+/**
+ * Static cover painted before the JS bundle runs. Mirrors JourneyHero and the
+ * route section of PublicJourneyPage (classes, sizes, dimensions); keep both
+ * in sync. Removed by releasePrerenderShell() once React has rendered.
+ */
 export function shellHtml(
-  { eyebrow, hero, mapPreview, period, summary, title },
+  {
+    eyebrow,
+    hero,
+    mapPreview,
+    periods,
+    startPath,
+    stats,
+    status,
+    summary,
+    title,
+  },
   strings,
 ) {
   const focal =
@@ -394,21 +470,40 @@ export function shellHtml(
       : ''
   const srcset =
     hero.srcSet === '' ? '' : ` srcset="${escapeHtml(hero.srcSet)}"`
-  const img = `<img alt="${escapeHtml(hero.alt)}" class="h-full w-full object-cover" decoding="async" fetchpriority="high" height="${String(hero.height)}" loading="eager" sizes="${HERO_SIZES}" src="${escapeHtml(hero.src)}"${srcset}${focal} width="${String(hero.width)}" />`
+  const img = `<img alt="${escapeHtml(hero.alt)}" class="absolute inset-0 -z-10 h-full w-full object-cover object-[50%_30%]" decoding="async" fetchpriority="high" height="${String(hero.height)}" loading="eager" sizes="${HERO_SIZES}" src="${escapeHtml(hero.src)}"${srcset}${focal} width="${String(hero.width)}" />`
+  const statusKey = STATUS_KEYS[status]
+  const eyebrowHtml =
+    strings === undefined || statusKey === undefined
+      ? escapeHtml(eyebrow)
+      : bilingualText({
+          cs: `${strings.cs[statusKey]} · ${eyebrow}`,
+          en: `${strings.en[statusKey]} · ${eyebrow}`,
+        })
+  const period =
+    periods === undefined || periods === null || periods.cs === null
+      ? null
+      : `<p class="text-sm text-white/90">${bilingualText(periods)}</p>`
+  const start =
+    strings === undefined || startPath === null || startPath === undefined
+      ? ''
+      : `<a class="${BUTTON} bg-primary text-primary-foreground" href="${escapeHtml(startPath)}">${bilingual(strings, 'startReading')}</a>`
   const lines = [
-    `<div class="overflow-hidden rounded-lg bg-surface" style="aspect-ratio:16 / 9">${img}</div>`,
-    `<p class="text-sm text-muted">${escapeHtml(eyebrow)}</p>`,
-    `<h1 class="text-3xl font-semibold">${escapeHtml(title)}</h1>`,
-    period === null || period === undefined
+    `<p class="text-xs font-semibold tracking-[0.14em] uppercase text-white/85">${eyebrowHtml}</p>`,
+    `<h1 class="reader-display text-4xl leading-[1.05] sm:text-6xl">${escapeHtml(title)}</h1>`,
+    period,
+    strings === undefined || stats === undefined
       ? null
-      : `<p class="text-sm text-muted">${escapeHtml(period)}</p>`,
-    summary === ''
+      : statsHtml(stats, strings),
+    start === ''
       ? null
-      : `<p class="whitespace-pre-line leading-7">${escapeHtml(summary)}</p>`,
+      : `<div class="flex flex-wrap gap-2 pt-1">${start}</div>`,
   ].filter((l) => l !== null)
-  const route =
-    strings === undefined ? '' : routeSectionHtml(mapPreview, strings)
-  return `<div id="${SHELL_ID}"><main class="mx-auto max-w-5xl space-y-10 px-5 py-8"><header class="space-y-4">${lines.join('')}</header>${route}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
+  const header = `<header class="relative isolate flex h-[clamp(22rem,46vw,36rem)] items-end overflow-hidden bg-primary text-white">${img}<div class="absolute inset-0 -z-10 bg-gradient-to-t from-black/75 via-black/25 to-transparent"></div><div class="mx-auto w-full max-w-6xl space-y-3 px-5 pb-8 sm:pb-10">${lines.join('')}</div></header>`
+  const body =
+    strings === undefined
+      ? ''
+      : `<div class="h-[53px] border-b border-border"></div><div class="mx-auto max-w-6xl space-y-14 px-5 py-10">${summary === '' ? '' : `<p class="reader-body max-w-[65ch] whitespace-pre-line text-lg leading-8">${escapeHtml(summary)}</p>`}${mapPreview === null || mapPreview === undefined ? '' : routeSectionHtml(mapPreview, strings)}</div>`
+  return `<div id="${SHELL_ID}"><main>${header}${body}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
 }
 
 function originOf(url) {

@@ -6,10 +6,15 @@ import { getAppMapStyle } from '@/shared/lib/map-style'
 
 export interface PublicMapPoint {
   color: string
+  /** Local calendar day (YYYY-MM-DD) in the stage's zone. */
+  dayKey: string
   id: string
   label: string
   latitude: number
   longitude: number
+  stageId: string
+  /** Index of the stage in the journey (-1 when unknown); colours clusters. */
+  stageIndex: number
   thumbUrl: string | null
 }
 
@@ -18,11 +23,25 @@ export interface PublicMapLine {
   coordinates: number[][]
   dashed?: boolean
   id: string
+  stageId: string
 }
 
+/** What is emphasised on the map; everything else is dimmed. */
+export interface MapHighlight {
+  dayKey: string | null
+  stageId: string | null
+}
+
+/** Pin or route under the pointer (null when it leaves). */
+export type MapHover = { dayKey: string | null; stageId: string } | null
+
 export interface PublicJourneyMapProps {
+  /** Emphasised stage or day (legend hover, day hover); null = nothing. */
+  highlight?: MapHighlight | null
   label: string
   lines: PublicMapLine[]
+  /** Pointer or keyboard focus on a pin or a route line. */
+  onHover?: (hover: MapHover) => void
   onSelectPoint?: (id: string) => void
   points: PublicMapPoint[]
 }
@@ -38,12 +57,20 @@ const SOURCE = 'public-points'
 
 interface SourceFeature {
   geometry: { coordinates: number[]; type: string }
-  properties: { cluster_id?: number; id?: string; point_count?: number }
+  properties: {
+    cluster_id?: number
+    id?: string
+    max_stage?: number
+    min_stage?: number
+    point_count?: number
+  }
 }
 
 function pinElement(point: PublicMapPoint): HTMLButtonElement {
   const el = document.createElement('button')
   el.type = 'button'
+  el.dataset.stage = point.stageId
+  el.dataset.day = point.dayKey
   el.ariaLabel = point.label
   el.style.cssText = `width:36px;height:36px;border-radius:9999px;border:3px solid ${point.color};background:#fff center/cover no-repeat;box-shadow:0 1px 5px rgba(0,0,0,.45);cursor:pointer;padding:0`
   if (point.thumbUrl !== null) {
@@ -54,18 +81,42 @@ function pinElement(point: PublicMapPoint): HTMLButtonElement {
   return el
 }
 
-function clusterElement(count: number): HTMLDivElement {
+const CLUSTER_COLOR = '#285943'
+
+/** Cluster bubble; stage coloured when all its pins belong to one stage. */
+function clusterElement(
+  count: number,
+  color: string,
+  stageId: string,
+): HTMLDivElement {
   const el = document.createElement('div')
   el.textContent = String(count)
-  el.style.cssText =
-    'width:40px;height:40px;border-radius:9999px;background:#285943;color:#fff;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font:600 14px system-ui;box-shadow:0 1px 5px rgba(0,0,0,.45);cursor:pointer'
+  el.dataset.stage = stageId
+  el.dataset.day = ''
+  el.style.cssText = `width:40px;height:40px;border-radius:9999px;background:${color};color:#fff;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font:600 14px system-ui;box-shadow:0 1px 5px rgba(0,0,0,.45);cursor:pointer`
   return el
+}
+
+/** Dims pins and clusters that are not part of the highlight. */
+function styleMarker(el: HTMLElement, highlight: MapHighlight | null) {
+  const stage = el.dataset.stage ?? ''
+  const day = el.dataset.day ?? ''
+  let dim = false
+  if (highlight !== null) {
+    if (highlight.dayKey !== null) dim = day !== '' && day !== highlight.dayKey
+    else if (highlight.stageId !== null)
+      dim = stage !== '' && stage !== highlight.stageId
+  }
+  el.style.opacity = dim ? '0.3' : '1'
+  el.style.zIndex = !dim && highlight !== null ? '2' : ''
 }
 
 /** Route lines coloured per stage, photo pins with HTML-marker clustering. */
 export default function PublicJourneyMap({
+  highlight = null,
   label,
   lines,
+  onHover,
   onReady,
   onSelectPoint,
   points,
@@ -75,10 +126,19 @@ export default function PublicJourneyMap({
   const containerRef = useRef<HTMLDivElement>(null)
   const onSelectRef = useRef(onSelectPoint)
   const onReadyRef = useRef(onReady)
+  const onHoverRef = useRef(onHover)
+  const highlightRef = useRef(highlight)
+  /** Re-applies `highlightRef` to the live map; set by the map effect. */
+  const applyHighlightRef = useRef<(() => void) | null>(null)
   useEffect(() => {
     onSelectRef.current = onSelectPoint
     onReadyRef.current = onReady
+    onHoverRef.current = onHover
+    highlightRef.current = highlight
   })
+  useEffect(() => {
+    applyHighlightRef.current?.()
+  }, [highlight])
 
   useEffect(() => {
     const container = containerRef.current
@@ -124,6 +184,37 @@ export default function PublicJourneyMap({
     }
 
     const byId = new Map(points.map((p) => [p.id, p]))
+    const stageById = new Map(points.map((p) => [p.stageIndex, p]))
+    const lineByLayer = new Map(lines.map((l) => [`line-${l.id}`, l]))
+    const hoverTarget = (el: HTMLElement, point: PublicMapPoint) => {
+      const enter = () => {
+        onHoverRef.current?.({ dayKey: point.dayKey, stageId: point.stageId })
+      }
+      const leave = () => {
+        onHoverRef.current?.(null)
+      }
+      el.addEventListener('mouseenter', enter)
+      el.addEventListener('mouseleave', leave)
+      el.addEventListener('focus', enter)
+      el.addEventListener('blur', leave)
+    }
+    let styleReady = false
+    const applyHighlight = () => {
+      const h = highlightRef.current
+      for (const marker of markers.values()) {
+        styleMarker(marker.getElement(), h)
+      }
+      if (!styleReady) return
+      for (const line of lines) {
+        const id = `line-${line.id}`
+        if (map.getLayer(id) === undefined) continue
+        const dim = h?.stageId != null && h.stageId !== line.stageId
+        const lit = h?.stageId != null && h.stageId === line.stageId
+        map.setPaintProperty(id, 'line-opacity', dim ? 0.25 : 1)
+        map.setPaintProperty(id, 'line-width', lit ? 6 : 4)
+      }
+    }
+    applyHighlightRef.current = applyHighlight
     const markers = new Map<string, maplibregl.Marker>()
     let onScreen = new Set<string>()
 
@@ -151,7 +242,15 @@ export default function PublicJourneyMap({
         const coords: [number, number] = [lng, lat]
         let el: HTMLElement
         if (props.cluster_id !== undefined) {
-          el = clusterElement(props.point_count ?? 0)
+          const lo = props.min_stage
+          const hi = props.max_stage
+          const single =
+            lo !== undefined && lo === hi ? stageById.get(lo) : undefined
+          el = clusterElement(
+            props.point_count ?? 0,
+            single?.color ?? CLUSTER_COLOR,
+            single?.stageId ?? '',
+          )
           const clusterId = props.cluster_id
           el.addEventListener('click', () => {
             const source = map.getSource<maplibregl.GeoJSONSource>(SOURCE)
@@ -164,14 +263,23 @@ export default function PublicJourneyMap({
           const point = byId.get(props.id ?? '')
           if (point === undefined) continue
           el = pinElement(point)
+          hoverTarget(el, point)
           el.addEventListener('click', () => {
             onSelectRef.current?.(point.id)
           })
         }
-        markers.set(
-          key,
-          new maplibregl.Marker({ element: el }).setLngLat(coords).addTo(map),
-        )
+        styleMarker(el, highlightRef.current)
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat(coords)
+          .addTo(map)
+        if (props.cluster_id !== undefined) {
+          // The visible number must be part of the accessible name.
+          el.setAttribute(
+            'aria-label',
+            t('publicJourney.clusterLabel', { count: props.point_count ?? 0 }),
+          )
+        }
+        markers.set(key, marker)
       }
       for (const key of onScreen) {
         if (!next.has(key)) {
@@ -183,6 +291,7 @@ export default function PublicJourneyMap({
     }
 
     map.on('load', () => {
+      styleReady = true
       for (const line of lines) {
         map.addSource(`line-${line.id}`, {
           data: {
@@ -207,6 +316,10 @@ export default function PublicJourneyMap({
       map.addSource(SOURCE, {
         cluster: true,
         clusterMaxZoom: 14,
+        clusterProperties: {
+          max_stage: ['max', ['get', 'stageIndex']],
+          min_stage: ['min', ['get', 'stageIndex']],
+        },
         clusterRadius: 50,
         data: {
           features: points.map((p) => ({
@@ -214,7 +327,7 @@ export default function PublicJourneyMap({
               coordinates: [p.longitude, p.latitude],
               type: 'Point' as const,
             },
-            properties: { id: p.id },
+            properties: { id: p.id, stageIndex: p.stageIndex },
             type: 'Feature' as const,
           })),
           type: 'FeatureCollection',
@@ -231,6 +344,33 @@ export default function PublicJourneyMap({
       map.on('render', () => {
         if (map.isSourceLoaded(SOURCE)) updateMarkers()
       })
+      applyHighlight()
+      // Hovering a route line reports its stage (pins report themselves).
+      const lineLayers = [...lineByLayer.keys()]
+      if (lineLayers.length > 0) {
+        let hovered: string | null = null
+        map.on('mousemove', (event) => {
+          const { x, y } = event.point
+          const hit = map.queryRenderedFeatures(
+            [
+              [x - 6, y - 6],
+              [x + 6, y + 6],
+            ],
+            { layers: lineLayers },
+          )[0]
+          const line =
+            hit === undefined ? undefined : lineByLayer.get(hit.layer.id)
+          const stageId = line?.stageId ?? null
+          map.getCanvas().style.cursor = stageId === null ? '' : 'pointer'
+          if (stageId === hovered) return
+          hovered = stageId
+          onHoverRef.current?.(
+            stageId === null || stageId === ''
+              ? null
+              : { dayKey: null, stageId },
+          )
+        })
+      }
       // First complete render: the section fades the map in over its preview.
       onReadyRef.current?.()
     })
@@ -242,6 +382,7 @@ export default function PublicJourneyMap({
     observer.observe(container)
 
     return () => {
+      applyHighlightRef.current = null
       observer.disconnect()
       markers.forEach((marker) => {
         marker.remove()

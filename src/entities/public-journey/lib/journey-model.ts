@@ -6,20 +6,26 @@ import type {
   PublicSegment,
   PublicTrack,
 } from '@trip-diary/core/public-journey'
+import { stagePaletteColor } from '@/shared/lib/stage-palette'
 
-export const STAGE_COLORS = [
-  '#285943',
-  '#b85f42',
-  '#3b6ea5',
-  '#8a5a9e',
-  '#c49a2c',
-  '#2c8a8a',
-  '#a33b5c',
-  '#5f7a2c',
-] as const
+/** One calendar day of a stage: its moments plus the author's day note. */
+export interface JourneyDay {
+  /** Local calendar day (YYYY-MM-DD) in the stage's zone. */
+  key: string
+  /** 1-based day number counted from the first day of the journey. */
+  number: number
+  moments: PublicMoment[]
+  note: string | null
+}
 
 export interface JourneyModel {
   data: PublicJourney
+  /** Day note body by local date (YYYY-MM-DD). */
+  dayNoteByDate: Map<string, string>
+  /** Local day key of an instant, in the zone of the segment (else home zone, else UTC). */
+  dayKeyOf: (iso: string, segment: PublicSegment | null) => string
+  /** Days of a stage with moments (nested trips included), chronological. */
+  daysOfStage: (stageId: string) => JourneyDay[]
   mediaById: Map<string, PublicMedia>
   /** Media per moment, starred first, then capture time. */
   mediaByMoment: Map<string, PublicMedia[]>
@@ -131,7 +137,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   const stageColor = (segmentId: string): string => {
     const stage = stageOf(segmentId)
     const index = stage === null ? 0 : colorIndex.get(stage.id)
-    return STAGE_COLORS[(index ?? 0) % STAGE_COLORS.length] ?? STAGE_COLORS[0]
+    return stagePaletteColor(index ?? 0)
   }
 
   const tripsOfStage = (stageId: string): PublicSegment[] =>
@@ -142,19 +148,30 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   const momentsOfSegment = (segmentId: string): PublicMoment[] =>
     moments.filter((m) => segmentOfInstant(m.startsAt)?.id === segmentId)
 
+  const momentsInSpanCache = new Map<string, PublicMoment[]>()
   const momentsInSpan = (segmentId: string): PublicMoment[] => {
+    const cached = momentsInSpanCache.get(segmentId)
+    if (cached !== undefined) return cached
     const seg = segmentById.get(segmentId)
-    if (seg === undefined) return []
-    return moments.filter(
-      (m) =>
-        ms(seg.startsAt) <= ms(m.startsAt) && ms(m.startsAt) <= ms(seg.endsAt),
-    )
+    const found =
+      seg === undefined
+        ? []
+        : moments.filter(
+            (m) =>
+              ms(seg.startsAt) <= ms(m.startsAt) &&
+              ms(m.startsAt) <= ms(seg.endsAt),
+          )
+    momentsInSpanCache.set(segmentId, found)
+    return found
   }
 
+  const mediaInSpanCache = new Map<string, PublicMedia[]>()
   const mediaInSpan = (segmentId: string): PublicMedia[] => {
+    const cached = mediaInSpanCache.get(segmentId)
+    if (cached !== undefined) return cached
     const seg = segmentById.get(segmentId)
     if (seg === undefined) return []
-    return data.media.filter((item) => {
+    const found = data.media.filter((item) => {
       if (item.segmentOverrideId !== null)
         return item.segmentOverrideId === segmentId
       const iso =
@@ -164,9 +181,69 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
       if (iso === null) return false
       return ms(seg.startsAt) <= ms(iso) && ms(iso) <= ms(seg.endsAt)
     })
+    mediaInSpanCache.set(segmentId, found)
+    return found
+  }
+
+  const zoneFor = (segment: PublicSegment | null) =>
+    segment?.tz ?? data.journey.homeTz ?? 'UTC'
+  const dayKeyOf = (iso: string, segment: PublicSegment | null): string =>
+    localDayKey(iso, zoneFor(segment))
+
+  const dayNoteByDate = new Map(data.dayNotes.map((n) => [n.date, n.body]))
+
+  // Day numbers run over the whole journey, each moment in its stage's zone.
+  let firstDayKeyCache: string | null | undefined
+  const firstDayKey = (): string | null => {
+    if (firstDayKeyCache !== undefined) return firstDayKeyCache
+    firstDayKeyCache = moments.reduce<string | null>((first, m) => {
+      const owner = segmentOfInstant(m.startsAt)
+      const key = dayKeyOf(
+        m.startsAt,
+        owner === null ? null : stageOf(owner.id),
+      )
+      return first === null || key < first ? key : first
+    }, null)
+    return firstDayKeyCache
+  }
+
+  const daysCache = new Map<string, JourneyDay[]>()
+  const daysOfStage = (stageId: string): JourneyDay[] => {
+    const cached = daysCache.get(stageId)
+    if (cached !== undefined) return cached
+    const stage = segmentById.get(stageId)
+    if (stage === undefined) return []
+    const first = firstDayKey()
+    const byKey = new Map<string, PublicMoment[]>()
+    for (const m of momentsInSpan(stageId)) {
+      const key = dayKeyOf(m.startsAt, stage)
+      const list = byKey.get(key) ?? []
+      list.push(m)
+      byKey.set(key, list)
+    }
+    const days = [...byKey.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, list]) => ({
+        key,
+        moments: list,
+        note: dayNoteByDate.get(key) ?? null,
+        number:
+          first === null
+            ? 1
+            : Math.round(
+                (Date.parse(`${key}T00:00:00Z`) -
+                  Date.parse(`${first}T00:00:00Z`)) /
+                  86_400_000,
+              ) + 1,
+      }))
+    daysCache.set(stageId, days)
+    return days
   }
 
   return {
+    dayKeyOf,
+    dayNoteByDate,
+    daysOfStage,
     childrenOf: (id) => childrenByParent.get(id) ?? [],
     data,
     mediaById,
@@ -187,15 +264,26 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   }
 }
 
+// Building an Intl.DateTimeFormat costs far more than formatting with one;
+// a journey has a handful of zones but thousands of instants.
+const dayFormats = new Map<string, Intl.DateTimeFormat>()
+
 /** Calendar day (YYYY-MM-DD) of an instant in an IANA zone. */
 export function localDayKey(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone,
-    year: 'numeric',
-  }).format(new Date(iso))
+  let format = dayFormats.get(timeZone)
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat('en-CA', {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone,
+      year: 'numeric',
+    })
+    dayFormats.set(timeZone, format)
+  }
+  return format.format(new Date(iso))
 }
+
+const zonedFormats = new Map<string, Intl.DateTimeFormat>()
 
 export function formatInZone(
   iso: string,
@@ -203,9 +291,13 @@ export function formatInZone(
   locale: string,
   options: Intl.DateTimeFormatOptions,
 ): string {
-  return new Intl.DateTimeFormat(locale, { ...options, timeZone }).format(
-    new Date(iso),
-  )
+  const key = `${locale}|${timeZone}|${JSON.stringify(options)}`
+  let format = zonedFormats.get(key)
+  if (format === undefined) {
+    format = new Intl.DateTimeFormat(locale, { ...options, timeZone })
+    zonedFormats.set(key, format)
+  }
+  return format.format(new Date(iso))
 }
 
 /** Zone for a segment/moment: its own, else the journey home zone, else UTC. */

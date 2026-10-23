@@ -18,7 +18,7 @@ export function HeartButton({ className, inverse, target }: HeartButtonProps) {
   return (
     <span className={cn('inline-flex flex-col', className)}>
       <button
-        aria-label={t('publicEngagement.heart')}
+        aria-label={`${t('publicEngagement.heart')} ${String(heart.count)}`}
         aria-pressed={heart.hearted}
         className={cn(
           'inline-flex min-h-10 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold disabled:opacity-60',

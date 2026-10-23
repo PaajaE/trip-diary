@@ -498,6 +498,108 @@ každá nová obrazovka je ověřená na zařízení a ve ~390 px.
   - Lighthouse ≥ 90 (výkon i přístupnost);
   - žádný prázdný stav „Načítám…“ na veřejných stránkách.
 
+### Fáze 5b — Atlas čtenáře (redesign veřejných stránek) — 🧪 TESTED (kroky 1–7; brána čeká na Lighthouse a ruční kontrolu na skutečných datech, viz v2-status.md)
+
+Veřejné stránky (Fáze 5) jsou funkční a rychlé, ale vizuálně i obsahově zaostávají za
+editací („Atlas cesty“, Fáze 4c). Redesign je **závazně** daný klikacím návrhem.
+Návrh je v repozitáři: `docs/design/atlas-ctenare.html` (otevřít v prohlížeči, přepínač
+Cesta / Etapa / Zastávka a Desktop / Mobil 390, lightbox je klikací) a snímky
+`docs/design/atlas-ctenare-{journey,stage,moment}-{desktop,mobile}.png`. **Před každým
+krokem si snímky prohlédnout** (nástroj pro čtení obrázků) a výsledek porovnat se
+screenshoty 1400 px a 390 px. Fotky v návrhu jsou zástupné barevné plochy, ne předloha
+obsahu. Odkaz na soukromý artefakt (https://claude.ai/artifact/BBV29NzQphUvvestG2FfNx)
+cloudový agent nemusí otevřít. Musí fungovat i ve ~390 px.
+
+**Pravidlo pro poměry stran fotek (platí pro veřejnou část i editaci):** žádná fotka se
+nezobrazuje jako nízký široký pruh. Dlaždice a hrdinské fotky mají poměr stran
+v rozmezí 4:3 až 16:9 (hrdinská), 3:4 až 16:9 (dlaždice v řadě), panorama se ořízne
+(`object-cover`) a vcelku ukáže teprve lightbox. Hrdinská fotka nikdy nezabírá celou
+šířku řádku (max ~36 rem, nebo 16:9 v rámci sloupce textu) a výška řádku dlaždic je ≥ 130 px.
+V editaci je to opraveno v `ui/day/DayStops.tsx` a `ui/day/media-url.ts`
+(`aspectOf(item, min, max)`); stejné pravidlo převzít do veřejné části a zkontrolovat
+další místa (`MediaTiles`, `DayCard` mozaika, `MediaGallery`, karty etap).
+
+**Zjištěný stav (produkce, 2026-10-22, cesta o 9 000 px s 309 fotkami v jedné etapě):**
+
+- Stránka etapy je zeď odkazů „Moment“ bez fotek a bez textu: `PublicSegmentPage` vypisuje
+  jen název momentu (často prázdný → „Moment“) a ořezaný text; fotky etapy jsou až na
+  konci jako „Vybrané fotky“.
+- `get_public_journey` už vrací `dayNotes` (zápis dne z editace, migrace
+  `20261023120000`), ale Zod schéma `publicJourneySchema` je zahazuje a UI je nezná.
+  Nejlepší autorský text tedy veřejnost nevidí.
+- Cesta: pouhý obdélník s covery, žádné statistiky, žádný přehled délky etap, časová
+  osa je seznam odkazů. Mapa je oddělená od etap (bez vazby legenda ↔ trasa).
+- Etapa: žádný postup mezi etapami (předchozí/další), žádná mapa vedle textu, žádná
+  navigace po dnech. Moment: malý obrázek v řadě, bez celoobrazovkové fotky.
+- Lightbox `MediaGallery`: bez swipe, bez počitadla, bez návratu fokusu, bez preloadu
+  sousedních fotek. Stránky nepoužívají `reader-display` ani karty z editace
+  (`PublicSpace*` ano, `PublicJourney*` ne), takže veřejný profil a cesta vypadají jako
+  dvě různé aplikace.
+- Obrázkové dlaždice mají prázdné šedé pozadí do načtení (lazy), bez blur-up.
+
+**Co dělají konkurenti (obecné poznatky, UNVERIFIED detaily):** Polarsteps: mapa trasy
+nahoře, časová osa kroků s fotkami a textem, srdíčka a komentáře; Journi / Steller /
+FindPenguins: fotka jako hrdina, vyprávění po dnech s prokládanými fotkami; Komoot a
+Strava: statistiky trasy (km, převýšení, čas) jako hlavní „čísla“; Google Photos
+sdílená alba: mozaika a plynulý lightbox se swipem. Společné jádro: **den je základní
+jednotka čtení**, fotky jsou součástí textu, mapa je vždy po ruce, čísla jsou vidět
+hned, navigace dopředu/zpět je jedním klepnutím.
+
+**Vizuální pravidla (z návrhu):**
+
+- Stejné tokeny a písma jako editace (`src/index.css`); nadpisy `reader-display`;
+  barva etapy (`STAGE_COLORS` / `STRIP_PALETTE`, sjednotit na jednu paletu) je rozlišovací
+  prvek na čáře mapy, štítku karty, pásu etap i miniaturách v legendě.
+- **Cesta:** celostránková titulní fotka s názvem, daty a řadou čísel (dní, etap, km,
+  fotek) → lepicí navigace sekcí (Trasa, Etapy, Místa) → pás etap úměrný počtu dní →
+  mapa + legenda etap (kulatá miniatura s barevným kroužkem, jako sbalený rail v editaci;
+  najetí zvýrazní trasu etapy) → karty etap (první velká, ostatní ve dvou sloupcích,
+  mozaika 2/1/1 jako `DayCard`) → místa → srdíčka a komentáře.
+- **Etapa:** drobečky, štítek „Etapa N z M“, pás etap se zvýrazněnou aktuální, úvodní
+  text serifem, řádek statistik. Desktop ≥ 1000 px: levý rail dnů (sticky), uprostřed
+  dny, vpravo lepicí mapa etapy; mobil: vodorovné čipy dnů (sticky) a mini mapa.
+  **Den = sekce:** nadpis dne + „Den N“, řádek míst, mozaika fotek (klepnutím lightbox),
+  zápis dne (`dayNotes`), karta výletu/treku (typ, km, převýšení, čas), seznam zastávek
+  jako řádky s miniaturou, názvem, časem a prvním řádkem textu. Dole předchozí/další
+  etapa.
+- **Moment (zastávka):** fotka přes celou šířku s popiskem, název, čas a místo, text
+  serifem (max ~65 znaků), filmový pás ostatních fotek, srdíčko, plovoucí lišta
+  „↑ Etapa · 4/11 · Další →“. Název bez titulku: první věta textu nebo místo, nikdy
+  holé „Moment“.
+- **Lightbox:** počitadlo, popisek, srdíčko, swipe a šipky, Esc, návrat fokusu,
+  preload sousedních fotek, pinch na mobilu.
+- **Výkon se nesmí zhoršit:** předgenerované stránky (`scripts/prerender-public.mjs`),
+  hero z embedded kopie, mapa líně po `load`, rezervované rozměry (CLS < 0,1). Rozpočet
+  Fáze 5 platí dál; každý krok se měří (Lighthouse mobil) před a po.
+
+**Kroky (v tomto pořadí, každý samostatný PR, bez změny DB kontraktu kromě kroku 1):**
+
+1. **Data:** `dayNotes` do `publicJourneySchema` + `fixtures/public-journey.json`
+   (syntetická data!), do `JourneyModel` (`dayNoteByDate`, den v pásmu etapy),
+   test na hranici dne. Žádná změna RPC (už hotové).
+2. **Základ:** sdílené stavební kameny ve `features/public-journey/ui`: `StatRow`,
+   `StageStrip` (pás etap), `StageBadge`, `DayMosaic` (sdílet s `DayCard` z editace přes
+   `shared/ui`), `StopRow`, `Crumbs` v novém stylu. Sjednotit barvy etap s editací.
+3. **Stránka cesty:** nová hlavička, statistiky, lepicí navigace, mapa + legenda,
+   karty etap, místa. Aktualizovat skeleton i statický shell prerenderu (stejné rozměry).
+4. **Stránka etapy a výletu:** den jako sekce, rail/čipy, lepicí mapa, zápis dne,
+   karta treku, předchozí/další. Dlouhé etapy: dny pod ohybem se vykreslují líně
+   (`content-visibility: auto`), fotky max. 3 na den v mozaice.
+5. **Moment a lightbox:** nový detail, plovoucí lišta, swipe, preload, přístupnost
+   (fokus, `aria-live` počitadlo).
+6. **Mapa:** propojení legenda ↔ trasa ↔ den (hover/fokus), zvýraznění etapy,
+   shluky v barvách etapy; ověřit na 300+ pinech.
+7. **Detaily a dodělávky:** blur-up/dominantní barva z `variants`, `prefers-reduced-motion`,
+   tmavý režim (volitelné, jen pokud sdílí tokeny s aplikací), titulek momentu bez názvu,
+   OG obrázky/náhledy sdílení (kontrola), prázdné stavy (etapa bez fotek, cesta bez trasy).
+
+**Brána (podmínky dokončení):** `pnpm check` zelený; Playwright E2E veřejné cesty
+(cesta → etapa → moment → lightbox → zpět) na desktopu a ve 390 px; Lighthouse mobil
+≥ 90 výkon i přístupnost na prerenderované cestě; ruční kontrola v prohlížeči
+(screenshoty 1400 px a 390 px) proti návrhu; žádné skutečné fotky ani souřadnice
+Kanady v repozitáři (je veřejný); nepřibývá jiná závislost než případný swipe
+(preferovat vlastní pointer events).
+
 ### Fáze 6 — Rozšíření (až po v2)
 
 - Checklisty, překlady a přírodovědné funkce nad tagy druhů.
