@@ -470,7 +470,7 @@ export function shellHtml(
       : ''
   const srcset =
     hero.srcSet === '' ? '' : ` srcset="${escapeHtml(hero.srcSet)}"`
-  const img = `<img alt="${escapeHtml(hero.alt)}" class="absolute inset-0 -z-10 h-full w-full object-cover" decoding="async" fetchpriority="high" height="${String(hero.height)}" loading="eager" sizes="${HERO_SIZES}" src="${escapeHtml(hero.src)}"${srcset}${focal} width="${String(hero.width)}" />`
+  const img = `<img alt="${escapeHtml(hero.alt)}" class="absolute inset-0 -z-10 h-full w-full object-cover object-[50%_30%]" decoding="async" fetchpriority="high" height="${String(hero.height)}" loading="eager" sizes="${HERO_SIZES}" src="${escapeHtml(hero.src)}"${srcset}${focal} width="${String(hero.width)}" />`
   const statusKey = STATUS_KEYS[status]
   const eyebrowHtml =
     strings === undefined || statusKey === undefined

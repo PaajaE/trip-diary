@@ -21,7 +21,15 @@ export function useScrollSpy(
           else visible.delete(entry.target.id)
         }
         const first = ids.find((id) => visible.has(id))
-        if (first !== undefined) setActive(first)
+        if (first !== undefined) {
+          setActive(first)
+        } else if (
+          (document.getElementById(ids[0] ?? '')?.getBoundingClientRect().top ??
+            0) > 0
+        ) {
+          // Above the first section (the cover): the first one is "next".
+          setActive(ids[0] ?? '')
+        }
       },
       { rootMargin },
     )
