@@ -372,4 +372,33 @@ describe('prerender helpers', () => {
       'User-agent: *\nAllow: /\nSitemap: https://site.test/sitemap.xml\n',
     )
   })
+
+  it('titles an untitled moment page by its first sentence, never the bare journey', () => {
+    const untitled = {
+      ...tree,
+      moments: [
+        {
+          ...tree.moments[0],
+          body: 'Mlha se trhala. A pak slunce.',
+          id: id(7),
+          title: null,
+        },
+        { ...tree.moments[0], body: '', id: id(8), title: null },
+      ],
+    }
+    const pages = buildPages(untitled, { handle: 'pavel', slug: 'kanada' })
+    const moments = pages.filter((p) => p.kind === 'moment')
+    expect(moments[0].title).toBe(`Mlha se trhala · ${tree.journey.title}`)
+    expect(moments[1].title).toBe(tree.journey.title)
+  })
+
+  it('leaves the route section out of the shell when there is nothing to draw', () => {
+    const [page] = buildPages(tree, { handle: 'pavel', slug: 'kanada' })
+    const strings = { cs: {}, en: {} }
+    const tpl = '<html><head></head><body><div id="root"></div></body></html>'
+    expect(page.shell.mapPreview).toBeNull()
+    expect(renderPage(tpl, page, { embed: tree, strings })).not.toContain(
+      'route-heading-shell',
+    )
+  })
 })

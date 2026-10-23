@@ -44,6 +44,19 @@ export function mediaUrl(storageKey, baseUrl = DEFAULT_MEDIA_BASE_URL) {
   return `${trimSlash(baseUrl)}/${storageKey.replace(/^\/+/, '')}`
 }
 
+/** First sentence of a text shortened to a title; mirrors firstSentence() in the app. */
+export function firstSentence(text, max = 60) {
+  const flat = String(text ?? '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (flat === '') return ''
+  const end = flat.search(/[.!?…](\s|$)/)
+  const sentence = end === -1 ? flat : flat.slice(0, end)
+  return sentence.length <= max
+    ? sentence
+    : `${sentence.slice(0, max - 1).trimEnd()}…`
+}
+
 export function summarize(text, max = 160) {
   const flat = String(text ?? '')
     .replace(/[#*_>`~[\]]/g, '')
@@ -198,7 +211,9 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
   }
   for (const m of tree.moments) {
     if (!isSafePathSegment(m.id)) continue
-    const title = m.title ?? j.title
+    // Same fallback as publicMomentTitle(): title, first sentence, journey.
+    const own = (m.title ?? '').trim() || firstSentence(m.body)
+    const title = own || j.title
     pages.push({
       description: summarize(m.body) || `${title} · ${j.title}`,
       dir: `${handle}/${slug}/m/${m.id}`,
@@ -207,7 +222,7 @@ export function buildPages(tree, { handle, slug, mediaBaseUrl }) {
         tree.media.filter((x) => x.momentId === m.id),
       ),
       kind: 'moment',
-      title: m.title === null ? j.title : `${m.title} · ${j.title}`,
+      title: own === '' ? j.title : `${own} · ${j.title}`,
       urlPath: `${base}/m/${m.id}`,
     })
   }
@@ -487,7 +502,7 @@ export function shellHtml(
   const body =
     strings === undefined
       ? ''
-      : `<div class="h-[53px] border-b border-border"></div><div class="mx-auto max-w-6xl space-y-14 px-5 py-10">${summary === '' ? '' : `<p class="reader-body max-w-[65ch] whitespace-pre-line text-lg leading-8">${escapeHtml(summary)}</p>`}${routeSectionHtml(mapPreview, strings)}</div>`
+      : `<div class="h-[53px] border-b border-border"></div><div class="mx-auto max-w-6xl space-y-14 px-5 py-10">${summary === '' ? '' : `<p class="reader-body max-w-[65ch] whitespace-pre-line text-lg leading-8">${escapeHtml(summary)}</p>`}${mapPreview === null || mapPreview === undefined ? '' : routeSectionHtml(mapPreview, strings)}</div>`
   return `<div id="${SHELL_ID}"><main>${header}${body}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
 }
 

@@ -92,6 +92,8 @@ export function PublicJourneyPage({
   )
   const firstStage = model.stages[0]
   const hasPlaces = data.places.length > 0
+  const hasRoute = map.points.length > 0 || map.lines.length > 0
+  const hasRouteSection = hasRoute || stageInfo.length > 0
   const statItems = [
     { label: t('publicJourney.statDays'), value: String(stats.days) },
     ...(stats.stages > 0
@@ -124,7 +126,9 @@ export function PublicJourneyPage({
     title: info.stage.title,
   }))
   const nav = [
-    { id: 'route', label: t('publicJourney.route') },
+    ...(hasRouteSection
+      ? [{ id: 'route', label: t('publicJourney.route') }]
+      : []),
     ...(stageInfo.length > 0
       ? [{ id: 'stages', label: t('publicJourney.stages') }]
       : []),
@@ -158,48 +162,60 @@ export function PublicJourneyPage({
           </p>
         ) : null}
 
-        <section
-          aria-labelledby="route-heading"
-          className="scroll-mt-16 space-y-4"
-          id="route"
-        >
-          <div>
-            <h2 className="reader-display text-3xl" id="route-heading">
-              {t('publicJourney.route')}
-            </h2>
-            <p className="mt-1 text-sm text-muted">
-              {t('publicJourney.routeHint')}
-            </p>
-          </div>
-          {strip.length > 0 ? (
-            <StageStrip currentId={activeStage ?? undefined} items={strip} />
-          ) : null}
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
-            <PublicMapSection
-              highlight={highlight}
-              label={t('publicJourney.routeMap')}
-              lines={map.lines}
-              onHover={(hover) => {
-                setActiveStage(hover?.stageId ?? null)
-              }}
-              onSelectPoint={(momentId) => {
-                void navigate({
-                  params: { journeySlug, momentId, spaceHandle },
-                  to: '/$spaceHandle/$journeySlug/m/$momentId',
-                })
-              }}
-              points={map.points}
-              preview={preview}
-            />
-            <StageLegend
-              activeId={activeStage}
-              items={legend}
-              onActive={setActiveStage}
-              journeySlug={journeySlug}
-              spaceHandle={spaceHandle}
-            />
-          </div>
-        </section>
+        {hasRouteSection ? (
+          <section
+            aria-labelledby="route-heading"
+            className="scroll-mt-16 space-y-4"
+            id="route"
+          >
+            <div>
+              <h2 className="reader-display text-3xl" id="route-heading">
+                {t('publicJourney.route')}
+              </h2>
+              {hasRoute ? (
+                <p className="mt-1 text-sm text-muted">
+                  {t('publicJourney.routeHint')}
+                </p>
+              ) : null}
+            </div>
+            {strip.length > 0 ? (
+              <StageStrip currentId={activeStage ?? undefined} items={strip} />
+            ) : null}
+            <div
+              className={
+                hasRoute
+                  ? 'grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]'
+                  : 'grid gap-5'
+              }
+            >
+              {hasRoute ? (
+                <PublicMapSection
+                  highlight={highlight}
+                  label={t('publicJourney.routeMap')}
+                  lines={map.lines}
+                  onHover={(hover) => {
+                    setActiveStage(hover?.stageId ?? null)
+                  }}
+                  onSelectPoint={(momentId) => {
+                    void navigate({
+                      params: { journeySlug, momentId, spaceHandle },
+                      to: '/$spaceHandle/$journeySlug/m/$momentId',
+                    })
+                  }}
+                  points={map.points}
+                  preview={preview}
+                />
+              ) : null}
+              <StageLegend
+                activeId={activeStage}
+                items={legend}
+                onActive={setActiveStage}
+                journeySlug={journeySlug}
+                spaceHandle={spaceHandle}
+              />
+            </div>
+          </section>
+        ) : null}
 
         {stageInfo.length > 0 ? (
           <section
