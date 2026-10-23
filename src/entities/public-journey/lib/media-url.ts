@@ -46,6 +46,15 @@ export interface ResolvedImage {
   width: number
 }
 
+/** True when resolveImage() would find something; skips building srcset. */
+export function hasImage(
+  media: Pick<PublicMedia, 'kind' | 'variants'>,
+): boolean {
+  const wanted: readonly string[] =
+    media.kind === 'video' ? ['poster'] : IMAGE_KINDS
+  return media.variants.some((v) => wanted.includes(v.kind))
+}
+
 /** Image source for a photo, or the poster for a video. Null without variants. */
 export function resolveImage(
   media: Pick<PublicMedia, 'kind' | 'variants'>,

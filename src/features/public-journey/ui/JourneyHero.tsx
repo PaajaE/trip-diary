@@ -53,7 +53,7 @@ export function JourneyHero({
     <header className="relative isolate flex h-[clamp(22rem,46vw,36rem)] items-end overflow-hidden bg-primary text-white">
       {cover === null ? null : (
         <PublicMediaView
-          className="absolute inset-0 -z-10 h-full w-full object-cover"
+          className="absolute inset-0 -z-10 h-full w-full object-cover object-[50%_30%]"
           media={cover}
           mirror={mirror}
           priority

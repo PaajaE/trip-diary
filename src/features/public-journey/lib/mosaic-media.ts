@@ -1,5 +1,5 @@
 import type { PublicMedia } from '@trip-diary/core/public-journey'
-import { resolveImage } from '@/entities/public-journey/lib/media-url'
+import { hasImage } from '@/entities/public-journey/lib/media-url'
 
 /**
  * Photos for a card mosaic: the cover first, then starred ones, then the
@@ -11,7 +11,7 @@ export function pickMosaicMedia(
   coverId: string | null,
   count = 3,
 ): PublicMedia[] {
-  const shown = media.filter((item) => resolveImage(item) !== null)
+  const shown = media.filter(hasImage)
   const time = (item: PublicMedia) =>
     Date.parse(item.capturedAt ?? '') || Number.MAX_SAFE_INTEGER
   const rank = (item: PublicMedia) =>
