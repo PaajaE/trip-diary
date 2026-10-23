@@ -44,9 +44,10 @@ const dayIso = (day: number, hour: number) =>
 export const ATLAS = { handle: 'ecerovi', slug: 'dolomity-pesky-2025' } as const
 
 export function buildAtlasJourney(
-  opts: { photosPerStop?: number } = {},
+  opts: { photosPerStop?: number; stopsPerDay?: number } = {},
 ): PublicJourney {
   const photosPerStop = opts.photosPerStop ?? 4
+  const stopsPerDay = opts.stopsPerDay ?? 3
   const segments: PublicJourney['segments'] = []
   const moments: PublicJourney['moments'] = []
   const media: PublicJourney['media'] = []
@@ -68,7 +69,8 @@ export function buildAtlasJourney(
           date,
         })
       }
-      for (let s = 0; s < 3; s += 1) {
+      for (let s = 0; s < stopsPerDay; s += 1) {
+        const hour = 8 + (s * 12) / stopsPerDay
         momentNo += 1
         const mid = atlasId(3, momentNo)
         const title = TITLES[(momentNo + s) % TITLES.length] ?? null
@@ -78,12 +80,12 @@ export function buildAtlasJourney(
               ? ''
               : `Zastavili jsme se u jezera. Mlha se před očima trhala a za deset minut stál před námi celý hřeben. Nikdo nemluvil, jen jsme koukali (${String(momentNo)}).`,
           coverMediaId: null,
-          endsAt: dayIso(day, 9 + s * 3 + 1),
+          endsAt: dayIso(day, hour + 0.4),
           id: mid,
-          latitude: 46.5 + stageIndex * 0.04 + d * 0.006 + s * 0.002,
-          longitude: 11.7 + stageIndex * 0.05 + d * 0.008 + s * 0.003,
+          latitude: 46.5 + stageIndex * 0.04 + d * 0.006 + s * 0.0004,
+          longitude: 11.7 + stageIndex * 0.05 + d * 0.008 + s * 0.0005,
           placeId: null,
-          startsAt: dayIso(day, 9 + s * 3),
+          startsAt: dayIso(day, hour),
           title,
         })
         for (let p = 0; p < photosPerStop; p += 1) {
@@ -93,7 +95,7 @@ export function buildAtlasJourney(
           ]
           const key = `atlas/${String(mediaNo)}`
           media.push({
-            capturedAt: dayIso(day, 9 + s * 3 + p * 0.2),
+            capturedAt: dayIso(day, hour + p * 0.05),
             capturedTz: 'Europe/Rome',
             caption: p === 0 ? 'Výhled za mlhou' : null,
             durationMs: null,

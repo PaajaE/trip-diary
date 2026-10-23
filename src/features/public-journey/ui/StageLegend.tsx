@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { PublicMedia } from '@trip-diary/core/public-journey'
+import { cn } from '@/shared/lib/cn'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 
 export interface StageLegendItem {
@@ -13,6 +14,9 @@ export interface StageLegendItem {
 }
 
 interface StageLegendProps {
+  /** Stage highlighted on the map / strip (hover or focus). */
+  activeId?: string | null
+  onActive?: (id: string | null) => void
   items: readonly StageLegendItem[]
   journeySlug: string
   spaceHandle: string
@@ -20,7 +24,9 @@ interface StageLegendProps {
 
 /** Stage list beside the map: round thumbnail ringed in the stage colour. */
 export function StageLegend({
+  activeId = null,
   items,
+  onActive,
   journeySlug,
   spaceHandle,
 }: StageLegendProps) {
@@ -29,8 +35,23 @@ export function StageLegend({
       {items.map((item, index) => (
         <li key={item.id}>
           <Link
-            className="flex items-center gap-3 rounded-xl p-1.5 hover:bg-sunk"
+            className={cn(
+              'flex items-center gap-3 rounded-xl p-1.5 hover:bg-sunk',
+              activeId === item.id && 'bg-sunk',
+            )}
             data-stage-id={item.id}
+            onBlur={() => {
+              onActive?.(null)
+            }}
+            onFocus={() => {
+              onActive?.(item.id)
+            }}
+            onPointerEnter={() => {
+              onActive?.(item.id)
+            }}
+            onPointerLeave={() => {
+              onActive?.(null)
+            }}
             params={{ journeySlug, segmentId: item.id, spaceHandle }}
             to="/$spaceHandle/$journeySlug/e/$segmentId"
           >

@@ -21,8 +21,11 @@ function svgFor(url: string): string {
 }
 
 /** Serves the synthetic journey, placeholder images and an empty backend. */
-export async function mockPublicBackend(page: Page): Promise<void> {
-  const journey = buildAtlasJourney()
+export async function mockPublicBackend(
+  page: Page,
+  options: { photosPerStop?: number; stopsPerDay?: number } = {},
+): Promise<void> {
+  const journey = buildAtlasJourney(options)
   await page.route(`${MOCK_SUPABASE}/**`, async (route) => {
     const request = route.request()
     if (request.method() === 'OPTIONS') {

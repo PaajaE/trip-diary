@@ -11,7 +11,7 @@ export interface StageStripItem {
 interface StageStripProps {
   className?: string
   /** Highlighted stage; the others are faded. */
-  currentId?: string
+  currentId?: string | undefined
   items: readonly StageStripItem[]
 }
 

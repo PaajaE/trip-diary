@@ -21,6 +21,9 @@ export interface DayTripCard {
 }
 
 interface DaySectionProps {
+  /** The day's pins are lit on the map (hover here or on a pin). */
+  active: boolean
+  onActive: (active: boolean) => void
   color: string
   heading: string
   id: string
@@ -41,6 +44,8 @@ interface DaySectionProps {
 
 /** One day of a stage: the unit of reading. */
 export function DaySection({
+  active,
+  onActive,
   color,
   heading,
   id,
@@ -72,10 +77,26 @@ export function DaySection({
       )}
       data-day={id}
       id={id}
+      onBlur={() => {
+        onActive(false)
+      }}
+      onFocus={() => {
+        onActive(true)
+      }}
+      onPointerEnter={() => {
+        onActive(true)
+      }}
+      onPointerLeave={() => {
+        onActive(false)
+      }}
     >
       <header className="space-y-1">
         <div className="flex items-baseline justify-between gap-3">
-          <h2 className="reader-display text-2xl" id={`${id}-title`}>
+          <h2
+            className="reader-display text-2xl"
+            id={`${id}-title`}
+            style={active ? { color } : undefined}
+          >
             {heading}
           </h2>
           <span className="text-xs tabular-nums text-faint">
