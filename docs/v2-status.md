@@ -487,7 +487,7 @@ Zbývá: P2 (výběr a hromadné akce, přesun fotek v UI, operace s etapami, �
 
 Na jindy: tmavý režim aplikace (Fáze 4d, mimo rozsah).
 
-## Fáze 5b — Atlas čtenáře (2026-10-23, 🚧 rozpracováno)
+## Fáze 5b — Atlas čtenáře (2026-10-23, 🧪 TESTED, brána neuzavřena)
 
 Plán: `plan-v2.md`, Fáze 5b; návrh `docs/design/atlas-ctenare.html`. Každý krok je samostatný PR.
 
