@@ -1112,6 +1112,7 @@ export const en = {
   publicJourney: {
     ascent: 'Ascent',
     breadcrumb: 'Breadcrumb',
+    clusterLabel: '{{count}} stops on the map',
     close: 'Close',
     distance: 'Distance',
     gallery: 'Photos and videos',

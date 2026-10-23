@@ -1110,6 +1110,7 @@ export const cs: TranslationResources = {
   publicJourney: {
     ascent: 'Převýšení',
     breadcrumb: 'Drobečková navigace',
+    clusterLabel: '{{count}} zastávek na mapě',
     close: 'Zavřít',
     distance: 'Vzdálenost',
     gallery: 'Fotky a videa',

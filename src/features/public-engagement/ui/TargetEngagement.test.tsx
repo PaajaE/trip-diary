@@ -112,7 +112,7 @@ describe('TargetEngagement', () => {
     )
     setup(guest)
     await screen.findByText('Krásné místo')
-    fireEvent.click(screen.getByRole('button', { name: 'Like' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Like/ }))
     await waitFor(() => {
       expect(screen.getByTestId('heart-count').textContent).toBe('4')
     })
@@ -121,7 +121,7 @@ describe('TargetEngagement', () => {
     await waitFor(() => {
       expect(
         screen
-          .getByRole('button', { name: 'Like' })
+          .getByRole('button', { name: /^Like/ })
           .getAttribute('aria-pressed'),
       ).toBe('true')
     })
@@ -133,13 +133,15 @@ describe('TargetEngagement', () => {
     repo.addHeart.mockRejectedValue(new EngagementError('rate_limited'))
     setup()
     await screen.findByText('Krásné místo')
-    fireEvent.click(screen.getByRole('button', { name: 'Like' }))
+    fireEvent.click(screen.getByRole('button', { name: /^Like/ }))
     expect((await screen.findByRole('alert')).textContent).toContain(
       'Too many attempts',
     )
     expect(screen.getByTestId('heart-count').textContent).toBe('3')
     expect(
-      screen.getByRole('button', { name: 'Like' }).getAttribute('aria-pressed'),
+      screen
+        .getByRole('button', { name: /^Like/ })
+        .getAttribute('aria-pressed'),
     ).toBe('false')
   })
 

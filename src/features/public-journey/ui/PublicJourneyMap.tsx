@@ -269,10 +269,17 @@ export default function PublicJourneyMap({
           })
         }
         styleMarker(el, highlightRef.current)
-        markers.set(
-          key,
-          new maplibregl.Marker({ element: el }).setLngLat(coords).addTo(map),
-        )
+        const marker = new maplibregl.Marker({ element: el })
+          .setLngLat(coords)
+          .addTo(map)
+        if (props.cluster_id !== undefined) {
+          // The visible number must be part of the accessible name.
+          el.setAttribute(
+            'aria-label',
+            t('publicJourney.clusterLabel', { count: props.point_count ?? 0 }),
+          )
+        }
+        markers.set(key, marker)
       }
       for (const key of onScreen) {
         if (!next.has(key)) {
