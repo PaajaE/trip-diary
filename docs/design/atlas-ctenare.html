@@ -1,0 +1,331 @@
+<meta charset="utf-8">
+<title>Atlas čtenáře</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: toolbar (view + width switch) above a framed public page; the page uses container queries so the 390 px toggle is a real mobile layout.
+   Tokens are the app's own (src/index.css), so mockup and product share one palette. */
+:root{
+  --bg:#f8f5ef; --surface:#fff; --fg:#1f231e; --muted:#5f675e; --border:#e4e0d6; --primary:#3d5c47; --primary-fg:#fff;
+  --accent:#c46a4a; --sunk:#f1ede4; --faint:#8b9289; --primary-soft:#e3ebe4; --accent-soft:#f6e4dc;
+  --s1:#285943; --s2:#b85f42; --s3:#3b6ea5; --s4:#8a5a9e; --s5:#c49a2c;
+  --shadow:0 8px 24px rgb(41 48 42 / 7%);
+  --serif:'Iowan Old Style','Palatino Linotype',Palatino,Georgia,serif;
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;
+  --frame:#e9e4d9;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#171a16; --surface:#20241f; --fg:#eef0ea; --muted:#a9b0a6; --border:#333a31; --primary:#8fb59a; --primary-fg:#10170f;
+  --accent:#e08a6a; --sunk:#1d211c; --faint:#7d857a; --primary-soft:#27352b; --accent-soft:#3a2a23; --shadow:0 8px 24px rgb(0 0 0 / 35%); --frame:#0f110e; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#171a16; --surface:#20241f; --fg:#eef0ea; --muted:#a9b0a6; --border:#333a31; --primary:#8fb59a; --primary-fg:#10170f;
+  --accent:#e08a6a; --sunk:#1d211c; --faint:#7d857a; --primary-soft:#27352b; --accent-soft:#3a2a23; --shadow:0 8px 24px rgb(0 0 0 / 35%); --frame:#0f110e; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--frame);color:var(--fg);font-family:var(--sans);font-size:15px;line-height:1.5;
+  padding-block:16px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 55%,transparent);outline-offset:2px}
+.bar{max-width:1180px;margin:0 auto 14px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
+.bar h1{font:600 15px var(--sans);margin:0;color:var(--muted)}
+.seg{display:inline-flex;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:7px 14px;border-radius:9px;font-weight:600;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--primary);color:var(--primary-fg)}
+.stage{max-width:1180px;margin:0 auto;display:flex;justify-content:center}
+.page{container-type:inline-size;container-name:pg;width:100%;background:var(--bg);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);border:1px solid var(--border)}
+.page.mobile{width:390px;max-width:100%}
+
+/* fake photos */
+.ph{display:block;width:100%;height:100%;min-height:0;background:linear-gradient(160deg,hsl(var(--h) 38% 62%),hsl(calc(var(--h) + 24) 34% 38%));position:relative;overflow:hidden}
+.ph::before{content:"";position:absolute;left:-10%;right:-10%;bottom:-28%;height:62%;background:hsl(calc(var(--h) + 10) 30% 26% / .55);clip-path:polygon(0 100%,18% 30%,34% 62%,52% 8%,72% 55%,86% 28%,100% 100%)}
+.ph::after{content:"";position:absolute;top:14%;right:16%;width:11%;aspect-ratio:1;border-radius:50%;background:hsl(var(--h) 80% 90% / .75)}
+
+/* shared bits */
+.app{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--bg)}
+.brand{display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px;letter-spacing:.03em}
+.brand i{width:22px;height:22px;border-radius:7px;background:var(--primary);display:block}
+.tools{display:flex;gap:6px;font-size:13px;font-weight:600;color:var(--muted)}
+.tools span{padding:4px 8px}
+.tools .on{color:var(--fg);border-bottom:2px solid var(--primary)}
+.serif{font-family:var(--serif);font-weight:600;letter-spacing:-.01em}
+.eyebrow{font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)}
+.wrap{padding:0 20px}
+@container pg (min-width:760px){.wrap{padding:0 40px}.app{padding:12px 40px}}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:12px;border:1px solid var(--border);background:var(--surface);font-weight:600;font-size:13.5px}
+.btn.p{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:99px;padding:2px 9px;font-size:12px;background:var(--sunk);color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c);display:inline-block}
+
+/* HERO */
+.hero{position:relative;min-height:340px;display:flex;align-items:flex-end;color:#fff}
+.hero .ph{position:absolute;inset:0}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgb(0 0 0/.08) 20%,rgb(0 0 0/.72))}
+.hero .in{position:relative;z-index:1;padding:28px 20px 22px;width:100%}
+.hero h2{margin:6px 0 4px;font-size:34px;line-height:1.08;text-wrap:balance}
+.hero .eyebrow{color:#ffd9c8}
+.hero p{margin:0;opacity:.9}
+@container pg (min-width:760px){.hero{min-height:480px}.hero .in{padding:48px 40px 34px}.hero h2{font-size:56px}}
+.stats{display:flex;flex-wrap:wrap;gap:8px 26px;margin-top:16px}
+.stats b{display:block;font:600 22px var(--serif)}
+.stats span{font-size:12px;opacity:.85}
+
+/* sticky section nav */
+.snav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--border)}
+.snav ul{list-style:none;margin:0;padding:8px 20px;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.snav a{white-space:nowrap;text-decoration:none;font-weight:600;font-size:13.5px;padding:7px 12px;border-radius:99px;color:var(--muted)}
+.snav a.on{background:var(--primary-soft);color:var(--primary)}
+@container pg (min-width:760px){.snav ul{padding:8px 40px}}
+
+section.blk{padding-block:34px 6px}
+section.blk>h3{margin:0 0 4px;font-size:26px}
+section.blk>p.lead{margin:0 0 18px;color:var(--muted)}
+
+/* route + stage strip */
+.strip{display:flex;gap:3px;height:12px;border-radius:99px;overflow:hidden;margin:10px 0 6px}
+.strip i{flex:var(--d);background:var(--c);display:block}
+.striplab{display:flex;justify-content:space-between;font-size:12px;color:var(--faint)}
+.mapwrap{display:grid;gap:14px;margin-top:16px}
+.map{position:relative;height:300px;border-radius:16px;border:1px solid var(--border);overflow:hidden;background:#dfe8dc}
+.map svg{width:100%;height:100%;display:block}
+.map .hint{position:absolute;left:10px;bottom:10px;background:var(--surface);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted);box-shadow:var(--shadow)}
+.legend{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.legend li{display:grid;grid-template-columns:34px 1fr auto;gap:10px;align-items:center;padding:6px;border-radius:12px;min-height:46px}
+.legend li:hover,.legend li.on{background:var(--sunk)}
+.legend .t{width:34px;height:34px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--c)}
+.legend b{display:block;font-size:14px}
+.legend small{color:var(--muted);font-size:12px}
+@container pg (min-width:900px){.mapwrap{grid-template-columns:1.6fr 1fr}.map{height:440px}}
+
+/* stage cards */
+.cards{display:grid;gap:16px}
+@container pg (min-width:760px){.cards{grid-template-columns:repeat(2,1fr);gap:20px}.cards .feat{grid-column:1/-1}}
+.card{border:1px solid var(--border);background:var(--surface);border-radius:18px;overflow:hidden;display:flex;flex-direction:column;text-decoration:none;transition:transform .18s,box-shadow .18s}
+.card:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
+.card .mos{display:grid;gap:2px;aspect-ratio:16/10;grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr;background:var(--sunk);position:relative}
+.card .mos>span:first-child{grid-row:span 2}
+.card .tag{position:absolute;left:12px;top:12px;background:var(--c);color:#fff;border-radius:99px;padding:3px 11px;font-size:12px;font-weight:600}
+.card .body{padding:14px 16px 16px;display:flex;flex-direction:column;gap:4px}
+.card h4{margin:0;font-size:21px}
+.card .meta{font-size:13px;color:var(--muted)}
+.card p{margin:4px 0 0;color:var(--muted);font-size:14px;line-height:1.55}
+.card .go{margin-top:8px;font-weight:600;font-size:13.5px;color:var(--primary)}
+@container pg (min-width:760px){.feat{flex-direction:row}.feat .mos{flex:1.35;aspect-ratio:auto;min-height:300px}.feat .body{flex:1;padding:26px 28px;justify-content:center}.feat h4{font-size:30px}}
+
+/* places */
+.places{display:flex;flex-wrap:wrap;gap:8px}
+.places .chip{background:var(--surface);border:1px solid var(--border);padding:5px 12px;font-size:13px;color:var(--fg)}
+
+/* footer */
+.foot{margin-top:40px;padding:26px 20px 34px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.foot .cmt{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;gap:12px;align-items:center;font-size:14px}
+@container pg (min-width:760px){.foot{padding:30px 40px 40px}}
+
+/* STAGE PAGE */
+.crumbs{font-size:13px;color:var(--muted);display:flex;gap:6px;flex-wrap:wrap;padding-top:14px}
+.crumbs a{text-decoration:underline;text-underline-offset:3px}
+.shead{padding-block:12px 18px}
+.shead h2{margin:6px 0 6px;font-size:34px;line-height:1.1;text-wrap:balance}
+.shead .rel{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--muted)}
+.shead .intro{font:400 18px/1.7 var(--serif);max-width:62ch;margin:14px 0 0;color:var(--fg)}
+.sstats{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:14px;font-size:13px;color:var(--muted)}
+.sstats b{color:var(--fg);font-size:15px}
+@container pg (min-width:760px){.shead h2{font-size:48px}}
+.layout{display:grid;gap:0}
+@container pg (min-width:1000px){.layout{grid-template-columns:200px minmax(0,1fr) 360px;gap:28px}}
+.rail{display:none}
+@container pg (min-width:1000px){.rail{display:block;position:sticky;top:12px;align-self:start;max-height:calc(100cqh - 24px)}}
+.rail h5{margin:0 0 8px 8px;font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.rail a{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline;text-decoration:none;padding:7px 8px;border-radius:10px;font-size:13.5px}
+.rail a.on{background:var(--primary-soft);color:var(--primary);font-weight:600}
+.rail a small{color:var(--faint);font-size:11.5px;font-variant-numeric:tabular-nums}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:10px 0;position:sticky;top:0;background:var(--bg);z-index:4;scrollbar-width:none}
+.chips a{flex:none;text-decoration:none;border:1px solid var(--border);background:var(--surface);border-radius:12px;padding:5px 11px;font-size:13px;text-align:center;line-height:1.25}
+.chips a b{display:block;font-size:14px;font-variant-numeric:tabular-nums}
+.chips a.on{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+@container pg (min-width:1000px){.chips{display:none}}
+.sidemap{display:none}
+@container pg (min-width:1000px){.sidemap{display:block;position:sticky;top:12px;align-self:start}.sidemap .map{height:calc(100cqh - 90px);max-height:560px}}
+.minimap{margin:10px 0 18px}
+@container pg (min-width:1000px){.minimap{display:none}}
+.minimap .map{height:200px}
+
+.day{padding-block:22px;border-top:1px solid var(--border)}
+.day:first-child{border-top:0}
+.dayhead{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.dayhead h3{margin:0;font-size:25px}
+.dayhead small{color:var(--faint);font-size:12px;font-variant-numeric:tabular-nums}
+.where{display:flex;gap:6px 14px;flex-wrap:wrap;margin:4px 0 12px;font-size:13.5px;color:var(--muted)}
+.where span::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle}
+.dmos{display:grid;gap:3px;grid-template-columns:2fr 1fr;grid-template-rows:repeat(2,minmax(0,1fr));aspect-ratio:16/9;border-radius:16px;overflow:hidden;cursor:zoom-in}
+.dmos>span:first-child{grid-row:span 2}
+.dmos .more{position:absolute;right:10px;bottom:10px;background:rgb(0 0 0/.62);color:#fff;border-radius:99px;padding:3px 10px;font-size:12px;font-weight:600}
+.dmos>span{position:relative}
+.note{font:400 17.5px/1.75 var(--serif);max-width:62ch;margin:14px 0 0}
+.note::first-letter{font-size:1.6em}
+.stops{list-style:none;margin:16px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+.stop{display:grid;grid-template-columns:64px 1fr auto;gap:12px;align-items:center;padding:8px;border-radius:14px;background:var(--surface);border:1px solid var(--border);text-decoration:none;min-height:64px}
+.stop:hover{box-shadow:var(--shadow)}
+.stop .th{width:64px;height:48px;border-radius:9px;overflow:hidden}
+.stop b{font-size:14.5px;display:block}
+.stop small{color:var(--muted);font-size:12.5px;display:block;line-height:1.4}
+.stop .n{font-size:12px;color:var(--faint)}
+.trip{margin-top:16px;border-radius:16px;background:var(--primary-soft);padding:14px 16px;display:grid;gap:4px}
+.trip .eyebrow{color:var(--primary)}
+.trip b{font:600 18px var(--serif)}
+.trip small{color:var(--muted)}
+.pn{display:grid;gap:12px;margin-top:34px}
+@container pg (min-width:600px){.pn{grid-template-columns:1fr 1fr}}
+.pn a{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:14px 16px;text-decoration:none;display:grid;gap:2px}
+.pn a:last-child{text-align:right}
+.pn small{color:var(--muted);font-size:12px}
+.pn b{font:600 17px var(--serif)}
+
+/* MOMENT PAGE */
+.mhero{aspect-ratio:3/2;max-height:620px;position:relative}
+.mhero .cap{position:absolute;left:0;right:0;bottom:0;padding:34px 20px 14px;color:#fff;background:linear-gradient(transparent,rgb(0 0 0/.6));font-size:14px}
+.mbody{max-width:680px;margin:0 auto;padding:22px 20px 0}
+.mbody h2{margin:6px 0 4px;font-size:34px;line-height:1.1}
+.mbody .when{color:var(--muted);font-size:14px;display:flex;gap:8px 14px;flex-wrap:wrap}
+.mbody p.txt{font:400 18px/1.75 var(--serif);margin:18px 0}
+.film{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:14px}
+.film>span{aspect-ratio:1;border-radius:12px;overflow:hidden;display:block;cursor:zoom-in}
+@container pg (min-width:760px){.film{grid-template-columns:repeat(4,1fr)}.mbody h2{font-size:46px}}
+.heart{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--border);background:var(--surface);border-radius:99px;padding:6px 14px;font-weight:600;font-size:13.5px}
+.heart[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.pill{position:sticky;bottom:12px;margin:26px auto 0;width:max-content;max-width:calc(100% - 24px);display:flex;gap:4px;align-items:center;background:var(--fg);color:var(--bg);border-radius:99px;padding:5px;box-shadow:var(--shadow);z-index:6}
+.pill a{text-decoration:none;font-size:13px;font-weight:600;padding:8px 14px;border-radius:99px;white-space:nowrap}
+.pill a:hover{background:rgb(127 127 127/.28)}
+.pill i{font-style:normal;font-size:12px;opacity:.7;padding:0 8px}
+
+/* lightbox */
+.lb{position:fixed;inset:0;background:rgb(10 12 9/.94);z-index:50;display:flex;flex-direction:column;color:#fff;padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0)}
+.lb[hidden]{display:none}
+.lb .top{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;font-size:13px}
+.lb .top button{background:rgb(255 255 255/.14);border:0;color:#fff;border-radius:99px;padding:8px 14px;font-weight:600}
+.lb .mid{flex:1;display:flex;align-items:center;justify-content:center;padding:0 12px;min-height:0}
+.lb .mid .ph{width:min(1000px,100%);height:auto;aspect-ratio:3/2;max-height:100%;border-radius:10px}
+.lb .cap{padding:12px 20px 4px;text-align:center;font-size:14px}
+.lb .ft{display:flex;justify-content:center;gap:10px;padding:8px 16px 16px}
+.lb .ft button{background:rgb(255 255 255/.14);border:0;color:#fff;border-radius:99px;padding:9px 18px;font-weight:600}
+.note-box{max-width:1180px;margin:18px auto 0;font-size:13px;color:var(--muted);text-align:center}
+</style>
+
+<div class="bar">
+  <h1>Atlas čtenáře · návrh veřejných stránek (ukázková data)</h1>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div class="seg" role="group" aria-label="Stránka">
+      <button data-view="journey" aria-pressed="true">Cesta</button>
+      <button data-view="stage" aria-pressed="false">Etapa</button>
+      <button data-view="moment" aria-pressed="false">Zastávka</button>
+    </div>
+    <div class="seg" role="group" aria-label="Šířka">
+      <button data-w="desktop" aria-pressed="true">Desktop</button>
+      <button data-w="mobile" aria-pressed="false">Mobil 390</button>
+    </div>
+  </div>
+</div>
+<div class="stage"><div class="page" id="page"></div></div>
+<p class="note-box">Fotky jsou zástupné. Návrh používá stejné barvy a písmo jako editace (Atlas cesty).</p>
+
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Prohlížeč fotek">
+  <div class="top"><span id="lbn">3 / 18</span><button id="lbx" type="button">Zavřít</button></div>
+  <div class="mid"><span class="ph" id="lbp" style="--h:200"></span></div>
+  <div class="cap" id="lbc">Hřeben nad chatou, krátce před bouřkou</div>
+  <div class="ft"><button id="lbl" type="button">← Předchozí</button><button id="lbh" type="button">♡ 4</button><button id="lbr" type="button">Další →</button></div>
+</div>
+
+<script>
+const H=[200,28,150,330,45,95,260,10,175,310,60,215];
+const ph=(i,extra='')=>`<span class="ph" style="--h:${H[i%H.length]};${extra}"></span>`;
+const stg=[
+ {n:1,t:'Přílet a Bolzano',c:'var(--s1)',d:'20.–22. 7.',days:3,m:'6 zastávek · 48 fotek'},
+ {n:2,t:'Seiser Alm a Langkofel',c:'var(--s2)',d:'23.–27. 7.',days:5,m:'11 zastávek · 140 fotek'},
+ {n:3,t:'Tre Cime a Cortina',c:'var(--s3)',d:'28. 7.–2. 8.',days:6,m:'14 zastávek · 171 fotek'},
+ {n:4,t:'Marmolada a Passo Fedaia',c:'var(--s4)',d:'3.–5. 8.',days:3,m:'7 zastávek · 63 fotek'},
+ {n:5,t:'Zpátky přes Brenner',c:'var(--s5)',d:'6.–7. 8.',days:2,m:'4 zastávky · 31 fotek'}];
+const mapSvg=(focus)=>`<svg viewBox="0 0 600 440" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+<rect width="600" height="440" fill="#e3ebdc"/><path d="M0 330C120 300 190 360 300 320S500 250 600 290V440H0Z" fill="#cfdcc6"/><path d="M0 120C90 90 170 150 260 110S470 60 600 100V0H0Z" fill="#d6e2cc"/>
+<g fill="none" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M70 360C90 330 110 320 140 300" stroke="#285943" opacity="${focus&&focus!==1?.25:1}"/>
+<path d="M140 300C175 280 205 250 240 245" stroke="#b85f42" opacity="${focus&&focus!==2?.25:1}"/>
+<path d="M240 245C290 230 320 170 380 150" stroke="#3b6ea5" opacity="${focus&&focus!==3?.25:1}"/>
+<path d="M380 150C420 140 450 110 480 105" stroke="#8a5a9e" opacity="${focus&&focus!==4?.25:1}"/>
+<path d="M480 105C520 130 540 200 520 270" stroke="#c49a2c" opacity="${focus&&focus!==5?.25:1}" stroke-dasharray="1 9"/></g>
+${[[70,360,0],[140,300,1],[240,245,2],[380,150,3],[480,105,4]].map(([x,y,i])=>`<circle cx="${x}" cy="${y}" r="17" fill="#fff" stroke="${['#285943','#b85f42','#3b6ea5','#8a5a9e','#c49a2c'][i]}" stroke-width="4"/><circle cx="${x}" cy="${y}" r="11" fill="hsl(${H[i]} 40% 55%)"/>`).join('')}
+<g><circle cx="300" cy="190" r="19" fill="#285943" stroke="#fff" stroke-width="3"/><text x="300" y="196" fill="#fff" text-anchor="middle" font-size="15" font-weight="600" font-family="system-ui">7</text></g></svg>`;
+const appBar=`<div class="app"><span class="brand"><i></i>Cestovní deník</span><span class="tools"><span class="on">CS</span><span>EN</span></span></div>`;
+const snav=(on)=>`<nav class="snav" aria-label="Sekce cesty"><ul>${['Trasa','Etapy','Průběh','Místa'].map((x,i)=>`<li><a href="#" class="${i===on?'on':''}">${x}</a></li>`).join('')}</ul></nav>`;
+const journey=()=>`${appBar}
+<header class="hero">${ph(0)}<div class="in"><span class="eyebrow">Dokončená cesta · ecerovi</span><h2 class="serif">Dolomity pěšky, 2025</h2><p>20. 7. – 7. 8. 2025 · Itálie</p>
+<div class="stats"><div><b>19</b><span>dní</span></div><div><b>5</b><span>etap</span></div><div><b>212 km</b><span>pěšky</span></div><div><b>453</b><span>fotek a videí</span></div></div>
+<div style="display:flex;gap:8px;margin-top:18px;flex-wrap:wrap"><a class="btn p" href="#">Začít číst</a><a class="btn" href="#" style="background:rgb(255 255 255/.16);color:#fff;border-color:rgb(255 255 255/.4)">Sdílet</a></div></div></header>
+${snav(0)}
+<div class="wrap">
+<section class="blk"><h3 class="serif">Trasa</h3><p class="lead">Barva čáry je barva etapy. Klepnutí na pin otevře zastávku.</p>
+<div class="strip" role="img" aria-label="Délka etap">${stg.map(s=>`<i style="--d:${s.days};--c:${s.c}"></i>`).join('')}</div>
+<div class="striplab"><span>20. 7.</span><span>7. 8.</span></div>
+<div class="mapwrap"><div class="map">${mapSvg()}<span class="hint">Zoom: Ctrl + kolečko</span></div>
+<ul class="legend">${stg.map((s,i)=>`<li style="--c:${s.c}"><span class="t">${ph(i+1)}</span><span><b>${s.n}. ${s.t}</b><small>${s.d} · ${s.days} dní</small></span><small>${s.m.split(' · ')[1].replace(' fotek','')}</small></li>`).join('')}</ul></div></section>
+<section class="blk"><h3 class="serif">Etapy</h3><p class="lead">Každá etapa je kapitola. Začněte první, nebo skočte tam, kde vás to láká.</p>
+<div class="cards">${stg.slice(1,4).map((s,i)=>`<a class="card ${i===0?'feat':''}" href="#" style="--c:${s.c}" data-go="stage"><span class="mos">${ph(i+3)}${ph(i+5)}${ph(i+8)}<span class="tag">Etapa ${s.n}</span></span><span class="body"><span class="meta">${s.d} 2025 · ${s.days} dní</span><h4 class="serif">${s.t}</h4><span class="meta">${s.m}</span><p>${['Z Bolzana lanovkou na louky a první noc v chatě pod Langkofelem. Ráno mlha, odpoledne ostré slunce.','Obrovské stěny nad jezerem a dlouhý den bez cesty zpět.','Poslední velký výstup a návrat do údolí.'][i]}</p><span class="go">Číst etapu →</span></span></a>`).join('')}</div></section>
+<section class="blk"><h3 class="serif">Místa</h3><p class="lead">Kde všude jsme byli.</p><div class="places">${['Bolzano','Seiser Alm','Val Gardena','Tre Cime di Lavaredo','Cortina d’Ampezzo','Passo Giau','Marmolada','Brenner'].map(x=>`<span class="chip">${x}</span>`).join('')}</div></section>
+</div>
+<footer class="foot"><div class="cmt"><span><b>12 srdíček · 3 komentáře</b><br><span class="muted">Napište jen jméno, registrace není potřeba.</span></span><a class="btn p" href="#">Přidat komentář</a></div><span class="muted" style="font-size:12px">Mapa © Mapy.com / Seznam.cz</span></footer>`;
+
+const dayTexts=['Ráno jsme nechali auto v Ortisei a vyjeli lanovkou na Seiser Alm. Nad loukami visela mlha, která se kolem desáté zvedla a odkryla celý Langkofel. Malý šel první hodinu sám a pak už jen na ramenou.','Dlouhý přesun po hřebeni. V poledne jsme obědvali na kameni nad chatou, odpoledne přišla bouřka a poslední kilometr jsme šli v pláštěnkách.'];
+const days=[['Úterý 22. 7.',2,['Seiser Alm','Rifugio Zallinger'],0],['Středa 23. 7.',3,['Val Gardena','Passo Sella'],1],['Čtvrtek 24. 7.',4,['Langkofelhütte'],null],['Pátek 25. 7.',5,['Plattkofel'],null]];
+const stage=()=>`${appBar}
+<div class="wrap"><nav class="crumbs" aria-label="Drobečky"><a href="#" data-go="journey">Dolomity pěšky, 2025</a> › <span aria-current="page">Seiser Alm a Langkofel</span></nav>
+<header class="shead"><div class="rel"><span class="dot" style="--c:var(--s2)"></span>Etapa 2 z 5 · 23.–27. 7. 2025</div><h2 class="serif">Seiser Alm a Langkofel</h2>
+<div class="strip" style="max-width:420px">${stg.map((s,i)=>`<i style="--d:${s.days};--c:${s.c};opacity:${i===1?1:.3}"></i>`).join('')}</div>
+<p class="intro">Z Bolzana lanovkou na louky a první noc v chatě pod Langkofelem. Pět dní, ve kterých jsme se naučili, že mlha v Dolomitech je jen otázka trpělivosti.</p>
+<div class="sstats"><span><b>5</b> dní</span><span><b>11</b> zastávek</span><span><b>140</b> fotek</span><span><b>48 km</b> · <b>2 310 m</b> převýšení</span></div></header></div>
+<div class="wrap"><div class="layout">
+<aside class="rail" aria-label="Dny etapy"><h5>Dny</h5>${days.map((d,i)=>`<a href="#" class="${i===0?'on':''}"><small>${d[1]}</small>${d[0]}</a>`).join('')}</aside>
+<div><div class="chips" role="navigation" aria-label="Dny etapy">${days.map((d,i)=>`<a href="#" class="${i===0?'on':''}"><b>${d[0].split(' ')[1]}</b>${d[0].split(' ')[0].slice(0,2)}</a>`).join('')}</div>
+<div class="minimap"><div class="map">${mapSvg(2)}</div></div>
+${days.map((d,i)=>`<article class="day"><div class="dayhead"><h3 class="serif">${d[0]}</h3><small>Den ${d[1]}</small></div>
+<div class="where">${d[2].map(x=>`<span>${x}</span>`).join('')}</div>
+<div class="dmos" data-lb="${i}" role="button" tabindex="0" aria-label="Otevřít fotky dne">${ph(i*3)}${ph(i*3+1)}<span style="position:relative">${ph(i*3+2)}<b class="more">+14</b></span></div>
+${d[3]!==null?`<p class="note">${dayTexts[d[3]]}</p>`:''}
+${i===1?`<div class="trip"><span class="eyebrow">Výlet · trek</span><b>Langkofel Umrundung</b><small>18,4 km · 1 120 m nahoru · 7 h 40 min</small></div>`:''}
+<ul class="stops">${[['Lanovka z Ortisei','8:40','Fronta byla krátká, výhled od první minuty.'],['Louka pod Zallingerem','11:15','Mlha zmizela a objevil se Langkofel.'],['Oběd na kameni','13:05','']].slice(0,i===2?2:3).map((s,k)=>`<li><a class="stop" href="#" data-go="moment"><span class="th">${ph(i*3+k+2)}</span><span><b>${s[0]}</b>${s[2]?`<small>${s[2]}</small>`:''}</span><span class="n">${s[1]}</span></a></li>`).join('')}</ul></article>`).join('')}
+<div class="pn"><a href="#" data-go="stage"><small>← Předchozí etapa</small><b>Přílet a Bolzano</b></a><a href="#" data-go="stage"><small>Další etapa →</small><b>Tre Cime a Cortina</b></a></div></div>
+<aside class="sidemap" aria-label="Mapa etapy"><div class="map">${mapSvg(2)}<span class="hint">Najetí na den zvýrazní jeho místa</span></div></aside></div></div>
+<footer class="foot"><div class="cmt"><span><b>5 srdíček · 1 komentář</b></span><a class="btn p" href="#">Přidat komentář</a></div></footer>`;
+
+const moment=()=>`${appBar}
+<div class="wrap"><nav class="crumbs" aria-label="Drobečky"><a href="#" data-go="journey">Dolomity pěšky, 2025</a> › <a href="#" data-go="stage">Seiser Alm a Langkofel</a> › <span aria-current="page">Louka pod Zallingerem</span></nav></div>
+<div class="mhero" style="margin-top:12px" data-lb="0" role="button" tabindex="0" aria-label="Otevřít fotku">${ph(2)}<div class="cap">Langkofel se vynořil z mlhy kolem jedenácté.</div></div>
+<div class="mbody"><span class="eyebrow">Etapa 2 · Den 2 · zastávka 4 z 11</span><h2 class="serif">Louka pod Zallingerem</h2>
+<div class="when"><span>Středa 23. 7. 2025, 11:15</span><span>📍 Seiser Alm, Jižní Tyrolsko</span></div>
+<p class="txt">Zastavili jsme se jen kvůli svačině, ale mlha se před očima trhala a za deset minut stál před námi celý Langkofel. Nikdo nemluvil. Malý rovnou začal hledat kameny na stavbu hradu.</p>
+<div class="film">${[3,4,5,6,7,8].map(i=>`<span data-lb="${i}" role="button" tabindex="0" aria-label="Otevřít fotku">${ph(i)}</span>`).join('')}</div>
+<div style="display:flex;gap:10px;align-items:center;margin-top:16px;flex-wrap:wrap"><button class="heart" id="heart" aria-pressed="false" type="button">♡ <span id="hc">4</span></button><span class="muted" style="font-size:13px">Komentáře (1)</span></div>
+<div class="pn" style="margin-top:28px"><a href="#" data-go="moment"><small>← Předchozí</small><b>Lanovka z Ortisei</b></a><a href="#" data-go="moment"><small>Další →</small><b>Oběd na kameni</b></a></div></div>
+<div class="pill"><a href="#" data-go="stage">↑ Etapa</a><i>4 / 11</i><a href="#" data-go="moment">Další →</a></div>
+<div style="height:40px"></div>`;
+
+const views={journey,stage,moment};
+const page=document.getElementById('page');
+let view='journey';
+function render(){page.innerHTML=views[view]();document.querySelectorAll('[data-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.view===view)));
+ const h=document.getElementById('heart');if(h)h.onclick=()=>{const on=h.getAttribute('aria-pressed')!=='true';h.setAttribute('aria-pressed',String(on));h.firstChild.textContent=on?'♥ ':'♡ ';document.getElementById('hc').textContent=on?5:4}}
+document.addEventListener('click',e=>{
+ const v=e.target.closest('[data-view]');if(v){view=v.dataset.view;render();return}
+ const w=e.target.closest('[data-w]');if(w){page.classList.toggle('mobile',w.dataset.w==='mobile');document.querySelectorAll('[data-w]').forEach(b=>b.setAttribute('aria-pressed',String(b===w)));return}
+ const l=e.target.closest('[data-lb]');if(l){openLb(+l.dataset.lb);return}
+ const g=e.target.closest('[data-go]');if(g){e.preventDefault();view=g.dataset.go;render();page.scrollIntoView();return}
+ if(e.target.closest('a[href="#"]'))e.preventDefault()});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const l=e.target.closest&&e.target.closest('[data-lb]');if(l){e.preventDefault();openLb(+l.dataset.lb)}}
+ if(!lb.hidden){if(e.key==='Escape')closeLb();if(e.key==='ArrowLeft')step(-1);if(e.key==='ArrowRight')step(1)}});
+const lb=document.getElementById('lb');let li=0;const N=18;
+const caps=['Hřeben nad chatou, krátce před bouřkou','Langkofel se vynořil z mlhy','Malý a hrad z kamenů'];
+function paint(){document.getElementById('lbp').style.setProperty('--h',H[li%H.length]);document.getElementById('lbn').textContent=`${li+1} / ${N}`;document.getElementById('lbc').textContent=caps[li%3]}
+function openLb(i){li=i;paint();lb.hidden=false;document.getElementById('lbx').focus()}
+function closeLb(){lb.hidden=true}
+function step(d){li=(li+d+N)%N;paint()}
+document.getElementById('lbx').onclick=closeLb;document.getElementById('lbl').onclick=()=>step(-1);document.getElementById('lbr').onclick=()=>step(1);
+document.getElementById('lbh').onclick=function(){this.textContent=this.textContent.startsWith('♡')?'♥ 5':'♡ 4'};
+render();
+</script>

@@ -39,14 +39,15 @@ function PhotoTile({
 }: PhotoTileProps) {
   const { t } = useTranslation()
   const url = variantUrl(item, hero ? HERO_VARIANTS : TILE_VARIANTS, baseUrl)
-  const ratio = aspectOf(item)
+  // Hero: never lower than 4:3 or wider than 16:9, and never full row width.
+  const ratio = hero ? aspectOf(item, 4 / 3, 16 / 9) : aspectOf(item)
   return (
     <div
       className={cn(
         'group relative overflow-hidden rounded-md bg-sunk',
         hero
-          ? 'col-span-3 aspect-[16/10] min-[760px]:aspect-auto min-[760px]:h-[180px] min-[760px]:basis-full'
-          : 'aspect-square min-[760px]:aspect-auto min-[760px]:h-[110px] min-[760px]:basis-[calc(var(--r)*110px)] min-[760px]:grow-[var(--r)]',
+          ? 'col-span-3 aspect-[var(--r)] min-[760px]:w-[min(100%,36rem)]'
+          : 'aspect-square min-[760px]:aspect-auto min-[760px]:h-[130px] min-[760px]:basis-[calc(var(--r)*130px)] min-[760px]:grow-[var(--r)]',
         selected && 'ring-2 ring-primary ring-offset-1',
       )}
       data-selected={selected ? 'true' : undefined}
