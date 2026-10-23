@@ -145,7 +145,7 @@ describe('public journey pages', () => {
     expect(screen.getByText('Assiniboine, Alberta')).toBeTruthy()
     expect(screen.getByText('Názvy míst © Seznam.cz a.s.')).toBeTruthy()
     expect(
-      screen.getByRole('link', { name: /Další/ }).getAttribute('href'),
+      screen.getAllByRole('link', { name: /Další/ })[0]?.getAttribute('href'),
     ).toBe(`/ecerovi/kanada-2026/m/${FIXTURE_IDS.hiddenMoment}`)
     expect(screen.queryByRole('link', { name: /Předchozí/ })).toBeNull()
   })
