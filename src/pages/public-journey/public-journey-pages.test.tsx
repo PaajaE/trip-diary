@@ -119,8 +119,13 @@ describe('public journey pages', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Rockies' }),
     ).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Assiniboine trek' })).toBeTruthy()
-    expect(screen.getByText('Šest dní trekem.')).toBeTruthy()
+    // The trek is a card on the day it starts; days are the reading unit.
+    expect(screen.getByRole('link', { name: /Assiniboine trek/ })).toBeTruthy()
+    expect(
+      screen.getAllByRole('region').map((r) => r.getAttribute('data-day')),
+    ).toEqual(['day-2026-06-02', 'day-2026-06-03', 'day-2026-06-04'])
+    expect(screen.getByText('Den u jezera.')).toBeTruthy()
+    expect(screen.getByText('Další etapa')).toBeTruthy()
   })
 
   it('renders a trek with distance and ascent from the track', async () => {
@@ -128,10 +133,11 @@ describe('public journey pages', () => {
     const stats = screen.getByRole('main')
     expect(within(stats).getByText('24.5 km')).toBeTruthy()
     expect(within(stats).getByText('850 m')).toBeTruthy()
-    expect((await screen.findByTestId('map')).getAttribute('data-lines')).toBe(
-      '1',
-    )
-    expect(within(stats).getByRole('link', { name: 'Lake Magog' })).toBeTruthy()
+    // Mobile and desktop slot each hold a map (the hidden one never loads).
+    expect(
+      (await screen.findAllByTestId('map'))[0]?.getAttribute('data-lines'),
+    ).toBe('1')
+    expect(within(stats).getByRole('link', { name: /Lake Magog/ })).toBeTruthy()
   })
 
   it('shows a moment with place attribution and prev/next', async () => {

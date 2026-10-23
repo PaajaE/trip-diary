@@ -11,25 +11,33 @@ interface MediaGalleryProps {
   label?: string
 }
 
-export function MediaGallery({ items, label }: MediaGalleryProps) {
+interface MediaLightboxProps {
+  items: readonly PublicMedia[]
+  /** Open photo, or null when closed. */
+  index: number | null
+  onClose: () => void
+  onIndexChange: (index: number) => void
+}
+
+/** Full-screen viewer for a list of photos/videos (controlled). */
+export function MediaLightbox({
+  index,
+  items,
+  onClose,
+  onIndexChange,
+}: MediaLightboxProps) {
   const { t } = useTranslation()
-  const [openIndex, setOpenIndex] = useState<number | null>(null)
-  const close = useCallback(() => {
-    setOpenIndex(null)
-  }, [])
   const step = useCallback(
     (delta: number) => {
-      setOpenIndex((i) =>
-        i === null ? null : (i + delta + items.length) % items.length,
-      )
+      if (index === null || items.length === 0) return
+      onIndexChange((index + delta + items.length) % items.length)
     },
-    [items.length],
+    [index, items.length, onIndexChange],
   )
-
   useEffect(() => {
-    if (openIndex === null) return
+    if (index === null) return
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close()
+      if (event.key === 'Escape') onClose()
       if (event.key === 'ArrowLeft') step(-1)
       if (event.key === 'ArrowRight') step(1)
     }
@@ -37,10 +45,80 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
     return () => {
       window.removeEventListener('keydown', onKey)
     }
-  }, [close, openIndex, step])
+  }, [index, onClose, step])
+  const current = index === null ? null : (items[index] ?? null)
+  if (current === null) return null
+  const close = onClose
+  return (
+    <div
+      aria-label={t('publicJourney.mediaViewer')}
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      role="dialog"
+    >
+      <button
+        aria-label={t('publicJourney.close')}
+        className="absolute top-4 right-4 text-white"
+        onClick={close}
+        type="button"
+      >
+        <X />
+      </button>
+      {items.length > 1 ? (
+        <>
+          <button
+            aria-label={t('publicJourney.previous')}
+            className="absolute left-3 text-white"
+            onClick={() => {
+              step(-1)
+            }}
+            type="button"
+          >
+            <ChevronLeft />
+          </button>
+          <button
+            aria-label={t('publicJourney.next')}
+            className="absolute right-3 text-white"
+            onClick={() => {
+              step(1)
+            }}
+            type="button"
+          >
+            <ChevronRight />
+          </button>
+        </>
+      ) : null}
+      <figure className="flex max-h-full max-w-full flex-col items-center gap-2">
+        <PublicMediaView
+          className="max-h-[80vh] w-auto max-w-full object-contain"
+          media={current}
+          playable
+          priority
+          sizes="100vw"
+        />
+        {current.caption !== null ? (
+          <figcaption className="text-sm text-white">
+            {current.caption}
+          </figcaption>
+        ) : null}
+        <HeartButton
+          inverse
+          key={current.id}
+          target={{ id: current.id, type: 'media' }}
+        />
+      </figure>
+    </div>
+  )
+}
+
+export function MediaGallery({ items, label }: MediaGalleryProps) {
+  const { t } = useTranslation()
+  const [openIndex, setOpenIndex] = useState<number | null>(null)
+  const close = useCallback(() => {
+    setOpenIndex(null)
+  }, [])
 
   if (items.length === 0) return null
-  const current = openIndex === null ? null : (items[openIndex] ?? null)
 
   return (
     <>
@@ -73,66 +151,12 @@ export function MediaGallery({ items, label }: MediaGalleryProps) {
           </li>
         ))}
       </ul>
-      {current !== null ? (
-        <div
-          aria-label={t('publicJourney.mediaViewer')}
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          role="dialog"
-        >
-          <button
-            aria-label={t('publicJourney.close')}
-            className="absolute top-4 right-4 text-white"
-            onClick={close}
-            type="button"
-          >
-            <X />
-          </button>
-          {items.length > 1 ? (
-            <>
-              <button
-                aria-label={t('publicJourney.previous')}
-                className="absolute left-3 text-white"
-                onClick={() => {
-                  step(-1)
-                }}
-                type="button"
-              >
-                <ChevronLeft />
-              </button>
-              <button
-                aria-label={t('publicJourney.next')}
-                className="absolute right-3 text-white"
-                onClick={() => {
-                  step(1)
-                }}
-                type="button"
-              >
-                <ChevronRight />
-              </button>
-            </>
-          ) : null}
-          <figure className="flex max-h-full max-w-full flex-col items-center gap-2">
-            <PublicMediaView
-              className="max-h-[80vh] w-auto max-w-full object-contain"
-              media={current}
-              playable
-              priority
-              sizes="100vw"
-            />
-            {current.caption !== null ? (
-              <figcaption className="text-sm text-white">
-                {current.caption}
-              </figcaption>
-            ) : null}
-            <HeartButton
-              inverse
-              key={current.id}
-              target={{ id: current.id, type: 'media' }}
-            />
-          </figure>
-        </div>
-      ) : null}
+      <MediaLightbox
+        index={openIndex}
+        items={items}
+        onClose={close}
+        onIndexChange={setOpenIndex}
+      />
     </>
   )
 }

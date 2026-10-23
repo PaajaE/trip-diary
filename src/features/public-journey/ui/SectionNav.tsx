@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import {
+  scrollToId,
+  useScrollSpy,
+} from '@/features/public-journey/lib/use-scroll-spy'
 import { cn } from '@/shared/lib/cn'
 
 export interface SectionNavItem {
@@ -10,29 +13,7 @@ export interface SectionNavItem {
 /** Sticky in-page navigation; highlights the section being read. */
 export function SectionNav({ items }: { items: readonly SectionNavItem[] }) {
   const { t } = useTranslation()
-  const [active, setActive] = useState(items[0]?.id ?? '')
-  useEffect(() => {
-    if (typeof IntersectionObserver === 'undefined') return undefined
-    const visible = new Set<string>()
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) visible.add(entry.target.id)
-          else visible.delete(entry.target.id)
-        }
-        const first = items.find((item) => visible.has(item.id))
-        if (first !== undefined) setActive(first.id)
-      },
-      { rootMargin: '-20% 0px -60% 0px' },
-    )
-    for (const item of items) {
-      const element = document.getElementById(item.id)
-      if (element !== null) observer.observe(element)
-    }
-    return () => {
-      observer.disconnect()
-    }
-  }, [items])
+  const [active, setActive] = useScrollSpy(items.map((item) => item.id))
   if (items.length < 2) return null
   return (
     <nav
@@ -50,16 +31,8 @@ export function SectionNav({ items }: { items: readonly SectionNavItem[] }) {
               )}
               href={`#${item.id}`}
               onClick={(event) => {
-                const target = document.getElementById(item.id)
-                if (target === null) return
+                if (!scrollToId(item.id)) return
                 event.preventDefault()
-                const reduce = window.matchMedia(
-                  '(prefers-reduced-motion: reduce)',
-                ).matches
-                target.scrollIntoView({
-                  behavior: reduce ? 'auto' : 'smooth',
-                  block: 'start',
-                })
                 setActive(item.id)
               }}
             >
