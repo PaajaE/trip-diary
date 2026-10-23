@@ -486,3 +486,19 @@ Zbývá: P2 (výběr a hromadné akce, přesun fotek v UI, operace s etapami, �
 | M2–M4                                  | 📝 PROPOSED  | Viz plan-v2.md, Fáze 4d                                                       |
 
 Na jindy: tmavý režim aplikace (Fáze 4d, mimo rozsah).
+
+## Fáze 5b — Atlas čtenáře (2026-10-23, 🚧 rozpracováno)
+
+Plán: `plan-v2.md`, Fáze 5b; návrh `docs/design/atlas-ctenare.html`. Každý krok je samostatný PR.
+
+| Krok                | Stav      | Poznámka                                                                                                                                                                                          |
+| ------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1 Data (`dayNotes`) | 🧪 TESTED | Zod schéma (výchozí `[]` pro starší prerender), fixture (syntetická), `JourneyModel.dayNoteByDate/dayKeyOf/daysOfStage`, test hranice dne. `pnpm check` ✅. Bez DB změny. Produkční RPC neověřeno |
+| 2 Základ            | ⏳ čeká   |                                                                                                                                                                                                   |
+| 3 Stránka cesty     | ⏳ čeká   |                                                                                                                                                                                                   |
+| 4 Etapa a výlet     | ⏳ čeká   |                                                                                                                                                                                                   |
+| 5 Moment a lightbox | ⏳ čeká   |                                                                                                                                                                                                   |
+| 6 Mapa              | ⏳ čeká   |                                                                                                                                                                                                   |
+| 7 Detaily           | ⏳ čeká   |                                                                                                                                                                                                   |
+
+Poznámka ke kroku 1: RPC páruje zápis dne s momenty podle `journeys.home_tz` (jinak UTC), model hledá zápis podle dne v pásmu etapy. Pokud se pásmo etapy liší od domácího a moment leží blízko půlnoci, zápis se může zobrazit u sousedního dne. Neověřeno na reálných datech.

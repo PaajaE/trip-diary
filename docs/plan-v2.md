@@ -498,7 +498,7 @@ každá nová obrazovka je ověřená na zařízení a ve ~390 px.
   - Lighthouse ≥ 90 (výkon i přístupnost);
   - žádný prázdný stav „Načítám…“ na veřejných stránkách.
 
-### Fáze 5b — Atlas čtenáře (redesign veřejných stránek) — 📝 PROPOSED
+### Fáze 5b — Atlas čtenáře (redesign veřejných stránek) — 🚧 rozpracováno (krok 1 TESTED, viz v2-status.md)
 
 Veřejné stránky (Fáze 5) jsou funkční a rychlé, ale vizuálně i obsahově zaostávají za
 editací („Atlas cesty“, Fáze 4c). Redesign je **závazně** daný klikacím návrhem.

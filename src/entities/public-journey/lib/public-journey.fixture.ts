@@ -73,6 +73,7 @@ function photo(
 }
 
 export const publicJourneyFixture: PublicJourney = {
+  dayNotes: [{ body: 'Den u jezera.', date: '2026-06-02' }],
   journey: {
     coverMediaId: FIXTURE_IDS.media1,
     endsAt: '2026-06-30',
