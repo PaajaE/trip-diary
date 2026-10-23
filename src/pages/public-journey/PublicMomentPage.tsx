@@ -12,8 +12,9 @@ import { resolveImage } from '@/entities/public-journey/lib/media-url'
 import { excerpt } from '@/features/public-journey/lib/format'
 import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { MediaGallery } from '@/features/public-journey/ui/MediaGallery'
-import { Crumbs } from '@/pages/public-journey/Crumbs'
+import { Crumbs } from '@/features/public-journey/ui/Crumbs'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
+import { publicMomentTitle } from '@/features/public-journey/lib/moment-title'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
@@ -36,7 +37,10 @@ export function PublicMomentPage({
   const media = model.mediaByMoment.get(momentId) ?? []
   const first = media[0]
   const firstImage = first === undefined ? null : resolveImage(first)
-  const title = moment?.title ?? t('publicJourney.untitledMoment')
+  const title =
+    moment === undefined
+      ? ''
+      : publicMomentTitle(model, moment, t, i18n.language)
   useDocumentMeta(
     moment === undefined
       ? null
