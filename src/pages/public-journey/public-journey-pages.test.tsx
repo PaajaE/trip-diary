@@ -80,7 +80,7 @@ async function renderAt(path: string) {
 describe('public journey pages', () => {
   afterEach(cleanup)
 
-  it('renders the journey with hero priority image, map, stages, timeline, places', async () => {
+  it('renders the journey with hero priority image, numbers, map, stage cards, places', async () => {
     await renderAt('/ecerovi/kanada-2026')
     expect(
       screen.getByRole('heading', { level: 1, name: 'Kanada 2026' }),
@@ -105,6 +105,13 @@ describe('public journey pages', () => {
     expect(
       screen.getAllByText('Názvy míst © Seznam.cz a.s.').length,
     ).toBeGreaterThan(0)
+    // Cover numbers, section navigation and the stage badge.
+    expect(screen.getByText('dní')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Začít číst' }).getAttribute('href'),
+    ).toBe(`/ecerovi/kanada-2026/e/${FIXTURE_IDS.stage}`)
+    expect(screen.getByRole('navigation', { name: 'Sekce cesty' })).toBeTruthy()
+    expect(screen.getByText('Etapa 1')).toBeTruthy()
   })
 
   it('renders a stage with its trips as chapters', async () => {

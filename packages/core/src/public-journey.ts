@@ -275,3 +275,74 @@ export function mapPreviewSvg(preview: MapPreview): string {
     .join('')
   return `<svg class="h-full w-full" viewBox="0 0 ${String(MAP_PREVIEW_WIDTH)} ${String(MAP_PREVIEW_HEIGHT)}" preserveAspectRatio="xMidYMid meet" focusable="false">${lines}${pins}</svg>`
 }
+
+export interface JourneyStats {
+  /** Calendar days of the journey (dates when set, else days with moments). */
+  days: number
+  /** Photos and videos. */
+  media: number
+  stages: number
+  /** Recorded route length in whole kilometres (0 without tracks). */
+  distanceKm: number
+}
+
+const DAY_MS = 86_400_000
+
+function dayKey(iso: string, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    day: '2-digit',
+    month: '2-digit',
+    timeZone,
+    year: 'numeric',
+  }).format(new Date(iso))
+}
+
+/** The numbers shown under the journey title; also used by the prerender shell. */
+export function buildJourneyStats(tree: PublicJourney): JourneyStats {
+  const { endsAt, homeTz, startsAt } = tree.journey
+  let days: number
+  if (typeof startsAt === 'string' && typeof endsAt === 'string') {
+    const span =
+      Date.parse(`${endsAt}T00:00:00Z`) - Date.parse(`${startsAt}T00:00:00Z`)
+    days = Math.max(1, Math.round(span / DAY_MS) + 1)
+  } else {
+    const zone = homeTz ?? 'UTC'
+    days = new Set(
+      tree.moments
+        .filter((m) => !Number.isNaN(Date.parse(m.startsAt)))
+        .map((m) => dayKey(m.startsAt, zone)),
+    ).size
+  }
+  const meters = tree.tracks.reduce((sum, t) => sum + (t.distanceM ?? 0), 0)
+  return {
+    days,
+    distanceKm: Math.round(meters / 1000),
+    media: tree.media.length,
+    stages: tree.segments.filter((s) => s.kind === 'stage').length,
+  }
+}
+
+/** "20. 7. – 7. 8. 2025" (cs) / "Jul 20 – Aug 7, 2025" (en); null without a start. */
+export function formatJourneyPeriod(
+  startsAt: string | null,
+  endsAt: string | null,
+  locale: string,
+): string | null {
+  if (typeof startsAt !== 'string') return null
+  const options: Intl.DateTimeFormatOptions = {
+    day: 'numeric',
+    month: locale.startsWith('cs') ? 'numeric' : 'short',
+    timeZone: 'UTC',
+  }
+  const withYear = new Intl.DateTimeFormat(locale, {
+    ...options,
+    year: 'numeric',
+  })
+  const noYear = new Intl.DateTimeFormat(locale, options)
+  const from = new Date(`${startsAt}T12:00:00Z`)
+  if (typeof endsAt !== 'string' || endsAt === startsAt)
+    return withYear.format(from)
+  const to = new Date(`${endsAt}T12:00:00Z`)
+  const sameYear = from.getUTCFullYear() === to.getUTCFullYear()
+  return `${(sameYear ? noYear : withYear).format(from)} – ${withYear.format(to)}`
+}

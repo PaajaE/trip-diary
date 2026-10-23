@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import fixture from './fixtures/public-journey.json' with { type: 'json' }
 import {
+  buildJourneyStats,
   buildMapPreview,
+  formatJourneyPeriod,
   MAP_PREVIEW_HEIGHT,
   MAP_PREVIEW_WIDTH,
   mapPreviewSvg,
@@ -140,5 +142,48 @@ describe('buildMapPreview', () => {
     })
     expect(preview?.dashed).toBe(false)
     expect(mapPreviewSvg(preview!)).toMatch(/^<svg [^>]*viewBox="0 0 372 352"/)
+  })
+})
+
+describe('buildJourneyStats', () => {
+  it('counts stages, media, route km and days', () => {
+    const tree = parsePublicJourney(fixture)
+    if (tree === null) throw new Error('fixture')
+    const stats = buildJourneyStats(tree)
+
+    expect(stats.stages).toBe(2)
+    expect(stats.media).toBe(2)
+    expect(stats.days).toBe(1)
+  })
+
+  it('uses the journey dates inclusively when both are set', () => {
+    const tree = parsePublicJourney(fixture)
+    if (tree === null) throw new Error('fixture')
+    const dated = {
+      ...tree,
+      journey: {
+        ...tree.journey,
+        endsAt: '2025-08-07',
+        startsAt: '2025-07-20',
+      },
+    }
+
+    expect(buildJourneyStats(dated).days).toBe(19)
+  })
+})
+
+describe('formatJourneyPeriod', () => {
+  it('formats a range per locale', () => {
+    expect(formatJourneyPeriod('2025-07-20', '2025-08-07', 'cs')).toMatch(
+      /20\. 7\.\s–\s7\. 8\. 2025/,
+    )
+    expect(formatJourneyPeriod('2025-07-20', '2025-08-07', 'en')).toContain(
+      'Jul 20',
+    )
+  })
+
+  it('handles a single day and a missing start', () => {
+    expect(formatJourneyPeriod('2025-07-20', null, 'cs')).toContain('2025')
+    expect(formatJourneyPeriod(null, null, 'cs')).toBeNull()
   })
 })
