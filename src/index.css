@@ -86,3 +86,8 @@ a {
     display: none;
   }
 }
+
+@utility reader-body {
+  font-family: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, serif;
+  font-weight: 400;
+}

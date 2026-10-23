@@ -54,7 +54,16 @@ const tree = {
   },
   media: [media],
   moments: [{ body: 'Text', coverMediaId: null, id: id(3), title: null }],
-  segments: [{ body: '', coverMediaId: null, id: id(2), title: 'Calgary' }],
+  segments: [
+    {
+      body: '',
+      coverMediaId: null,
+      id: id(2),
+      kind: 'stage',
+      position: 0,
+      title: 'Calgary',
+    },
+  ],
   tracks: [],
 }
 const template =
@@ -147,11 +156,11 @@ describe('prerender helpers', () => {
     expect(html).toContain('<div id="root" hidden></div>')
     expect(html).not.toContain('landing-shell')
     expect(html).toContain(
-      '<h1 class="text-3xl font-semibold">Kanada &quot;2026&quot;</h1>',
+      '<h1 class="reader-display text-4xl leading-[1.05] sm:text-6xl">Kanada &quot;2026&quot;</h1>',
     )
     expect(html).toContain('fetchpriority="high"')
-    expect(html).toContain('sizes="(min-width: 1024px) 1024px, 100vw"')
-    expect(html).toContain('imagesizes="(min-width: 1024px) 1024px, 100vw"')
+    expect(html).toContain('sizes="100vw"')
+    expect(html).toContain('imagesizes="100vw"')
     expect(html).toContain('width="1000" ')
     expect(html).toContain('<link rel="preconnect" href="https://m.test" />')
     expect(html).toContain(
@@ -215,8 +224,26 @@ describe('prerender helpers', () => {
     }
     const [page] = buildPages(located, { handle: 'pavel', slug: 'kanada' })
     const strings = {
-      cs: { attribution: 'Mapa cs', route: 'Trasa' },
-      en: { attribution: 'Map en', route: 'Route' },
+      cs: {
+        attribution: 'Mapa cs',
+        route: 'Trasa',
+        routeHint: 'Nápověda',
+        startReading: 'Začít číst',
+        statDays: 'dní',
+        statMedia: 'fotek',
+        statStages: 'etap',
+        statusPlanning: 'Plánovaná cesta',
+      },
+      en: {
+        attribution: 'Map en',
+        route: 'Route',
+        routeHint: 'Hint',
+        startReading: 'Start reading',
+        statDays: 'days',
+        statMedia: 'photos',
+        statStages: 'stages',
+        statusPlanning: 'Planned journey',
+      },
     }
     const tpl = '<html><head></head><body><div id="root"></div></body></html>'
     const html = renderPage(tpl, page, { embed: located, strings })
@@ -226,6 +253,10 @@ describe('prerender helpers', () => {
     expect(html).toContain('viewBox="0 0 372 352"')
     expect(html).toContain('stroke-dasharray')
     expect(html).toContain('trip-diary.locale')
+    // Hero numbers and the "Start reading" link are in the shell too.
+    expect(html).toContain('<span data-l="cs">dní</span>')
+    expect(html).toContain('<span data-l="en" hidden>Start reading</span>')
+    expect(html).toMatch(/href="\/pavel\/kanada\/e\/[^"]+"/)
     // Without strings the shell is the plain hero block (no map section).
     expect(renderPage(tpl, page, { embed: located })).not.toContain(
       'route-heading-shell',
