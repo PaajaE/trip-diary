@@ -127,6 +127,12 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
     title: `${segment.title} · ${model.data.journey.title}`,
   })
 
+  // Day under the pointer (day section or map pin): its pins stay lit.
+  const [activeDay, setActiveDay] = useState<string | null>(null)
+  const highlight = useMemo(
+    () => (activeDay === null ? null : { dayKey: activeDay, stageId: null }),
+    [activeDay],
+  )
   const [lightbox, setLightbox] = useState<{
     index: number
     items: readonly PublicMedia[]
@@ -221,8 +227,12 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
         heading={dayHeading(day.key, locale, 'long')}
         id={`day-${day.key}`}
         journeySlug={journeySlug}
+        active={activeDay === day.key}
         key={day.key}
         lazy={index > 1}
+        onActive={(on) => {
+          setActiveDay(on ? day.key : null)
+        }}
         media={media}
         note={day.note}
         number={day.number}
@@ -299,6 +309,10 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
   const mapSection = (heightClass: string) => (
     <PublicMapSection
       heightClass={heightClass}
+      highlight={highlight}
+      onHover={(hover) => {
+        setActiveDay(hover?.dayKey ?? null)
+      }}
       label={t(isStage ? 'publicJourney.regionMap' : 'publicJourney.trackMap')}
       lines={map.lines}
       points={map.points}

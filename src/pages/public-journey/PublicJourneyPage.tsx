@@ -5,7 +5,7 @@ import {
   formatJourneyPeriod,
   type PublicJourney,
 } from '@trip-diary/core/public-journey'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildJourneyModel,
@@ -49,6 +49,13 @@ export function PublicJourneyPage({
   const map = useMemo(() => buildMapData(model, null), [model])
   const preview = useMemo(() => buildMapPreview(data), [data])
   const stats = useMemo(() => buildJourneyStats(data), [data])
+  // Stage under the pointer in the legend, on the map or on the strip.
+  const [activeStage, setActiveStage] = useState<string | null>(null)
+  const highlight = useMemo(
+    () =>
+      activeStage === null ? null : { dayKey: null, stageId: activeStage },
+    [activeStage],
+  )
   // Same-origin hero copy of the prerendered page: the image the static shell
   // already loaded, so React does not download it a second time.
   const heroMirror = useMemo(() => readHeroMirror(), [])
@@ -164,11 +171,17 @@ export function PublicJourneyPage({
               {t('publicJourney.routeHint')}
             </p>
           </div>
-          {strip.length > 0 ? <StageStrip items={strip} /> : null}
+          {strip.length > 0 ? (
+            <StageStrip currentId={activeStage ?? undefined} items={strip} />
+          ) : null}
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
             <PublicMapSection
+              highlight={highlight}
               label={t('publicJourney.routeMap')}
               lines={map.lines}
+              onHover={(hover) => {
+                setActiveStage(hover?.stageId ?? null)
+              }}
               onSelectPoint={(momentId) => {
                 void navigate({
                   params: { journeySlug, momentId, spaceHandle },
@@ -179,7 +192,9 @@ export function PublicJourneyPage({
               preview={preview}
             />
             <StageLegend
+              activeId={activeStage}
               items={legend}
+              onActive={setActiveStage}
               journeySlug={journeySlug}
               spaceHandle={spaceHandle}
             />
