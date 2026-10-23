@@ -80,7 +80,7 @@ async function renderAt(path: string) {
 describe('public journey pages', () => {
   afterEach(cleanup)
 
-  it('renders the journey with hero priority image, map, stages, timeline, places', async () => {
+  it('renders the journey with hero priority image, numbers, map, stage cards, places', async () => {
     await renderAt('/ecerovi/kanada-2026')
     expect(
       screen.getByRole('heading', { level: 1, name: 'Kanada 2026' }),
@@ -105,6 +105,13 @@ describe('public journey pages', () => {
     expect(
       screen.getAllByText('Názvy míst © Seznam.cz a.s.').length,
     ).toBeGreaterThan(0)
+    // Cover numbers, section navigation and the stage badge.
+    expect(screen.getByText('dní')).toBeTruthy()
+    expect(
+      screen.getByRole('link', { name: 'Začít číst' }).getAttribute('href'),
+    ).toBe(`/ecerovi/kanada-2026/e/${FIXTURE_IDS.stage}`)
+    expect(screen.getByRole('navigation', { name: 'Sekce cesty' })).toBeTruthy()
+    expect(screen.getByText('Etapa 1')).toBeTruthy()
   })
 
   it('renders a stage with its trips as chapters', async () => {
@@ -112,8 +119,13 @@ describe('public journey pages', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Rockies' }),
     ).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Assiniboine trek' })).toBeTruthy()
-    expect(screen.getByText('Šest dní trekem.')).toBeTruthy()
+    // The trek is a card on the day it starts; days are the reading unit.
+    expect(screen.getByRole('link', { name: /Assiniboine trek/ })).toBeTruthy()
+    expect(
+      screen.getAllByRole('region').map((r) => r.getAttribute('data-day')),
+    ).toEqual(['day-2026-06-02', 'day-2026-06-03', 'day-2026-06-04'])
+    expect(screen.getByText('Den u jezera.')).toBeTruthy()
+    expect(screen.getByText('Další etapa')).toBeTruthy()
   })
 
   it('renders a trek with distance and ascent from the track', async () => {
@@ -121,10 +133,11 @@ describe('public journey pages', () => {
     const stats = screen.getByRole('main')
     expect(within(stats).getByText('24.5 km')).toBeTruthy()
     expect(within(stats).getByText('850 m')).toBeTruthy()
-    expect((await screen.findByTestId('map')).getAttribute('data-lines')).toBe(
-      '1',
-    )
-    expect(within(stats).getByRole('link', { name: 'Lake Magog' })).toBeTruthy()
+    // Mobile and desktop slot each hold a map (the hidden one never loads).
+    expect(
+      (await screen.findAllByTestId('map'))[0]?.getAttribute('data-lines'),
+    ).toBe('1')
+    expect(within(stats).getByRole('link', { name: /Lake Magog/ })).toBeTruthy()
   })
 
   it('shows a moment with place attribution and prev/next', async () => {
@@ -132,7 +145,7 @@ describe('public journey pages', () => {
     expect(screen.getByText('Assiniboine, Alberta')).toBeTruthy()
     expect(screen.getByText('Názvy míst © Seznam.cz a.s.')).toBeTruthy()
     expect(
-      screen.getByRole('link', { name: /Další/ }).getAttribute('href'),
+      screen.getAllByRole('link', { name: /Další/ })[0]?.getAttribute('href'),
     ).toBe(`/ecerovi/kanada-2026/m/${FIXTURE_IDS.hiddenMoment}`)
     expect(screen.queryByRole('link', { name: /Předchozí/ })).toBeNull()
   })

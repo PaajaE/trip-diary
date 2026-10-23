@@ -139,5 +139,11 @@
       "tripType": null,
       "coverMediaId": null
     }
+  ],
+  "dayNotes": [
+    {
+      "date": "2026-06-03",
+      "body": "Synthetic day note: a quiet day by the lake."
+    }
   ]
 }

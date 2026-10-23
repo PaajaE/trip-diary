@@ -84,10 +84,13 @@ function useNearViewport<T extends Element>() {
   return { near, ref }
 }
 
-const BOX =
-  'relative h-[22rem] w-full overflow-hidden rounded-lg border border-border sm:h-[28rem]'
+const BOX_HEIGHT = 'h-[22rem] sm:h-[28rem]'
+const BOX = 'relative w-full overflow-hidden rounded-lg border border-border'
 
 interface PublicMapSectionProps extends PublicJourneyMapProps {
+  /** Height classes of the map box (default 22rem, 28rem from `sm`). */
+  heightClass?: string
+
   /**
    * Static route preview shown until the map has rendered; it must be the
    * same one the prerendered page paints (buildMapPreview), then the map
@@ -96,7 +99,11 @@ interface PublicMapSectionProps extends PublicJourneyMapProps {
   preview?: MapPreview | null | undefined
 }
 
-export function PublicMapSection({ preview, ...props }: PublicMapSectionProps) {
+export function PublicMapSection({
+  heightClass = BOX_HEIGHT,
+  preview,
+  ...props
+}: PublicMapSectionProps) {
   const { near, ref } = useNearViewport<HTMLDivElement>()
   const [ready, setReady] = useState(false)
   const markReady = useCallback(() => {
@@ -114,7 +121,7 @@ export function PublicMapSection({ preview, ...props }: PublicMapSectionProps) {
   return (
     <section>
       <div
-        className={`${BOX} ${hasPreview ? '' : 'bg-surface'} ${
+        className={`${BOX} ${heightClass} ${hasPreview ? '' : 'bg-surface'} ${
           hasPreview || ready ? '' : 'animate-pulse'
         }`}
         ref={ref}

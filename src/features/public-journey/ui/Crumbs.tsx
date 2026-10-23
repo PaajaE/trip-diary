@@ -19,7 +19,7 @@ export function Crumbs({ crumbs, journeySlug, spaceHandle }: CrumbsProps) {
   return (
     <nav
       aria-label={t('publicJourney.breadcrumb')}
-      className="text-sm text-muted"
+      className="text-[13px] text-muted"
     >
       <ol className="flex flex-wrap items-center gap-1">
         {crumbs.map((crumb, index) => (
@@ -32,7 +32,7 @@ export function Crumbs({ crumbs, journeySlug, spaceHandle }: CrumbsProps) {
             ) : null}
             {crumb.to === 'journey' ? (
               <Link
-                className="underline"
+                className="underline decoration-border underline-offset-2 hover:text-foreground"
                 params={{ journeySlug, spaceHandle }}
                 to="/$spaceHandle/$journeySlug"
               >
@@ -40,7 +40,7 @@ export function Crumbs({ crumbs, journeySlug, spaceHandle }: CrumbsProps) {
               </Link>
             ) : crumb.to === 'segment' && crumb.segmentId !== undefined ? (
               <Link
-                className="underline"
+                className="underline decoration-border underline-offset-2 hover:text-foreground"
                 params={{
                   journeySlug,
                   segmentId: crumb.segmentId,

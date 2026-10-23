@@ -31,12 +31,16 @@ export function buildMapData(
       (moment.coverMediaId === null
         ? undefined
         : model.mediaById.get(moment.coverMediaId)) ?? media[0]
+    const stageOfMoment = model.stageOf(owner)
     points.push({
       color: model.stageColor(owner),
+      dayKey: model.dayKeyOf(moment.startsAt, stageOfMoment),
       id: moment.id,
       label: moment.title ?? '',
       latitude: moment.latitude,
       longitude: moment.longitude,
+      stageId: stageOfMoment?.id ?? '',
+      stageIndex: model.stages.findIndex((st) => st.id === stageOfMoment?.id),
       thumbUrl: cover === undefined ? null : resolveThumbUrl(cover),
     })
     const stageId = model.stageOf(owner)?.id ?? ''
@@ -66,6 +70,7 @@ export function buildMapData(
       color: model.stageColor(track.segmentId),
       coordinates: track.geojson.coordinates,
       id: track.id,
+      stageId: model.stageOf(track.segmentId)?.id ?? '',
     })
     const stage = model.stageOf(track.segmentId)
     if (stage !== null) stagesWithTracks.add(stage.id)
@@ -78,6 +83,7 @@ export function buildMapData(
       coordinates: coords,
       dashed: true,
       id: `route-${stageId}`,
+      stageId,
     })
   }
   return { lines, points }

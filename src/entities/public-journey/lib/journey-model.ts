@@ -6,20 +6,26 @@ import type {
   PublicSegment,
   PublicTrack,
 } from '@trip-diary/core/public-journey'
+import { stagePaletteColor } from '@/shared/lib/stage-palette'
 
-export const STAGE_COLORS = [
-  '#285943',
-  '#b85f42',
-  '#3b6ea5',
-  '#8a5a9e',
-  '#c49a2c',
-  '#2c8a8a',
-  '#a33b5c',
-  '#5f7a2c',
-] as const
+/** One calendar day of a stage: its moments plus the author's day note. */
+export interface JourneyDay {
+  /** Local calendar day (YYYY-MM-DD) in the stage's zone. */
+  key: string
+  /** 1-based day number counted from the first day of the journey. */
+  number: number
+  moments: PublicMoment[]
+  note: string | null
+}
 
 export interface JourneyModel {
   data: PublicJourney
+  /** Day note body by local date (YYYY-MM-DD). */
+  dayNoteByDate: Map<string, string>
+  /** Local day key of an instant, in the zone of the segment (else home zone, else UTC). */
+  dayKeyOf: (iso: string, segment: PublicSegment | null) => string
+  /** Days of a stage with moments (nested trips included), chronological. */
+  daysOfStage: (stageId: string) => JourneyDay[]
   mediaById: Map<string, PublicMedia>
   /** Media per moment, starred first, then capture time. */
   mediaByMoment: Map<string, PublicMedia[]>
@@ -131,7 +137,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   const stageColor = (segmentId: string): string => {
     const stage = stageOf(segmentId)
     const index = stage === null ? 0 : colorIndex.get(stage.id)
-    return STAGE_COLORS[(index ?? 0) % STAGE_COLORS.length] ?? STAGE_COLORS[0]
+    return stagePaletteColor(index ?? 0)
   }
 
   const tripsOfStage = (stageId: string): PublicSegment[] =>
@@ -166,7 +172,51 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
     })
   }
 
+  const zoneFor = (segment: PublicSegment | null) =>
+    segment?.tz ?? data.journey.homeTz ?? 'UTC'
+  const dayKeyOf = (iso: string, segment: PublicSegment | null): string =>
+    localDayKey(iso, zoneFor(segment))
+
+  const dayNoteByDate = new Map(data.dayNotes.map((n) => [n.date, n.body]))
+
+  // Day numbers run over the whole journey, each moment in its stage's zone.
+  const firstDayKey = moments.reduce<string | null>((first, m) => {
+    const owner = segmentOfInstant(m.startsAt)
+    const key = dayKeyOf(m.startsAt, owner === null ? null : stageOf(owner.id))
+    return first === null || key < first ? key : first
+  }, null)
+
+  const daysOfStage = (stageId: string): JourneyDay[] => {
+    const stage = segmentById.get(stageId)
+    if (stage === undefined) return []
+    const byKey = new Map<string, PublicMoment[]>()
+    for (const m of momentsInSpan(stageId)) {
+      const key = dayKeyOf(m.startsAt, stage)
+      const list = byKey.get(key) ?? []
+      list.push(m)
+      byKey.set(key, list)
+    }
+    return [...byKey.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([key, list]) => ({
+        key,
+        moments: list,
+        note: dayNoteByDate.get(key) ?? null,
+        number:
+          firstDayKey === null
+            ? 1
+            : Math.round(
+                (Date.parse(`${key}T00:00:00Z`) -
+                  Date.parse(`${firstDayKey}T00:00:00Z`)) /
+                  86_400_000,
+              ) + 1,
+      }))
+  }
+
   return {
+    dayKeyOf,
+    dayNoteByDate,
+    daysOfStage,
     childrenOf: (id) => childrenByParent.get(id) ?? [],
     data,
     mediaById,

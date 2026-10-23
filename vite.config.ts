@@ -171,6 +171,7 @@ export default defineConfig({
     environment: 'jsdom',
     exclude: [
       'tests/e2e/**',
+      'tests/e2e-public/**',
       'node_modules/**',
       'dist/**',
       'packages/**',

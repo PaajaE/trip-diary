@@ -32,8 +32,8 @@ const attributionKey =
   mapyKey === '' ? 'mapAttributionOsm' : 'mapAttributionMapy'
 // Texts of the static shell (both languages; chosen by an inline script).
 const strings = {
-  cs: { attribution: cs.reader[attributionKey], route: cs.publicJourney.route },
-  en: { attribution: en.reader[attributionKey], route: en.publicJourney.route },
+  cs: { ...cs.publicJourney, attribution: cs.reader[attributionKey] },
+  en: { ...en.publicJourney, attribution: en.reader[attributionKey] },
 }
 
 function describe(error) {
