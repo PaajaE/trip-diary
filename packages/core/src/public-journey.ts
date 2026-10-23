@@ -97,7 +97,15 @@ export const publicTrackSchema = z.object({
   source: z.enum(['gpx', 'derived']),
 })
 
+/** Author's day entry; the RPC only returns days that have a published moment. */
+export const publicDayNoteSchema = z.object({
+  body: z.string(),
+  date: isoDate,
+})
+
 export const publicJourneySchema = z.object({
+  /** Defaults to empty so pages prerendered before `dayNotes` still parse. */
+  dayNotes: z.array(publicDayNoteSchema).default([]),
   journey: z.object({
     coverMediaId: z.uuid().nullable(),
     endsAt: isoDate.nullable(),
@@ -125,8 +133,9 @@ export type PublicMedia = z.infer<typeof publicMediaSchema>
 export type PublicSegment = z.infer<typeof publicSegmentSchema>
 export type PublicMoment = z.infer<typeof publicMomentSchema>
 export type PublicPlace = z.infer<typeof publicPlaceSchema>
+export type PublicDayNote = z.infer<typeof publicDayNoteSchema>
 export type PublicTrack = z.infer<typeof publicTrackSchema>
-export type PublicJourney = z.infer<typeof publicJourneySchema>
+export type PublicJourney = z.output<typeof publicJourneySchema>
 
 /** Parses the RPC result; `null` means the journey is missing or not public. */
 export function parsePublicJourney(payload: unknown): PublicJourney | null {

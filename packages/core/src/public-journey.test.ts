@@ -38,6 +38,19 @@ describe('parsePublicJourney', () => {
     expect(video?.durationMs).toBe(42_000)
   })
 
+  it('parses dayNotes and defaults them for older payloads', () => {
+    expect(parsePublicJourney(fixture)?.dayNotes).toEqual([
+      {
+        body: 'Synthetic day note: a quiet day by the lake.',
+        date: '2026-06-03',
+      },
+    ])
+    const legacy = structuredClone(fixture) as Record<string, unknown>
+    delete legacy.dayNotes
+
+    expect(publicJourneySchema.parse(legacy).dayNotes).toEqual([])
+  })
+
   it('returns null for a missing or private journey', () => {
     expect(parsePublicJourney(null)).toBeNull()
   })
