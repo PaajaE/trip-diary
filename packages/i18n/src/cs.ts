@@ -1168,6 +1168,12 @@ export const cs: TranslationResources = {
     nextStage: 'Další etapa',
     prevStage: 'Předchozí etapa',
     stageNav: 'Předchozí a další etapa',
+    counter: '{{current}} / {{total}}',
+    dayOfStage: 'Den {{n}}',
+    momentPosition: 'Zastávka {{n}} z {{total}}',
+    toStage: 'Etapa',
+    floatingNav: 'Navigace v etapě',
+    photoStrip: 'Další fotky ze zastávky',
     tripType: {
       day: 'Výlet',
       stay: 'Pobyt',

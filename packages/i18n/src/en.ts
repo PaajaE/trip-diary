@@ -1171,6 +1171,12 @@ export const en = {
     nextStage: 'Next stage',
     prevStage: 'Previous stage',
     stageNav: 'Previous and next stage',
+    counter: '{{current}} / {{total}}',
+    dayOfStage: 'Day {{n}}',
+    momentPosition: 'Stop {{n}} of {{total}}',
+    toStage: 'Stage',
+    floatingNav: 'Navigation in the stage',
+    photoStrip: 'More photos from this stop',
     tripType: {
       day: 'Day trip',
       stay: 'Stay',

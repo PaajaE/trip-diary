@@ -4,6 +4,9 @@ import { ATLAS, buildAtlasJourney } from './atlas-journey'
 export const MOCK_SUPABASE = 'http://supabase.test'
 export const MOCK_MEDIA = 'http://media.test'
 
+const TRANSPARENT_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+
 const CORS = {
   'access-control-allow-headers': '*',
   'access-control-allow-methods': '*',
@@ -49,7 +52,11 @@ export async function mockPublicBackend(page: Page): Promise<void> {
   })
   // Map tiles are not needed (and not reachable) in tests.
   await page.route(/tile\.openstreetmap|api\.mapy\.com|maptiler/, (route) =>
-    route.abort(),
+    route.fulfill({
+      body: Buffer.from(TRANSPARENT_PNG, 'base64'),
+      contentType: 'image/png',
+      headers: CORS,
+    }),
   )
 }
 

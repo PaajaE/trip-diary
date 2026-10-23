@@ -61,3 +61,25 @@ test('stage page: days, notes, rail and map', async ({ page }) => {
     })
   }
 })
+
+test('moment page', async ({ page }) => {
+  await mockPublicBackend(page)
+  await page.goto(atlasUrl)
+  await page.getByRole('link', { name: 'Začít číst' }).click()
+  await page
+    .locator('[data-day]')
+    .first()
+    .getByRole('list', { name: 'Zastávky dne' })
+    .getByRole('link')
+    .first()
+    .click()
+  await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+  const dir = process.env.SHOTS_DIR
+  if (dir !== undefined) {
+    await page.waitForTimeout(800)
+    await page.screenshot({
+      fullPage: true,
+      path: `${dir}/moment-${test.info().project.name}.png`,
+    })
+  }
+})
