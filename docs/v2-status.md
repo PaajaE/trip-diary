@@ -486,3 +486,5 @@ Zbývá: P2 (výběr a hromadné akce, přesun fotek v UI, operace s etapami, �
 | M2–M4                                  | 📝 PROPOSED  | Viz plan-v2.md, Fáze 4d                                                       |
 
 Na jindy: tmavý režim aplikace (Fáze 4d, mimo rozsah).
+
+Po opravách (#43, #44) a nasazení: Lighthouse mobil výkon **58**, přístupnost **100**. Měřeno bez simulace (pozorováno v prohlížeči): FCP 0,63 s, **LCP 1,2 s**, CLS 0; simulované (slow 4G, 4× CPU): LCP 4,1 s, TBT 1,3 s, Speed Index 5,2 s. Brána výkonu (≥ 90) tedy zůstává **NESPLNĚNA** v simulaci; kandidáti: JS aplikace startuje až po načtení hero (1,8 s skriptu v simulaci), hero na mobilu bere variantu `medium` (215 kB, jiný původ než stránka), MapLibre 470 ms. Další krok: změřit stejnou cestu na předchozí verzi pro srovnání a zvážit odložení vykreslení karet etap pod ohybem.
