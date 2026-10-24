@@ -10,6 +10,7 @@ import {
   BottomNavSpacer,
   JourneyBottomNav,
 } from '@/features/journey-workspace/ui/JourneyBottomNav'
+import { JourneySearchButton } from '@/features/journey-workspace/ui/JourneySearchButton'
 import {
   JourneyTabs,
   type JourneyTab,
@@ -81,7 +82,12 @@ export function JourneyOwnerFrame({
       <PageHeader
         crumbs={journeyTitle === '' ? [myJourneys] : crumbs}
         title={title ?? (journeyTitle || t('workspace.title'))}
-        {...(actions === undefined ? {} : { actions })}
+        actions={
+          <>
+            <JourneySearchButton journeyId={journeyId} />
+            {actions}
+          </>
+        }
         {...(description === undefined ? {} : { description })}
         {...(descriptionClassName === undefined
           ? {}

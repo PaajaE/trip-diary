@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next'
 import {
+  filterCount,
+  uploaderOfFilter,
   visibleFilters,
   type BatchFilter,
   type BatchFilterModel,
@@ -19,6 +21,14 @@ export function BatchFilterBar({
   onChange,
 }: BatchFilterBarProps) {
   const { t } = useTranslation()
+  const labelOf = (filter: BatchFilter): string => {
+    const userId = uploaderOfFilter(filter)
+    if (userId === null) return t(`mediaBatch.filter.${filter}`)
+    const name = model.uploaders.find((chip) => chip.userId === userId)?.name
+    return name === null || name === undefined
+      ? t('mediaBatch.uploader.byOther')
+      : t('mediaBatch.uploader.by', { name })
+  }
   return (
     <div
       aria-label={t('mediaBatch.filter.label')}
@@ -40,8 +50,10 @@ export function BatchFilterBar({
             onChange(filter)
           }}
         >
-          {t(`mediaBatch.filter.${filter}`)}
-          <span className="ml-1.5 opacity-80">{model.counts[filter]}</span>
+          {labelOf(filter)}
+          <span className="ml-1.5 opacity-80">
+            {filterCount(model, filter)}
+          </span>
         </button>
       ))}
     </div>

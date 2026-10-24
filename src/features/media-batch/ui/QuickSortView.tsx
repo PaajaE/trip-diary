@@ -47,6 +47,11 @@ import {
   type SortAction,
   type SortHistory,
 } from '@/features/media-batch/model/quick-sort'
+import {
+  NO_UPLOADERS,
+  uploaderText,
+  type UploaderModel,
+} from '@/features/media-batch/model/uploaders'
 import { SeriesView } from '@/features/media-batch/ui/SeriesView'
 import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -64,6 +69,8 @@ export interface QuickSortViewProps {
   returnFocusTo?: HTMLElement | null
   /** Stops for the suggestion and the "Změnit" list; null while loading. */
   tree: WorkspaceTree | null
+  /** Shared journeys only: marks media uploaded by another member. */
+  uploaders?: UploaderModel
 }
 
 type Overlay = 'none' | 'change' | 'series' | 'summary'
@@ -137,6 +144,7 @@ export function QuickSortView({
   onClose,
   returnFocusTo = null,
   tree,
+  uploaders = NO_UPLOADERS,
 }: QuickSortViewProps) {
   const { t, i18n } = useTranslation()
   const locale = i18n.language
@@ -730,7 +738,13 @@ export function QuickSortView({
 
           <aside className="shrink-0 space-y-3 px-3 pt-2 lg:w-80 lg:overflow-y-auto lg:border-l lg:border-white/10 lg:p-4">
             <p className="text-center text-xs text-white/70 lg:text-left">
-              {[when, coordinates ?? t('quickSort.noLocation')].join(' · ')}
+              {[
+                when,
+                coordinates ?? t('quickSort.noLocation'),
+                uploaderText(t, uploaders, item.ownerId),
+              ]
+                .filter((part) => part !== null)
+                .join(' · ')}
             </p>
             <section
               aria-label={t('quickSort.suggestionTitle')}

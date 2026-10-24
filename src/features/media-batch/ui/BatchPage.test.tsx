@@ -19,6 +19,11 @@ import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace
 
 const state = vi.hoisted(() => ({
   canEdit: true,
+  uploaders: {
+    currentUserId: null as string | null,
+    multi: false,
+    names: new Map<string, string>(),
+  },
   corrections: false,
   query: {
     data: undefined as MediaItem[] | undefined,
@@ -62,6 +67,9 @@ vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
       [],
     ),
   }),
+}))
+vi.mock('@/features/media-batch/api/use-journey-uploaders', () => ({
+  useJourneyUploaders: () => state.uploaders,
 }))
 vi.mock('@/features/media-batch/api/use-batch-actions', () => ({
   useBatchActions: (): BatchActions => actions as unknown as BatchActions,
@@ -130,6 +138,7 @@ beforeEach(async () => {
   vi.clearAllMocks()
   state.canEdit = true
   state.corrections = false
+  state.uploaders = { currentUserId: null, multi: false, names: new Map() }
   state.query.data = ALL
   state.query.isError = false
   await i18n.changeLanguage('en')
@@ -423,6 +432,65 @@ describe('BatchPage', () => {
     rerender(<BatchPage journeyId="j" />)
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(state.query.refetch).toHaveBeenCalled()
+  })
+
+  describe('uploaders (shared journeys)', () => {
+    const ME = '00000000-0000-4000-8000-000000000997'
+    const JIRINA = '00000000-0000-4000-8000-000000000998'
+    const mine = med(21, {
+      capturedAt: '2026-01-02T09:00:00+00:00',
+      ownerId: ME,
+    })
+    const hers = med(22, {
+      capturedAt: '2026-01-02T09:05:00+00:00',
+      ownerId: JIRINA,
+    })
+
+    it('changes nothing for a single-member journey', () => {
+      state.query.data = [mine, hers]
+      render(<BatchPage journeyId="j" />)
+      expect(screen.queryByText(/Uploaded by/)).toBeNull()
+      expect(tiles()[1]).toHaveAttribute('aria-label', 'Open photo or video')
+      expect(tiles()[1]).not.toHaveAttribute('title')
+    })
+
+    it('marks only other members tiles and adds a filter chip per uploader', () => {
+      state.query.data = [mine, hers]
+      state.uploaders = {
+        currentUserId: ME,
+        multi: true,
+        names: new Map([[JIRINA, 'Jirina']]),
+      }
+      render(<BatchPage journeyId="j" />)
+      expect(tiles()[0]).toHaveAttribute('aria-label', 'Open photo or video')
+      expect(tiles()[1]).toHaveAttribute(
+        'aria-label',
+        'Open photo or video. Uploaded by Jirina',
+      )
+      expect(tiles()[1]).toHaveAttribute('title', 'Uploaded by Jirina')
+      const chip = within(
+        screen.getByRole('group', { name: 'Batch filter' }),
+      ).getByRole('button', {
+        name: /Uploaded by Jirina/,
+      })
+      expect(chip).toHaveTextContent('1')
+      fireEvent.click(chip)
+      expect(tiles()).toHaveLength(1)
+      expect(tiles()[0]).toHaveAttribute('data-media-id', hers.id)
+      expect(chip).toHaveAttribute('aria-pressed', 'true')
+    })
+
+    it('falls back to a generic text without a name', () => {
+      state.query.data = [mine, hers]
+      state.uploaders = { currentUserId: ME, multi: true, names: new Map() }
+      render(<BatchPage journeyId="j" />)
+      expect(
+        within(screen.getByRole('group', { name: 'Batch filter' })).getByRole(
+          'button',
+          { name: /Uploaded by another member/ },
+        ),
+      ).toBeTruthy()
+    })
   })
 
   describe('filters', () => {

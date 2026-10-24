@@ -5,25 +5,64 @@
 import { clusterSeries } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { BatchDay } from '@/features/media-batch/model/batch-days'
+import {
+  isForeignUploader,
+  type UploaderModel,
+} from '@/features/media-batch/model/uploaders'
 
-export type BatchFilter = 'all' | 'noLocation' | 'series' | 'video'
+export type BaseBatchFilter = 'all' | 'noLocation' | 'series' | 'video'
+
+/** "Uploaded by <member>" filter of a shared journey: `uploader:<user id>`. */
+export type UploaderFilter = `uploader:${string}`
+
+export type BatchFilter = BaseBatchFilter | UploaderFilter
+
+export function uploaderFilter(userId: string): UploaderFilter {
+  return `uploader:${userId}`
+}
+
+export function uploaderOfFilter(filter: BatchFilter): string | null {
+  return filter.startsWith('uploader:')
+    ? filter.slice('uploader:'.length)
+    : null
+}
 
 /** Chip order. */
-export const BATCH_FILTERS: readonly BatchFilter[] = [
+export const BATCH_FILTERS: readonly BaseBatchFilter[] = [
   'all',
   'noLocation',
   'series',
   'video',
 ]
 
+export interface UploaderChip {
+  count: number
+  /** Display name, null when unknown (the chip then reads generically). */
+  name: string | null
+  userId: string
+}
+
 export interface BatchFilterModel {
-  counts: Record<BatchFilter, number>
+  counts: Record<BaseBatchFilter, number>
   /** Ids of photos that belong to a series of similar shots. */
   seriesIds: ReadonlySet<string>
+  /** One chip per other uploader, only in shared journeys. */
+  uploaders: readonly UploaderChip[]
+}
+
+/** Number of items a filter matches. */
+export function filterCount(
+  model: BatchFilterModel,
+  filter: BatchFilter,
+): number {
+  const userId = uploaderOfFilter(filter)
+  if (userId === null) return model.counts[filter as BaseBatchFilter]
+  return model.uploaders.find((chip) => chip.userId === userId)?.count ?? 0
 }
 
 export function buildFilterModel(
   items: readonly MediaItem[],
+  uploaders?: UploaderModel,
 ): BatchFilterModel {
   const seriesIds = new Set(
     clusterSeries(
@@ -36,7 +75,10 @@ export function buildFilterModel(
   )
   let noLocation = 0
   let video = 0
+  const byUploader = new Map<string, number>()
   for (const item of items) {
+    if (uploaders !== undefined && isForeignUploader(uploaders, item.ownerId))
+      byUploader.set(item.ownerId, (byUploader.get(item.ownerId) ?? 0) + 1)
     if (item.latitude === null || item.longitude === null) noLocation += 1
     if (item.kind === 'video') video += 1
   }
@@ -48,14 +90,22 @@ export function buildFilterModel(
       video,
     },
     seriesIds,
+    uploaders: [...byUploader].map(([userId, count]) => ({
+      count,
+      name: uploaders?.names.get(userId) ?? null,
+      userId,
+    })),
   }
 }
 
 /** Chips to show: "all" always, the others only when something matches. */
 export function visibleFilters(model: BatchFilterModel): BatchFilter[] {
-  return BATCH_FILTERS.filter(
-    (filter) => filter === 'all' || model.counts[filter] > 0,
-  )
+  return [
+    ...BATCH_FILTERS.filter(
+      (filter) => filter === 'all' || model.counts[filter] > 0,
+    ),
+    ...model.uploaders.map((chip) => uploaderFilter(chip.userId)),
+  ]
 }
 
 export function matchesFilter(
@@ -63,7 +113,9 @@ export function matchesFilter(
   filter: BatchFilter,
   model: BatchFilterModel,
 ): boolean {
-  switch (filter) {
+  const uploader = uploaderOfFilter(filter)
+  if (uploader !== null) return item.ownerId === uploader
+  switch (filter as BaseBatchFilter) {
     case 'all':
       return true
     case 'noLocation':

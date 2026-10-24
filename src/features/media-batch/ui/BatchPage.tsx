@@ -11,6 +11,7 @@ import { MediaViewer } from '@/features/journey-workspace/ui/MediaViewer'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import { useBatchActions } from '@/features/media-batch/api/use-batch-actions'
+import { useJourneyUploaders } from '@/features/media-batch/api/use-journey-uploaders'
 import {
   batchOrder,
   groupBatchByDay,
@@ -18,6 +19,7 @@ import {
 } from '@/features/media-batch/model/batch-days'
 import {
   buildFilterModel,
+  filterCount,
   filterDays,
   matchesFilter,
   type BatchFilter,
@@ -35,6 +37,7 @@ import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { EmptyState } from '@/shared/ui/EmptyState'
 
+const NO_ITEMS: MediaItem[] = []
 const NO_TARGETS = new Map<string, never[]>()
 
 /** What the Move-to sheet moves: the selection, or one item of the viewer. */
@@ -69,12 +72,16 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
   const locale = i18n.language
 
   const items = query.data
+  const uploaders = useJourneyUploaders(journeyId, items ?? NO_ITEMS)
   const allDays = useMemo(() => groupBatchByDay(items ?? []), [items])
   const allOrder = useMemo(() => batchOrder(allDays), [allDays])
-  const filterModel = useMemo(() => buildFilterModel(items ?? []), [items])
+  const filterModel = useMemo(
+    () => buildFilterModel(items ?? [], uploaders),
+    [items, uploaders],
+  )
   // A filter nothing matches any more falls back to "All".
   const activeFilter: BatchFilter =
-    filterModel.counts[filter] === 0 ? 'all' : filter
+    filterCount(filterModel, filter) === 0 ? 'all' : filter
   if (items !== undefined && filter !== activeFilter) setFilter(activeFilter)
   const days = useMemo(
     () => filterDays(allDays, activeFilter, filterModel),
@@ -314,6 +321,7 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
               key={day.key}
               locale={locale}
               selecting={canEdit && selection.mode}
+              uploaders={uploaders}
               onActivate={activate}
               onToggleDay={toggleDay}
             />
@@ -358,6 +366,7 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           items={items}
           journeyId={journeyId}
           returnFocusTo={quickSort.opener}
+          uploaders={uploaders}
           tree={workspace.status === 'ready' ? workspace.tree : null}
           onClose={() => {
             setQuickSort(null)

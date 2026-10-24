@@ -176,6 +176,41 @@ describe('QuickSortView', () => {
     )
   })
 
+  it('names the uploader in the info line only for another member of a shared journey', () => {
+    const other = '00000000-0000-4000-8000-000000000996'
+    const mine = '00000000-0000-4000-8000-000000000997'
+    const shared = {
+      currentUserId: mine,
+      multi: true,
+      names: new Map([[other, 'Jirina']]),
+    }
+    const { unmount } = render(
+      <QuickSortView
+        actions={{} as never}
+        baseUrl="https://m.test"
+        items={[{ ...a, ownerId: other }]}
+        journeyId="j"
+        tree={tree}
+        uploaders={shared}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.getByText(/Uploaded by Jirina/)).toBeTruthy()
+    unmount()
+    render(
+      <QuickSortView
+        actions={{} as never}
+        baseUrl="https://m.test"
+        items={[{ ...a, ownerId: mine }]}
+        journeyId="j"
+        tree={tree}
+        uploaders={shared}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(screen.queryByText(/Uploaded by/)).toBeNull()
+  })
+
   it('files into the suggested stop and moves on', async () => {
     const { calls } = setup()
     await act(async () => {

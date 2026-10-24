@@ -7,16 +7,36 @@ export const LOOSE_SCOPE = 'loose'
 /** Sentinel day key for moments whose start cannot be placed on a calendar. */
 export const UNKNOWN_DAY = 'unknown'
 
+const zoneCache = new Map<string, string>()
+const dayFormatters = new Map<string, Intl.DateTimeFormat>()
+
 function safeZone(tz: string | null): string {
   if (tz !== null) {
+    const cached = zoneCache.get(tz)
+    if (cached !== undefined) return cached
     try {
       new Intl.DateTimeFormat('en', { timeZone: tz })
+      zoneCache.set(tz, tz)
       return tz
     } catch {
       /* fall through to the device zone */
     }
   }
   return browserZone()
+}
+
+function dayFormatter(zone: string): Intl.DateTimeFormat {
+  let formatter = dayFormatters.get(zone)
+  if (formatter === undefined) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      day: '2-digit',
+      month: '2-digit',
+      timeZone: zone,
+      year: 'numeric',
+    })
+    dayFormatters.set(zone, formatter)
+  }
+  return formatter
 }
 
 /**
@@ -30,12 +50,7 @@ export function localDayKey(
   if (iso === null) return null
   const time = Date.parse(iso)
   if (Number.isNaN(time)) return null
-  const parts = new Intl.DateTimeFormat('en-US', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone: safeZone(tz),
-    year: 'numeric',
-  }).formatToParts(new Date(time))
+  const parts = dayFormatter(safeZone(tz)).formatToParts(new Date(time))
   const pick = (type: string) =>
     parts.find((part) => part.type === type)?.value ?? ''
   return `${pick('year')}-${pick('month')}-${pick('day')}`

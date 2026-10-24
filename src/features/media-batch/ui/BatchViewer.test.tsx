@@ -56,6 +56,13 @@ vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
     ),
   }),
 }))
+vi.mock('@/features/media-batch/api/use-journey-uploaders', () => ({
+  useJourneyUploaders: () => ({
+    currentUserId: null,
+    multi: false,
+    names: new Map(),
+  }),
+}))
 vi.mock('@/features/media-batch/api/use-batch-actions', () => ({
   useBatchActions: (): BatchActions => actions as unknown as BatchActions,
 }))
