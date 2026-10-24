@@ -179,3 +179,39 @@ Poslední ověření: `pnpm check` ✅ (777 testů po napojení a úklidu), `pnp
 - Fotky Kanady mezi 17. a 28. 9. v cestě chybí; trek kolem Mt Assiniboine má data jen 29. 9.–1. 10.
 - Ochrana auto módu nedovolí agentovi nasazovat do produkce mimo workflow; dočasné testovací funkce spouští uživatel ručně.
 - Místa v divočině bez sídla v okolí končí jako „u X“ nebo region; parky zatím nejsou.
+
+## L. Fáze 4e — Třídírna a návrat k vzpomínkám (2026-10-24, 📝 PROPOSED)
+
+Zdroj pravdy: [docs/plan-v2.md](docs/plan-v2.md), „Fáze 4e“ (principy, DB kontrakt D1–D8, úkoly UX-xx, rozhodnutí). Zde jen pořadí práce a zadání agentům. Vize obrazovek: https://claude.ai/artifact/7zU3hQNM316snfxkz4bHo7 (soukromý, 23 obrazovek; zástupné fotky, vymyšlená data). **Nic z toho není odsouhlasené ani implementované; nejdřív UX-00.**
+
+### L.1 Vlny (každá vlna končí `pnpm check`, u DB i `pnpm db:test`, a čtením diffu orchestrátorem)
+
+| Vlna | Obsah                                                      | Agent                              | Poznámka                                                                                                   |
+| ---- | ---------------------------------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| 0    | UX-00 schválení vize a rozhodnutí, M0 na iPhonu            | uživatel                           | Bez schválení se nezačíná. Zapsat výsledek do `docs/v2-status.md`.                                         |
+| 1    | UX-01, 02, 03 (rychlé výhry, slovník, dotyk)               | `app-specialist`                   | Bez DB. Jeden agent na `cs.ts`/`en.ts` naráz (sdílený soubor). Test překladů hlídá slovník.                |
+| 2    | D1, D2, D3 (3 migrace + pgTAP + typy)                      | `db-specialist` (lokálně)          | Před vlnou 3. Žádná remote migrace bez dotazu na uživatele. Brief níže.                                    |
+| 3    | UX-31 spike, UX-30, 32–36, 38, 39, 10, 11, 14, 15          | `app-specialist`                   | `packages/core`: `clusterSeries`, `recommendBest`, `suggestStop`, `dayStatus` jako čisté testované funkce. |
+| 4    | `reviewer` nad vlnami 2–3 (RLS, migrace, import s `phash`) | `reviewer`                         | Jen nálezy. Opravy zadá orchestrátor.                                                                      |
+| 5    | UX-40, 41, 42, 43, 12, 13, 16, 17, 37                      | `app-specialist`                   | UX-37 (Haptics) a případné další balíčky až po schválení závislosti.                                       |
+| 6    | D4–D8 a UX-50–62 po odděleném schválení                    | `db-specialist` → `app-specialist` | Poloha a e-maily sledujících jsou citlivé: samostatný `reviewer` a samostatné schválení.                   |
+
+### L.2 Zadání pro `db-specialist` (vlna 2)
+
+Cíl: tři aditivní migrace podle tabulky D1–D3 v plánu, žádná změna existujících sloupců ani RPC.
+
+- `20261025120000_v2_media_analysis.sql`: `media.phash bigint`, `media.quality jsonb` (check: objekt, `pg_column_size` < 2 kB). Nullable, bez defaultu, žádný backfill. Do sloupcových grantů přidat jen pro `insert`/`update` stejně, jako mají ostatní metadata média; ověřit, že `get_public_journey` a ostatní veřejné RPC sloupce **nevystavují**.
+- `20261025120100_v2_media_corrections.sql`: `captured_at_source`, `location_source` (check na povolené hodnoty, nullable), RPC `shift_media_time`, `set_media_location` podle vzoru `mark_media_reviewed` (`media_batch_journey`, koš ignorován, vrací počet změněných řádků, chyby `P0002`/`42501`/`22023`). `shift_media_time`: `|delta| ≤ 31 622 400 s`, nulový posun změní 0 řádků; `captured_tz` se nemění; `moment_id` se nemění.
+- `20261025120200_v2_journey_progress.sql`: `journey_progress(uuid[])`, jen čtení pro členy cest; dny podle `home_tz` jako ve `get_public_journey` pro `day_notes`; cesty, kam volající nepatří, se vynechají (ne chyba).
+- pgTAP: `v2_media_analysis`, `v2_media_corrections`, `v2_journey_progress` (vlastník, editor, člen jen čtení, cizí uživatel, anon, koš, idempotence, hraniční posun). Po migracích `pnpm db:reset`, `pnpm db:test`, `pnpm db:types`.
+- Hotovo = výstup příkazů v odpovědi; diff čte orchestrátor.
+
+### L.3 Zadání pro `app-specialist` (vlna 3, začátek)
+
+1. UX-31 spike: `phash` (dHash 9×8 z canvasu) a ostrost (variance Laplaciánu z 256 px verze) na 300 fotkách; změřit čas na iPhonu a v prohlížeči, zapsat do `docs/v2-status.md`. Rozhodnutí o pokračování po výsledku.
+2. Čisté funkce v `packages/core` s testy na syntetických datech (repozitář je veřejný: žádné skutečné souřadnice ani fotky).
+3. UI podle vize, ale slovník a hlas podle UX-02.
+
+### L.4 Otevřené (viz plán, „Rozhodnutí ke schválení“)
+
+Poloha pro rodinu (výchozí vypnuto), kanál denního souhrnu (Atom/RSS vs e-mail), nové závislosti (Haptics, PDF, obrázek příběhu), hlas jen jako přepis, návrh zápisu deterministický. Fáze 5b (veřejný čtenář) má stále otevřenou bránu výkonu (Lighthouse mobil 58 v simulaci), 4e ji neřeší.

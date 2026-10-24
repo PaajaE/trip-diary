@@ -509,3 +509,16 @@ Nasazená verze (GitHub Pages po sloučení #42) projita v Chromiu (Playwright) 
 
 Lighthouse mobil (CLI, throttling simulovaný, prostředí cloudového kontejneru, tedy orientačně): výkon **55**, přístupnost **97**, FCP 1,2 s, LCP 4,4 s, TBT 1 540 ms, CLS 0. **Brána výkonu (≥ 90, LCP < 2,5 s) NENÍ splněna.** Příčina podle profilu: hlavní vlákno (aplikace 1,8 s skriptu, dlouhé úlohy 830 ms), strom cesty se zpracovává dvakrát (data.json a revalidace RPC, každé ~225 kB), `maplibre-gl` 470 ms. Srovnání s předchozí verzí chybí (nebylo změřeno před nasazením), proto nelze říct, kolik z toho je regrese redesignu. Opraveno hned: cache `Intl.DateTimeFormat`, memoizace dnů a rozsahů, levnější výběr fotek do mozaiky (model z ~190 ms na ~100 ms v Node na reálných datech). Přístupnost: selhává kontrast barev a `label-content-name-mismatch` (nezkoumáno).
 Po opravách (#43, #44) a nasazení: Lighthouse mobil výkon **58**, přístupnost **100**. Měřeno bez simulace (pozorováno v prohlížeči): FCP 0,63 s, **LCP 1,2 s**, CLS 0; simulované (slow 4G, 4× CPU): LCP 4,1 s, TBT 1,3 s, Speed Index 5,2 s. Brána výkonu (≥ 90) tedy zůstává **NESPLNĚNA** v simulaci; kandidáti: JS aplikace startuje až po načtení hero (1,8 s skriptu v simulaci), hero na mobilu bere variantu `medium` (215 kB, jiný původ než stránka), MapLibre 470 ms. Další krok: změřit stejnou cestu na předchozí verzi pro srovnání a zvážit odložení vykreslení karet etap pod ohybem.
+
+## Fáze 4e — Třídírna a návrat k vzpomínkám (2026-10-24, 📝 PROPOSED)
+
+UX review stavu aplikace (kód, texty, plán; **aplikace nespuštěna, žádné zařízení**) a klikací vize 23 obrazovek: https://claude.ai/artifact/7zU3hQNM316snfxkz4bHo7 (soukromý). Plán, DB kontrakt D1–D8 a úkoly UX-xx jsou v [plan-v2.md](plan-v2.md), pořadí práce v `REFACTOR_PLAN.md`, oddíl L. Nic není schválené ani implementované, žádná migrace nevznikla.
+
+| Zjištění review (z kódu)                                                                               | Úkol      |
+| ------------------------------------------------------------------------------------------------------ | --------- |
+| Dvojité šipky v `dayDetail` (text i ikona), neaktivní tlačítka v detailu dne, jednopoložkové „⋯“       | UX-01     |
+| Moment × zastávka, tykání × vykání, čtyři názvy pro ★, „Dávka“ × „Dávka k roztřídění“                  | UX-02     |
+| Kruh výběru fotky 24 px na dotyku, klávesy ve Výběru nejlepších bez nápovědy                           | UX-03     |
+| Prohlížeč v dávce má prázdné cíle (`NO_TARGETS`): z celé obrazovky nejde zařadit                       | UX-36     |
+| Třídění rozdělené na Dávku, Výběr nejlepších a prohlížeč; v dávce chybí rychlé třídění a výběr tažením | UX-30, 35 |
+| Dashboard bez fotek a bez počtu k roztřídění; Přehled bez stavu dne                                    | UX-14, 39 |
