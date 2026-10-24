@@ -24,7 +24,6 @@ import {
   matchesFilter,
   type BatchFilter,
 } from '@/features/media-batch/model/batch-filters'
-import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
 import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { buildMoveStops } from '@/features/media-batch/model/move-sheet'
 import { BatchActionBar } from '@/features/media-batch/ui/BatchActionBar'
@@ -68,7 +67,7 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
   const [filter, setFilter] = useState<BatchFilter>('all')
   const [sheet, setSheet] = useState<SheetState | null>(null)
   const [fix, setFix] = useState<FixState | null>(null)
-  const corrections = canEdit && isMediaCorrectionsEnabled()
+  const corrections = canEdit
   const locale = i18n.language
 
   const items = query.data

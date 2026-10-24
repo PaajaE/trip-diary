@@ -24,7 +24,6 @@ const state = vi.hoisted(() => ({
     multi: false,
     names: new Map<string, string>(),
   },
-  corrections: false,
   query: {
     data: undefined as MediaItem[] | undefined,
     isError: false,
@@ -102,9 +101,6 @@ vi.mock('@/features/journey-workspace/ui/MediaViewer', () => ({
     </div>
   ),
 }))
-vi.mock('@/features/media-corrections/model/enabled', () => ({
-  isMediaCorrectionsEnabled: () => state.corrections,
-}))
 vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
   FixTimeLocationSheet: ({
     items,
@@ -137,7 +133,6 @@ function tiles() {
 beforeEach(async () => {
   vi.clearAllMocks()
   state.canEdit = true
-  state.corrections = false
   state.uploaders = { currentUserId: null, multi: false, names: new Map() }
   state.query.data = ALL
   state.query.isError = false
@@ -200,23 +195,7 @@ describe('BatchPage', () => {
     )
   })
 
-  it('hides "Time and location" while the build flag is off', () => {
-    render(<BatchPage journeyId="j" />)
-    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
-    fireEvent.click(tiles()[0]!)
-    expect(
-      screen.queryByRole('button', { name: 'Time and location' }),
-    ).toBeNull()
-    cleanup()
-    render(<BatchPage journeyId="j" />)
-    fireEvent.click(tiles()[0]!)
-    expect(
-      screen.queryByRole('button', { name: 'Viewer time and location' }),
-    ).toBeNull()
-  })
-
-  it('opens the fix sheet for the selection (in grid order) when the flag is on', () => {
-    state.corrections = true
+  it('opens the fix sheet for the selection (in grid order)', () => {
     render(<BatchPage journeyId="j" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select' }))
     fireEvent.click(tiles()[3]!)
@@ -229,8 +208,7 @@ describe('BatchPage', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
-  it('opens the fix sheet for the single viewer item when the flag is on', () => {
-    state.corrections = true
+  it('opens the fix sheet for the single viewer item', () => {
     render(<BatchPage journeyId="j" />)
     fireEvent.click(tiles()[1]!)
     fireEvent.click(
@@ -242,7 +220,6 @@ describe('BatchPage', () => {
   })
 
   it('shows no fix entry point to viewers who cannot edit', () => {
-    state.corrections = true
     state.canEdit = false
     render(<BatchPage journeyId="j" />)
     fireEvent.click(tiles()[1]!)
