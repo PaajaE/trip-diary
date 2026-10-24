@@ -6,8 +6,9 @@ import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 
 /**
- * Workspace actions: import, quick note and a secondary button that opens the
- * automatic organizing dialog. A bottom action bar on narrow screens, header actions from `sm`.
+ * Workspace header actions: import, quick note and a secondary button that
+ * opens the automatic organizing dialog. On narrow screens import and quick
+ * note live in the bottom navigation ("+"), so only organizing remains here.
  */
 export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
   const { t } = useTranslation()
@@ -19,13 +20,13 @@ export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
     <>
       <div
         aria-label={t('workspace.toolbar')}
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 border-t border-border bg-background/95 pt-3 pr-[max(1.25rem,env(safe-area-inset-right))] pb-[max(0.75rem,env(safe-area-inset-bottom))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:static sm:z-auto sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none"
+        className="flex items-center gap-2"
         role="toolbar"
       >
         <Link
           className={cn(
             buttonVariants({ variant: 'primary' }),
-            'flex-1 sm:flex-none',
+            'hidden sm:inline-flex',
           )}
           params={{ journeyId }}
           to="/j/$journeyId/import"
@@ -35,7 +36,7 @@ export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
         <Link
           className={cn(
             buttonVariants({ variant: 'secondary' }),
-            'flex-1 sm:flex-none',
+            'hidden sm:inline-flex',
           )}
           params={{ journeyId }}
           to="/j/$journeyId/quick"
@@ -43,10 +44,7 @@ export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
           {t('quickNote.title')}
         </Link>
         <button
-          className={cn(
-            buttonVariants({ variant: 'secondary' }),
-            'sm:flex-none',
-          )}
+          className={buttonVariants({ variant: 'secondary' })}
           title={t('workspace.organizeHint')}
           type="button"
           onClick={() => {

@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
+import { JourneyManageMenu } from '@/features/journey-workspace/ui/JourneyManageMenu'
 import { cn } from '@/shared/lib/cn'
 
 export type JourneyTab =
@@ -21,8 +22,9 @@ const TAB_IDLE =
 
 /**
  * Journey-level navigation shown on every owner page of a journey: scrollable
- * pill row on narrow screens, underlined tabs from `sm`. The last entry is the
- * public page: a link when the journey is public, an explained disabled item
+ * pill row on narrow screens, underlined tabs from `sm`. Order follows the
+ * work flow (journey, sorting, add, note); members and trash sit in one
+ * "Manage journey" menu. The last entry is the public page: a link when the journey is public, an explained disabled item
  * otherwise (`publicPaths` is null for "not public", undefined while unknown).
  */
 export function JourneyTabs({
@@ -38,8 +40,9 @@ export function JourneyTabs({
   publicPaths: PublicJourneyPaths | null | undefined
 }) {
   const { t } = useTranslation()
-  const tab = (key: JourneyTab) =>
-    cn(TAB_BASE, current === key ? TAB_ACTIVE : TAB_IDLE)
+  const isManage = current === 'members' || current === 'trash'
+  const tab = (key: JourneyTab, active = current === key) =>
+    cn(TAB_BASE, active ? TAB_ACTIVE : TAB_IDLE)
   const aria = (key: JourneyTab) => (current === key ? 'page' : undefined)
 
   return (
@@ -56,16 +59,6 @@ export function JourneyTabs({
             to="/j/$journeyId/workspace"
           >
             {t('owner.tabs.workspace')}
-          </Link>
-        </li>
-        <li>
-          <Link
-            aria-current={aria('import')}
-            className={tab('import')}
-            params={{ journeyId }}
-            to="/j/$journeyId/import"
-          >
-            {t('owner.tabs.import')}
           </Link>
         </li>
         <li>
@@ -94,6 +87,16 @@ export function JourneyTabs({
         </li>
         <li>
           <Link
+            aria-current={aria('import')}
+            className={tab('import')}
+            params={{ journeyId }}
+            to="/j/$journeyId/import"
+          >
+            {t('owner.tabs.import')}
+          </Link>
+        </li>
+        <li>
+          <Link
             aria-current={aria('quick')}
             className={tab('quick')}
             params={{ journeyId }}
@@ -103,24 +106,11 @@ export function JourneyTabs({
           </Link>
         </li>
         <li>
-          <Link
-            aria-current={aria('members')}
-            className={tab('members')}
-            params={{ journeyId }}
-            to="/j/$journeyId/members"
-          >
-            {t('owner.tabs.members')}
-          </Link>
-        </li>
-        <li>
-          <Link
-            aria-current={aria('trash')}
-            className={tab('trash')}
-            params={{ journeyId }}
-            to="/j/$journeyId/trash"
-          >
-            {t('owner.tabs.trash')}
-          </Link>
+          <JourneyManageMenu
+            buttonClassName={tab('members', isManage)}
+            current={isManage ? current : null}
+            journeyId={journeyId}
+          />
         </li>
         <li className="ml-auto">
           {publicPaths === null || publicPaths === undefined ? (
