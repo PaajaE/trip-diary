@@ -1853,6 +1853,7 @@ export type Database = {
       }
       claim_geocoder_slot: { Args: { p_interval_ms?: number }; Returns: number }
       claim_media_purge: { Args: { p_media_ids: string[] }; Returns: string[] }
+      clear_media_location: { Args: { p_media_ids: string[] }; Returns: number }
       compute_source_content_hash: {
         Args: { p_body: string; p_title: string }
         Returns: string
@@ -2094,6 +2095,18 @@ export type Database = {
         Returns: undefined
       }
       revoke_space_invite: { Args: { p_invite_id: string }; Returns: undefined }
+      search_journey: {
+        Args: { p_journey_id: string; p_limit?: number; p_query: string }
+        Returns: {
+          id: string
+          kind: string
+          local_date: string
+          snippet: string
+          title: string
+        }[]
+      }
+      search_normalize: { Args: { p_text: string }; Returns: string }
+      search_snippet: { Args: { p_nq: string; p_text: string }; Returns: string }
       set_entry_photo_cover: {
         Args: { p_entry_id: string; p_photo_id: string }
         Returns: undefined
