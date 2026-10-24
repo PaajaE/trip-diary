@@ -1,3 +1,4 @@
+import { mediaQualitySchema } from '@trip-diary/core/automation'
 import { z } from 'zod'
 
 const instantSchema = z.iso.datetime({ offset: true })
@@ -43,6 +44,10 @@ export const mediaItemSchema = z.object({
   longitude: z.number().min(-180).max(180).nullable(),
   momentId: z.uuid().nullable(),
   ownerId: z.uuid(),
+  /** 49-bit dHash (a safe JS integer); null/absent until analysed (phase 4e). */
+  phash: z.number().int().nonnegative().nullable().optional(),
+  /** On-device analysis result; invalid stored JSON is dropped, never fatal. */
+  quality: mediaQualitySchema.nullable().optional(),
   segmentOverrideId: z.uuid().nullable(),
   starred: z.boolean(),
   status: z.enum(['pending', 'uploading', 'ready', 'failed']),
