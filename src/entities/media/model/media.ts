@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import type { MediaQuality } from '@trip-diary/core/automation'
 import type { ImageVariantKind } from '@trip-diary/core/media-upload'
 
 export type MediaVariantKind = ImageVariantKind
@@ -90,6 +91,9 @@ export interface NewPhotoMedia {
   latitude: number | null
   longitude: number | null
   ownerId: string
+  /** 49-bit dHash; only sent when the analysis flag is on. */
+  phash?: number
+  quality?: MediaQuality
   sourceAssetId?: string
   width: number | null
 }

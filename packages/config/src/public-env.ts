@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 export const publicEnvSchema = z.object({
   mapyApiKey: z.string().min(1).optional(),
+  mediaAnalysis: z.boolean().optional(),
   mediaBaseUrl: z.url().optional(),
   siteUrl: z.url().optional(),
   supabaseAnonKey: z.string().min(1).optional(),
@@ -18,9 +19,18 @@ function blankToUndefined(value: unknown): unknown {
   return value
 }
 
+/** Accepts only 'true' / 'false' (or a boolean); anything else fails validation. */
+function booleanFlag(value: unknown): unknown {
+  const raw = blankToUndefined(value)
+  if (raw === 'true') return true
+  if (raw === 'false') return false
+  return raw
+}
+
 export function parsePublicEnv(raw: Record<string, unknown>): PublicEnv {
   return publicEnvSchema.parse({
     mapyApiKey: blankToUndefined(raw.mapyApiKey),
+    mediaAnalysis: booleanFlag(raw.mediaAnalysis),
     mediaBaseUrl: blankToUndefined(raw.mediaBaseUrl),
     siteUrl: blankToUndefined(raw.siteUrl),
     supabaseAnonKey: blankToUndefined(raw.supabaseAnonKey),

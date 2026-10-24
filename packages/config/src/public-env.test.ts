@@ -32,4 +32,15 @@ describe('parsePublicEnv', () => {
       }),
     ).toEqual({})
   })
+
+  it('parses the mediaAnalysis flag from true/false strings, unset by default', () => {
+    expect(parsePublicEnv({ mediaAnalysis: 'true' })).toEqual({
+      mediaAnalysis: true,
+    })
+    expect(parsePublicEnv({ mediaAnalysis: 'false' })).toEqual({
+      mediaAnalysis: false,
+    })
+    expect(parsePublicEnv({ mediaAnalysis: '' })).toEqual({})
+    expect(() => parsePublicEnv({ mediaAnalysis: 'yes' })).toThrow()
+  })
 })

@@ -1,4 +1,8 @@
 import {
+  mediaQualitySchema,
+  type MediaQuality,
+} from '@trip-diary/core/automation'
+import {
   MediaUploadError,
   type NewMediaVariant,
   type NewPhotoMedia,
@@ -8,11 +12,23 @@ import { getSupabaseClient } from '@/shared/api/supabase'
 
 const UNIQUE_VIOLATION = '23505'
 
+/** phash/quality columns, only when both are present and valid. */
+function photoAnalysisColumns(input: NewPhotoMedia): {
+  phash?: number
+  quality?: MediaQuality
+} {
+  if (input.phash === undefined || input.quality === undefined) return {}
+  const quality = mediaQualitySchema.safeParse(input.quality)
+  if (!quality.success || !Number.isSafeInteger(input.phash)) return {}
+  return { phash: input.phash, quality: quality.data }
+}
+
 /** Inserts the media row in status 'uploading' (owner_id must be auth.uid()). */
 export async function createMedia(
   input: NewPhotoMedia | NewVideoMedia,
 ): Promise<void> {
   const video = 'kind' in input
+  const analysis = video ? {} : photoAnalysisColumns(input)
   const { error } = await getSupabaseClient()
     .from('media')
     .insert({
@@ -29,6 +45,7 @@ export async function createMedia(
       owner_id: input.ownerId,
       status: 'uploading',
       width: input.width,
+      ...analysis,
       ...(input.sourceAssetId === undefined
         ? {}
         : { source_asset_id: input.sourceAssetId }),

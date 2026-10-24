@@ -1,4 +1,7 @@
-import { resolveCaptureZone } from '@trip-diary/core/automation'
+import {
+  resolveCaptureZone,
+  type MediaQuality,
+} from '@trip-diary/core/automation'
 import type {
   ImageContentType,
   ImageVariantKind,
@@ -25,6 +28,11 @@ import {
   processPhoto,
   type ProcessedPhoto,
 } from '@/entities/photo/lib/process-photo'
+import {
+  analyzeImageBlob,
+  type ImageAnalysis,
+} from '@/features/media-upload/lib/analyze-image'
+import { publicEnv } from '@/shared/config/env'
 import {
   readRawExifTime,
   resolveCaptureTime,
@@ -70,6 +78,8 @@ export interface UploadedPhoto {
 
 /** Seams for tests; defaults hit the real repositories and the browser. */
 export interface UploadPhotoDeps {
+  /** Only called when the mediaAnalysis flag is on; must resolve null on failure. */
+  analyzePhoto: (blob: Blob) => Promise<ImageAnalysis | null>
   addVariant: (input: NewMediaVariant) => Promise<void>
   createMedia: (input: NewPhotoMedia) => Promise<void>
   deleteMedia: (mediaId: string) => Promise<void>
@@ -93,6 +103,7 @@ export interface UploadPhotoDeps {
 }
 
 const defaultDeps: UploadPhotoDeps = {
+  analyzePhoto: analyzeImageBlob,
   addVariant,
   createMedia,
   deleteMedia,
@@ -196,6 +207,18 @@ export async function uploadPhoto(
   const largest = variants.find((variant) => variant.kind === 'large')
   const total = variants.length
 
+  let analysis: { phash: number; quality: MediaQuality } | null = null
+  if (publicEnv.mediaAnalysis === true) {
+    // Prefer the medium variant: already oriented and cheap to decode.
+    const source =
+      variants.find((v) => v.kind === 'medium') ??
+      variants.find((v) => v.kind === 'small') ??
+      largest
+    if (source !== undefined) {
+      analysis = await deps.analyzePhoto(source.blob).catch(() => null)
+    }
+  }
+
   const mediaId = deps.newId()
   await deps.createMedia({
     capturedAt,
@@ -209,6 +232,9 @@ export async function uploadPhoto(
     latitude,
     longitude,
     ownerId: options.ownerId,
+    ...(analysis === null
+      ? {}
+      : { phash: analysis.phash, quality: analysis.quality }),
     width: largest?.width ?? null,
     ...(options.sourceAssetId === undefined
       ? {}
