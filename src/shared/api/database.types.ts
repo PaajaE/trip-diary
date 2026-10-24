@@ -2106,7 +2106,10 @@ export type Database = {
         }[]
       }
       search_normalize: { Args: { p_text: string }; Returns: string }
-      search_snippet: { Args: { p_nq: string; p_text: string }; Returns: string }
+      search_snippet: {
+        Args: { p_nq: string; p_text: string }
+        Returns: string
+      }
       set_entry_photo_cover: {
         Args: { p_entry_id: string; p_photo_id: string }
         Returns: undefined
