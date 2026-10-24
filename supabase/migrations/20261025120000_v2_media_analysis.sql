@@ -1,6 +1,7 @@
 -- Phase 4e (D1): on-device image analysis results stored on media.
 --
--- * phash: 64-bit dHash (signed bigint), used to derive "series of similar
+-- * phash: 49-bit dHash (8x7 comparisons, so it stays a safe JS integer when
+--   read back through PostgREST; stored in a bigint), used to derive "series of similar
 --   photos" on the client. Series themselves are never stored.
 -- * quality: small JSON object {v, sharp, exposure, eyesClosed?}, < 2 kB.
 -- * Both columns are nullable, have no default and are NOT backfilled: NULL =
