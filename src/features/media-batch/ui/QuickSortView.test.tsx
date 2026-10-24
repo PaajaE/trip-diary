@@ -1,0 +1,516 @@
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from '@testing-library/react'
+import { useState, type ReactNode } from 'react'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import '@/app/i18n'
+import i18n from 'i18next'
+import type { MediaItem } from '@/entities/media/model/media-library'
+import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
+import { med, mom } from '@/features/journey-workspace/test-fixtures'
+import { QuickSortView } from '@/features/media-batch/ui/QuickSortView'
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    params,
+    to,
+  }: {
+    children: ReactNode
+    params: Record<string, string>
+    to: string
+  }) => (
+    <a
+      href={to
+        .replace('$journeyId', params.journeyId ?? '')
+        .replace('$date', params.date ?? '')}
+    >
+      {children}
+    </a>
+  ),
+}))
+
+const OLD_TOWN = mom(50, {
+  endsAt: '2026-01-02T10:00:00+00:00',
+  startsAt: '2026-01-02T08:00:00+00:00',
+  title: 'Old Town',
+})
+const tree = buildWorkspaceTree([], [OLD_TOWN], [])
+
+// a inside Old Town; b and c are a series; d is on day 2 with no stop near.
+const a = med(1, { capturedAt: '2026-01-02T09:00:00+00:00' })
+const b = med(2, {
+  capturedAt: '2026-01-02T15:00:00+00:00',
+  phash: 0b1010,
+  quality: { sharp: 10, v: 1 },
+})
+const c = med(3, {
+  capturedAt: '2026-01-02T15:00:20+00:00',
+  phash: 0b1011,
+  quality: { sharp: 40, v: 1 },
+})
+const d = med(4, { capturedAt: '2026-01-03T09:00:00+00:00' })
+
+const key = (k: string, target: Element = document.body) => {
+  fireEvent.keyDown(target, { key: k })
+}
+
+interface Options {
+  items?: MediaItem[]
+  fail?: 'trash' | 'moveTo'
+  tree?: typeof tree | null
+}
+
+function setup(options: Options = {}) {
+  const initial = options.items ?? [a, b, c, d]
+  const onClose = vi.fn()
+  const calls = {
+    done: vi.fn(),
+    moveTo: vi.fn(),
+    newStop: vi.fn(),
+    revert: vi.fn(() => Promise.resolve(true)),
+    star: vi.fn(),
+    trash: vi.fn(),
+  }
+  function Host() {
+    const [items, setItems] = useState<MediaItem[]>(initial)
+    const leave = (gone: readonly MediaItem[]) => {
+      setItems((list) => list.filter((i) => !gone.some((g) => g.id === i.id)))
+    }
+    const actions = {
+      done: (gone: readonly MediaItem[]) => {
+        calls.done(gone)
+        leave(gone)
+        return Promise.resolve(true)
+      },
+      moveTo: (gone: readonly MediaItem[], momentId: string) => {
+        calls.moveTo(gone, momentId)
+        if (options.fail === 'moveTo') return Promise.resolve(false)
+        leave(gone)
+        return Promise.resolve(true)
+      },
+      newStop: (
+        gone: readonly MediaItem[],
+        opts?: { onCreated?: (id: string) => void },
+      ) => {
+        calls.newStop(gone)
+        opts?.onCreated?.('created-stop')
+        leave(gone)
+        return Promise.resolve(true)
+      },
+      revert: calls.revert,
+      star: (list: readonly MediaItem[]) => {
+        calls.star(list)
+        setItems((current) =>
+          current.map((i) =>
+            list.some((x) => x.id === i.id) ? { ...i, starred: !i.starred } : i,
+          ),
+        )
+        return Promise.resolve()
+      },
+      trash: (gone: readonly MediaItem[]) => {
+        calls.trash(gone)
+        if (options.fail === 'trash') return Promise.resolve(false)
+        leave(gone)
+        return Promise.resolve(true)
+      },
+    }
+    return (
+      <QuickSortView
+        actions={actions}
+        baseUrl="https://m.test"
+        items={items}
+        journeyId="j1"
+        tree={options.tree === undefined ? tree : options.tree}
+        onClose={onClose}
+      />
+    )
+  }
+  render(<Host />)
+  return { calls, onClose }
+}
+
+const progress = () => screen.getByTestId('quick-sort-progress').textContent
+
+beforeEach(async () => {
+  await i18n.changeLanguage('en')
+})
+afterEach(cleanup)
+
+describe('QuickSortView', () => {
+  it('is a modal dialog with progress, suggestion and labelled actions', () => {
+    setup()
+    const dialog = screen.getByRole('dialog', { name: 'Quick sort' })
+    expect(dialog.getAttribute('aria-modal')).toBe('true')
+    expect(progress()).toBe('1 of 4')
+    expect(document.body.style.overflow).toBe('hidden')
+    const card = screen.getByTestId('quick-sort-suggestion')
+    expect(within(card).getByText('Old Town')).toBeTruthy()
+    expect(within(card).getByText(/during this stop/)).toBeTruthy()
+    for (const name of [
+      'To stop Old Town',
+      'Trash',
+      'Best',
+      'Sorted',
+      'Undo',
+      'Change',
+    ]) {
+      expect(
+        screen.getByRole('button', { name: new RegExp(name) }),
+      ).toBeTruthy()
+    }
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+      '0',
+    )
+  })
+
+  it('shows the keyboard hint line only under hover and fine pointer', () => {
+    setup()
+    expect(screen.getByTestId('quick-sort-keyboard-hints').className).toContain(
+      '[@media(hover:hover)_and_(pointer:fine)]:block',
+    )
+  })
+
+  it('files into the suggested stop and moves on', async () => {
+    const { calls } = setup()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'To stop Old Town' }))
+    })
+    expect(calls.moveTo).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: a.id })],
+      OLD_TOWN.id,
+    )
+    expect(progress()).toBe('2 of 4')
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+      '1',
+    )
+  })
+
+  it('offers "New stop" as the primary action without a suggestion', async () => {
+    const { calls } = setup({ items: [d, a], tree: null })
+    expect(screen.getByText(/no stop to suggest/)).toBeTruthy()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'New stop' }))
+    })
+    expect(calls.newStop).toHaveBeenCalledTimes(1)
+  })
+
+  it('"Change" lists every stop and files there', async () => {
+    const { calls } = setup()
+    fireEvent.click(screen.getByRole('button', { name: 'Change' }))
+    const sheet = screen.getByRole('dialog', { name: 'Move to stop' })
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole('button', { name: /Old Town/ }))
+    })
+    expect(calls.moveTo).toHaveBeenCalledWith(expect.anything(), OLD_TOWN.id)
+    expect(screen.queryByRole('dialog', { name: 'Move to stop' })).toBeNull()
+  })
+
+  it('"Sorted" only marks as reviewed (no stop)', async () => {
+    const { calls } = setup()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Sorted/ }))
+    })
+    expect(calls.done).toHaveBeenCalledTimes(1)
+    expect(calls.moveTo).not.toHaveBeenCalled()
+  })
+
+  it('keyboard: star, trash, accept; ignored in text fields', async () => {
+    const { calls } = setup()
+    await act(async () => {
+      key('s')
+    })
+    expect(calls.star).toHaveBeenCalledTimes(1)
+    expect(progress()).toBe('1 of 4')
+    await act(async () => {
+      key('x')
+    })
+    expect(calls.trash).toHaveBeenCalledWith([
+      expect.objectContaining({ id: a.id }),
+    ])
+    expect(progress()).toBe('2 of 4')
+    await act(async () => {
+      key('Enter')
+    })
+    expect(
+      calls.newStop.mock.calls.length + calls.moveTo.mock.calls.length,
+    ).toBe(1)
+
+    const input = document.createElement('input')
+    document.body.append(input)
+    await act(async () => {
+      key('x', input)
+    })
+    expect(calls.trash).toHaveBeenCalledTimes(1)
+    input.remove()
+  })
+
+  it('Undo really reverts: trash, step into a stop, done, star', async () => {
+    const { calls } = setup()
+    await act(async () => {
+      key('x')
+    })
+    await act(async () => {
+      key('u')
+    })
+    expect(calls.revert).toHaveBeenLastCalledWith({
+      createdMomentId: null,
+      items: [expect.objectContaining({ id: a.id })],
+      kind: 'trash',
+    })
+    expect(progress()).toBe('1 of 4')
+    expect(
+      screen.getByRole('button', { name: 'Undo' }).hasAttribute('disabled'),
+    ).toBe(true)
+
+    await act(async () => {
+      key('Enter')
+    })
+    await act(async () => {
+      key('u')
+    })
+    expect(calls.revert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'moveTo' }),
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Sorted/ }))
+    })
+    await act(async () => {
+      key('u')
+    })
+    expect(calls.revert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ kind: 'done' }),
+    )
+    await act(async () => {
+      key('s')
+    })
+    await act(async () => {
+      key('u')
+    })
+    expect(calls.star).toHaveBeenCalledTimes(2)
+  })
+
+  it('Undo of a new stop hands the created stop to the revert', async () => {
+    const { calls } = setup({ items: [d, a], tree: null })
+    await act(async () => {
+      key('Enter')
+    })
+    await act(async () => {
+      key('u')
+    })
+    expect(calls.revert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        createdMomentId: 'created-stop',
+        kind: 'newStop',
+      }),
+    )
+  })
+
+  it('a failed save takes the step back', async () => {
+    setup({ fail: 'trash' })
+    await act(async () => {
+      key('x')
+    })
+    expect(screen.getByRole('progressbar').getAttribute('aria-valuenow')).toBe(
+      '0',
+    )
+    expect(
+      screen.getByRole('button', { name: 'Undo' }).hasAttribute('disabled'),
+    ).toBe(true)
+  })
+
+  it('keeps a stable session list: sorted items do not jump the position', async () => {
+    setup()
+    await act(async () => {
+      key('x')
+    })
+    await act(async () => {
+      key('ArrowRight')
+    })
+    expect(progress()).toBe('3 of 4')
+    await act(async () => {
+      key('ArrowLeft')
+    })
+    // The trashed first photo is skipped, not renumbered.
+    expect(progress()).toBe('2 of 4')
+    await act(async () => {
+      key('ArrowLeft')
+    })
+    expect(progress()).toBe('2 of 4')
+  })
+
+  it('swipes: up trashes, right stars, left skips', async () => {
+    const { calls } = setup()
+    const stage = screen.getByTestId('quick-sort-stage')
+    const swipe = async (dx: number, dy: number) => {
+      fireEvent.touchStart(stage, { touches: [{ clientX: 200, clientY: 300 }] })
+      await act(async () => {
+        fireEvent.touchEnd(stage, {
+          changedTouches: [{ clientX: 200 + dx, clientY: 300 + dy }],
+        })
+      })
+    }
+    await swipe(10, -10)
+    expect(calls.trash).not.toHaveBeenCalled()
+    await swipe(120, 5)
+    expect(calls.star).toHaveBeenCalledTimes(1)
+    await swipe(-120, 5)
+    expect(progress()).toBe('2 of 4')
+    await swipe(5, -120)
+    expect(calls.trash).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape finishes at once without steps, asks (summary) with steps', async () => {
+    const { onClose } = setup()
+    await act(async () => {
+      key('x')
+    })
+    await act(async () => {
+      key('Escape')
+    })
+    expect(screen.getByRole('dialog', { name: 'Sorting done' })).toBeTruthy()
+    expect(onClose).not.toHaveBeenCalled()
+    await act(async () => {
+      key('Escape')
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('Escape without steps closes directly', () => {
+    const { onClose } = setup()
+    key('Escape')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  describe('series', () => {
+    it('shows the chip and G opens it; keep one trashes the others', async () => {
+      const { calls } = setup({ items: [b, c, d] })
+      const chip = screen.getByRole('button', { name: /Series: 2 similar/ })
+      expect(chip).toBeTruthy()
+      await act(async () => {
+        key('g')
+      })
+      const dialog = screen.getByRole('dialog', { name: 'Pick the best one' })
+      // c is far sharper relative to b, so it is recommended.
+      expect(within(dialog).getByText('Recommended')).toBeTruthy()
+      await act(async () => {
+        fireEvent.click(
+          within(dialog).getByRole('button', {
+            name: /Keep this one, trash the other 1/,
+          }),
+        )
+      })
+      expect(calls.trash).toHaveBeenCalledWith([
+        expect.objectContaining({ id: b.id }),
+      ])
+      expect(progress()).toBe('2 of 3')
+      expect(
+        screen.queryByRole('dialog', { name: 'Pick the best one' }),
+      ).toBeNull()
+      // Undo through the same stack.
+      await act(async () => {
+        key('u')
+      })
+      expect(calls.revert).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'trash' }),
+      )
+    })
+
+    it('has no series and ignores G without phash', () => {
+      setup({
+        items: [a, med(5, { capturedAt: '2026-01-02T09:00:05+00:00' })],
+      })
+      expect(screen.queryByRole('button', { name: /Series/ })).toBeNull()
+      key('g')
+      expect(screen.queryByTestId('series-view')).toBeNull()
+    })
+  })
+
+  describe('summary', () => {
+    it('opens when everything is handled, counts, links the day and closes', async () => {
+      const { onClose } = setup({ items: [a, b] })
+      await act(async () => {
+        key('s')
+      })
+      await act(async () => {
+        key('Enter')
+      })
+      await act(async () => {
+        key('x')
+      })
+      const dialog = screen.getByRole('dialog', { name: 'Day done' })
+      const stat = (label: string) =>
+        within(dialog).getByText(label).previousElementSibling?.textContent
+      expect(stat('Best')).toBe('1')
+      expect(stat('In the trash')).toBe('1')
+      expect(stat('To stops')).toBe('1')
+      expect(stat('Sorted')).toBe('0')
+      expect(within(dialog).getByText(/Sorting time: \d+:\d\d/)).toBeTruthy()
+      const link = within(dialog).getByRole('link', {
+        name: 'Write the day note',
+      })
+      expect(link.getAttribute('href')).toBe('/j/j1/workspace/day/2026-01-02')
+      expect(
+        within(dialog).queryByRole('button', { name: 'Next day' }),
+      ).toBeNull()
+      fireEvent.click(
+        within(dialog).getByRole('button', { name: 'Back to sorting' }),
+      )
+      expect(onClose).toHaveBeenCalledTimes(1)
+    })
+
+    it('continues with the next day that still has unsorted items', async () => {
+      setup({ items: [a, d] })
+      await act(async () => {
+        key('x')
+      })
+      await act(async () => {
+        key('Escape')
+      })
+      const dialog = screen.getByRole('dialog', { name: 'Day done' })
+      await act(async () => {
+        fireEvent.click(
+          within(dialog).getByRole('button', { name: 'Next day' }),
+        )
+      })
+      expect(screen.queryByRole('dialog', { name: 'Day done' })).toBeNull()
+      expect(progress()).toBe('2 of 2')
+    })
+
+    it('a single trashed photo ends the session with the summary', async () => {
+      setup({ items: [a] })
+      await act(async () => {
+        key('x')
+      })
+      expect(screen.getByTestId('quick-sort-summary')).toBeTruthy()
+      expect(screen.getByRole('dialog', { name: 'Day done' })).toBeTruthy()
+    })
+  })
+
+  it('shows facts and shortcuts in the desktop panel', () => {
+    setup({
+      items: [med(7, { latitude: 50.0875, longitude: 14.4214 })],
+    })
+    expect(
+      screen.getByText('50.0875, 14.4214', { selector: 'dd' }),
+    ).toBeTruthy()
+    expect(screen.getByText('Europe/Prague')).toBeTruthy()
+    expect(screen.getByText('Enter: accept suggestion')).toBeTruthy()
+  })
+
+  it('C toggles compare and Z toggles zoom', () => {
+    setup()
+    const compare = screen.getByRole('button', { name: 'Compare' })
+    key('c')
+    expect(compare.getAttribute('aria-pressed')).toBe('true')
+    const zoom = screen.getByRole('button', { name: 'Zoom 100%' })
+    key('z')
+    expect(zoom.getAttribute('aria-pressed')).toBe('true')
+  })
+})

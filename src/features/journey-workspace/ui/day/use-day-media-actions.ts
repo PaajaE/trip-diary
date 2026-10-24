@@ -18,6 +18,8 @@ export interface MediaActionOptions {
    * the media as waiting again.
    */
   reviewed?: boolean
+  /** createStop only: called with the id of the new moment once it exists. */
+  onCreated?: (momentId: string) => void
 }
 
 /** Media moves of the day detail that WorkspaceEdits does not offer. */
@@ -36,7 +38,7 @@ export interface DayMediaActions {
 }
 
 /** Media grouped by the moment they were in; null key = no moment. */
-function groupByOrigin(
+export function groupByOrigin(
   items: readonly MediaItem[],
 ): Map<string | null, string[]> {
   const origins = new Map<string | null, string[]>()
@@ -49,7 +51,7 @@ function groupByOrigin(
 }
 
 /** Puts media back where they were (moment or no moment). */
-async function restoreOrigins(
+export async function restoreOrigins(
   origins: ReadonlyMap<string | null, string[]>,
 ): Promise<void> {
   for (const [momentId, group] of origins) {
@@ -76,6 +78,7 @@ export function useDayMediaActions(journeyId: string): DayMediaActions {
         return run({
           apply: async () => {
             createdId = await createMomentFromMedia(ids)
+            options?.onCreated?.(createdId)
             if (reviewed) await markMediaReviewed(ids)
           },
           errorMessage: t('dayDetail.stopCreateFailed'),

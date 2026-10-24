@@ -19,6 +19,7 @@ import {
 import { batchMoveTargets } from '@/features/media-batch/model/move-targets'
 import { BatchActionBar } from '@/features/media-batch/ui/BatchActionBar'
 import { BatchDaySection } from '@/features/media-batch/ui/BatchDaySection'
+import { QuickSortView } from '@/features/media-batch/ui/QuickSortView'
 import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { EmptyState } from '@/shared/ui/EmptyState'
@@ -39,6 +40,9 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
   const actions = useBatchActions(journeyId)
   const selection = useDaySelection()
   const [viewer, setViewer] = useState<ViewerState | null>(null)
+  const [quickSort, setQuickSort] = useState<{
+    opener: HTMLElement | null
+  } | null>(null)
   const locale = i18n.language
 
   const items = query.data
@@ -138,6 +142,17 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
         </p>
         {remaining > 0 && canEdit ? (
           <button
+            className={buttonVariants({ variant: 'primary' })}
+            type="button"
+            onClick={(event) => {
+              setQuickSort({ opener: event.currentTarget })
+            }}
+          >
+            {t('quickSort.open')}
+          </button>
+        ) : null}
+        {remaining > 0 && canEdit ? (
+          <button
             aria-pressed={selection.mode}
             className={cn(
               buttonVariants({ variant: 'secondary' }),
@@ -214,6 +229,20 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           }}
         />
       ) : null}
+
+      {quickSort === null ? null : (
+        <QuickSortView
+          actions={actions}
+          baseUrl={BASE_URL}
+          items={items}
+          journeyId={journeyId}
+          returnFocusTo={quickSort.opener}
+          tree={workspace.status === 'ready' ? workspace.tree : null}
+          onClose={() => {
+            setQuickSort(null)
+          }}
+        />
+      )}
 
       {viewer === null ? null : (
         <MediaViewer

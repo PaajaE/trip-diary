@@ -253,6 +253,25 @@ describe('BatchPage', () => {
     expect(screen.getByTestId('viewer')).toBeTruthy()
   })
 
+  it('opens the quick sort from the header and closes it again', () => {
+    render(<BatchPage journeyId="j" />)
+    expect(screen.queryByTestId('quick-sort')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Quick sort' }))
+    expect(screen.getByRole('dialog', { name: 'Quick sort' })).toBeTruthy()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('quick-sort')).toBeNull()
+  })
+
+  it('hides the quick sort entry for viewers and when nothing is left', () => {
+    state.canEdit = false
+    const { rerender } = render(<BatchPage journeyId="j" />)
+    expect(screen.queryByRole('button', { name: 'Quick sort' })).toBeNull()
+    state.canEdit = true
+    state.query.data = []
+    rerender(<BatchPage journeyId="j" />)
+    expect(screen.queryByRole('button', { name: 'Quick sort' })).toBeNull()
+  })
+
   it('shows loading and a retry on error', () => {
     state.query.data = undefined
     const { rerender } = render(<BatchPage journeyId="j" />)

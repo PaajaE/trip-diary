@@ -176,4 +176,50 @@ describe('useBatchActions', () => {
     expect(cached()).toEqual([a.id, b.id])
     expect(starred()).toEqual([true, true])
   })
+
+  it('revert of a move restores the origins and marks as waiting, without a toast', async () => {
+    const { result, toasts } = setup([])
+    let ok = false
+    await act(async () => {
+      ok = await result.current.revert({ items: [a, b], kind: 'moveTo' })
+    })
+    expect(ok).toBe(true)
+    expect(repo.moveMedia).toHaveBeenCalledWith([a.id], M1)
+    expect(repo.detachMediaFromMoment).toHaveBeenCalledWith([b.id])
+    expect(repo.markMediaReviewed).toHaveBeenLastCalledWith([a.id, b.id], false)
+    expect(repo.deleteMomentWithMedia).not.toHaveBeenCalled()
+    expect(toasts).toHaveLength(0)
+  })
+
+  it('revert of a new stop also deletes the created stop', async () => {
+    const { result } = setup([])
+    await act(async () => {
+      await result.current.revert({
+        createdMomentId: 'made',
+        items: [b],
+        kind: 'newStop',
+      })
+    })
+    expect(repo.deleteMomentWithMedia).toHaveBeenCalledWith(
+      'made',
+      'keep_media',
+    )
+    expect(repo.markMediaReviewed).toHaveBeenLastCalledWith([b.id], false)
+  })
+
+  it('revert of Done only marks as waiting; failures report an error', async () => {
+    const { result, toasts } = setup([])
+    await act(async () => {
+      await result.current.revert({ items: [a], kind: 'done' })
+    })
+    expect(repo.moveMedia).not.toHaveBeenCalled()
+    expect(repo.markMediaReviewed).toHaveBeenLastCalledWith([a.id], false)
+    repo.markMediaReviewed.mockRejectedValueOnce(new Error('rls'))
+    let ok = true
+    await act(async () => {
+      ok = await result.current.revert({ items: [a], kind: 'done' })
+    })
+    expect(ok).toBe(false)
+    expect(toasts[0]).toMatchObject({ variant: 'error' })
+  })
 })
