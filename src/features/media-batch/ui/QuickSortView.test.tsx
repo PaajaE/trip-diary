@@ -15,6 +15,8 @@ import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace
 import { med, mom } from '@/features/journey-workspace/test-fixtures'
 import { QuickSortView } from '@/features/media-batch/ui/QuickSortView'
 
+const haptics = vi.hoisted(() => ({ haptic: vi.fn() }))
+vi.mock('@/shared/lib/haptics', () => haptics)
 vi.mock('@tanstack/react-router', () => ({
   Link: ({
     children,
@@ -253,6 +255,26 @@ describe('QuickSortView', () => {
     })
     expect(calls.done).toHaveBeenCalledTimes(1)
     expect(calls.moveTo).not.toHaveBeenCalled()
+  })
+
+  it('gives tactile feedback per action: star light, trash medium, stop success, undo light', async () => {
+    setup()
+    await act(async () => {
+      key('s')
+    })
+    expect(haptics.haptic).toHaveBeenLastCalledWith('light')
+    await act(async () => {
+      key('x')
+    })
+    expect(haptics.haptic).toHaveBeenLastCalledWith('medium')
+    await act(async () => {
+      key('Enter')
+    })
+    expect(haptics.haptic).toHaveBeenLastCalledWith('success')
+    await act(async () => {
+      key('u')
+    })
+    expect(haptics.haptic).toHaveBeenLastCalledWith('light')
   })
 
   it('keyboard: star, trash, accept; ignored in text fields', async () => {

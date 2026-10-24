@@ -54,6 +54,7 @@ import {
 } from '@/features/media-batch/model/uploaders'
 import { SeriesView } from '@/features/media-batch/ui/SeriesView'
 import { cn } from '@/shared/lib/cn'
+import { haptic, type HapticKind } from '@/shared/lib/haptics'
 import { buttonVariants } from '@/shared/ui/button-variants'
 
 export interface QuickSortViewProps {
@@ -136,6 +137,13 @@ function Stage({
  * action files it into the suggested stop; trash, best and "sorted" are one tap
  * away; every step goes on a stack that Undo really reverts.
  */
+/** Tactile feedback per step: trash is heavier, a whole series kept is a success. */
+function feedbackFor(type: SortAction['type'], count: number): HapticKind {
+  if (type === 'trash') return count > 1 ? 'success' : 'medium'
+  if (type === 'done') return 'light'
+  return 'success'
+}
+
 export function QuickSortView({
   actions,
   baseUrl,
@@ -251,6 +259,7 @@ export function QuickSortView({
     seq.current += 1
     const step = seq.current
     const action: SortAction = { ...draft, pending: true, seq: step }
+    haptic(feedbackFor(draft.type, draft.ids.length))
     setHistory((h) => pushAction(h, action))
     if (after === 'advance') {
       const next = new Map(handled)
@@ -286,6 +295,7 @@ export function QuickSortView({
       seq: seq.current,
       type: item.starred ? 'unstar' : 'star',
     }
+    haptic('light')
     setHistory((h) => pushAction(h, action))
     void actions.star([item])
   }
@@ -342,6 +352,7 @@ export function QuickSortView({
   const canUndo = top !== null
   const undo = () => {
     if (top === null) return
+    haptic('light')
     setHistory((h) => popAction(h))
     setOverlay('none')
     const first = top.ids[0]
