@@ -512,7 +512,7 @@ export function FixTimeLocationSheet({
               ) : null}
               <button
                 aria-pressed={committed !== null}
-                className="min-h-11 touch-manipulation rounded-lg border border-primary px-3 font-semibold text-primary disabled:opacity-40 aria-pressed:bg-primary aria-pressed:text-white"
+                className="min-h-11 touch-manipulation rounded-lg border border-primary px-3 font-semibold text-primary disabled:opacity-40 aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                 disabled={draft === null}
                 type="button"
                 onClick={() => {
@@ -534,7 +534,7 @@ export function FixTimeLocationSheet({
             {t('common.cancel')}
           </button>
           <button
-            className="min-h-14 flex-1 touch-manipulation rounded-lg bg-primary px-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="min-h-14 flex-1 touch-manipulation rounded-lg bg-primary px-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40"
             disabled={!canApply}
             type="button"
             onClick={() => {

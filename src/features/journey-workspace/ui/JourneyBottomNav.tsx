@@ -80,7 +80,7 @@ export function JourneyBottomNav({
                 <>
                   <span
                     aria-hidden="true"
-                    className="absolute top-1.5 left-1/2 ml-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[0.625rem] leading-4 font-semibold text-white"
+                    className="absolute top-1.5 left-1/2 ml-1.5 min-w-4 rounded-full bg-primary px-1 text-center text-[0.625rem] leading-4 font-semibold text-primary-foreground"
                     data-testid="bottom-nav-badge"
                   >
                     {batchCount > 99 ? '99+' : batchCount}
@@ -179,7 +179,7 @@ function AddSheet({
 }) {
   const { t } = useTranslation()
   const tile =
-    'flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-2 py-3 text-center text-sm font-semibold hover:bg-white active:bg-white'
+    'flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-2 py-3 text-center text-sm font-semibold hover:bg-sunk active:bg-white'
   const row =
     'flex min-h-14 items-center gap-3 rounded-xl px-3 text-left hover:bg-surface active:bg-surface'
   const choose = () => {

@@ -58,7 +58,7 @@ function markerElement(
   const badge = document.createElement('span')
   badge.textContent = String(point.index + 1)
   badge.className =
-    'absolute -bottom-1 -right-1 grid size-[18px] place-items-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-white'
+    'absolute -bottom-1 -right-1 grid size-[18px] place-items-center rounded-full border-2 border-white bg-primary text-[10px] font-bold text-primary-foreground'
   el.append(badge)
   el.addEventListener('click', onClick)
   return el

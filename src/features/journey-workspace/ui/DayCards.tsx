@@ -146,7 +146,7 @@ function SuggestionButtons({
       <button
         className={cn(
           COMPACT_BUTTON,
-          'border border-border/80 bg-surface hover:bg-white',
+          'border border-border/80 bg-surface hover:bg-sunk',
         )}
         type="button"
         onClick={() => {

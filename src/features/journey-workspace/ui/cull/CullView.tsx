@@ -600,7 +600,7 @@ export function CullView({
               </button>
               <button
                 ref={doneRef}
-                className="min-h-11 flex-1 rounded-xl bg-primary px-4 font-semibold text-white"
+                className="min-h-11 flex-1 rounded-xl bg-primary px-4 font-semibold text-primary-foreground"
                 type="button"
                 onClick={() => {
                   onClose(summary)

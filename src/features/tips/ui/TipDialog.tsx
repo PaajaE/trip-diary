@@ -107,7 +107,7 @@ export function TipDialog({ onClose, onSave, tip }: TipDialogProps) {
           />
           {titleError !== null ? (
             <p
-              className="mt-1 text-sm text-red-600"
+              className="mt-1 text-sm text-destructive"
               id={`${ids}-title-err`}
               role="alert"
             >
@@ -138,7 +138,7 @@ export function TipDialog({ onClose, onSave, tip }: TipDialogProps) {
             })}
           </p>
           {bodyError ? (
-            <p className="mt-1 text-sm text-red-600" role="alert">
+            <p className="mt-1 text-sm text-destructive" role="alert">
               {t('workspace.textBodyTooLong', { max: BODY_MAX_LENGTH })}
             </p>
           ) : null}

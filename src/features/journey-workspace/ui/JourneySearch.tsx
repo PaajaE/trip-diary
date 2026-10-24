@@ -362,7 +362,7 @@ export function JourneySearch({
               className={cn(
                 'inline-flex min-h-11 shrink-0 touch-manipulation items-center gap-1.5 rounded-full border px-4 text-sm font-medium',
                 filters[key] === true
-                  ? 'border-primary bg-primary text-white'
+                  ? 'border-primary bg-primary text-primary-foreground'
                   : 'border-border hover:bg-surface',
               )}
               key={key}

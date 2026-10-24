@@ -73,7 +73,7 @@ export function JourneyTabs({
               <>
                 <span
                   aria-hidden="true"
-                  className="min-w-5 rounded-full bg-primary px-1.5 text-center text-xs font-semibold leading-5 text-white"
+                  className="min-w-5 rounded-full bg-primary px-1.5 text-center text-xs font-semibold leading-5 text-primary-foreground"
                   data-testid="batch-badge"
                 >
                   {batchCount > 99 ? '99+' : batchCount}

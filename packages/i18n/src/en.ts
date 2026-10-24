@@ -377,6 +377,14 @@ export const en = {
     error: 'The profile could not be loaded.',
     notFound: 'This profile does not exist.',
     settings: {
+      appearance: {
+        title: 'Appearance',
+        hint: 'Applies to this device only.',
+        auto: 'Automatic',
+        autoHint: 'Follows your system setting',
+        light: 'Light',
+        dark: 'Dark',
+      },
       error: 'Profile settings could not be loaded.',
       loading: 'Loading profile settings…',
       signInRequired: 'Sign in to edit your profile.',

@@ -37,7 +37,7 @@ export function SpaceSwitcher({
       <button
         aria-controls={menuId}
         aria-expanded={open}
-        className="flex min-h-12 w-full items-center gap-3 rounded-md border border-border bg-surface px-3 text-left shadow-soft transition-colors hover:bg-white sm:w-72"
+        className="flex min-h-12 w-full items-center gap-3 rounded-md border border-border bg-surface px-3 text-left shadow-soft transition-colors hover:bg-sunk sm:w-72"
         onClick={() => {
           setOpen((current) => !current)
         }}

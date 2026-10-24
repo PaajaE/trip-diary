@@ -265,7 +265,7 @@ export function PublicMomentPage({
       </nav>
       <nav
         aria-label={t('publicJourney.floatingNav')}
-        className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 whitespace-nowrap rounded-full bg-foreground px-5 py-3 text-sm text-white shadow-soft"
+        className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 whitespace-nowrap rounded-full bg-foreground px-5 py-3 text-sm text-background shadow-soft"
       >
         {stage === null ? null : (
           <Link
@@ -278,7 +278,7 @@ export function PublicMomentPage({
           </Link>
         )}
         {position > 0 ? (
-          <span className="tabular-nums text-white/70">
+          <span className="tabular-nums text-background/70">
             {`${String(position)} / ${String(stageStops.length)}`}
           </span>
         ) : null}

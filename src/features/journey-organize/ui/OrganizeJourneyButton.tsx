@@ -140,7 +140,7 @@ export function OrganizeDialog({
         </button>
         {state.status === 'ready' && !isPlanEmpty(state.plan) ? (
           <button
-            className={`${dialogButton} bg-primary text-white`}
+            className={`${dialogButton} bg-primary text-primary-foreground`}
             type="button"
             onClick={() => {
               void apply(state.plan)

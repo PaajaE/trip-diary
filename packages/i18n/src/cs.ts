@@ -376,6 +376,14 @@ export const cs: TranslationResources = {
     error: 'Profil se nepodařilo načíst.',
     notFound: 'Tento profil neexistuje.',
     settings: {
+      appearance: {
+        title: 'Vzhled',
+        hint: 'Platí jen na tomto zařízení.',
+        auto: 'Automaticky',
+        autoHint: 'Podle nastavení systému',
+        light: 'Světlý',
+        dark: 'Tmavý',
+      },
       error: 'Nastavení profilu se nepodařilo načíst.',
       loading: 'Načítání nastavení profilu…',
       signInRequired: 'Pro úpravu profilu se přihlas.',

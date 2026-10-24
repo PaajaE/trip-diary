@@ -154,7 +154,7 @@ export function JourneyCard({
   const toSort = progress?.mediaUnreviewed ?? 0
   return (
     <Link
-      className="block overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface shadow-soft transition-colors hover:bg-white"
+      className="block overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface shadow-soft transition-colors hover:bg-sunk"
       params={{ journeyId: journey.id }}
       search={{}}
       to="/j/$journeyId"
@@ -179,7 +179,7 @@ export function JourneyCard({
           </p>
           {toSort > 0 ? (
             <span
-              className="shrink-0 rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-white"
+              className="shrink-0 rounded-full bg-primary px-2.5 py-0.5 text-xs font-semibold text-primary-foreground"
               data-testid="journey-card-to-sort"
             >
               {t('dashboard.card.toSort', { n: toSort })}
@@ -289,7 +289,7 @@ export function ContinueTripHero({
           </Link>
         )}
         <Link
-          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-semibold hover:bg-white sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border bg-background px-5 text-sm font-semibold hover:bg-surface sm:w-auto"
           params={{ journeyId: journey.id }}
           to="/j/$journeyId/quick"
         >

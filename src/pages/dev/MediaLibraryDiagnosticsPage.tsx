@@ -144,7 +144,7 @@ export function MediaLibraryDiagnosticsPage() {
             Povolit přístup
           </button>
           <button
-            className="rounded-lg bg-primary px-3 py-2 text-white disabled:opacity-50"
+            className="rounded-lg bg-primary px-3 py-2 text-primary-foreground disabled:opacity-50"
             disabled={running}
             onClick={() => void handleRun()}
             type="button"

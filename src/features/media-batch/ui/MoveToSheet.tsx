@@ -24,7 +24,7 @@ interface MoveToSheetProps {
 const FOCUSABLE =
   'button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
 const BIG =
-  'flex min-h-14 flex-1 touch-manipulation items-center justify-center gap-1 rounded-lg bg-primary px-3 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40'
+  'flex min-h-14 flex-1 touch-manipulation items-center justify-center gap-1 rounded-lg bg-primary px-3 font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-40'
 
 /**
  * "Move to" bottom sheet. Rendered above the photo viewer (z-60 vs 50), so it

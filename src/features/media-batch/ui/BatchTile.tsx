@@ -60,7 +60,7 @@ export function BatchTile({
           aria-hidden="true"
           className={cn(
             'absolute left-1.5 top-1.5 flex size-6 items-center justify-center rounded-full border-2 border-white shadow',
-            selected ? 'bg-primary text-white' : 'bg-black/35',
+            selected ? 'bg-primary text-primary-foreground' : 'bg-black/35',
           )}
         >
           {selected ? <Check size={14} strokeWidth={3} /> : null}

@@ -282,7 +282,7 @@ function MapTimeline() {
       >
         {times.map((time, index) => (
           <li className="flex items-center gap-2" key={time}>
-            <span className="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-white">
+            <span className="flex size-6 items-center justify-center rounded-full bg-accent text-xs font-semibold text-primary-foreground">
               {index + 1}
             </span>
             <span className="text-sm font-semibold tabular-nums">{time}</span>

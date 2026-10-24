@@ -139,7 +139,7 @@ export function TextEditDialog({
           />
           {titleError !== null ? (
             <p
-              className="mt-1 text-sm text-red-600"
+              className="mt-1 text-sm text-destructive"
               id={titleErrorId}
               role="alert"
             >
@@ -175,7 +175,7 @@ export function TextEditDialog({
           </p>
           {bodyError !== null ? (
             <p
-              className="mt-1 text-sm text-red-600"
+              className="mt-1 text-sm text-destructive"
               id={bodyErrorId}
               role="alert"
             >

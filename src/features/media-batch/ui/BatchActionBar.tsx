@@ -98,7 +98,10 @@ export function BatchActionBar({
           {t('dayDetail.toTrash')}
         </button>
         <button
-          className={cn(BUTTON, 'bg-primary font-semibold text-white')}
+          className={cn(
+            BUTTON,
+            'bg-primary font-semibold text-primary-foreground',
+          )}
           disabled={disabled}
           title={t('mediaBatch.doneHint')}
           type="button"
