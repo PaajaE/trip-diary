@@ -38,6 +38,7 @@ export function toMediaItem(row: MediaWithVariants): MediaItem {
     phash: row.phash,
     // A bad analysis blob must never hide the photo: drop it instead.
     quality: mediaQualitySchema.safeParse(row.quality).data ?? null,
+    reviewedAt: row.reviewed_at,
     segmentOverrideId: row.segment_override_id,
     starred: row.starred,
     status: row.status,

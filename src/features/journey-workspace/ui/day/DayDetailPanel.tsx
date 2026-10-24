@@ -4,12 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { useDayNotes } from '@/entities/day-note/api/use-day-notes'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-workspace-edits'
+import {
+  dayMediaCounts,
+  dayStatus,
+} from '@/features/journey-workspace/model/day-status'
 import { buildDayStops } from '@/features/journey-workspace/model/day-stops'
 import {
   dayPlaceNames,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
+import { DayStatusChips } from '@/features/journey-workspace/ui/DayStatusChips'
 import { CullView } from '@/features/journey-workspace/ui/cull/CullView'
 import { DayMiniMap } from '@/features/journey-workspace/ui/day/DayMiniMap'
 import { DayNoteEditor } from '@/features/journey-workspace/ui/day/DayNoteEditor'
@@ -150,6 +155,11 @@ function DayDetailBody({
     (id) => placeNames.get(id),
     3,
   )
+  const status = dayStatus({
+    dated,
+    hasNote: notes.byDate.has(dayKey),
+    ...dayMediaCounts(moments),
+  })
   const meta = [
     dayNumber === null ? null : t('dayDetail.dayOf', { n: dayNumber }),
     places.length > 0 ? places.join(' · ') : null,
@@ -344,6 +354,12 @@ function DayDetailBody({
             {dayLabel}
           </h2>
           <p className="mt-1.5 text-sm text-muted">{meta}</p>
+          <div
+            className="mt-2 flex flex-wrap items-center gap-2"
+            data-testid="day-status"
+          >
+            <DayStatusChips detail journeyId={journeyId} status={status} />
+          </div>
 
           <DayNoteEditor
             canEdit={canEdit}

@@ -114,6 +114,19 @@ describe('media library repository', () => {
     expect(items[1]).toMatchObject({ phash: null, quality: null })
   })
 
+  it('maps reviewed_at: an instant when sorted, null when not', async () => {
+    result = {
+      data: [
+        { ...row, reviewed_at: '2026-06-01T10:00:00+00:00' },
+        { ...row, reviewed_at: null },
+      ],
+      error: null,
+    }
+    const items = await listJourneyMedia(J)
+    expect(items[0]?.reviewedAt).toBe('2026-06-01T10:00:00+00:00')
+    expect(items[1]?.reviewedAt).toBeNull()
+  })
+
   it('updates metadata with granted columns only', async () => {
     result = { data: { ...row, starred: true }, error: null }
     const item = await updateMediaMeta(A, {

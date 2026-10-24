@@ -1,3 +1,4 @@
+import { isUnreviewed } from '@/features/journey-workspace/model/day-status'
 import type { MomentDay } from '@/features/journey-workspace/model/workspace-days'
 import type {
   WorkspaceMoment,
@@ -65,6 +66,8 @@ export interface WorkspaceTasks {
     /** Some of them belong to no moment (they live in the unassigned group). */
     unassigned: boolean
   }
+  /** Photos and videos nobody has sorted yet (reviewed_at is null). */
+  unreviewed: { count: number }
   /** Segments waiting for accept or reject. */
   suggestions: { count: number; firstSegmentId: string | null }
 }
@@ -92,6 +95,7 @@ export function computeTasks(
   let toCull = 0
   let firstToCull: string | null = null
   let noTime = 0
+  let unreviewed = 0
   let firstNoTime: string | null = null
   for (const day of days) {
     if (!dayHasText(day.moments, written, noteDays.has(day.key))) {
@@ -102,6 +106,8 @@ export function computeTasks(
       toCull += 1
       firstToCull ??= day.key
     }
+    for (const entry of day.moments)
+      unreviewed += entry.media.filter(isUnreviewed).length
     const missing = day.moments.reduce(
       (sum, entry) =>
         sum + entry.media.filter((item) => item.capturedAt === null).length,
@@ -123,6 +129,9 @@ export function computeTasks(
       count: noTime + unassignedMissing,
       firstDay: firstNoTime,
       unassigned: unassignedMissing > 0,
+    },
+    unreviewed: {
+      count: unreviewed + tree.unassigned.filter(isUnreviewed).length,
     },
     suggestions: {
       count: suggestions.length,

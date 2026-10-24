@@ -82,6 +82,37 @@ function NewBadge() {
   )
 }
 
+/** "hotovo" when every day is done, else "X z Y"; null for a chapter without days. */
+function RailProgress({ chapter }: { chapter: OverviewChapter }) {
+  const { t } = useTranslation()
+  if (chapter.totalDays === 0) return null
+  const allDone = chapter.doneDays === chapter.totalDays
+  return (
+    <span
+      aria-label={
+        allDone
+          ? t('workspace.overview.railAllDone')
+          : t('workspace.overview.railProgress', {
+              count: chapter.totalDays,
+              done: chapter.doneDays,
+            })
+      }
+      className={cn(
+        'ml-1 font-normal',
+        allDone ? 'text-primary' : 'text-muted',
+      )}
+      data-testid="rail-progress"
+    >
+      {allDone
+        ? t('workspace.overview.railDone')
+        : t('workspace.overview.railRatio', {
+            done: chapter.doneDays,
+            total: chapter.totalDays,
+          })}
+    </span>
+  )
+}
+
 interface RailProps {
   activeId: string | null
   chapters: OverviewChapter[]
@@ -119,9 +150,19 @@ function CollapsedRail({
       <ul className="m-0 flex list-none flex-col items-center gap-2 p-1 pb-3">
         {chapters.map((chapter) => {
           const range = chapterRange(chapter, locale)
+          const progress =
+            chapter.totalDays === 0
+              ? ''
+              : chapter.doneDays === chapter.totalDays
+                ? t('workspace.overview.railAllDone')
+                : t('workspace.overview.railProgress', {
+                    count: chapter.totalDays,
+                    done: chapter.doneDays,
+                  })
           const label = [
             chapterTitle(chapter, t('workspace.looseMoments')),
             range,
+            progress,
           ]
             .filter((part) => part !== '')
             .join(' · ')
@@ -215,6 +256,7 @@ export function StageRail({
                     )}
                   >
                     {title}
+                    <RailProgress chapter={chapter} />
                   </span>
                   <span className="block text-[11.5px] text-muted">
                     {chapter.suggested

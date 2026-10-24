@@ -2,7 +2,12 @@ import { useTranslation } from 'react-i18next'
 import type { WorkspaceTasks } from '@/features/journey-workspace/model/workspace-tasks'
 import { cn } from '@/shared/lib/cn'
 
-export type TaskId = 'noText' | 'noTime' | 'suggestions' | 'toCull'
+export type TaskId =
+  | 'noText'
+  | 'noTime'
+  | 'suggestions'
+  | 'toCull'
+  | 'unreviewed'
 
 /**
  * "What to do next": chips with counts computed from the data. A chip with
@@ -17,6 +22,11 @@ export function OverviewTaskBar({
 }) {
   const { t } = useTranslation()
   const items: { count: number; id: TaskId; label: string }[] = [
+    {
+      count: tasks.unreviewed.count,
+      id: 'unreviewed',
+      label: t('workspace.tasks.unreviewed'),
+    },
     {
       count: tasks.suggestions.count,
       id: 'suggestions',

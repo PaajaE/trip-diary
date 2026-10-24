@@ -329,6 +329,12 @@ export function JourneyWorkspace({
           })
           break
         }
+        case 'unreviewed':
+          void navigate({
+            params: { journeyId },
+            to: '/j/$journeyId/batch',
+          })
+          break
         case 'noText':
           if (tasks.daysWithoutText.firstDay !== null)
             goToDay(tasks.daysWithoutText.firstDay)
@@ -345,7 +351,7 @@ export function JourneyWorkspace({
           break
       }
     },
-    [goToDay, overview],
+    [goToDay, journeyId, navigate, overview],
   )
 
   const selectPin = useCallback(

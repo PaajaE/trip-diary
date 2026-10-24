@@ -86,7 +86,7 @@ function render(ui: ReactElement) {
 
 const T = (day: string, hhmm = '10:00') => `2026-01-${day}T${hhmm}:00+00:00`
 
-function loadJourney() {
+function loadJourney(backlog = true) {
   const alpha = seg(1, {
     endsAt: T('05', '00:00'),
     startsAt: T('01', '00:00'),
@@ -119,10 +119,10 @@ function loadJourney() {
   state = {
     status: 'ready',
     tree: buildWorkspaceTree([alpha, beta], moments, [
-      photo(20, moments[0]?.id ?? ''),
+      photo(20, moments[0]?.id ?? '', backlog ? { reviewedAt: null } : {}),
       photo(21, moments[0]?.id ?? ''),
       photo(22, moments[1]?.id ?? '', { capturedAt: null }),
-      med(23, { capturedAt: null }),
+      med(23, { capturedAt: null, ...(backlog ? { reviewedAt: null } : {}) }),
     ]),
   }
 }
@@ -184,6 +184,31 @@ describe('JourneyWorkspace overview', () => {
     expect(chip('toCull')?.dataset.done).toBe('true')
     expect(chip('noTime')?.textContent).toMatch(/^2/)
     expect(chip('noText')?.dataset.done).toBeUndefined()
+    // Photo 20 (in a day) and 23 (unassigned) are unreviewed; the rest have
+    // no reviewedAt at all, which counts as reviewed.
+    expect(bar.querySelector('[data-task]')?.getAttribute('data-task')).toBe(
+      'unreviewed',
+    )
+    expect(chip('unreviewed')?.textContent).toMatch(/^2/)
+  })
+
+  it('hides the sort chip as done when nothing is unreviewed', () => {
+    loadJourney(false)
+    render(<JourneyWorkspace journeyId="j" />)
+    const chip = document.querySelector<HTMLElement>('[data-task="unreviewed"]')
+    expect(chip?.dataset.done).toBe('true')
+    expect(chip?.hasAttribute('disabled')).toBe(true)
+  })
+
+  it('opens the batch sorter from the sort chip', () => {
+    loadJourney()
+    navigate.mockClear()
+    render(<JourneyWorkspace journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: /Sort/ }))
+    expect(navigate).toHaveBeenCalledWith({
+      params: { journeyId: 'j' },
+      to: '/j/$journeyId/batch',
+    })
   })
 
   it('opens the first day without text from its chip', () => {
@@ -216,7 +241,31 @@ describe('JourneyWorkspace overview', () => {
         '100 % done',
       )
       const card = document.querySelector('[data-day-card="2026-01-03"]')
-      expect(within(card as HTMLElement).getByText('✎ text')).toBeTruthy()
+      expect(within(card as HTMLElement).getByText('Note')).toBeTruthy()
+      // 1 of 2 days of Alpha is done: photos sorted plus a note.
+      expect(within(alpha).getByTestId('rail-progress').textContent).toBe(
+        '1 of 2',
+      )
+    } finally {
+      dayNotes.byDate = new Map()
+    }
+  })
+
+  it('shows "done" on a stage whose days are all done', () => {
+    wide()
+    loadJourney(false)
+    dayNotes.byDate = new Map([
+      ['2026-01-02', 'a'],
+      ['2026-01-03', 'b'],
+    ])
+    try {
+      render(<JourneyWorkspace journeyId="j" />)
+      const rail = screen.getByRole('navigation', { name: 'Stages' })
+      const alpha = within(rail).getByRole('button', { name: /Alpha/ })
+      expect(within(alpha).getByTestId('rail-progress').textContent).toBe(
+        'done',
+      )
+      expect(within(alpha).getByLabelText('All days done')).toBeTruthy()
     } finally {
       dayNotes.byDate = new Map()
     }
@@ -282,9 +331,12 @@ describe('JourneyWorkspace overview', () => {
     expect(card.getByText('Fri 2 Jan')).toBeTruthy()
     expect(card.getByText('Day 1')).toBeTruthy()
     expect(card.getByText('2 photos')).toBeTruthy()
-    expect(card.getByText('✎ text')).toBeTruthy()
+    expect(card.getByText('1 left')).toBeTruthy()
+    expect(card.getByText('No note')).toBeTruthy()
+    expect(card.queryByText('Sorted')).toBeNull()
     const second = within(cards[1] as HTMLElement)
-    expect(second.getByText('no text')).toBeTruthy()
+    expect(second.getByText('Sorted')).toBeTruthy()
+    expect(second.getByText('No note')).toBeTruthy()
     // Overview shows no moment cards and no inline photo rows any more.
     expect(screen.queryByTestId('moment-rail')).toBeNull()
     expect(within(alpha).queryByTestId('editable-media-tile')).toBeNull()

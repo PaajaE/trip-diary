@@ -6,10 +6,17 @@ import {
   segmentElementId,
 } from '@/features/journey-workspace/lib/outline-ids'
 import {
+  chapterProgress,
+  dayMediaCounts,
+  dayStatus,
+  type DayStatus,
+} from '@/features/journey-workspace/model/day-status'
+import {
   dayNumber,
   firstDayKey,
   groupMomentsByDay,
   type MomentDay,
+  UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 import {
   computeTasks,
@@ -45,6 +52,8 @@ export interface OverviewDay {
   /** Hero first, then up to two more from other stops. */
   mosaic: MediaItem[]
   hasText: boolean
+  /** Derived photo and note state of the day (never stored). */
+  status: DayStatus
   starred: boolean
 }
 
@@ -54,6 +63,9 @@ export interface OverviewChapter {
   colorIndex: number
   cover: MediaItem | null
   days: OverviewDay[]
+  /** Days of the chapter that are fully done, and all its days. */
+  doneDays: number
+  totalDays: number
   /** DOM id the rail, the strip and the map scroll to. */
   elementId: string
   endsAt: string | null
@@ -208,6 +220,11 @@ export function buildOverview(
     for (const entry of day.moments) dayOfMoment.set(entry.moment.id, day.key)
 
   const cardOf = (day: MomentDay, coverId: string | null): OverviewDay => ({
+    status: dayStatus({
+      dated: day.key !== UNKNOWN_DAY,
+      hasNote: noteDays.has(day.key),
+      ...dayMediaCounts(day.moments),
+    }),
     hasText: dayHasText(day.moments, written, noteDays.has(day.key)),
     key: day.key,
     momentIds: day.moments.map((entry) => entry.moment.id),
@@ -227,6 +244,7 @@ export function buildOverview(
     const cards = groupMomentsByDay(moments, fallbackTz).map((day) =>
       cardOf(day, cover?.id ?? null),
     )
+    const progress = chapterProgress(cards)
     const first = moments[0]
     const last = moments[moments.length - 1]
     const segment = loose ? null : entry.node.segment
@@ -235,6 +253,8 @@ export function buildOverview(
       colorIndex: loose ? 0 : colored % STRIP_COLORS,
       cover,
       days: cards,
+      doneDays: progress.done,
+      totalDays: progress.total,
       elementId: loose ? looseElementId(entry.scope) : segmentElementId(id),
       endsAt: segment?.endsAt ?? last?.moment.endsAt ?? null,
       id,

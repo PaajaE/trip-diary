@@ -25,6 +25,10 @@ import {
   type DayDetailPanelProps,
 } from '@/features/journey-workspace/ui/day/DayDetailPanel'
 
+vi.mock('@tanstack/react-router', async () => {
+  const { MockLink } = await import('@/features/journey-workspace/test-router')
+  return { Link: MockLink }
+})
 const noteApi = vi.hoisted(() => ({
   byDate: new Map<string, string>(),
   save: vi.fn(),
@@ -162,6 +166,49 @@ beforeEach(() => {
   noteApi.save.mockReset().mockResolvedValue(true)
 })
 afterEach(cleanup)
+
+describe('DayDetailPanel status chips', () => {
+  const unsorted = (over: Partial<WorkspaceMoment>): WorkspaceMoment[] => [
+    {
+      ...moments[0]!,
+      media: [
+        { ...A, reviewedAt: null },
+        { ...B, reviewedAt: '2026-06-04T10:00:00Z' },
+      ],
+      ...over,
+    },
+  ]
+
+  it('links the remaining count to the batch sorter and flags the missing note', () => {
+    setup({ moments: unsorted({}) })
+    const status = screen.getByTestId('day-status')
+    const link = within(status).getByRole('link', { name: '1 left to sort' })
+    expect(link.getAttribute('href')).toBe(`/j/${uuid(999)}/batch`)
+    expect(within(status).getByText('Day note missing')).toBeTruthy()
+    expect(within(status).queryByText('Photos sorted')).toBeNull()
+  })
+
+  it('shows sorted photos and no missing-note chip when all is done', () => {
+    noteApi.byDate = new Map([['2026-06-03', 'Text']])
+    setup({
+      moments: unsorted({
+        media: [{ ...A, reviewedAt: '2026-06-04T10:00:00Z' }],
+      }),
+    })
+    const status = screen.getByTestId('day-status')
+    expect(within(status).getByText('Photos sorted')).toBeTruthy()
+    expect(within(status).getByText('Note')).toBeTruthy()
+    expect(within(status).queryByRole('link')).toBeNull()
+    expect(within(status).queryByText('Day note missing')).toBeNull()
+  })
+
+  it('treats media without reviewedAt as sorted', () => {
+    setup()
+    const status = screen.getByTestId('day-status')
+    expect(within(status).getByText('Photos sorted')).toBeTruthy()
+    expect(within(status).queryByRole('link')).toBeNull()
+  })
+})
 
 describe('DayDetailPanel', () => {
   it('shows the title, meta line, stops with text and photo counts', () => {

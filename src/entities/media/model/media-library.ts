@@ -48,6 +48,8 @@ export const mediaItemSchema = z.object({
   phash: z.number().int().nonnegative().nullable().optional(),
   /** On-device analysis result; invalid stored JSON is dropped, never fatal. */
   quality: mediaQualitySchema.nullable().optional(),
+  /** When the owner sorted the item (UX-39); absent in old cached data. */
+  reviewedAt: instantSchema.nullable().optional(),
   segmentOverrideId: z.uuid().nullable(),
   starred: z.boolean(),
   status: z.enum(['pending', 'uploading', 'ready', 'failed']),

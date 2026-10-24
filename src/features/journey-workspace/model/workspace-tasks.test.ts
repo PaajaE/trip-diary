@@ -131,4 +131,32 @@ describe('task bar counts', () => {
     ])
     expect(overview.chapters[0]?.progress).toBe(0.5)
   })
+
+  it('counts unreviewed media per day, per chapter and for the journey', () => {
+    const stage = seg(1, { endsAt: T('04'), startsAt: T('01') })
+    const moments = [
+      mom(10, { startsAt: T('02') }),
+      mom(11, { startsAt: T('03') }),
+    ]
+    const tree = buildWorkspaceTree([stage], moments, [
+      ...photos(20, 2, moments[0]?.id ?? '', { reviewedAt: null }),
+      // No reviewedAt at all (old cached data) counts as reviewed.
+      ...photos(30, 3, moments[1]?.id ?? ''),
+      med(40, { capturedAt: null, reviewedAt: null }),
+    ])
+    const overview = buildOverview(
+      tree,
+      none,
+      'Europe/Prague',
+      new Set(['2026-01-03']),
+    )
+    expect(overview.tasks.unreviewed.count).toBe(3)
+    const chapter = overview.chapters[0]
+    expect(chapter?.days.map((d) => d.status.unreviewed)).toEqual([2, 0])
+    expect(chapter?.days.map((d) => d.status.overall)).toEqual([
+      'notStarted',
+      'done',
+    ])
+    expect(chapter).toMatchObject({ doneDays: 1, totalDays: 2 })
+  })
 })

@@ -17,6 +17,7 @@ import {
   StateIcons,
   type EditingContext,
 } from '@/features/journey-workspace/ui/moment-blocks'
+import { DayStatusChips } from '@/features/journey-workspace/ui/DayStatusChips'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import {
   chapterRange,
@@ -109,15 +110,7 @@ export function DayCard({
               {t('terms.photo.count', { count: day.photoCount })}
             </span>
           ) : null}
-          {day.hasText ? (
-            <span className={cn(BADGE, 'bg-primary-soft text-primary')}>
-              {t('workspace.overview.hasText')}
-            </span>
-          ) : (
-            <span className={cn(BADGE, 'bg-accent-soft text-accent')}>
-              {t('workspace.overview.noText')}
-            </span>
-          )}
+          <DayStatusChips status={day.status} />
         </span>
       </span>
     </Link>

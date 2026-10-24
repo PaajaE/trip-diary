@@ -522,3 +522,5 @@ UX review stavu aplikace (kód, texty, plán; **aplikace nespuštěna, žádné 
 | Prohlížeč v dávce má prázdné cíle (`NO_TARGETS`): z celé obrazovky nejde zařadit                       | UX-36     |
 | Třídění rozdělené na Dávku, Výběr nejlepších a prohlížeč; v dávce chybí rychlé třídění a výběr tažením | UX-30, 35 |
 | Dashboard bez fotek a bez počtu k roztřídění; Přehled bez stavu dne                                    | UX-14, 39 |
+
+Průběh 2026-10-24 (větev `claude/affectionate-knuth-8abj8b`, PR #46): implementovány UX-01–03, DB D1–D3 (pgTAP a `db:types` v CI zelené), UX-10/11/14/15, core funkce pro série a návrh zastávky, import `phash` a `quality` za vypínačem `VITE_MEDIA_ANALYSIS` (výchozí vypnuto, produkční DB sloupce nemá), Rychlé třídění, Série, souhrn, filtry a výběr tažením v dávce, odvozený stav dne. Ověřeno: `typecheck`, `lint`, 999 testů, `prettier`, `build`, CI. **Neověřeno:** běh v prohlížeči, dotyková gesta, iPhone, výkon a paměť výpočtu `phash` ve WKWebView, kalibrace prahů ostrosti a sérií (UNVERIFIED), e2e Playwright. D1–D3 nejsou v produkci.
