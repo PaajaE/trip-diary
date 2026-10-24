@@ -11,6 +11,7 @@ import type { PropsWithChildren } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
+import type * as MediaLibraryModule from '@/entities/media/model/media-library'
 import { med } from '@/features/journey-workspace/test-fixtures'
 import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { ToastContext, type ShowToastOptions } from '@/shared/ui/toast-context'
@@ -24,6 +25,13 @@ const organize = vi.hoisted(() => ({
   organizeJourney: vi.fn(() => Promise.resolve({ counts: {}, ok: true })),
 }))
 vi.mock('@/entities/media/api/media-corrections.repository', () => repo)
+// The real limit (366 days) would need 367 clicks, slow in a loaded CI: the
+// exact boundary is covered by model/fix-time.test.ts; here a 3-day limit
+// proves that the sheet reacts to it.
+vi.mock('@/entities/media/model/media-library', async (importOriginal) => ({
+  ...(await importOriginal<typeof MediaLibraryModule>()),
+  MAX_SHIFT_SECONDS: 3 * 86_400,
+}))
 vi.mock('@/features/journey-organize/api/organize-journey', () => organize)
 // No real map in tests: the stub picks Brno when its button is pressed.
 vi.mock('@/features/media-corrections/ui/LocationPickerMap', () => ({
@@ -128,14 +136,14 @@ describe('FixTimeLocationSheet', () => {
     expect(screen.getByTestId('fix-shift')).toHaveTextContent('No change')
   })
 
-  it('refuses a shift over 366 days', () => {
+  it('refuses a shift over the limit', () => {
     renderSheet()
-    for (let i = 0; i < 366; i += 1) click('Clock was a day behind')
+    for (let i = 0; i < 3; i += 1) click('Clock was a day behind')
     expect(screen.queryByRole('alert')).toBeNull()
     const apply = screen.getByRole('button', { name: 'Fix 2 photos' })
     expect((apply as HTMLButtonElement).disabled).toBe(false)
     click('Clock was a day behind')
-    expect(screen.getByRole('alert')).toHaveTextContent('at most 366 days')
+    expect(screen.getByRole('alert')).toHaveTextContent(/at most/)
     expect((apply as HTMLButtonElement).disabled).toBe(true)
   })
 
