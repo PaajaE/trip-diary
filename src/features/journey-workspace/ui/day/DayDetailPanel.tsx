@@ -319,23 +319,6 @@ function DayDetailBody({
                 >
                   {t('dayDetail.selectMode')}
                 </button>
-                {/* TODO(4c): merge stops / move to another day. */}
-                <button
-                  className={chip}
-                  disabled
-                  title={t('dayDetail.splitSoon')}
-                  type="button"
-                >
-                  {t('dayDetail.mergeStops')}
-                </button>
-                <button
-                  className={chip}
-                  disabled
-                  title={t('dayDetail.splitSoon')}
-                  type="button"
-                >
-                  {t('dayDetail.moveToDay')}
-                </button>
               </div>
             </div>
           </aside>

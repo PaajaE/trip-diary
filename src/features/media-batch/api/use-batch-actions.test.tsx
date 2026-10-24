@@ -91,7 +91,7 @@ describe('useBatchActions', () => {
     expect(ok).toBe(true)
     expect(repo.markMediaReviewed).toHaveBeenCalledWith([a.id, b.id])
     expect(cached()).toEqual([c.id])
-    expect(toasts[0]).toMatchObject({ message: 'Sorted: 2' })
+    expect(toasts[0]).toMatchObject({ message: 'Handled: 2' })
     await act(async () => {
       toasts[0]?.action?.onClick()
       await Promise.resolve()

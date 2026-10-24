@@ -118,6 +118,7 @@ export function BatchActionBar({
         <button
           className={cn(BUTTON, 'bg-primary font-semibold text-white')}
           disabled={disabled}
+          title={t('mediaBatch.doneHint')}
           type="button"
           onClick={onDone}
         >

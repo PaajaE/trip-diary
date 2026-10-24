@@ -1,4 +1,12 @@
-import { ChevronLeft, ChevronRight, Star, Trash2, Undo2, X } from 'lucide-react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Star,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -68,6 +76,7 @@ export function CullView({
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const titleId = useId()
+  const noStarsId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const filmstripRef = useRef<HTMLDivElement>(null)
   const doneRef = useRef<HTMLButtonElement>(null)
@@ -315,6 +324,7 @@ export function CullView({
   const { imageUrl, videoUrl } = getViewerUrls(item, baseUrl)
   const position = positionAmongVisible(entries, filter, index)
   const total = entries.filter((e) => isVisible(e, filter)).length
+  const filterDisabled = !filter && starredTotal === 0
   const chip =
     'flex min-h-11 items-center justify-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-40'
   const bigButton =
@@ -361,13 +371,21 @@ export function CullView({
             chip,
             filter && 'bg-amber-400 text-black hover:bg-amber-300',
           )}
-          disabled={!filter && starredTotal === 0}
+          aria-describedby={filterDisabled ? noStarsId : undefined}
+          disabled={filterDisabled}
+          title={filterDisabled ? t('cull.noStarsYet') : undefined}
           type="button"
           onClick={toggleFilter}
         >
           <Star aria-hidden="true" size={16} />
           {t('cull.filterStarred')}
+          {filter ? <Check aria-hidden="true" size={16} /> : null}
         </button>
+        {filterDisabled ? (
+          <span className="sr-only" id={noStarsId}>
+            {t('cull.noStarsYet')}
+          </span>
+        ) : null}
         <button
           aria-pressed={autoAdvance}
           className={cn(chip, autoAdvance && 'bg-white/30')}
@@ -377,6 +395,7 @@ export function CullView({
           }}
         >
           {t('cull.autoAdvance')}
+          {autoAdvance ? <Check aria-hidden="true" size={16} /> : null}
         </button>
       </div>
 
@@ -459,6 +478,13 @@ export function CullView({
         {item.capturedAt !== null
           ? `${formatInstantDate(item.capturedAt, zone, locale)}, ${formatLocalTime(item.capturedAt, zone, locale)}`
           : t('cull.noDate')}
+      </p>
+
+      <p
+        className="hidden shrink-0 px-4 pb-1 text-center text-xs text-white/60 [@media(hover:hover)_and_(pointer:fine)]:block"
+        data-testid="cull-keyboard-hints"
+      >
+        {t('cull.keyboardHints')}
       </p>
 
       <div

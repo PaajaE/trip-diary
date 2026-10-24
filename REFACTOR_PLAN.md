@@ -215,3 +215,13 @@ Cíl: tři aditivní migrace podle tabulky D1–D3 v plánu, žádná změna exi
 ### L.4 Otevřené (viz plán, „Rozhodnutí ke schválení“)
 
 Poloha pro rodinu (výchozí vypnuto), kanál denního souhrnu (Atom/RSS vs e-mail), nové závislosti (Haptics, PDF, obrázek příběhu), hlas jen jako přepis, návrh zápisu deterministický. Fáze 5b (veřejný čtenář) má stále otevřenou bránu výkonu (Lighthouse mobil 58 v simulaci), 4e ji neřeší.
+
+### L.5 Průběh (2026-10-24)
+
+| Úkol / vlna         | Stav           | Ověřeno                                                                                                                                            | Neověřeno                                                                                                               |
+| ------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| UX-01, 02, 03       | 🟡 IMPLEMENTED | `pnpm typecheck`, `pnpm lint`, `pnpm test` (167 souborů, 866 testů), `pnpm test:packages`, prettier; test slovníku v `packages/i18n`; diff přečten | Chování v prohlížeči a na dotyku (menu, Esc, nápověda kláves, 44px cíl), `build`, e2e, iPhone                           |
+| D1, D2, D3 (vlna 2) | 🟡 IMPLEMENTED | SQL a testy přečteny orchestrátorem a nezávislým reviewerem; 3 chyby v testech a `abs()` opraveny                                                  | `supabase db reset`, `db:test`, `db:lint`, `db:types` (bez Dockeru; ověří CI na PR); ručně upravené `database.types.ts` |
+
+Rozhodnutí z review: zápis `phash` a `quality` smí vlastník média i editor cesty (stejně jako ostatní metadata). Klient musí `journey_progress.cover_media_id` parsovat jako nullable (typ z generátoru je bez `null`).
+Další krok: vlna 3 (UX-31 spike, UX-30, 32–36, 38, 39, 10, 11, 14, 15) podle L.1. PR a CI pro DB zatím neotevřeno.

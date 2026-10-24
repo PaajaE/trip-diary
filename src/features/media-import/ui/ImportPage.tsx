@@ -452,15 +452,17 @@ function ImportView({
           <SectionHeading>{t('mediaImport.queueTitle')}</SectionHeading>
           <Card className="space-y-4">
             <ul className="flex flex-wrap gap-2 text-sm">
-              {UPLOAD_JOB_STATES.map((state) => (
-                <li
-                  className="rounded-full bg-background px-3 py-1 font-medium"
-                  data-state={state}
-                  key={state}
-                >
-                  {t(`mediaImport.state.${state}`, { count: counts[state] })}
-                </li>
-              ))}
+              {UPLOAD_JOB_STATES.filter((state) => counts[state] > 0).map(
+                (state) => (
+                  <li
+                    className="rounded-full bg-background px-3 py-1 font-medium"
+                    data-state={state}
+                    key={state}
+                  >
+                    {t(`mediaImport.state.${state}`, { count: counts[state] })}
+                  </li>
+                ),
+              )}
             </ul>
             {runtime === 'waiting_online' ? (
               <p className="text-sm text-muted" role="status">

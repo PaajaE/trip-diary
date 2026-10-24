@@ -2,13 +2,12 @@ import { Link } from '@tanstack/react-router'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { OrganizeDialog } from '@/features/journey-organize/ui/OrganizeJourneyButton'
-import { OverflowMenu } from '@/features/journey-workspace/ui/OverflowMenu'
 import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 
 /**
- * Workspace actions: import, quick note and the "..." menu with automatic
- * organizing. A bottom action bar on narrow screens, header actions from `sm`.
+ * Workspace actions: import, quick note and a secondary button that opens the
+ * automatic organizing dialog. A bottom action bar on narrow screens, header actions from `sm`.
  */
 export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
   const { t } = useTranslation()
@@ -43,21 +42,19 @@ export function WorkspaceToolbar({ journeyId }: { journeyId: string }) {
         >
           {t('quickNote.title')}
         </Link>
-        <OverflowMenu
-          actions={[
-            {
-              key: 'organize',
-              label: t('autoOrganize.button'),
-              onSelect: () => {
-                setOrganizing(true)
-              },
-            },
-          ]}
-          className="border border-border/80 bg-surface"
-          description={t('workspace.organizeHint')}
-          label={t('workspace.moreActions')}
-          name={t('workspace.moreActions')}
-        />
+        <button
+          className={cn(
+            buttonVariants({ variant: 'secondary' }),
+            'sm:flex-none',
+          )}
+          title={t('workspace.organizeHint')}
+          type="button"
+          onClick={() => {
+            setOrganizing(true)
+          }}
+        >
+          {t('autoOrganize.button')}
+        </button>
       </div>
       {organizing ? (
         <OrganizeDialog journeyId={journeyId} onClose={closeOrganize} />

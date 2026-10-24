@@ -193,7 +193,7 @@ describe('DayDetailPanel', () => {
     fireEvent.click(photoButton(2), { shiftKey: true })
     expect(screen.getByRole('toolbar')).toHaveTextContent('Selected 3 photos')
 
-    fireEvent.click(screen.getByRole('button', { name: /Star/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Best/ }))
     await waitFor(() => {
       expect(props.edits.toggleStar).toHaveBeenCalledTimes(2) // B was already starred
     })

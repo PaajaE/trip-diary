@@ -82,7 +82,13 @@ describe('HomePage', () => {
     const example = screen.getByRole('figure', {
       name: 'Ukázka struktury cesty',
     })
-    for (const kind of ['Cesta', 'Etapa', 'Výlet', 'Moment', 'Fotka / Video']) {
+    for (const kind of [
+      'Cesta',
+      'Etapa',
+      'Výlet',
+      'Zastávka',
+      'Fotka / Video',
+    ]) {
       expect(within(example).getAllByText(kind).length).toBeGreaterThan(0)
     }
   })

@@ -71,7 +71,7 @@ describe('JourneyTabs', () => {
     const { rerender } = render(
       <JourneyTabs current="workspace" journeyId="j" publicPaths={null} />,
     )
-    expect(screen.getByRole('link', { name: 'Batch' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Sorting' })).toHaveAttribute(
       'href',
       '/j/$journeyId/batch',
     )
@@ -86,7 +86,7 @@ describe('JourneyTabs', () => {
     )
     expect(screen.getByTestId('batch-badge')).toHaveTextContent('12')
     expect(
-      screen.getByRole('link', { name: /Batch.*12 waiting to be sorted/ }),
+      screen.getByRole('link', { name: /Sorting.*12 waiting to be sorted/ }),
     ).toHaveAttribute('aria-current', 'page')
     rerender(
       <JourneyTabs

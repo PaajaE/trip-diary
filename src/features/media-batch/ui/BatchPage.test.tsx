@@ -149,7 +149,7 @@ describe('BatchPage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select' }))
     fireEvent.click(tiles()[0]!)
     fireEvent.click(tiles()[1]!)
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Handled' }))
     expect(actions.done).toHaveBeenCalledWith([a1, a2])
     await waitFor(() => {
       expect(screen.queryByRole('toolbar')).toBeNull()
@@ -203,7 +203,7 @@ describe('BatchPage', () => {
     render(<BatchPage journeyId="j" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select' }))
     fireEvent.click(tiles()[0]!)
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Handled' }))
     await waitFor(() => {
       expect(actions.done).toHaveBeenCalled()
     })
@@ -231,7 +231,7 @@ describe('BatchPage', () => {
     state.query.data = []
     render(<BatchPage journeyId="j" />)
     expect(screen.getByText('Everything is sorted')).toBeTruthy()
-    expect(screen.getByRole('link', { name: 'Import media' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Add photos' })).toHaveAttribute(
       'href',
       '/j/$journeyId/import',
     )

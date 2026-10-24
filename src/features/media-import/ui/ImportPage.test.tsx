@@ -222,6 +222,12 @@ describe('ImportPage', () => {
     expect(screen.getByText('In progress: 1')).toBeTruthy()
     expect(screen.getByText('Skipped: 1')).toBeTruthy()
     expect(screen.getByText('Failed: 1')).toBeTruthy()
+    expect(screen.queryByText(/Paused/)).toBeNull()
+    expect(
+      Array.from(document.querySelectorAll('li[data-state]')).map((li) =>
+        li.getAttribute('data-state'),
+      ),
+    ).toEqual(['pending', 'processing', 'done', 'skipped', 'failed'])
     expect(screen.getByText('Now: uploading (50 %)')).toBeTruthy()
     expect(screen.getByText(/Waiting for a connection/)).toBeTruthy()
     expect(screen.getByText('Photo p4.jpg')).toBeTruthy()

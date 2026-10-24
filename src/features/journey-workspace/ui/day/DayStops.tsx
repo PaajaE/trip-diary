@@ -94,22 +94,30 @@ function PhotoTile({
           size={15}
         />
       ) : null}
+      {/* The button is a 44x44 hit area in the tile corner; the visible circle is smaller. */}
       <button
         aria-label={t('dayDetail.selectPhoto')}
         aria-pressed={selected}
         className={cn(
-          'absolute left-1 top-1 inline-flex size-7 items-center justify-center rounded-full border-2 border-white bg-black/35 text-white transition-opacity',
+          'absolute left-0 top-0 inline-flex size-11 items-center justify-center transition-opacity',
           selecting || selected
             ? 'opacity-100'
-            : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-40 [@media(hover:none)]:size-6',
-          selected && 'border-primary bg-primary',
+            : 'opacity-0 focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-70',
         )}
         type="button"
         onClick={(event) => {
           onToggle(item, event.shiftKey)
         }}
       >
-        {selected ? <Check aria-hidden="true" size={14} /> : null}
+        <span
+          aria-hidden="true"
+          className={cn(
+            'inline-flex size-6 items-center justify-center rounded-full border-2 border-white bg-black/35 text-white min-[760px]:size-7',
+            selected && 'border-primary bg-primary',
+          )}
+        >
+          {selected ? <Check size={14} /> : null}
+        </span>
       </button>
     </div>
   )

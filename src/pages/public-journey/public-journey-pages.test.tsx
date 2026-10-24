@@ -171,6 +171,6 @@ describe('public journey pages', () => {
     await renderAt(
       '/ecerovi/kanada-2026/m/00000000-0000-4000-8000-0000000000ff',
     )
-    expect(screen.getByText('Tento moment neexistuje.')).toBeTruthy()
+    expect(screen.getByText('Tato zastávka neexistuje.')).toBeTruthy()
   })
 })

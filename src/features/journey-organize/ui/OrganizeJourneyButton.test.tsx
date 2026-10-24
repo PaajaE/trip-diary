@@ -72,9 +72,9 @@ describe('OrganizeJourneyButton', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Organize automatically' }),
     )
-    expect(await screen.findByText('New moments: 1')).toBeTruthy()
+    expect(await screen.findByText('New stops: 1')).toBeTruthy()
     expect(screen.getByText('Stage and trip suggestions: 1')).toBeTruthy()
-    expect(screen.getByText(/locked and hand-made moments/)).toBeTruthy()
+    expect(screen.getByText(/locked and hand-made stops/)).toBeTruthy()
     expect(screen.getByText(/Rejected suggestions will not/)).toBeTruthy()
     expect(apply).not.toHaveBeenCalled()
   })
@@ -96,14 +96,14 @@ describe('OrganizeJourneyButton', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Organize automatically' }),
     )
-    await screen.findByText('New moments: 1')
+    await screen.findByText('New stops: 1')
     fireEvent.click(screen.getByRole('button', { name: 'Organize' }))
     await waitFor(() => {
       expect(apply).toHaveBeenCalledWith('j', plan, expect.anything())
     })
     await waitFor(() => {
       expect(showToast).toHaveBeenCalledWith({
-        message: 'Done: 1 new moments, 1 suggestions.',
+        message: 'Done: 1 new stops, 1 suggestions.',
       })
     })
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -135,7 +135,7 @@ describe('OrganizeJourneyButton', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Organize automatically' }),
     )
-    await screen.findByText('New moments: 1')
+    await screen.findByText('New stops: 1')
     fireEvent.click(screen.getByRole('button', { name: 'Organize' }))
     await waitFor(() => {
       expect(showToast).toHaveBeenCalledWith({

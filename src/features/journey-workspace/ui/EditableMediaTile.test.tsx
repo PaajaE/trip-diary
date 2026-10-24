@@ -98,7 +98,9 @@ describe('EditableMediaTile', () => {
 
   it('stars straight from the hover toolbar without opening the viewer', async () => {
     render(<Tile current={item} />, { wrapper })
-    fireEvent.click(screen.getByRole('button', { name: 'Star this photo' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Best: mark this photo' }),
+    )
     await waitFor(() => {
       expect(repo.updateMediaMeta).toHaveBeenCalledWith(item.id, {
         starred: true,
