@@ -37,6 +37,10 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Trip Diary uses the camera when you want to capture a new travel memory.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Trip Diary uses the microphone so you can dictate a travel note. Audio is transcribed on the device and is never stored.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Trip Diary turns your dictation into text on the device. Nothing you say is uploaded or stored.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Trip Diary can save edited travel photos back to your photo library when you ask it to.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

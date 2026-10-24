@@ -284,6 +284,12 @@ export const en = {
       photos: 'Photos',
       photosHint: 'Upload photos and videos from your phone or computer.',
       close: 'Close',
+      voice: 'Voice',
+      voiceHint: 'Dictate a note. It is transcribed on your device.',
+      fromLibrary: 'Add new from library',
+      fromLibraryHint: 'Photos and videos you have not uploaded yet.',
+      todayNote: 'Note for today',
+      todayNoteHint: 'A few words about today.',
     },
     publicHint: 'The journey is not public yet, so there is no public page.',
     outline: 'Outline',
@@ -630,6 +636,15 @@ export const en = {
     summarySkipped: 'Skipped: {{count}}',
     summaryVideos: 'Videos: {{count}}',
     title: 'Import photos and videos',
+    failedTitle: 'Not uploaded: {{count}}',
+    justUploaded: 'Just uploaded',
+    progressLabel: 'Upload progress',
+    progressOf: '{{done}} of {{total}}',
+    remaining_one: 'About {{count}} minute left',
+    remaining_few: 'About {{count}} minutes left',
+    remaining_many: 'About {{count}} minutes left',
+    remaining_other: 'About {{count}} minutes left',
+    sortLocked: 'Sorting is possible once the upload finishes',
     waitingOnline:
       'Waiting for a connection. The import continues when you are online.',
   },
@@ -666,6 +681,13 @@ export const en = {
   },
   quickNote: {
     addPhotos: 'Add photos',
+    dictate: 'Dictate',
+    dictateDenied:
+      'Speech recognition is not allowed. Allow the microphone and speech recognition in system settings.',
+    dictateFailed: 'The speech could not be recognised. Try again.',
+    dictateHint: 'Speech is transcribed on your device. No audio is stored.',
+    dictateListening: 'Listening… {{time}}',
+    dictateStop: 'Stop',
     empty: 'Write at least a few words first.',
     label: 'What is happening right now?',
     locationHint:
@@ -680,6 +702,9 @@ export const en = {
     subtitle: 'An instant note with time and position. Add photos separately.',
     title: 'Quick note',
     useLocation: 'Add my position',
+  },
+  states: {
+    offlineBanner: 'You are offline, nothing is lost',
   },
   tips: {
     created: 'Tip saved',

@@ -1,9 +1,12 @@
 import { Link } from '@tanstack/react-router'
 import {
   BookOpen,
+  CalendarDays,
+  ImagePlus,
   Images,
   LayoutList,
   Map as MapIcon,
+  Mic,
   PenLine,
   Plus,
   Route,
@@ -14,6 +17,7 @@ import type { PublicJourneyPaths } from '@/features/sharing/lib/public-paths'
 import type { JourneyTab } from '@/features/journey-workspace/ui/JourneyTabs'
 import { WorkspaceDialog } from '@/features/journey-workspace/ui/WorkspaceDialog'
 import { cn } from '@/shared/lib/cn'
+import { haptic } from '@/shared/lib/haptics'
 
 const ITEM =
   'flex min-h-14 min-w-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1 text-[0.6875rem] font-semibold transition-colors'
@@ -174,44 +178,87 @@ function AddSheet({
   onClose: () => void
 }) {
   const { t } = useTranslation()
-  const option =
-    'flex min-h-20 items-center gap-4 rounded-2xl border border-border bg-surface px-4 text-left hover:bg-white active:bg-white'
+  const tile =
+    'flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface px-2 py-3 text-center text-sm font-semibold hover:bg-white active:bg-white'
+  const row =
+    'flex min-h-14 items-center gap-3 rounded-xl px-3 text-left hover:bg-surface active:bg-surface'
+  const choose = () => {
+    haptic('light')
+    onClose()
+  }
   return (
     <WorkspaceDialog title={t('owner.addSheet.title')} onClose={onClose}>
-      <div className="mt-3 grid gap-3">
+      <div className="mt-3 grid grid-cols-3 gap-3">
         <Link
-          className={option}
+          className={tile}
+          data-testid="add-note"
           params={{ journeyId }}
           to="/j/$journeyId/quick"
-          onClick={onClose}
+          onClick={choose}
         >
-          <PenLine aria-hidden="true" className="shrink-0" size={26} />
-          <span>
-            <span className="block text-base font-semibold">
-              {t('owner.addSheet.note')}
-            </span>
-            <span className="block text-sm text-muted">
-              {t('owner.addSheet.noteHint')}
-            </span>
-          </span>
+          <PenLine aria-hidden="true" size={26} />
+          {t('owner.addSheet.note')}
         </Link>
         <Link
-          className={option}
+          className={tile}
+          data-testid="add-photos"
           params={{ journeyId }}
           to="/j/$journeyId/import"
-          onClick={onClose}
+          onClick={choose}
         >
-          <Images aria-hidden="true" className="shrink-0" size={26} />
-          <span>
-            <span className="block text-base font-semibold">
-              {t('owner.addSheet.photos')}
-            </span>
-            <span className="block text-sm text-muted">
-              {t('owner.addSheet.photosHint')}
-            </span>
-          </span>
+          <Images aria-hidden="true" size={26} />
+          {t('owner.addSheet.photos')}
+        </Link>
+        <Link
+          className={tile}
+          data-testid="add-voice"
+          params={{ journeyId }}
+          search={{ voice: true }}
+          to="/j/$journeyId/quick"
+          onClick={choose}
+        >
+          <Mic aria-hidden="true" size={26} />
+          {t('owner.addSheet.voice')}
         </Link>
       </div>
+      <ul className="mt-3 divide-y divide-border">
+        <li>
+          <Link
+            className={row}
+            params={{ journeyId }}
+            to="/j/$journeyId/import"
+            onClick={choose}
+          >
+            <ImagePlus aria-hidden="true" className="shrink-0" size={22} />
+            <span>
+              <span className="block text-base font-semibold">
+                {t('owner.addSheet.fromLibrary')}
+              </span>
+              <span className="block text-sm text-muted">
+                {t('owner.addSheet.fromLibraryHint')}
+              </span>
+            </span>
+          </Link>
+        </li>
+        <li>
+          <Link
+            className={row}
+            params={{ journeyId }}
+            to="/j/$journeyId/quick"
+            onClick={choose}
+          >
+            <CalendarDays aria-hidden="true" className="shrink-0" size={22} />
+            <span>
+              <span className="block text-base font-semibold">
+                {t('owner.addSheet.todayNote')}
+              </span>
+              <span className="block text-sm text-muted">
+                {t('owner.addSheet.todayNoteHint')}
+              </span>
+            </span>
+          </Link>
+        </li>
+      </ul>
       <button
         className="mt-3 min-h-11 w-full rounded-xl border border-border px-4 font-semibold"
         type="button"

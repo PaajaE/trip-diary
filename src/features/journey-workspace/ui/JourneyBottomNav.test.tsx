@@ -16,13 +16,14 @@ vi.mock('@tanstack/react-router', () => ({
     'aria-current'?: 'page'
     className?: string
     onClick?: () => void
-    search?: { map?: string }
+    search?: { map?: string; voice?: boolean }
     to: string
   }) => (
     <a
       aria-current={rest['aria-current']}
       className={rest.className}
       data-map={search?.map}
+      data-voice={search?.voice === true ? 'true' : undefined}
       href={to}
       onClick={rest.onClick}
     >
@@ -84,7 +85,7 @@ describe('JourneyBottomNav', () => {
     )
   })
 
-  it('opens the add sheet with note and photos, closes on Escape and returns focus', () => {
+  it('opens the capture sheet with three tiles and two rows, closes on Escape and returns focus', () => {
     render(
       <JourneyBottomNav current="workspace" journeyId="j" publicPaths={null} />,
     )
@@ -95,14 +96,22 @@ describe('JourneyBottomNav', () => {
       name: 'What do you want to add?',
     })
     expect(dialog).toBeTruthy()
-    expect(screen.getByRole('link', { name: /^Note/ })).toHaveAttribute(
-      'href',
-      '/j/$journeyId/quick',
-    )
-    expect(screen.getByRole('link', { name: /^Photos/ })).toHaveAttribute(
+    const note = screen.getByRole('link', { name: 'Note' })
+    expect(note).toHaveAttribute('href', '/j/$journeyId/quick')
+    expect(note).not.toHaveAttribute('data-voice')
+    expect(screen.getByRole('link', { name: 'Photos' })).toHaveAttribute(
       'href',
       '/j/$journeyId/import',
     )
+    const voice = screen.getByRole('link', { name: 'Voice' })
+    expect(voice).toHaveAttribute('href', '/j/$journeyId/quick')
+    expect(voice).toHaveAttribute('data-voice', 'true')
+    expect(
+      screen.getByRole('link', { name: /^Add new from library/ }),
+    ).toHaveAttribute('href', '/j/$journeyId/import')
+    expect(
+      screen.getByRole('link', { name: /^Note for today/ }),
+    ).toHaveAttribute('href', '/j/$journeyId/quick')
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(plus)
@@ -113,7 +122,7 @@ describe('JourneyBottomNav', () => {
       <JourneyBottomNav current="workspace" journeyId="j" publicPaths={null} />,
     )
     fireEvent.click(screen.getByRole('button', { name: 'Add' }))
-    fireEvent.click(screen.getByRole('link', { name: /^Note/ }))
+    fireEvent.click(screen.getByRole('link', { name: 'Note' }))
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 })

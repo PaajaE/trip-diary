@@ -285,6 +285,12 @@ export const cs: TranslationResources = {
       photos: 'Fotky',
       photosHint: 'Nahraj fotky a videa z telefonu nebo z počítače.',
       close: 'Zavřít',
+      voice: 'Hlas',
+      voiceHint: 'Nadiktuj zápis. Přepíše se přímo v zařízení.',
+      fromLibrary: 'Přidat nové z knihovny',
+      fromLibraryHint: 'Fotky a videa, které jsi ještě nenahrál.',
+      todayNote: 'Zápis ke dnešku',
+      todayNoteHint: 'Pár slov o dnešním dni.',
     },
     publicHint: 'Cesta zatím není veřejná, veřejná stránka proto neexistuje.',
     outline: 'Osnova',
@@ -630,6 +636,15 @@ export const cs: TranslationResources = {
     summarySkipped: 'Přeskočeno: {{count}}',
     summaryVideos: 'Videa: {{count}}',
     title: 'Import fotek a videí',
+    failedTitle: 'Nenahráno: {{count}}',
+    justUploaded: 'Právě nahrané',
+    progressLabel: 'Průběh nahrávání',
+    progressOf: '{{done}} z {{total}}',
+    remaining_one: 'Zbývá asi {{count}} minuta',
+    remaining_few: 'Zbývají asi {{count}} minuty',
+    remaining_many: 'Zbývá asi {{count}} minut',
+    remaining_other: 'Zbývá asi {{count}} minut',
+    sortLocked: 'Třídění je možné, až nahrávání skončí',
     waitingOnline:
       'Čekám na připojení. Import pokračuje, jakmile budeš online.',
   },
@@ -666,6 +681,13 @@ export const cs: TranslationResources = {
   },
   quickNote: {
     addPhotos: 'Přidat fotky',
+    dictate: 'Nadiktovat',
+    dictateDenied:
+      'Rozpoznávání řeči není povolené. Povol mikrofon a rozpoznávání řeči v nastavení systému.',
+    dictateFailed: 'Řeč se nepodařilo rozpoznat. Zkus to znovu.',
+    dictateHint: 'Řeč se přepisuje přímo v zařízení. Zvuk se neukládá.',
+    dictateListening: 'Poslouchám… {{time}}',
+    dictateStop: 'Zastavit',
     empty: 'Napiš nejdřív alespoň pár slov.',
     label: 'Co se právě děje?',
     locationHint:
@@ -680,6 +702,9 @@ export const cs: TranslationResources = {
     subtitle: 'Okamžitý zápis s časem a polohou. Fotky přidáš zvlášť.',
     title: 'Rychlý zápis',
     useLocation: 'Přidat moji polohu',
+  },
+  states: {
+    offlineBanner: 'Pracuješ offline, nic se neztratí',
   },
   tips: {
     created: 'Tip uložen',

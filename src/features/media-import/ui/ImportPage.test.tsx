@@ -217,17 +217,18 @@ describe('ImportPage', () => {
       { fraction: 0.5, jobId: 'x', phase: 'uploading', sourceId: 'p3|1|2' },
     )
     render(<ImportPage journeyId="j" />)
-    expect(screen.getByText('Done: 1')).toBeTruthy()
-    expect(screen.getByText('Waiting: 1')).toBeTruthy()
-    expect(screen.getByText('In progress: 1')).toBeTruthy()
-    expect(screen.getByText('Skipped: 1')).toBeTruthy()
-    expect(screen.getByText('Failed: 1')).toBeTruthy()
-    expect(screen.queryByText(/Paused/)).toBeNull()
+    // done 1 + skipped 1 of 5
+    expect(screen.getByText('2 of 5')).toBeTruthy()
+    expect(screen.queryByText(/Done: 1/)).toBeNull()
     expect(
-      Array.from(document.querySelectorAll('li[data-state]')).map((li) =>
-        li.getAttribute('data-state'),
+      Array.from(document.querySelectorAll('[data-testid="upload-failed"] li'))
+        .length,
+    ).toBe(1)
+    expect(
+      Array.from(document.querySelectorAll('li[data-job-state]')).map((li) =>
+        li.getAttribute('data-job-state'),
       ),
-    ).toEqual(['pending', 'processing', 'done', 'skipped', 'failed'])
+    ).toEqual(['failed', 'processing', 'skipped', 'pending', 'done'])
     expect(screen.getByText('Now: uploading (50 %)')).toBeTruthy()
     expect(screen.getByText(/Waiting for a connection/)).toBeTruthy()
     expect(screen.getByText('Photo p4.jpg')).toBeTruthy()
@@ -237,6 +238,68 @@ describe('ImportPage', () => {
     expect(
       screen.queryByRole('button', { name: 'Organize automatically' }),
     ).toBeNull()
+  })
+
+  it('groups failed items in a card with the reason and one retry', () => {
+    state.snapshot = snapshot([
+      job({ sourceId: 'a|1|2', state: 'done' }),
+      job({
+        lastError: 'processing_failed',
+        sourceId: 'b.jpg|1|2',
+        state: 'failed',
+      }),
+    ])
+    render(<ImportPage journeyId="j" />)
+    const card = screen.getByTestId('upload-failed')
+    expect(card.textContent).toContain('Not uploaded: 1')
+    expect(card.textContent).toContain('Photo b.jpg')
+    expect(card.textContent).toContain('The file could not be read.')
+    fireEvent.click(screen.getByRole('button', { name: 'Retry failed' }))
+    expect(queue.retryFailed).toHaveBeenCalledTimes(1)
+  })
+
+  it('lists the newest finished items, at most 12', () => {
+    state.snapshot = snapshot(
+      Array.from({ length: 15 }, (_, i) =>
+        job({
+          sourceId: `f${String(i).padStart(2, '0')}.jpg|1|2`,
+          state: 'done',
+          updatedAt: `2026-01-01T00:00:${String(i).padStart(2, '0')}Z`,
+        }),
+      ),
+    )
+    render(<ImportPage journeyId="j" />)
+    const recent = screen.getByTestId('upload-recent')
+    expect(recent.querySelectorAll('li').length).toBe(12)
+    expect(recent.textContent).toContain('f14.jpg')
+    expect(recent.textContent).not.toContain('f02.jpg')
+  })
+
+  it('shows a locked sorting button while uploading and the real link after', () => {
+    state.snapshot = snapshot(
+      [job({ sourceId: 'a|1|2', state: 'done' }), job({ state: 'pending' })],
+      'running',
+    )
+    const { unmount } = render(<ImportPage journeyId="j" />)
+    const locked = screen.getByTestId('sort-locked')
+    expect(locked).toBeDisabled()
+    expect(locked.textContent).toBe(
+      'Sorting is possible once the upload finishes',
+    )
+    unmount()
+    state.snapshot = snapshot([job({ sourceId: 'a|1|2', state: 'done' })])
+    render(<ImportPage journeyId="j" />)
+    expect(screen.queryByTestId('sort-locked')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Sort the batch' })).toBeTruthy()
+  })
+
+  it('hides the time estimate until three jobs have finished', () => {
+    state.snapshot = snapshot(
+      [job({ sourceId: 'a|1|2', state: 'done' }), job({ state: 'pending' })],
+      'running',
+    )
+    render(<ImportPage journeyId="j" />)
+    expect(screen.queryByTestId('upload-eta')).toBeNull()
   })
 
   it('wires pause, resume, retry failed and cancel', () => {

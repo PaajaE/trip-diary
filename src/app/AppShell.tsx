@@ -16,6 +16,7 @@ import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
 import { Avatar } from '@/shared/ui/Avatar'
 import { BrandMark } from '@/shared/ui/BrandMark'
+import { OfflineBanner } from '@/shared/ui/OfflineBanner'
 
 const SyncStatusControl = lazy(() =>
   import('@/features/sync/ui/SyncStatusControl').then(
@@ -98,6 +99,9 @@ export function AppShell({ children }: PropsWithChildren) {
             </nav>
           </div>
         </header>
+      )}
+      {minimalPublicShell || immersiveReaderShell || user === null ? null : (
+        <OfflineBanner />
       )}
       {children}
     </>
