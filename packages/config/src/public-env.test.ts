@@ -43,4 +43,15 @@ describe('parsePublicEnv', () => {
     expect(parsePublicEnv({ mediaAnalysis: '' })).toEqual({})
     expect(() => parsePublicEnv({ mediaAnalysis: 'yes' })).toThrow()
   })
+
+  it('parses the mediaCorrections flag from true/false strings, unset by default', () => {
+    expect(parsePublicEnv({ mediaCorrections: 'true' })).toEqual({
+      mediaCorrections: true,
+    })
+    expect(parsePublicEnv({ mediaCorrections: 'false' })).toEqual({
+      mediaCorrections: false,
+    })
+    expect(parsePublicEnv({ mediaCorrections: '' })).toEqual({})
+    expect(() => parsePublicEnv({ mediaCorrections: 'yes' })).toThrow()
+  })
 })

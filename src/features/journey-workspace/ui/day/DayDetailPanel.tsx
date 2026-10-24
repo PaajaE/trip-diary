@@ -24,6 +24,8 @@ import { SelectionBar } from '@/features/journey-workspace/ui/day/SelectionBar'
 import type { DayMediaActions } from '@/features/journey-workspace/ui/day/use-day-media-actions'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
 import { useNarrowScreen } from '@/features/journey-workspace/ui/day/use-narrow-screen'
+import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
+import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { cn } from '@/shared/lib/cn'
 
 export interface DayChip {
@@ -116,6 +118,7 @@ function DayDetailBody({
   const selection = useDaySelection()
   const narrow = useNarrowScreen()
   const [mapOpen, setMapOpen] = useState(false)
+  const [fixOpen, setFixOpen] = useState(false)
 
   const stops = useMemo(
     () =>
@@ -172,6 +175,10 @@ function DayDetailBody({
   const selected = useMemo(
     () => allMedia.filter((item) => selection.ids.has(item.id)),
     [allMedia, selection.ids],
+  )
+  const orderedSelected = useMemo(
+    () => orderedMedia.filter((item) => selection.ids.has(item.id)),
+    [orderedMedia, selection.ids],
   )
 
   useEffect(() => {
@@ -391,6 +398,13 @@ function DayDetailBody({
                 label: `${String(index + 1)}. ${stop.title ?? t('dayDetail.stopNumber', { n: index + 1 })}`,
               }))}
               onClear={selection.clear}
+              {...(isMediaCorrectionsEnabled()
+                ? {
+                    onFixTimeLocation: () => {
+                      setFixOpen(true)
+                    },
+                  }
+                : {})}
               onMoveTo={(targetId) => {
                 void actions.moveMedia(selected, targetId).then((ok) => {
                   if (ok) selection.clear()
@@ -413,6 +427,15 @@ function DayDetailBody({
           ) : null}
         </div>
       </div>
+      {fixOpen && selected.length > 0 ? (
+        <FixTimeLocationSheet
+          items={orderedSelected}
+          journeyId={journeyId}
+          onClose={() => {
+            setFixOpen(false)
+          }}
+        />
+      ) : null}
       {cull?.open === true ? (
         <CullView
           baseUrl={baseUrl}

@@ -10,6 +10,8 @@ interface SelectionBarProps {
   allStarred: boolean
   count: number
   onClear: () => void
+  /** "Time and location" sheet; the button is absent without it. */
+  onFixTimeLocation?: () => void
   onMoveTo: (targetId: string) => void
   onNewStop: () => void
   onStar: () => void
@@ -22,6 +24,7 @@ export function SelectionBar({
   allStarred,
   count,
   onClear,
+  onFixTimeLocation,
   onMoveTo,
   onNewStop,
   onStar,
@@ -93,6 +96,17 @@ export function SelectionBar({
         >
           {t('dayDetail.stopNew')}
         </button>
+        {onFixTimeLocation === undefined ? null : (
+          <button
+            aria-haspopup="dialog"
+            className={button}
+            disabled={disabled}
+            type="button"
+            onClick={onFixTimeLocation}
+          >
+            {t('mediaCorrections.action')}
+          </button>
+        )}
         <button
           className={button}
           disabled={disabled}

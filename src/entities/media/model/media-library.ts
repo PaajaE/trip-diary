@@ -82,6 +82,9 @@ export const rpcCountSchema = z.number().int().nonnegative()
 export const purgedIdsSchema = z.array(z.uuid())
 export const newMomentIdSchema = z.uuid()
 
+/** Largest |delta| shift_media_time accepts: 366 days, in seconds. */
+export const MAX_SHIFT_SECONDS = 31_622_400
+
 export type MediaLibraryErrorCode =
   | 'forbidden'
   | 'invalid_input'

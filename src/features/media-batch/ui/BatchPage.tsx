@@ -22,6 +22,8 @@ import {
   matchesFilter,
   type BatchFilter,
 } from '@/features/media-batch/model/batch-filters'
+import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
+import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { buildMoveStops } from '@/features/media-batch/model/move-sheet'
 import { BatchActionBar } from '@/features/media-batch/ui/BatchActionBar'
 import { BatchFilterBar } from '@/features/media-batch/ui/BatchFilterBar'
@@ -39,6 +41,9 @@ const NO_TARGETS = new Map<string, never[]>()
 type SheetState =
   | { source: 'selection' }
   | { item: MediaItem; source: 'viewer' }
+
+/** What the time/location sheet fixes: the selection, or one viewer item. */
+type FixState = SheetState
 
 interface ViewerState {
   opener: HTMLElement | null
@@ -59,6 +64,8 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
   } | null>(null)
   const [filter, setFilter] = useState<BatchFilter>('all')
   const [sheet, setSheet] = useState<SheetState | null>(null)
+  const [fix, setFix] = useState<FixState | null>(null)
+  const corrections = canEdit && isMediaCorrectionsEnabled()
   const locale = i18n.language
 
   const items = query.data
@@ -101,6 +108,15 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
       (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
     )
   }, [sheet, selected, allOrder])
+
+  const fixItems = useMemo(() => {
+    if (fix === null) return []
+    if (fix.source === 'viewer') return [fix.item]
+    const position = new Map(allOrder.map((id, index) => [id, index]))
+    return [...selected].sort(
+      (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+    )
+  }, [fix, selected, allOrder])
 
   // Sorted tiles vanish from the list; forget them in the selection too.
   const { ids: selectedIds, setMany } = selection
@@ -316,6 +332,13 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           onOpenMove={() => {
             setSheet({ source: 'selection' })
           }}
+          {...(corrections
+            ? {
+                onFixTimeLocation: () => {
+                  setFix({ source: 'selection' })
+                },
+              }
+            : {})}
           onNewStop={() => {
             afterAction(actions.newStop(selected))
           }}
@@ -365,6 +388,13 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           onMoveToMoment={(item) => {
             setSheet({ item, source: 'viewer' })
           }}
+          {...(corrections
+            ? {
+                onFixTimeLocation: (item: MediaItem) => {
+                  setFix({ item, source: 'viewer' })
+                },
+              }
+            : {})}
         />
       )}
 
@@ -378,6 +408,16 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           }}
           onNewStop={newStopFromSheet}
           onPick={pickStop}
+        />
+      )}
+
+      {fix === null || fixItems.length === 0 ? null : (
+        <FixTimeLocationSheet
+          items={fixItems}
+          journeyId={journeyId}
+          onClose={() => {
+            setFix(null)
+          }}
         />
       )}
     </div>

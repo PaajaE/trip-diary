@@ -29,6 +29,17 @@ vi.mock('@tanstack/react-router', async () => {
   const { MockLink } = await import('@/features/journey-workspace/test-router')
   return { Link: MockLink }
 })
+const flag = vi.hoisted(() => ({ corrections: false }))
+vi.mock('@/features/media-corrections/model/enabled', () => ({
+  isMediaCorrectionsEnabled: () => flag.corrections,
+}))
+vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
+  FixTimeLocationSheet: ({ items }: { items: { id: string }[] }) => (
+    <div role="dialog" aria-label="Fix sheet">
+      {items.length}
+    </div>
+  ),
+}))
 const noteApi = vi.hoisted(() => ({
   byDate: new Map<string, string>(),
   save: vi.fn(),
@@ -244,6 +255,24 @@ describe('DayDetailPanel', () => {
     await waitFor(() => {
       expect(props.edits.toggleStar).toHaveBeenCalledTimes(2) // B was already starred
     })
+  })
+
+  it('offers "Time and location" on the selection only with the flag on', () => {
+    setup()
+    fireEvent.click(photoButton(0), { metaKey: true })
+    expect(
+      screen.queryByRole('button', { name: 'Time and location' }),
+    ).toBeNull()
+    cleanup()
+    flag.corrections = true
+    setup()
+    fireEvent.click(photoButton(0), { metaKey: true })
+    fireEvent.click(photoButton(2), { shiftKey: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Time and location' }))
+    expect(screen.getByRole('dialog', { name: 'Fix sheet' })).toHaveTextContent(
+      '3',
+    )
+    flag.corrections = false
   })
 
   it('moves the selection to a stop, creates a stop and trashes', async () => {

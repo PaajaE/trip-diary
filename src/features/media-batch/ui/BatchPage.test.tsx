@@ -19,6 +19,7 @@ import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace
 
 const state = vi.hoisted(() => ({
   canEdit: true,
+  corrections: false,
   query: {
     data: undefined as MediaItem[] | undefined,
     isError: false,
@@ -71,8 +72,45 @@ vi.mock('@/features/journey-organize/ui/OrganizeJourneyButton', () => ({
   ),
 }))
 vi.mock('@/features/journey-workspace/ui/MediaViewer', () => ({
-  MediaViewer: ({ startId }: { startId: string }) => (
-    <div data-testid="viewer">{startId}</div>
+  MediaViewer: ({
+    onFixTimeLocation,
+    startId,
+  }: {
+    onFixTimeLocation?: (item: { id: string }) => void
+    startId: string
+  }) => (
+    <div data-testid="viewer">
+      {startId}
+      {onFixTimeLocation === undefined ? null : (
+        <button
+          type="button"
+          onClick={() => {
+            onFixTimeLocation({ id: startId })
+          }}
+        >
+          Viewer time and location
+        </button>
+      )}
+    </div>
+  ),
+}))
+vi.mock('@/features/media-corrections/model/enabled', () => ({
+  isMediaCorrectionsEnabled: () => state.corrections,
+}))
+vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
+  FixTimeLocationSheet: ({
+    items,
+    onClose,
+  }: {
+    items: { id: string }[]
+    onClose: () => void
+  }) => (
+    <div role="dialog" aria-label="Fix sheet">
+      {items.map((item) => item.id).join(',')}
+      <button type="button" onClick={onClose}>
+        Close fix
+      </button>
+    </div>
   ),
 }))
 
@@ -91,6 +129,7 @@ function tiles() {
 beforeEach(async () => {
   vi.clearAllMocks()
   state.canEdit = true
+  state.corrections = false
   state.query.data = ALL
   state.query.isError = false
   await i18n.changeLanguage('en')
@@ -150,6 +189,57 @@ describe('BatchPage', () => {
     expect(screen.getByTestId('batch-selected')).toHaveTextContent(
       'Selected 0 photos',
     )
+  })
+
+  it('hides "Time and location" while the build flag is off', () => {
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    fireEvent.click(tiles()[0]!)
+    expect(
+      screen.queryByRole('button', { name: 'Time and location' }),
+    ).toBeNull()
+    cleanup()
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(tiles()[0]!)
+    expect(
+      screen.queryByRole('button', { name: 'Viewer time and location' }),
+    ).toBeNull()
+  })
+
+  it('opens the fix sheet for the selection (in grid order) when the flag is on', () => {
+    state.corrections = true
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    fireEvent.click(tiles()[3]!)
+    fireEvent.click(tiles()[0]!)
+    fireEvent.click(screen.getByRole('button', { name: 'Time and location' }))
+    expect(screen.getByRole('dialog', { name: 'Fix sheet' })).toHaveTextContent(
+      `${a1.id},${b1.id}`,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Close fix' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('opens the fix sheet for the single viewer item when the flag is on', () => {
+    state.corrections = true
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(tiles()[1]!)
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Viewer time and location' }),
+    )
+    expect(screen.getByRole('dialog', { name: 'Fix sheet' })).toHaveTextContent(
+      a2.id,
+    )
+  })
+
+  it('shows no fix entry point to viewers who cannot edit', () => {
+    state.corrections = true
+    state.canEdit = false
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(tiles()[1]!)
+    expect(
+      screen.queryByRole('button', { name: 'Viewer time and location' }),
+    ).toBeNull()
   })
 
   it('Done sorts the selection and clears it', async () => {

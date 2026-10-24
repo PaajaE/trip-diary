@@ -6,6 +6,8 @@ interface BatchActionBarProps {
   count: number
   onClear: () => void
   onDone: () => void
+  /** "Time and location" sheet; the button is absent without it. */
+  onFixTimeLocation?: () => void
   /** Opens the Move-to sheet. */
   onOpenMove: () => void
   onNewStop: () => void
@@ -25,6 +27,7 @@ export function BatchActionBar({
   count,
   onClear,
   onDone,
+  onFixTimeLocation,
   onOpenMove,
   onNewStop,
   onStar,
@@ -75,6 +78,17 @@ export function BatchActionBar({
         >
           {t('dayDetail.stopNew')}
         </button>
+        {onFixTimeLocation === undefined ? null : (
+          <button
+            aria-haspopup="dialog"
+            className={BUTTON}
+            disabled={disabled}
+            type="button"
+            onClick={onFixTimeLocation}
+          >
+            {t('mediaCorrections.action')}
+          </button>
+        )}
         <button
           className={BUTTON}
           disabled={disabled}

@@ -9,6 +9,7 @@ import {
   previewOrganization,
   type OrganizeProgress,
 } from '@/features/journey-organize/api/organize-journey'
+import { organizeOptions } from '@/features/journey-organize/lib/organize-options'
 import {
   dialogButton,
   WorkspaceDialog,
@@ -40,25 +41,7 @@ export function OrganizeDialog({
 
   useEffect(() => {
     let cancelled = false
-    previewOrganization(journeyId, {
-      labels: {
-        locale: i18n.language,
-        and: (first, second) => t('autoOrganize.names.and', { first, second }),
-        dayTrip: (name) => t('autoOrganize.names.dayTrip', { name }),
-        repeat: (title, count) =>
-          t('autoOrganize.names.repeat', { count, title }),
-        stay: (name) => t('autoOrganize.names.stay', { name }),
-        travel: (from, to) => t('autoOrganize.names.travel', { from, to }),
-        trek: (name) => t('autoOrganize.names.trek', { name }),
-        trekAround: (name) => t('autoOrganize.names.trekAround', { name }),
-      },
-      segmentTitle: ({ index, kind, stageKind, tripType }) =>
-        kind === 'stage' || tripType === null
-          ? stageKind === null
-            ? t('autoOrganize.stageTitle', { index })
-            : t(`autoOrganize.stageKindTitle.${stageKind}`, { index })
-          : t(`autoOrganize.tripTitle.${tripType}`, { index }),
-    }).then(
+    previewOrganization(journeyId, organizeOptions(t, i18n.language)).then(
       (plan) => {
         if (!cancelled) setState({ plan, status: 'ready' })
       },
