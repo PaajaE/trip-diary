@@ -33,10 +33,10 @@ select throws_ok($$ update public.media set captured_at_source = 'manual' where 
 select throws_ok($$ update public.media set location_source = 'manual' where id = 'b2300000-0000-4000-8000-000000000001' $$, '42501', null, 'location_source not writable directly');
 select lives_ok($$ insert into public.media (id, owner_id, journey_id, kind, status, captured_at, captured_at_source, location_source)
   values ('b2300000-0000-4000-8000-000000000005', auth.uid(), 'b2000000-0000-4000-8000-000000000001','photo','ready','2026-06-02T10:00:00Z','exif','exif') $$, 'importer records the source at insert');
-select throws_ok($$ insert into public.media (owner_id, journey_id, kind, status, captured_at_source)
-  values (auth.uid(), 'b2000000-0000-4000-8000-000000000001','photo','ready','camera') $$, '23514', null, 'unknown captured_at_source rejected');
-select throws_ok($$ insert into public.media (owner_id, journey_id, kind, status, location_source)
-  values (auth.uid(), 'b2000000-0000-4000-8000-000000000001','photo','ready','gps') $$, '23514', null, 'gps is not a location_source');
+select throws_ok($$ insert into public.media (id, owner_id, journey_id, kind, status, captured_at_source)
+  values ('b2300000-0000-4000-8000-000000000006', auth.uid(), 'b2000000-0000-4000-8000-000000000001','photo','ready','camera') $$, '23514', null, 'unknown captured_at_source rejected');
+select throws_ok($$ insert into public.media (id, owner_id, journey_id, kind, status, location_source)
+  values ('b2300000-0000-4000-8000-000000000007', auth.uid(), 'b2000000-0000-4000-8000-000000000001','photo','ready','gps') $$, '23514', null, 'gps is not a location_source');
 select is((select captured_at_source is null and location_source is null from public.media where id = 'b2300000-0000-4000-8000-000000000001'), true, 'sources stay NULL when not provided');
 -- shift_media_time
 select is(public.shift_media_time(array['b2300000-0000-4000-8000-000000000001','b2300000-0000-4000-8000-000000000002','b2300000-0000-4000-8000-000000000003','b2300000-0000-4000-8000-000000000004']::uuid[], 3600), 2, 'shift: null captured_at and trashed rows are skipped');
