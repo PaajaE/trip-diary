@@ -59,7 +59,7 @@ export function ModerationPanel({
         >
           <span className="min-w-0 truncate">{t('moderation.title')}</span>
           <span className="flex shrink-0 items-center gap-2">
-            <span className="rounded-full bg-accent px-2 py-0.5 text-sm text-white">
+            <span className="rounded-full bg-accent px-2 py-0.5 text-sm text-primary-foreground">
               {comments.length}
             </span>
             <ChevronDown

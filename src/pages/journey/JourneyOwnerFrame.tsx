@@ -7,6 +7,11 @@ import { journeyQueryKeys } from '@/entities/journey/api/journey-query-keys'
 import { useUnreviewedCountQuery } from '@/entities/media/api/use-unreviewed-media-query'
 import { getJourneyPublicPaths } from '@/entities/sharing/api/public-sharing.repository'
 import {
+  BottomNavSpacer,
+  JourneyBottomNav,
+} from '@/features/journey-workspace/ui/JourneyBottomNav'
+import { JourneySearchButton } from '@/features/journey-workspace/ui/JourneySearchButton'
+import {
   JourneyTabs,
   type JourneyTab,
 } from '@/features/journey-workspace/ui/JourneyTabs'
@@ -17,7 +22,8 @@ const CRUMB_LINK =
 
 /**
  * Common frame of the owner pages of one journey: breadcrumb, page title,
- * sub-navigation (workspace / import / quick note / members / public page).
+ * sub-navigation (journey / sorting / add / note / manage menu / public page)
+ * and, on narrow screens, the bottom tab bar.
  * With `title` omitted the page title is the journey title.
  */
 export function JourneyOwnerFrame({
@@ -52,6 +58,9 @@ export function JourneyOwnerFrame({
       {t('owner.myJourneys')}
     </Link>
   )
+  const publicPaths = publicPathsQuery.isPending
+    ? undefined
+    : (publicPathsQuery.data ?? null)
   const crumbs =
     title === undefined
       ? [myJourneys, <span key="current">{journeyTitle}</span>]
@@ -73,7 +82,12 @@ export function JourneyOwnerFrame({
       <PageHeader
         crumbs={journeyTitle === '' ? [myJourneys] : crumbs}
         title={title ?? (journeyTitle || t('workspace.title'))}
-        {...(actions === undefined ? {} : { actions })}
+        actions={
+          <>
+            <JourneySearchButton journeyId={journeyId} />
+            {actions}
+          </>
+        }
         {...(description === undefined ? {} : { description })}
         {...(descriptionClassName === undefined
           ? {}
@@ -83,13 +97,16 @@ export function JourneyOwnerFrame({
         batchCount={batchCount}
         current={current}
         journeyId={journeyId}
-        publicPaths={
-          publicPathsQuery.isPending
-            ? undefined
-            : (publicPathsQuery.data ?? null)
-        }
+        publicPaths={publicPaths}
       />
       {children}
+      <JourneyBottomNav
+        batchCount={batchCount}
+        current={current}
+        journeyId={journeyId}
+        publicPaths={publicPaths}
+      />
+      <BottomNavSpacer />
     </PageContainer>
   )
 }

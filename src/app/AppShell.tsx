@@ -6,6 +6,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PropsWithChildren,
 } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -15,6 +16,7 @@ import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
 import { Avatar } from '@/shared/ui/Avatar'
 import { BrandMark } from '@/shared/ui/BrandMark'
+import { OfflineBanner } from '@/shared/ui/OfflineBanner'
 
 const SyncStatusControl = lazy(() =>
   import('@/features/sync/ui/SyncStatusControl').then(
@@ -98,10 +100,16 @@ export function AppShell({ children }: PropsWithChildren) {
           </div>
         </header>
       )}
+      {minimalPublicShell || immersiveReaderShell || user === null ? null : (
+        <OfflineBanner />
+      )}
       {children}
     </>
   )
 }
+
+const MENU_ITEM_CLASS =
+  'block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background focus-visible:bg-background focus-visible:outline'
 
 function AccountMenu({
   identity,
@@ -115,21 +123,58 @@ function AccountMenu({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function closeOnOutsideClick(event: PointerEvent) {
       if (!menuRef.current?.contains(event.target as Node)) setOpen(false)
     }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
-    }
     document.addEventListener('pointerdown', closeOnOutsideClick)
-    document.addEventListener('keydown', closeOnEscape)
     return () => {
       document.removeEventListener('pointerdown', closeOnOutsideClick)
-      document.removeEventListener('keydown', closeOnEscape)
     }
   }, [])
+
+  // Move focus to the first item when the menu opens.
+  useEffect(() => {
+    if (!open) return
+    listRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
+  }, [open])
+
+  function onKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!open) return
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setOpen(false)
+      triggerRef.current?.focus()
+      return
+    }
+    const items = Array.from(
+      listRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+    )
+    if (event.key === 'Tab') {
+      // Close and let the browser continue from the trigger button.
+      setOpen(false)
+      triggerRef.current?.focus()
+      return
+    }
+    if (items.length === 0) return
+    const current = items.indexOf(document.activeElement as HTMLElement)
+    let next: number | null = null
+    if (event.key === 'ArrowDown') next = (current + 1) % items.length
+    else if (event.key === 'ArrowUp')
+      next = current <= 0 ? items.length - 1 : current - 1
+    else if (event.key === 'Home') next = 0
+    else if (event.key === 'End') next = items.length - 1
+    if (next === null) return
+    event.preventDefault()
+    items[next]?.focus()
+  }
+
+  function closeMenu() {
+    setOpen(false)
+  }
 
   return (
     <div className="relative" ref={menuRef}>
@@ -141,7 +186,14 @@ function AccountMenu({
         onClick={() => {
           setOpen((current) => !current)
         }}
+        ref={triggerRef}
         type="button"
+        onKeyDown={(event) => {
+          if (event.key === 'Escape' && open) {
+            event.preventDefault()
+            setOpen(false)
+          }
+        }}
       >
         <Avatar label={identity} src={profile?.avatarUrl} />
         <span className="hidden max-w-40 truncate text-sm font-semibold sm:block">
@@ -150,63 +202,63 @@ function AccountMenu({
       </button>
       {open ? (
         <div
+          aria-label={t('navigation.accountMenu', { name: identity })}
           className="absolute right-0 mt-2 w-56 rounded-xl border border-border/80 bg-surface p-2 shadow-soft"
+          ref={listRef}
           role="menu"
+          tabIndex={-1}
+          onKeyDown={onKeyDown}
         >
           <Link
-            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-            onClick={() => {
-              setOpen(false)
-            }}
+            className={MENU_ITEM_CLASS}
+            onClick={closeMenu}
+            role="menuitem"
             to="/dashboard"
           >
             {t('navigation.dashboard')}
           </Link>
           {profile === null ? null : (
             <Link
-              className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-              onClick={() => {
-                setOpen(false)
-              }}
+              className={MENU_ITEM_CLASS}
+              onClick={closeMenu}
               params={{ username: profile.username }}
+              role="menuitem"
               to="/u/$username"
             >
               {t('navigation.profile')}
             </Link>
           )}
           <Link
-            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-            onClick={() => {
-              setOpen(false)
-            }}
+            className={MENU_ITEM_CLASS}
+            onClick={closeMenu}
+            role="menuitem"
             to="/settings/profile"
           >
             {t('navigation.settings')}
           </Link>
           <Link
-            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-            onClick={() => {
-              setOpen(false)
-            }}
+            className={MENU_ITEM_CLASS}
+            onClick={closeMenu}
+            role="menuitem"
             to="/spaces"
           >
             {t('navigation.spaces')}
           </Link>
           <Link
-            className="block rounded-sm px-3 py-3 text-sm font-semibold hover:bg-background"
-            onClick={() => {
-              setOpen(false)
-            }}
+            className={MENU_ITEM_CLASS}
+            onClick={closeMenu}
+            role="menuitem"
             to="/tips"
           >
             {t('navigation.tips')}
           </Link>
           <button
-            className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background"
+            className="flex min-h-11 w-full items-center gap-2 rounded-sm px-3 text-left text-sm font-semibold text-destructive hover:bg-background focus-visible:bg-background focus-visible:outline"
             onClick={() => {
               setOpen(false)
               signOut()
             }}
+            role="menuitem"
             type="button"
           >
             <LogOut aria-hidden="true" size={16} />

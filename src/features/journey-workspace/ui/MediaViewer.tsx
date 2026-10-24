@@ -37,6 +37,8 @@ export interface MediaViewerProps {
    */
   onDelete?: (item: MediaItem) => void
   onExtractToMoment?: (item: MediaItem) => void
+  /** Opens the "fix time and location" sheet for the item. */
+  onFixTimeLocation?: (item: MediaItem) => void
   onMoveToMoment?: (item: MediaItem) => void
   /** Element that gets focus back on close (the clicked tile). */
   returnFocusTo?: HTMLElement | null
@@ -70,6 +72,7 @@ export function MediaViewer({
   onClose,
   onDelete,
   onExtractToMoment,
+  onFixTimeLocation,
   onMoveToMoment,
   returnFocusTo = null,
   startId,
@@ -442,6 +445,7 @@ export function MediaViewer({
         </div>
         {onMoveToMoment !== undefined ||
         onExtractToMoment !== undefined ||
+        onFixTimeLocation !== undefined ||
         onDelete !== undefined ? (
           <div
             aria-label={t('viewer.moreActions')}
@@ -468,6 +472,18 @@ export function MediaViewer({
                 }}
               >
                 {t('viewer.extractToMoment')}
+              </button>
+            ) : null}
+            {onFixTimeLocation !== undefined ? (
+              <button
+                aria-haspopup="dialog"
+                className="min-h-11 rounded-xl px-3 text-left hover:bg-surface"
+                type="button"
+                onClick={() => {
+                  onFixTimeLocation(item)
+                }}
+              >
+                {t('mediaCorrections.action')}
               </button>
             ) : null}
             {onDelete !== undefined ? (

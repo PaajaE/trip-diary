@@ -152,7 +152,9 @@ describe('JourneyWorkspace layout controls', () => {
     )
     expect(screen.queryByTestId('day-strip')).toBeNull()
     // Collapsed thumbs jump to the stage and are named "title · dates".
-    const thumb = screen.getByRole('button', { name: /^Alpha · / })
+    const thumb = screen.getByRole('button', {
+      name: /^Alpha · .*\d+ of 2 days done$/,
+    })
     fireEvent.click(thumb)
     fireEvent.keyDown(window, { key: '[' })
     expect(screen.getByTestId('day-strip')).toBeTruthy()

@@ -5,6 +5,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { App } from '@/app/App'
 import { releasePrerenderShell } from '@/app/prerender-shell'
 import { RootErrorBoundary } from '@/app/RootErrorBoundary'
+import { initTheme } from '@/shared/lib/theme'
 import '@/app/i18n'
 import './index.css'
 
@@ -23,6 +24,8 @@ if (!Capacitor.isNativePlatform() && import.meta.env.VITE_E2E !== '1') {
   if (document.readyState === 'complete') register()
   else window.addEventListener('load', register, { once: true })
 }
+
+initTheme()
 
 const rootElement = document.getElementById('root')
 

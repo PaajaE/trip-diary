@@ -170,6 +170,8 @@ const journeyQuickNoteRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/quick',
   component: LazyJourneyQuickNoteRoutePage,
+  // ?voice=1 starts dictation as soon as the note opens.
+  validateSearch: searchSchema({ voice: optionalFlag() }),
 })
 
 const spacesRoute = createRoute({

@@ -14,6 +14,30 @@ export {
   type MomentClusterOptions,
   type MomentClusterResult,
 } from './moments.ts'
+export {
+  dhash,
+  hammingDistance,
+  laplacianVariance,
+  meanLuminance,
+  mediaQualitySchema,
+  rgbaToGray,
+  type MediaQuality,
+} from './quality.ts'
+export {
+  clusterSeries,
+  recommendBest,
+  type BestCandidate,
+  type BestReason,
+  type SeriesItem,
+  type SeriesOptions,
+} from './series.ts'
+export {
+  suggestStop,
+  type StopSuggestion,
+  type SuggestStopMedia,
+  type SuggestStopOptions,
+  type SuggestStopStop,
+} from './suggest-stop.ts'
 export { findDuplicateGroups, type DuplicateOptions } from './duplicates.ts'
 export {
   DEFAULT_STAGE_SHIFT_KM,

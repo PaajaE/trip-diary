@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { useId, useRef, useState } from 'react'
+import { Mic, Square } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invalidateJourneyTree } from '@/entities/journey/api/invalidate-journey-tree'
 import { useSession } from '@/features/auth/session/use-session'
@@ -9,8 +10,13 @@ import {
   type QuickNoteResult,
 } from '@/features/quick-note/api/save-quick-note'
 import { loadDraft, saveDraft } from '@/features/quick-note/lib/draft'
+import {
+  formatElapsed,
+  useDictation,
+} from '@/features/quick-note/lib/use-dictation'
 import { BODY_MAX_LENGTH } from '@/features/journey-workspace/lib/text-edit'
 import { isGeolocationAvailable } from '@/shared/lib/geolocation'
+import { haptic } from '@/shared/lib/haptics'
 import { Button } from '@/shared/ui/Button'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { Card } from '@/shared/ui/PageLayout'
@@ -21,20 +27,34 @@ type Status =
   | { kind: 'saved'; located: boolean }
   | { kind: 'error'; reason: Exclude<QuickNoteResult, { ok: true }>['reason'] }
 
-export function QuickNotePage({ journeyId }: { journeyId: string }) {
+export function QuickNotePage({
+  journeyId,
+  startVoice = false,
+}: {
+  journeyId: string
+  startVoice?: boolean
+}) {
   const { user } = useSession()
   if (user === null) return null
-  return <QuickNoteView journeyId={journeyId} userId={user.id} />
+  return (
+    <QuickNoteView
+      journeyId={journeyId}
+      startVoice={startVoice}
+      userId={user.id}
+    />
+  )
 }
 
 function QuickNoteView({
   journeyId,
+  startVoice,
   userId,
 }: {
   journeyId: string
+  startVoice: boolean
   userId: string
 }) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const queryClient = useQueryClient()
   const ids = useId()
   const canLocate = isGeolocationAvailable()
@@ -43,9 +63,32 @@ function QuickNoteView({
   const [status, setStatus] = useState<Status>({ kind: 'idle' })
   const savingRef = useRef(false)
   const saving = status.kind === 'saving'
+  const textRef = useRef(text)
+  useEffect(() => {
+    textRef.current = text
+  })
+  const dictation = useDictation({
+    getBase: () => textRef.current,
+    lang: i18n.language.startsWith('cs') ? 'cs-CZ' : 'en-US',
+    onText: (next) => {
+      setText(next)
+      saveDraft(journeyId, next)
+      setStatus((current) =>
+        current.kind === 'saving' ? current : { kind: 'idle' },
+      )
+    },
+  })
+  const { start: startDictation, supported: canDictate } = dictation
+  const autoStarted = useRef(false)
+  useEffect(() => {
+    if (!startVoice || !canDictate || autoStarted.current) return
+    autoStarted.current = true
+    startDictation()
+  }, [startVoice, canDictate, startDictation])
 
   const submit = async () => {
     if (savingRef.current) return
+    dictation.stop()
     savingRef.current = true
     setStatus({ kind: 'saving' })
     const result = await saveQuickNote({
@@ -57,9 +100,11 @@ function QuickNoteView({
       savingRef.current = false
     })
     if (!result.ok) {
+      haptic('warning')
       setStatus({ kind: 'error', reason: result.reason })
       return
     }
+    haptic('success')
     saveDraft(journeyId, '')
     setText('')
     setStatus({ kind: 'saved', located: result.located })
@@ -88,6 +133,7 @@ function QuickNoteView({
             aria-invalid={error === 'empty' || error === 'too_long'}
             className="mt-2 block min-h-48 sm:min-h-64 w-full resize-y rounded-md border border-border bg-background px-4 py-3 text-base leading-7 outline-none focus:border-primary"
             id={`${ids}-text`}
+            readOnly={dictation.listening}
             value={text}
             onChange={(event) => {
               setText(event.target.value)
@@ -95,6 +141,56 @@ function QuickNoteView({
               if (status.kind !== 'saving') setStatus({ kind: 'idle' })
             }}
           />
+          {canDictate ? (
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              {dictation.listening ? (
+                <>
+                  <span
+                    className="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-destructive"
+                    data-testid="dictation-listening"
+                    role="status"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="size-2.5 animate-pulse rounded-full bg-destructive"
+                    />
+                    {t('quickNote.dictateListening', {
+                      time: formatElapsed(dictation.seconds),
+                    })}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={dictation.stop}
+                  >
+                    <Square aria-hidden="true" className="mr-2" size={14} />
+                    {t('quickNote.dictateStop')}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  disabled={saving}
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    haptic('light')
+                    dictation.start()
+                  }}
+                >
+                  <Mic aria-hidden="true" className="mr-2" size={16} />
+                  {t('quickNote.dictate')}
+                </Button>
+              )}
+              <p className="text-sm text-muted">{t('quickNote.dictateHint')}</p>
+            </div>
+          ) : null}
+          {dictation.problem === null ? null : (
+            <p className="mt-2 text-sm text-destructive" role="alert">
+              {dictation.problem === 'denied'
+                ? t('quickNote.dictateDenied')
+                : t('quickNote.dictateFailed')}
+            </p>
+          )}
         </div>
 
         {canLocate ? (

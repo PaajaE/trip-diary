@@ -11,6 +11,10 @@ import {
   type UploadPhotoDeps,
 } from '@/features/media-upload/api/upload-photo'
 
+const env = vi.hoisted(() => ({
+  mediaAnalysis: undefined as boolean | undefined,
+}))
+vi.mock('@/shared/config/env', () => ({ publicEnv: env }))
 vi.mock('@/shared/api/supabase', () => ({ getSupabaseClient: vi.fn() }))
 vi.mock('@/entities/photo/lib/process-photo', () => ({
   processPhoto: vi.fn(),
@@ -32,6 +36,12 @@ function variant(kind: PhotoVariantKind, size: number) {
 
 function makeDeps(calls: string[], overrides: Partial<UploadPhotoDeps> = {}) {
   const deps: UploadPhotoDeps = {
+    analyzePhoto: vi.fn(() =>
+      Promise.resolve({
+        phash: 123456789,
+        quality: { exposure: 0.5, sharp: 12.34, v: 1 as const },
+      }),
+    ),
     addVariant: vi.fn((v: NewMediaVariant) => {
       calls.push(`variant:${v.kind}:${v.storageKey}`)
       return Promise.resolve()
@@ -92,6 +102,55 @@ function makeDeps(calls: string[], overrides: Partial<UploadPhotoDeps> = {}) {
 }
 
 const file = new File(['x'], 'a.jpg', { type: 'image/jpeg' })
+
+describe('uploadPhoto media analysis', () => {
+  const base = {
+    capturedAt: '2026-09-11T10:00:00.000Z',
+    capturedTz: 'Europe/Prague',
+    contentHash: 'a'.repeat(64),
+    height: 3,
+    id: MEDIA,
+    latitude: 50.08,
+    longitude: 14.42,
+    ownerId: OWNER,
+    width: 6,
+  }
+
+  it('flag off: payload is unchanged and analysis is not run', async () => {
+    env.mediaAnalysis = undefined
+    const deps = makeDeps([])
+    await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(deps.analyzePhoto).not.toHaveBeenCalled()
+    expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual(base)
+  })
+
+  it('flag on: payload carries phash and quality', async () => {
+    env.mediaAnalysis = true
+    const deps = makeDeps([])
+    await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual({
+      ...base,
+      phash: 123456789,
+      quality: { exposure: 0.5, sharp: 12.34, v: 1 },
+    })
+    env.mediaAnalysis = undefined
+  })
+
+  it.each([
+    ['null', () => Promise.resolve(null)],
+    ['rejection', () => Promise.reject(new Error('boom'))],
+  ])(
+    'flag on, analysis %s: upload still succeeds without them',
+    async (_n, fn) => {
+      env.mediaAnalysis = true
+      const deps = makeDeps([], { analyzePhoto: vi.fn(fn) })
+      await uploadPhoto(file, { deps, ownerId: OWNER })
+      expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual(base)
+      expect(deps.markMediaReady).toHaveBeenCalled()
+      env.mediaAnalysis = undefined
+    },
+  )
+})
 
 describe('uploadPhoto', () => {
   it('runs create -> sign/put/variant per kind -> ready, mapping full to large', async () => {

@@ -9,7 +9,22 @@ import {
   type WorkspaceEdits,
 } from '@/features/journey-workspace/api/use-workspace-edits'
 import { useUndoableMutation } from '@/features/journey-workspace/lib/use-undoable-mutation'
-import { useDayMediaActions } from '@/features/journey-workspace/ui/day/use-day-media-actions'
+import {
+  groupByOrigin,
+  restoreOrigins,
+  useDayMediaActions,
+} from '@/features/journey-workspace/ui/day/use-day-media-actions'
+import { deleteMomentWithMedia } from '@/entities/moment/api/moment.repository'
+import { useToast } from '@/shared/ui/use-toast'
+
+/** What a sorting step did, so the quick-sort view can take it back. */
+export interface BatchRevert {
+  kind: 'done' | 'moveTo' | 'newStop' | 'trash'
+  /** The media as they were before the step (their moments are the origins). */
+  items: readonly MediaItem[]
+  /** newStop: the moment the step created (deleted again by the revert). */
+  createdMomentId?: string | null
+}
 
 export interface BatchActions {
   /** "Hotovo": marks the media as sorted; Undo marks them as waiting again. */
@@ -18,7 +33,15 @@ export interface BatchActions {
   /** Moves into a moment and marks as sorted. */
   moveTo: (items: readonly MediaItem[], momentId: string) => Promise<boolean>
   /** New stop from the media, marked as sorted. */
-  newStop: (items: readonly MediaItem[]) => Promise<boolean>
+  newStop: (
+    items: readonly MediaItem[],
+    options?: { onCreated?: (momentId: string) => void },
+  ) => Promise<boolean>
+  /**
+   * Takes one earlier step back for the in-view Undo (no toast of its own):
+   * the media return to their moments and wait to be sorted again.
+   */
+  revert: (step: BatchRevert) => Promise<boolean>
   /**
    * ★ on the selection: stars all, or unstars when all are starred. Does not
    * mark anything as sorted.
@@ -39,6 +62,7 @@ export interface BatchActions {
 export function useBatchActions(journeyId: string): BatchActions {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
   const edits = useWorkspaceEdits(journeyId)
   const dayActions = useDayMediaActions(journeyId)
   const run = useUndoableMutation(journeyId, {
@@ -91,8 +115,36 @@ export function useBatchActions(journeyId: string): BatchActions {
         sorted(items, () =>
           dayActions.moveMedia(items, momentId, { reviewed: true }),
         ),
-      newStop: (items) =>
-        sorted(items, () => dayActions.createStop(items, { reviewed: true })),
+      newStop: (items, options) =>
+        sorted(items, () =>
+          dayActions.createStop(items, {
+            reviewed: true,
+            ...(options?.onCreated === undefined
+              ? {}
+              : { onCreated: options.onCreated }),
+          }),
+        ),
+      revert: async (step) => {
+        const ids = step.items.map((item) => item.id)
+        try {
+          if (step.kind === 'trash') {
+            return await edits.restoreMedia(step.items)
+          }
+          if (step.kind !== 'done') {
+            await restoreOrigins(groupByOrigin(step.items))
+          }
+          if (step.kind === 'newStop' && step.createdMomentId) {
+            // Empty again after the origins are restored.
+            await deleteMomentWithMedia(step.createdMomentId, 'keep_media')
+          }
+          await markMediaReviewed(ids, false)
+          await queryClient.invalidateQueries()
+          return true
+        } catch {
+          showToast({ message: t('workspace.undoFailed'), variant: 'error' })
+          return false
+        }
+      },
       star: async (items) => {
         const next = !items.every((item) => item.starred)
         const changing = items.filter((item) => item.starred !== next)
@@ -116,5 +168,5 @@ export function useBatchActions(journeyId: string): BatchActions {
       },
       trash: (items) => sorted(items, () => edits.trashMedia(items)),
     }
-  }, [dayActions, edits, journeyId, queryClient, run, t])
+  }, [dayActions, edits, journeyId, queryClient, run, showToast, t])
 }

@@ -103,7 +103,7 @@ export function ProfileSettingsForm({
             label={avatarLabel}
             src={avatarPreview}
           />
-          <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold transition-colors hover:bg-white">
+          <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold transition-colors hover:bg-sunk">
             <Camera aria-hidden="true" size={18} />
             Vybrat fotografii
             <input

@@ -2,6 +2,10 @@ import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { formatDayHeading } from '@/features/journey-workspace/lib/format-range'
 import type { BatchDay } from '@/features/media-batch/model/batch-days'
+import {
+  uploaderText,
+  type UploaderModel,
+} from '@/features/media-batch/model/uploaders'
 import { BatchTile } from '@/features/media-batch/ui/BatchTile'
 
 interface BatchDaySectionProps {
@@ -14,6 +18,7 @@ interface BatchDaySectionProps {
   onActivate: (item: MediaItem, trigger: HTMLElement, range: boolean) => void
   onToggleDay: (day: BatchDay, on: boolean) => void
   selecting: boolean
+  uploaders: UploaderModel
 }
 
 /** One local day of the batch: heading, "select day" and the tile grid. */
@@ -27,6 +32,7 @@ export function BatchDaySection({
   onActivate,
   onToggleDay,
   selecting,
+  uploaders,
 }: BatchDaySectionProps) {
   const { t } = useTranslation()
   const label =
@@ -64,6 +70,7 @@ export function BatchDaySection({
             key={item.id}
             selected={isSelected(item.id)}
             selecting={selecting}
+            uploader={uploaderText(t, uploaders, item.ownerId)}
             onActivate={onActivate}
           />
         ))}

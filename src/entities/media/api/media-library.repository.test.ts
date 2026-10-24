@@ -98,6 +98,35 @@ describe('media library repository', () => {
     })
   })
 
+  it('reads the analysis columns and drops a malformed quality blob', async () => {
+    result = {
+      data: [
+        { ...row, phash: 123456789012, quality: { v: 1, sharp: 42.5 } },
+        { ...row, phash: null, quality: { v: 2, sharp: 'x' } },
+      ],
+      error: null,
+    }
+    const items = await listJourneyMedia(J)
+    expect(items[0]).toMatchObject({
+      phash: 123456789012,
+      quality: { sharp: 42.5, v: 1 },
+    })
+    expect(items[1]).toMatchObject({ phash: null, quality: null })
+  })
+
+  it('maps reviewed_at: an instant when sorted, null when not', async () => {
+    result = {
+      data: [
+        { ...row, reviewed_at: '2026-06-01T10:00:00+00:00' },
+        { ...row, reviewed_at: null },
+      ],
+      error: null,
+    }
+    const items = await listJourneyMedia(J)
+    expect(items[0]?.reviewedAt).toBe('2026-06-01T10:00:00+00:00')
+    expect(items[1]?.reviewedAt).toBeNull()
+  })
+
   it('updates metadata with granted columns only', async () => {
     result = { data: { ...row, starred: true }, error: null }
     const item = await updateMediaMeta(A, {

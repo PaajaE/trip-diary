@@ -25,6 +25,21 @@ import {
   type DayDetailPanelProps,
 } from '@/features/journey-workspace/ui/day/DayDetailPanel'
 
+vi.mock('@tanstack/react-router', async () => {
+  const { MockLink } = await import('@/features/journey-workspace/test-router')
+  return { Link: MockLink }
+})
+const flag = vi.hoisted(() => ({ corrections: false }))
+vi.mock('@/features/media-corrections/model/enabled', () => ({
+  isMediaCorrectionsEnabled: () => flag.corrections,
+}))
+vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
+  FixTimeLocationSheet: ({ items }: { items: { id: string }[] }) => (
+    <div role="dialog" aria-label="Fix sheet">
+      {items.length}
+    </div>
+  ),
+}))
 const noteApi = vi.hoisted(() => ({
   byDate: new Map<string, string>(),
   save: vi.fn(),
@@ -163,6 +178,49 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+describe('DayDetailPanel status chips', () => {
+  const unsorted = (over: Partial<WorkspaceMoment>): WorkspaceMoment[] => [
+    {
+      ...moments[0]!,
+      media: [
+        { ...A, reviewedAt: null },
+        { ...B, reviewedAt: '2026-06-04T10:00:00Z' },
+      ],
+      ...over,
+    },
+  ]
+
+  it('links the remaining count to the batch sorter and flags the missing note', () => {
+    setup({ moments: unsorted({}) })
+    const status = screen.getByTestId('day-status')
+    const link = within(status).getByRole('link', { name: '1 left to sort' })
+    expect(link.getAttribute('href')).toBe(`/j/${uuid(999)}/batch`)
+    expect(within(status).getByText('Day note missing')).toBeTruthy()
+    expect(within(status).queryByText('Photos sorted')).toBeNull()
+  })
+
+  it('shows sorted photos and no missing-note chip when all is done', () => {
+    noteApi.byDate = new Map([['2026-06-03', 'Text']])
+    setup({
+      moments: unsorted({
+        media: [{ ...A, reviewedAt: '2026-06-04T10:00:00Z' }],
+      }),
+    })
+    const status = screen.getByTestId('day-status')
+    expect(within(status).getByText('Photos sorted')).toBeTruthy()
+    expect(within(status).getByText('Note')).toBeTruthy()
+    expect(within(status).queryByRole('link')).toBeNull()
+    expect(within(status).queryByText('Day note missing')).toBeNull()
+  })
+
+  it('treats media without reviewedAt as sorted', () => {
+    setup()
+    const status = screen.getByTestId('day-status')
+    expect(within(status).getByText('Photos sorted')).toBeTruthy()
+    expect(within(status).queryByRole('link')).toBeNull()
+  })
+})
+
 describe('DayDetailPanel', () => {
   it('shows the title, meta line, stops with text and photo counts', () => {
     setup()
@@ -193,10 +251,28 @@ describe('DayDetailPanel', () => {
     fireEvent.click(photoButton(2), { shiftKey: true })
     expect(screen.getByRole('toolbar')).toHaveTextContent('Selected 3 photos')
 
-    fireEvent.click(screen.getByRole('button', { name: /Star/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Best/ }))
     await waitFor(() => {
       expect(props.edits.toggleStar).toHaveBeenCalledTimes(2) // B was already starred
     })
+  })
+
+  it('offers "Time and location" on the selection only with the flag on', () => {
+    setup()
+    fireEvent.click(photoButton(0), { metaKey: true })
+    expect(
+      screen.queryByRole('button', { name: 'Time and location' }),
+    ).toBeNull()
+    cleanup()
+    flag.corrections = true
+    setup()
+    fireEvent.click(photoButton(0), { metaKey: true })
+    fireEvent.click(photoButton(2), { shiftKey: true })
+    fireEvent.click(screen.getByRole('button', { name: 'Time and location' }))
+    expect(screen.getByRole('dialog', { name: 'Fix sheet' })).toHaveTextContent(
+      '3',
+    )
+    flag.corrections = false
   })
 
   it('moves the selection to a stop, creates a stop and trashes', async () => {

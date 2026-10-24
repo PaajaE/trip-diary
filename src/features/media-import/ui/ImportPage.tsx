@@ -1,4 +1,9 @@
-import { Image as ImageIcon, UploadCloud, Video } from 'lucide-react'
+import {
+  CheckCircle2,
+  Image as ImageIcon,
+  UploadCloud,
+  Video,
+} from 'lucide-react'
 import {
   useEffect,
   useRef,
@@ -10,7 +15,6 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { dexieUploadJobStore } from '@/entities/media/api/upload-jobs.store'
 import {
-  UPLOAD_JOB_STATES,
   type ImportCursor,
   type UploadJob,
 } from '@/entities/media/model/upload-job'
@@ -21,6 +25,11 @@ import {
 } from '@/features/media-import/api/photokit-source'
 import { MAX_IMPORT_BATCH } from '@/features/media-import/model/limits'
 import { useImportQueue } from '@/features/media-import/api/use-import-queue'
+import type {
+  QueueSnapshot,
+  UploadQueue,
+} from '@/features/media-import/api/upload-queue'
+import { useUploadEta } from '@/features/media-import/lib/use-upload-eta'
 import {
   createWebFilesSource,
   WEB_FILES_ACCEPT,
@@ -58,6 +67,9 @@ const STATE_ORDER: Record<UploadJob['state'], number> = {
   paused: 4,
   done: 5,
 }
+
+/** Finished thumbnails/names kept in the "just uploaded" list. */
+const RECENT_LIMIT = 12
 
 type RangeMode = RangeChoice['mode']
 
@@ -249,19 +261,8 @@ function ImportView({
   const importable = summary === null ? 0 : summary.photos + summary.videos
   const tooMany =
     overLimit ?? (importable > MAX_IMPORT_BATCH ? importable : null)
-  const { counts, current, runtime } = snapshot
-  const waiting = counts.pending + counts.paused
-  const busy = runtime === 'running' || runtime === 'waiting_online'
-  const finished =
-    runtime === 'idle' &&
-    counts.done > 0 &&
-    waiting === 0 &&
-    counts.processing === 0
-
-  const rows = [...snapshot.jobs]
-    .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state])
-    .slice(0, QUEUE_ROW_LIMIT)
-  const hiddenRows = snapshot.jobs.length - rows.length
+  const busy =
+    snapshot.runtime === 'running' || snapshot.runtime === 'waiting_online'
 
   return (
     <div className="space-y-6">
@@ -448,168 +449,318 @@ function ImportView({
       )}
 
       {snapshot.jobs.length === 0 ? null : (
-        <section aria-label={t('mediaImport.title')}>
-          <SectionHeading>{t('mediaImport.queueTitle')}</SectionHeading>
-          <Card className="space-y-4">
-            <ul className="flex flex-wrap gap-2 text-sm">
-              {UPLOAD_JOB_STATES.map((state) => (
-                <li
-                  className="rounded-full bg-background px-3 py-1 font-medium"
-                  data-state={state}
-                  key={state}
-                >
-                  {t(`mediaImport.state.${state}`, { count: counts[state] })}
+        <QueueSection
+          journeyId={journeyId}
+          locale={locale}
+          queue={queue}
+          snapshot={snapshot}
+          t={t}
+        />
+      )}
+    </div>
+  )
+}
+
+type TFn = ReturnType<typeof useTranslation>['t']
+
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const radius = 24
+  const circumference = 2 * Math.PI * radius
+  const fraction = total === 0 ? 0 : Math.min(done / total, 1)
+  return (
+    <svg
+      aria-hidden="true"
+      className="size-14 shrink-0 -rotate-90"
+      viewBox="0 0 56 56"
+    >
+      <circle
+        className="stroke-border"
+        cx="28"
+        cy="28"
+        fill="none"
+        r={radius}
+        strokeWidth="5"
+      />
+      <circle
+        className="stroke-primary transition-[stroke-dashoffset]"
+        cx="28"
+        cy="28"
+        fill="none"
+        r={radius}
+        strokeDasharray={circumference}
+        strokeDashoffset={circumference * (1 - fraction)}
+        strokeLinecap="round"
+        strokeWidth="5"
+      />
+    </svg>
+  )
+}
+
+function QueueSection({
+  journeyId,
+  locale,
+  queue,
+  snapshot,
+  t,
+}: {
+  journeyId: string
+  locale: string
+  queue: UploadQueue
+  snapshot: QueueSnapshot
+  t: TFn
+}) {
+  const { counts, current, jobs, runtime } = snapshot
+  const waiting = counts.pending + counts.paused
+  const active = waiting > 0 || counts.processing > 0
+  const finished = runtime === 'idle' && counts.done > 0 && !active
+  const total = jobs.length
+  const handled = counts.done + counts.skipped
+  const minutesLeft = useUploadEta({
+    finished: counts.done,
+    remaining: waiting + counts.processing,
+    running: runtime === 'running',
+  })
+
+  const failed = jobs.filter((job) => job.state === 'failed')
+  // The snapshot carries no preview image, so "just uploaded" is a compact
+  // list of the newest finished items, not a thumbnail strip.
+  const recent = jobs
+    .filter((job) => job.state === 'done')
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, RECENT_LIMIT)
+  const rows = jobs
+    .filter((job) => job.state !== 'failed' && job.state !== 'done')
+    .sort((a, b) => STATE_ORDER[a.state] - STATE_ORDER[b.state])
+    .slice(0, QUEUE_ROW_LIMIT)
+  const hiddenRows =
+    jobs.filter((job) => job.state !== 'failed' && job.state !== 'done')
+      .length - rows.length
+
+  const name = (job: UploadJob) =>
+    t(
+      job.mediaType === 'video'
+        ? 'mediaImport.itemVideo'
+        : 'mediaImport.itemPhoto',
+      {
+        name: jobLabel(job, locale),
+      },
+    )
+  const reason = (job: UploadJob) =>
+    t(`mediaImport.reason.${job.lastError ?? 'other'}`, {
+      defaultValue: t('mediaImport.reason.other'),
+    })
+
+  return (
+    <section aria-label={t('mediaImport.title')}>
+      <SectionHeading>{t('mediaImport.queueTitle')}</SectionHeading>
+      <Card className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <ProgressRing done={handled} total={total} />
+          </div>
+          <div
+            aria-label={t('mediaImport.progressLabel')}
+            aria-valuemax={total}
+            aria-valuemin={0}
+            aria-valuenow={handled}
+            className="min-w-0"
+            data-testid="upload-progress"
+            role="progressbar"
+          >
+            <p className="text-lg font-semibold">
+              {t('mediaImport.progressOf', { done: handled, total })}
+            </p>
+            {minutesLeft === null ? null : (
+              <p className="text-sm text-muted" data-testid="upload-eta">
+                {t('mediaImport.remaining', { count: minutesLeft })}
+              </p>
+            )}
+          </div>
+        </div>
+        {runtime === 'waiting_online' ? (
+          <p className="text-sm text-muted" role="status">
+            {t('mediaImport.waitingOnline')}
+          </p>
+        ) : null}
+        {current === null ? null : (
+          <p className="text-sm" role="status">
+            {t('mediaImport.current', {
+              percent: Math.round(current.fraction * 100),
+              phase: t(`mediaImport.phase.${current.phase}`),
+            })}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          {runtime === 'running' || runtime === 'waiting_online' ? (
+            <Button variant="secondary" onClick={() => void queue.pause()}>
+              {t('mediaImport.pause')}
+            </Button>
+          ) : null}
+          {runtime === 'paused' || counts.paused > 0 ? (
+            <Button variant="secondary" onClick={() => void queue.resume()}>
+              {t('mediaImport.resume')}
+            </Button>
+          ) : null}
+          {runtime === 'idle' && counts.pending > 0 ? (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                queue.start()
+              }}
+            >
+              {t('mediaImport.continue')}
+            </Button>
+          ) : null}
+          {waiting > 0 ? (
+            <Button variant="destructive" onClick={() => void queue.cancel()}>
+              {t('mediaImport.cancel')}
+            </Button>
+          ) : null}
+        </div>
+
+        {failed.length === 0 ? null : (
+          <div
+            className="rounded-md border border-destructive/30 bg-destructive/5 p-3"
+            data-testid="upload-failed"
+          >
+            <p className="text-sm font-semibold text-destructive">
+              {t('mediaImport.failedTitle', { count: failed.length })}
+            </p>
+            <ul className="mt-2 divide-y divide-destructive/15 text-sm">
+              {failed.map((job) => (
+                <li className="py-2" data-job-state={job.state} key={job.id}>
+                  <span className="block truncate font-medium">
+                    {name(job)}
+                  </span>
+                  <span className="block text-muted">{reason(job)}</span>
                 </li>
               ))}
             </ul>
-            {runtime === 'waiting_online' ? (
-              <p className="text-sm text-muted" role="status">
-                {t('mediaImport.waitingOnline')}
-              </p>
-            ) : null}
-            {current === null ? null : (
-              <p className="text-sm" role="status">
-                {t('mediaImport.current', {
-                  percent: Math.round(current.fraction * 100),
-                  phase: t(`mediaImport.phase.${current.phase}`),
-                })}
-              </p>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {runtime === 'running' || runtime === 'waiting_online' ? (
-                <Button variant="secondary" onClick={() => void queue.pause()}>
-                  {t('mediaImport.pause')}
-                </Button>
-              ) : null}
-              {runtime === 'paused' || counts.paused > 0 ? (
-                <Button variant="secondary" onClick={() => void queue.resume()}>
-                  {t('mediaImport.resume')}
-                </Button>
-              ) : null}
-              {runtime === 'idle' && counts.pending > 0 ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => {
-                    queue.start()
-                  }}
+            <Button
+              className="mt-3"
+              variant="secondary"
+              onClick={() => void queue.retryFailed()}
+            >
+              {t('mediaImport.retryFailed')}
+            </Button>
+          </div>
+        )}
+
+        {rows.length === 0 ? null : (
+          <ul className="divide-y divide-border rounded-md border border-border text-sm">
+            {rows.map((job) => {
+              const skipped = job.state === 'skipped'
+              const isCurrent = current !== null && current.jobId === job.id
+              const Icon = job.mediaType === 'video' ? Video : ImageIcon
+              return (
+                <li
+                  className="flex items-start gap-3 px-3 py-2.5"
+                  data-job-state={job.state}
+                  key={job.id}
                 >
-                  {t('mediaImport.continue')}
-                </Button>
-              ) : null}
-              {counts.failed > 0 ? (
-                <Button
-                  variant="secondary"
-                  onClick={() => void queue.retryFailed()}
-                >
-                  {t('mediaImport.retryFailed')}
-                </Button>
-              ) : null}
-              {waiting > 0 ? (
-                <Button
-                  variant="destructive"
-                  onClick={() => void queue.cancel()}
-                >
-                  {t('mediaImport.cancel')}
-                </Button>
-              ) : null}
-            </div>
-            <ul className="divide-y divide-border rounded-md border border-border text-sm">
-              {rows.map((job) => {
-                const problem =
-                  job.state === 'failed' || job.state === 'skipped'
-                const active = current !== null && current.jobId === job.id
-                const Icon = job.mediaType === 'video' ? Video : ImageIcon
-                return (
-                  <li
-                    className="flex items-start gap-3 px-3 py-2.5"
-                    data-job-state={job.state}
-                    key={job.id}
-                  >
-                    <Icon
-                      aria-hidden="true"
-                      className="mt-0.5 shrink-0 text-muted"
-                      size={16}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <span className="block truncate font-medium">
-                        {t(
-                          job.mediaType === 'video'
-                            ? 'mediaImport.itemVideo'
-                            : 'mediaImport.itemPhoto',
-                          { name: jobLabel(job, locale) },
-                        )}
-                      </span>
-                      {problem ? (
-                        <span className="block text-muted">
-                          {t(`mediaImport.reason.${job.lastError ?? 'other'}`, {
-                            defaultValue: t('mediaImport.reason.other'),
-                          })}
-                        </span>
-                      ) : null}
-                      {active ? (
-                        <span
-                          aria-hidden="true"
-                          className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-border"
-                        >
-                          <span
-                            className="block h-full rounded-full bg-primary transition-[width]"
-                            style={{
-                              width: `${String(Math.round(current.fraction * 100))}%`,
-                            }}
-                          />
-                        </span>
-                      ) : null}
-                    </div>
-                    <span
-                      className={cn(
-                        'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
-                        job.state === 'done' && 'bg-primary/10 text-primary',
-                        job.state === 'failed' &&
-                          'bg-destructive/10 text-destructive',
-                        job.state === 'skipped' &&
-                          'bg-accent/10 text-accent-strong',
-                        job.state !== 'done' &&
-                          job.state !== 'failed' &&
-                          job.state !== 'skipped' &&
-                          'bg-background text-muted',
-                      )}
-                    >
-                      {t(`mediaImport.itemState.${job.state}`)}
+                  <Icon
+                    aria-hidden="true"
+                    className="mt-0.5 shrink-0 text-muted"
+                    size={16}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">
+                      {name(job)}
                     </span>
-                  </li>
-                )
-              })}
-            </ul>
-            {hiddenRows > 0 ? (
-              <p className="text-sm text-muted">
-                {t('mediaImport.queueMore', { count: hiddenRows })}
-              </p>
-            ) : null}
-            {finished ? (
-              <div className="space-y-2 rounded-md bg-primary/5 p-4">
-                <p className="text-sm font-semibold">
-                  {t('mediaImport.finished', { count: counts.done })}
-                </p>
-                <p className="text-sm text-muted">
-                  {t('mediaImport.organizeOffer')}
-                </p>
-                <OrganizeJourneyButton journeyId={journeyId} />
-                <p className="pt-2 text-sm text-muted">
-                  {t('mediaImport.sortOffer')}
-                </p>
-                <Link
-                  className={buttonVariants({ variant: 'primary' })}
-                  params={{ journeyId }}
-                  to="/j/$journeyId/batch"
+                    {skipped ? (
+                      <span className="block text-muted">{reason(job)}</span>
+                    ) : null}
+                    {isCurrent ? (
+                      <span
+                        aria-hidden="true"
+                        className="mt-1.5 block h-1.5 overflow-hidden rounded-full bg-border"
+                      >
+                        <span
+                          className="block h-full rounded-full bg-primary transition-[width]"
+                          style={{
+                            width: `${String(Math.round(current.fraction * 100))}%`,
+                          }}
+                        />
+                      </span>
+                    ) : null}
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                      skipped
+                        ? 'bg-accent/10 text-accent-strong'
+                        : 'bg-background text-muted',
+                    )}
+                  >
+                    {t(`mediaImport.itemState.${job.state}`)}
+                  </span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {hiddenRows > 0 ? (
+          <p className="text-sm text-muted">
+            {t('mediaImport.queueMore', { count: hiddenRows })}
+          </p>
+        ) : null}
+
+        {recent.length === 0 ? null : (
+          <div data-testid="upload-recent">
+            <h3 className="text-sm font-semibold">
+              {t('mediaImport.justUploaded')}
+            </h3>
+            <ul className="mt-2 space-y-1 text-sm text-muted">
+              {recent.map((job) => (
+                <li
+                  className="flex items-center gap-2"
+                  data-job-state={job.state}
+                  key={job.id}
                 >
-                  {t('mediaImport.sortBatch')}
-                </Link>
-              </div>
-            ) : null}
-          </Card>
-        </section>
-      )}
-    </div>
+                  <CheckCircle2
+                    aria-hidden="true"
+                    className="shrink-0 text-primary"
+                    size={14}
+                  />
+                  <span className="truncate">{name(job)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {finished ? (
+          <div className="space-y-2 rounded-md bg-primary/5 p-4">
+            <p className="text-sm font-semibold">
+              {t('mediaImport.finished', { count: counts.done })}
+            </p>
+            <p className="text-sm text-muted">
+              {t('mediaImport.organizeOffer')}
+            </p>
+            <OrganizeJourneyButton journeyId={journeyId} />
+            <p className="pt-2 text-sm text-muted">
+              {t('mediaImport.sortOffer')}
+            </p>
+            <Link
+              className={buttonVariants({ variant: 'primary' })}
+              params={{ journeyId }}
+              to="/j/$journeyId/batch"
+            >
+              {t('mediaImport.sortBatch')}
+            </Link>
+          </div>
+        ) : active || runtime !== 'idle' ? (
+          <button
+            className={cn(buttonVariants({ variant: 'primary' }), 'w-full')}
+            data-testid="sort-locked"
+            disabled
+            type="button"
+          >
+            {t('mediaImport.sortLocked')}
+          </button>
+        ) : null}
+      </Card>
+    </section>
   )
 }
 

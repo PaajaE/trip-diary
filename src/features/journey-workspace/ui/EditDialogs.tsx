@@ -37,7 +37,7 @@ function Actions({
         {t('common.cancel')}
       </button>
       <button
-        className={`${dialogButton} bg-primary text-white`}
+        className={`${dialogButton} bg-primary text-primary-foreground`}
         disabled={confirmDisabled}
         type="button"
         onClick={onConfirm}

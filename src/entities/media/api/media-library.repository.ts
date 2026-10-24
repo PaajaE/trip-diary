@@ -1,3 +1,4 @@
+import { mediaQualitySchema } from '@trip-diary/core/automation'
 import type { Database } from '@/shared/api/database.types'
 import {
   type MediaItem,
@@ -34,6 +35,10 @@ export function toMediaItem(row: MediaWithVariants): MediaItem {
     longitude: row.longitude,
     momentId: row.moment_id,
     ownerId: row.owner_id,
+    phash: row.phash,
+    // A bad analysis blob must never hide the photo: drop it instead.
+    quality: mediaQualitySchema.safeParse(row.quality).data ?? null,
+    reviewedAt: row.reviewed_at,
     segmentOverrideId: row.segment_override_id,
     starred: row.starred,
     status: row.status,

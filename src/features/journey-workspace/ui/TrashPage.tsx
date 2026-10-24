@@ -54,7 +54,7 @@ function PurgeDialog({
           {t('common.cancel')}
         </button>
         <button
-          className={`${dialogButton} bg-destructive text-white`}
+          className={`${dialogButton} bg-destructive text-primary-foreground`}
           type="button"
           onClick={onConfirm}
         >

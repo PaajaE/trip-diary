@@ -470,6 +470,145 @@ Brána: dávka ~300 fotek se z iPhonu nahraje a roztřídí do zastávek jen tel
 zamčení telefonu nebo přepnutí aplikace uprostřed nahrávání nic neztratí ani nezdvojí;
 každá nová obrazovka je ověřená na zařízení a ve ~390 px.
 
+#### Fáze 4e — Třídírna a návrat k vzpomínkám (2026-10-24, 📝 PROPOSED)
+
+Vychází z UX review 2026-10-24 (`REFACTOR_PLAN.md`, oddíl L) a z klikací vize (soukromý
+artefakt, 23 obrazovek: https://claude.ai/artifact/7zU3hQNM316snfxkz4bHo7). Vize je
+**návrh ke schválení**, ne závazná předloha, dokud ji uživatel neodsouhlasí. Navazuje na
+4d (mobilní třídění) a upřesňuje ji; kde se liší, rozhodne schválení.
+
+Zjištění, ze kterých se vychází:
+
+- Třídění je rozdělené na tři místa (Dávka, Výběr nejlepších, prohlížeč), která si
+  překrývají akce. Z dávky se z celé obrazovky nedá fotka zařadit.
+- Navigace jsou záložky na jedné úrovni (7 položek) bez pořadí práce; správa (Členové,
+  Koš) stojí vedle hlavního postupu. Dashboard nemá fotky ani počet k roztřídění.
+- Slovník (moment × zastávka, tykání × vykání, čtyři názvy pro ★) je nejednotný.
+- Chybí věci, které třídění stovek fotek urychlují: série podobných, doporučení nejlepší,
+  zoom a porovnání, oprava času a polohy hromadně, filtry a hledání, viditelný postup.
+
+Principy vize:
+
+1. **Jeden režim třídění** (mobil i web): Rychlé třídění je vstup z dávky, ze dne i po
+   nahrání. Mřížka dávky zůstává pro hromadné akce.
+2. **Co dál místo seznamu nástrojů.** Domů a Přehled cesty říkají jedním tlačítkem, co
+   pomůže nejvíc (roztřídit N, napsat zápis, schválit návrh etapy).
+3. **Stav dne se odvozuje, neukládá se.** „Fotky roztříděné“ = všechna média dne mají
+   `reviewed_at`. „Zápis“ = existuje `day_notes`. Žádná nová tabulka stavů.
+4. **Automatika navrhuje, člověk potvrzuje.** Návrh zastávky, doporučená fotka v sérii
+   a osnova zápisu dne jsou deterministické funkce v `packages/core` bez AI služby.
+5. **Soukromí napřed** u všeho, co vychází ven (poloha, e-maily sledujících).
+
+##### Mapa obrazovek vize ↔ úkoly
+
+| Obrazovka vize                                | Úkoly             |
+| --------------------------------------------- | ----------------- |
+| Domů: co dál, spodní navigace, rychlé přidání | UX-10, 11, 12     |
+| Nahrávání (průběh, miniatury, chyby, Wi-Fi)   | UX-13             |
+| Rychlé třídění (mobil) a Třídírna (web)       | UX-30, 33, 34, 37 |
+| Série podobných                               | UX-31, 32         |
+| Dávka, výběr tažením, Přesunout do            | UX-35, 36         |
+| Prohlížeč fotky, oprava času a polohy         | UX-36, 40, 41     |
+| Hotovo se dnem, stav dne                      | UX-38, 39         |
+| Přehled cesty, Den (web a mobil), Mapa        | UX-14, 15, 39     |
+| Hledání a filtry                              | UX-42, 43         |
+| Sdílení a poloha pro rodinu, příběh k sdílení | UX-50 až 53       |
+| Kniha z cesty                                 | UX-60 až 62       |
+| Prázdné a chybové stavy, tmavý režim          | UX-16, 17         |
+
+##### DB kontrakt (návrh, vše aditivní; pořadí migrací = pořadí v tabulce)
+
+Pravidlo CLAUDE.md platí: DB se dohodne a zmigruje dřív, než na ní závisí web nebo iOS.
+Každá migrace má pgTAP test (RLS: vlastník, editor, člen, host, anon) a přegenerované
+typy (`pnpm db:types`). Nové RPC kopírují konvenci `media_batch_journey` a kódy chyb
+`P0002` / `42501` / `22023`, `security definer`, `set search_path = ''`, `revoke` + `grant`
+jen `authenticated` (kde není uvedeno jinak).
+
+| #   | Migrace (návrh názvu)                 | Obsah                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Proč                                                                               |
+| --- | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| D1  | `20261025120000_v2_media_analysis`    | `media.phash bigint` (49bitový dHash 8×7, aby se vešel do přesného celého čísla v JS; 64 bitů by se při čtení z Supabase tiše zkomolilo), `media.quality jsonb` (`{v, sharp, exposure, eyesClosed?}`, objekt, < 2 kB). Nullable, bez defaultu. Do sloupcových grantů insert/update patří jen u vlastníka média. Žádný index, shluky se počítají na klientu. Série se **neukládají**, odvozují se z `phash` + `captured_at` čistou funkcí.                                                   | Série podobných a doporučení nejlepší (UX-31). Zachová idempotenci a ruční zásahy. |
+| D2  | `20261025120100_v2_media_corrections` | `media.captured_at_source text` (`exif`/`gps`/`file`/`manual`, null = neznámé) a `media.location_source text` (`exif`/`manual`). RPC `shift_media_time(p_media_ids uuid[], p_delta_seconds int)` (\|delta\| ≤ 366 dní) a `set_media_location(p_media_ids uuid[], p_latitude, p_longitude)`. Obě jen editor, ignorují koš, vrací počet změněných řádků. Neřeší `moment_id`; přeřazení udělá klient idempotentním „Uspořádat“, zamčené a ruční zastávky zůstanou.                             | Cizí foťák, dron, špatné hodiny, fotky bez GPS (UX-40, 41).                        |
+| D3  | `20261025120200_v2_journey_progress`  | RPC `journey_progress(p_journey_ids uuid[])` (čtení pro členy): za cestu `days_total`, `days_with_note`, `media_total`, `media_unreviewed`, `starred`, `cover_media_id`. Dny podle `home_tz` jako u `day_notes`. Jen čtení, žádná tabulka.                                                                                                                                                                                                                                                  | Dashboard, odznak třídění, postup (UX-14, 38).                                     |
+| D4  | `…_v2_search`                         | Rozšíření `unaccent`, generovaný `tsvector` (`simple` + `unaccent`) na `moments(title, body)`, `day_notes(body)`, `places(name)`, `media(caption)`; GIN indexy; RPC `search_journey(p_journey_id, p_query, p_limit)`. Filtry ★, video, bez polohy, bez popisku, tag jdou lokálně v Dexie.                                                                                                                                                                                                   | Hledání (UX-42). Až po 4e-B.                                                       |
+| D5  | `…_v2_live_position`                  | `journeys.live_enabled bool default false`, `live_delay_minutes int default 180 (0–1440)`, `live_precision text default 'city'` (`exact`/`area`/`city`). Tabulka `journey_live_positions` (`journey_id`, `recorded_at`, `latitude`, `longitude`, `accuracy_m`); insert jen editor; anon bez přístupu. Veřejné `get_public_live_position(handle, slug)` vrací nejnovější bod **starší než zpoždění**, zaokrouhlený podle přesnosti, jinak `null`. Mazání starších než 30 dní přes `pg_cron`. | Sledování pro rodinu (UX-50). **Vyžaduje rozhodnutí o soukromí** (níže).           |
+| D6  | `…_v2_journey_followers`              | `journey_followers` (`journey_id`, `actor_id`, `email` nullable, `digest_hour`, `tz`, `unsubscribed_at`). RLS: host vidí a mění jen svůj řádek, vlastník počet, ne e-maily. Odesílání viz rozhodnutí o kanálu.                                                                                                                                                                                                                                                                              | Denní souhrn (UX-52). Až po rozhodnutí o kanálu.                                   |
+| D7  | `…_v2_journey_stats`                  | RPC `get_journey_stats(p_journey_id)` (člen) a klíč `stats` ve `get_public_journey`: dny, km (`tracks.distance_m`, jinak odvozené z médií), fotky, ★, počet `captured_tz`, nejvyšší `altitude`, nejsrdíčkovanější médium. Bez tabulky.                                                                                                                                                                                                                                                      | Příběh k sdílení a statistiky (UX-53).                                             |
+| D8  | `…_v2_journey_books`                  | `journey_books` (`id`, `journey_id`, `theme`, `options jsonb`, `layout jsonb`, `created_by`, `updated_at`). RLS jako `day_notes`. PDF se **neukládá**, skládá se na klientu z toho, co v cestě je.                                                                                                                                                                                                                                                                                          | Kniha z cesty (UX-60 až 62).                                                       |
+
+Bez změny DB: Rychlé třídění (používá `move_media`, `create_moment_from_media`,
+`trash_media`, `mark_media_reviewed`, ★), návrh zastávky (čistá funkce v `core`),
+filtry v dávce, osnova zápisu dne, hlasový zápis (přepis v zařízení, do `day_notes`
+nebo momentu jako text), Domů a spodní navigace, tmavý režim.
+
+##### Úkoly (stav všech: 📝 PROPOSED)
+
+Skupiny A–C jsou jádro 4e. Skupiny D–G jdou po schválení a po ověření A–C na zařízení.
+
+| ID    | Úkol                                                                                                                                                                                                   | Role                    | Závisí na      |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------- | -------------- |
+| UX-00 | Schválit vizi a rozhodnutí níže; ověřit M0 z 4d na iPhonu (výkon posunu, paměť WKWebView)                                                                                                              | uživatel + orchestrátor | —              |
+| UX-01 | **Rychlé výhry** (bez DB): dvojité šipky v `dayDetail`, skrýt neaktivní „Sloučit zastávky / Přesunout do jiného dne“, jednopoložkové „⋯“, nulové stavové pilulky ve frontě importu, ARIA účtového menu | app                     | —              |
+| UX-02 | **Slovník a hlas:** jedno slovo zastávka (UI), tykání v celém `cs.ts`, jedno sloveso pro ★ („Nejlepší“), „Třídění“ místo „Dávka“, „Vyřízeno“ místo „Hotovo“ s popiskem; totéž v `en.ts`                | app                     | —              |
+| UX-03 | Dotykové cíle ≥ 44 px (výběr fotky), nápověda kláves ve Výběru nejlepších, silnější stav přepínačů                                                                                                     | app                     | —              |
+| UX-10 | Spodní navigace na mobilu: Domů, Třídění (odznak), +, Mapa, Čtení; na webu záložky v pořadí práce                                                                                                      | app                     | UX-02          |
+| UX-11 | Domů: karta „Teď nejvíc pomůže“ z modelu úkolů (`workspace-tasks`) včetně dávky; pás Před měsícem                                                                                                      | app                     | D3             |
+| UX-12 | Rychlé přidání (+): zápis, fotka, hlas (přepis v zařízení; bez ukládání zvuku)                                                                                                                         | app                     | —              |
+| UX-13 | Obrazovka nahrávání: celkový postup „N z M“, odhad času, miniatury hotových, opakování po položce, Wi-Fi jen                                                                                           | app (+ iOS plugin)      | 4d M3          |
+| UX-14 | Dashboard: titulní fotka, počty, „k roztřídění“, postup; Přehled cesty: stav dne (prázdný, rozpracovaný, hotový) na kartách dnů                                                                        | app                     | D3             |
+| UX-15 | Správa cesty (Členové, Koš, Sdílení, Nastavení) z primárních záložek do jedné nabídky                                                                                                                  | app                     | UX-10          |
+| UX-16 | Prázdné, chybové a offline stavy sjednocené (komponenta + texty)                                                                                                                                       | app                     | —              |
+| UX-17 | Tmavý režim (tokeny v `src/index.css`), nejdřív obrazovky třídění, pak celá aplikace                                                                                                                   | app                     | —              |
+| UX-30 | Rychlé třídění v dávce a ze dne: velká fotka, Koš / Nejlepší / Do zastávky, návrh zastávky, Zpět, tah nahoru = koš; logika zůstává v `model/cull.ts`, přibývá `suggestStop` v `core`                   | app                     | UX-02          |
+| UX-31 | `clusterSeries` a `recommendBest` v `packages/core` (dHash, Hamming ≤ N, okno 90 s, ostrost z variance Laplaciánu); výpočet při importu (web worker, iOS) → `phash`, `quality`                         | db → app                | D1             |
+| UX-32 | Obrazovka Série podobných (mobil, web): doporučená, porovnání dvou, „nechat tuhle“, „nechat víc“                                                                                                       | app                     | UX-31          |
+| UX-33 | Třídírna na webu: dva snímky vedle sebe, zoom, pás náhledů, zkratky (Enter potvrdí zastávku, G série, C porovnat, Z zoom)                                                                              | app                     | UX-30          |
+| UX-34 | Odznak ostrosti na dlaždici a v prohlížeči (jen z `quality`, bez AI služby)                                                                                                                            | app                     | UX-31          |
+| UX-35 | Dávka: filtry (Bez polohy, Série, Videa), výběr podržením a tažením (rozsah v pořadí čtení), spodní list Přesunout do s předchozí/další zastávkou                                                      | app                     | UX-02          |
+| UX-36 | Prohlížeč v dávce se skutečnými cíli (přesun, vyjmutí do nové zastávky, obálka); po akci označí jako vyřízené                                                                                          | app                     | —              |
+| UX-37 | Haptika (Capacitor Haptics, **nová závislost: schválit**)                                                                                                                                              | app                     | UX-30          |
+| UX-38 | „Hotovo se dnem“: souhrn dne (★, koš, zastávky) a návrh dalšího kroku (zápis dne, další den)                                                                                                           | app                     | D3, UX-30      |
+| UX-39 | Odvozený stav dne ve všech seznamech (jeden model `dayStatus` v `journey-workspace/model`)                                                                                                             | app                     | D3             |
+| UX-40 | Oprava času hromadně: posun o ±h/min s náhledem, předvolby podle pásma; Zpět inverzním posunem                                                                                                         | db → app                | D2             |
+| UX-41 | Umístit na mapě (fotky bez GPS): výběr + špendlík, `set_media_location`                                                                                                                                | db → app                | D2             |
+| UX-42 | Filtry a hledání: lokální filtry (★, video, bez polohy, bez popisku, tag) a celotextové hledání ⌘K                                                                                                     | db → app                | D4             |
+| UX-43 | Odznaky „kdo nahrál“ u společných cest (z `media.owner_id`, bez změny DB)                                                                                                                              | app                     | —              |
+| UX-50 | Sledování pro rodinu: nastavení soukromí (zpoždění, přesnost, vypnout), iOS odesílání polohy, veřejná stránka „Kde jsme teď“                                                                           | db → app                | D5, rozhodnutí |
+| UX-51 | Pozdrav cestovateli: komentář k cestě od člena bez schvalování (ověřit `guard_content_comment_insert`)                                                                                                 | db? → app               | UX-50          |
+| UX-52 | Denní souhrn (kanál po rozhodnutí): e-mail přes poskytovatele, nebo Atom/RSS kanál                                                                                                                     | db → edge → app         | D6, rozhodnutí |
+| UX-53 | Příběh k sdílení (obrázek z `get_journey_stats`, vykreslení na klientu), statistiky v hlavičce cesty                                                                                                   | db → app                | D7             |
+| UX-60 | Kniha z cesty: skladba stran jako čistá funkce v `core` (kapitoly = etapy, ★ a zápisy), kontrola rozlišení fotek                                                                                       | app                     | —              |
+| UX-61 | Editor knihy (kapitoly, vzhled, co zahrnout, dvoustrany) a nastavení v `journey_books`                                                                                                                 | db → app                | D8, UX-60      |
+| UX-62 | Export PDF (tisk z prohlížeče s `@page`, nebo knihovna: **rozhodnutí o závislosti**)                                                                                                                   | app                     | UX-61          |
+
+**Brána 4e (A–C):** dávka ~300 fotek se z iPhonu nahraje a roztřídí jen telefonem do 15 minut
+(cíl, **UNVERIFIED**); na ruční vzorku 100 sérií se doporučený snímek shoduje s volbou
+člověka alespoň v 80 % (cíl, **UNVERIFIED**); žádné `new Date()` jako čas zážitku;
+`pnpm check` a `pnpm db:test` zelené; každá nová obrazovka ověřená na zařízení a ve ~390 px
+a ve 1400 px; slovník a tykání bez zbytků (kontrola `grep` v testu překladů).
+
+##### Rozhodnutí (2026-10-24: uživatel schválil všechny návrhy níže a vizi obrazovek)
+
+1. **Poloha pro rodinu:** zapnout vůbec? Výchozí návrh: vypnuto, zpoždění 3 h, přesnost
+   „město“, mazání po 30 dnech. Poloha se nikdy nezveřejňuje přesněji, než dovolí nastavení,
+   a zaokrouhluje se **na serveru**.
+2. **Kanál denního souhrnu:** e-mail (potřebuje poskytovatele a tajný klíč, např. bezplatný
+   tarif; ověřit limity a podmínky), nebo Atom/RSS (zdarma, bez účtu). Doporučení: začít
+   Atom/RSS, e-mail až když o něj rodina stojí.
+3. **Nové závislosti:** Capacitor Haptics, případně PDF knihovna a knihovna pro obrázek
+   příběhu. Doporučení: žádná PDF knihovna v první verzi (tisk z prohlížeče), obrázek
+   příběhu vykreslit přes `canvas`.
+4. **Hlas:** jen přepis v zařízení (iOS Speech / Web Speech API), zvuk se neukládá.
+   Ukládání zvuku (`media_kind = 'audio'`, R2) je **DEFERRED**.
+5. **Návrh zápisu dne** zůstane deterministický (osnova ze zastávek a časů). Text psaný
+   jazykovým modelem je **DEFERRED** (soukromí, cena, tajné klíče).
+6. **Pořadí:** doporučení UX-01 až 03 hned (bez DB), pak D1 až D3 + UX-30 až 39, ostatní
+   skupiny až po zařízení.
+
+Rizika: detekce ostrosti a zavřených očí na zařízení je **UNVERIFIED** (výkon, přesnost;
+první krok UX-31 je krátký spike na 300 fotkách); `phash` vyžaduje dekódování obrázku při
+importu, což prodlouží import (měřit); tisk knihovny vyžaduje fotky v rozlišení, které se
+neukládá (originály zůstávají v knihovně) — kniha musí varovat u malých fotek.
+
 ### Fáze 5 — Prezentační vrstva
 
 - **Rozhodnutí na začátku fáze:** předgenerované veřejné stránky (při publikaci)

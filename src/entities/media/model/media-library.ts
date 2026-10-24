@@ -1,3 +1,4 @@
+import { mediaQualitySchema } from '@trip-diary/core/automation'
 import { z } from 'zod'
 
 const instantSchema = z.iso.datetime({ offset: true })
@@ -43,6 +44,12 @@ export const mediaItemSchema = z.object({
   longitude: z.number().min(-180).max(180).nullable(),
   momentId: z.uuid().nullable(),
   ownerId: z.uuid(),
+  /** 49-bit dHash (a safe JS integer); null/absent until analysed (phase 4e). */
+  phash: z.number().int().nonnegative().nullable().optional(),
+  /** On-device analysis result; invalid stored JSON is dropped, never fatal. */
+  quality: mediaQualitySchema.nullable().optional(),
+  /** When the owner sorted the item (UX-39); absent in old cached data. */
+  reviewedAt: instantSchema.nullable().optional(),
   segmentOverrideId: z.uuid().nullable(),
   starred: z.boolean(),
   status: z.enum(['pending', 'uploading', 'ready', 'failed']),
@@ -74,6 +81,9 @@ export const rpcCountSchema = z.number().int().nonnegative()
 /** purge_media returns the ids it removed. */
 export const purgedIdsSchema = z.array(z.uuid())
 export const newMomentIdSchema = z.uuid()
+
+/** Largest |delta| shift_media_time accepts: 366 days, in seconds. */
+export const MAX_SHIFT_SECONDS = 31_622_400
 
 export type MediaLibraryErrorCode =
   | 'forbidden'

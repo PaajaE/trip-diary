@@ -143,4 +143,44 @@ describe('CullView', () => {
     key('Escape')
     expect(onClose).toHaveBeenCalledWith({ starred: 0, trashed: 0 })
   })
+
+  it('shows keyboard hints only for fine hover pointers (CSS-gated)', () => {
+    setup()
+    const hints = screen.getByTestId('cull-keyboard-hints')
+    expect(hints.textContent).toBe('cull.keyboardHints')
+    expect(hints.className).toContain('hidden')
+    expect(hints.className).toContain('(hover:hover)_and_(pointer:fine)')
+  })
+
+  it('explains the disabled starred filter', () => {
+    setup()
+    const filter = screen.getByRole('button', { name: /cull.filterStarred/ })
+    expect(filter.hasAttribute('disabled')).toBe(true)
+    expect(filter.getAttribute('title')).toBe('cull.noStarsYet')
+    const describedBy = filter.getAttribute('aria-describedby')
+    expect(describedBy).not.toBeNull()
+    expect(document.getElementById(describedBy ?? '')?.textContent).toBe(
+      'cull.noStarsYet',
+    )
+  })
+
+  it('shows a check icon on active toggles besides aria-pressed', async () => {
+    setup()
+    const auto = screen.getByRole('button', { name: /cull.autoAdvance/ })
+    expect(auto.getAttribute('aria-pressed')).toBe('true')
+    expect(auto.querySelector('svg')).not.toBeNull()
+    fireEvent.click(auto)
+    expect(auto.getAttribute('aria-pressed')).toBe('false')
+    expect(auto.querySelector('svg')).toBeNull()
+
+    await act(async () => {
+      key('s')
+    })
+    const filter = screen.getByRole('button', { name: /cull.filterStarred/ })
+    expect(filter.hasAttribute('disabled')).toBe(false)
+    expect(filter.querySelectorAll('svg')).toHaveLength(1)
+    fireEvent.click(filter)
+    expect(filter.getAttribute('aria-pressed')).toBe('true')
+    expect(filter.querySelectorAll('svg')).toHaveLength(2)
+  })
 })

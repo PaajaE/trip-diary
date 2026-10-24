@@ -143,7 +143,7 @@ describe('TipsPage', () => {
       target: { value: 'Nový název' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Zrušit' }))
-    expect(screen.getByText('Máte neuložené změny. Zahodit je?')).toBeTruthy()
+    expect(screen.getByText('Máš neuložené změny. Zahodit je?')).toBeTruthy()
     fireEvent.click(
       screen.getByRole('button', { name: 'Pokračovat v úpravách' }),
     )

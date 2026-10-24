@@ -4,6 +4,7 @@ import {
   type PreferredLocale,
   type ProfileSettingsSubmission,
 } from '@/features/profile'
+import { AppearanceSection } from '@/features/profile/ui/AppearanceSection'
 import { Card, PageContainer, PageHeader } from '@/shared/ui/PageLayout'
 
 interface SettingsPageProps {
@@ -32,6 +33,9 @@ export function SettingsPage({
           userId={userId}
           {...(preferredLocale === undefined ? {} : { preferredLocale })}
         />
+      </Card>
+      <Card className="mt-6">
+        <AppearanceSection />
       </Card>
     </PageContainer>
   )

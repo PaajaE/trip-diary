@@ -66,7 +66,13 @@ const targets = new Map<string, CoverTarget[]>([
 
 let client: QueryClient
 
-function Harness({ onDelete }: { onDelete?: (id: string) => void }) {
+function Harness({
+  onDelete,
+  onFix,
+}: {
+  onDelete?: (id: string) => void
+  onFix?: (id: string) => void
+}) {
   const edits = useWorkspaceEdits(JOURNEY)
   const [open, setOpen] = useState<{
     opener: HTMLElement
@@ -94,6 +100,13 @@ function Harness({ onDelete }: { onDelete?: (id: string) => void }) {
           onClose={() => {
             setOpen(null)
           }}
+          {...(onFix === undefined
+            ? {}
+            : {
+                onFixTimeLocation: (i) => {
+                  onFix(i.id)
+                },
+              })}
           {...(onDelete === undefined
             ? {}
             : {
@@ -256,6 +269,26 @@ describe('MediaViewer', () => {
         name: 'Move to trash',
       }),
     ).toBeTruthy()
+  })
+
+  it('shows "Time and location" only when its callback is given', () => {
+    const onFix = vi.fn()
+    const { unmount } = render(<Harness />, { wrapper })
+    openViewer()
+    expect(
+      within(screen.getByRole('dialog')).queryByRole('button', {
+        name: 'Time and location',
+      }),
+    ).toBeNull()
+    unmount()
+    render(<Harness onFix={onFix} />, { wrapper })
+    openViewer()
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: 'Time and location',
+      }),
+    )
+    expect(onFix).toHaveBeenCalledWith(a1.id)
   })
 
   function bare(

@@ -153,7 +153,7 @@ export function TagPickerDialog({
           </form>
           {freeInvalid ? (
             <p
-              className="mt-1 text-sm text-red-600"
+              className="mt-1 text-sm text-destructive"
               id={`${ids}-free-err`}
               role="alert"
             >
@@ -202,7 +202,7 @@ export function TagPickerDialog({
               <p className="mt-2 text-sm text-muted">{t('tags.searching')}</p>
             ) : null}
             {speciesTyped && species.isError ? (
-              <p className="mt-2 text-sm text-red-600" role="alert">
+              <p className="mt-2 text-sm text-destructive" role="alert">
                 {t('tags.speciesError')}
               </p>
             ) : null}

@@ -12,7 +12,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
 
   return (
     <button
-      className="group overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface text-left shadow-soft transition-colors hover:bg-white"
+      className="group overflow-hidden rounded-[1.25rem] border border-border/70 bg-surface text-left shadow-soft transition-colors hover:bg-sunk"
       onClick={() => {
         onOpen(journey.id)
       }}

@@ -11,19 +11,42 @@ import { MediaViewer } from '@/features/journey-workspace/ui/MediaViewer'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 import { useBatchActions } from '@/features/media-batch/api/use-batch-actions'
+import { useJourneyUploaders } from '@/features/media-batch/api/use-journey-uploaders'
 import {
   batchOrder,
   groupBatchByDay,
   type BatchDay,
 } from '@/features/media-batch/model/batch-days'
-import { batchMoveTargets } from '@/features/media-batch/model/move-targets'
+import {
+  buildFilterModel,
+  filterCount,
+  filterDays,
+  matchesFilter,
+  type BatchFilter,
+} from '@/features/media-batch/model/batch-filters'
+import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
+import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
+import { buildMoveStops } from '@/features/media-batch/model/move-sheet'
 import { BatchActionBar } from '@/features/media-batch/ui/BatchActionBar'
+import { BatchFilterBar } from '@/features/media-batch/ui/BatchFilterBar'
+import { MoveToSheet } from '@/features/media-batch/ui/MoveToSheet'
+import { useDragSelect } from '@/features/media-batch/ui/use-drag-select'
 import { BatchDaySection } from '@/features/media-batch/ui/BatchDaySection'
+import { QuickSortView } from '@/features/media-batch/ui/QuickSortView'
 import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { EmptyState } from '@/shared/ui/EmptyState'
 
+const NO_ITEMS: MediaItem[] = []
 const NO_TARGETS = new Map<string, never[]>()
+
+/** What the Move-to sheet moves: the selection, or one item of the viewer. */
+type SheetState =
+  | { source: 'selection' }
+  | { item: MediaItem; source: 'viewer' }
+
+/** What the time/location sheet fixes: the selection, or one viewer item. */
+type FixState = SheetState
 
 interface ViewerState {
   opener: HTMLElement | null
@@ -39,22 +62,68 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
   const actions = useBatchActions(journeyId)
   const selection = useDaySelection()
   const [viewer, setViewer] = useState<ViewerState | null>(null)
+  const [quickSort, setQuickSort] = useState<{
+    opener: HTMLElement | null
+  } | null>(null)
+  const [filter, setFilter] = useState<BatchFilter>('all')
+  const [sheet, setSheet] = useState<SheetState | null>(null)
+  const [fix, setFix] = useState<FixState | null>(null)
+  const corrections = canEdit && isMediaCorrectionsEnabled()
   const locale = i18n.language
 
   const items = query.data
-  const days = useMemo(() => groupBatchByDay(items ?? []), [items])
+  const uploaders = useJourneyUploaders(journeyId, items ?? NO_ITEMS)
+  const allDays = useMemo(() => groupBatchByDay(items ?? []), [items])
+  const allOrder = useMemo(() => batchOrder(allDays), [allDays])
+  const filterModel = useMemo(
+    () => buildFilterModel(items ?? [], uploaders),
+    [items, uploaders],
+  )
+  // A filter nothing matches any more falls back to "All".
+  const activeFilter: BatchFilter =
+    filterCount(filterModel, filter) === 0 ? 'all' : filter
+  if (items !== undefined && filter !== activeFilter) setFilter(activeFilter)
+  const days = useMemo(
+    () => filterDays(allDays, activeFilter, filterModel),
+    [allDays, activeFilter, filterModel],
+  )
   const order = useMemo(() => batchOrder(days), [days])
+  const shown = order.length
+  const shownItems = useMemo(
+    () =>
+      (items ?? []).filter((item) =>
+        matchesFilter(item, activeFilter, filterModel),
+      ),
+    [items, activeFilter, filterModel],
+  )
   const selected = useMemo(
     () => (items ?? []).filter((item) => selection.ids.has(item.id)),
     [items, selection.ids],
   )
-  const targets = useMemo(
+  const stops = useMemo(
     () =>
       workspace.status === 'ready'
-        ? batchMoveTargets(workspace.tree, t, locale)
+        ? buildMoveStops(workspace.tree, t, locale)
         : [],
     [workspace, t, locale],
   )
+  const sheetItems = useMemo(() => {
+    if (sheet === null) return []
+    if (sheet.source === 'viewer') return [sheet.item]
+    const position = new Map(allOrder.map((id, index) => [id, index]))
+    return [...selected].sort(
+      (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+    )
+  }, [sheet, selected, allOrder])
+
+  const fixItems = useMemo(() => {
+    if (fix === null) return []
+    if (fix.source === 'viewer') return [fix.item]
+    const position = new Map(allOrder.map((id, index) => [id, index]))
+    return [...selected].sort(
+      (a, b) => (position.get(a.id) ?? 0) - (position.get(b.id) ?? 0),
+    )
+  }, [fix, selected, allOrder])
 
   // Sorted tiles vanish from the list; forget them in the selection too.
   const { ids: selectedIds, setMany } = selection
@@ -66,6 +135,21 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
       false,
     )
   }, [items, selected.length, selectedIds, setMany])
+
+  // A filter change hides tiles; hidden media leave the selection too, so an
+  // action never touches what the user cannot see.
+  useEffect(() => {
+    if (items === undefined) return
+    const visible = new Set(order)
+    const hidden = [...selectedIds].filter((id) => !visible.has(id))
+    if (hidden.length > 0) setMany(hidden, false)
+  }, [items, order, selectedIds, setMany])
+
+  const drag = useDragSelect({
+    enabled: canEdit && shown > 0,
+    order,
+    selection,
+  })
 
   useEffect(() => {
     if (!selection.mode || viewer !== null) return
@@ -94,6 +178,25 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
       on,
     )
     if (on) selection.setMode(true)
+  }
+
+  function pickStop(stopId: string) {
+    const current = sheet
+    setSheet(null)
+    if (current === null) return
+    if (current.source === 'selection') {
+      afterAction(actions.moveTo(selected, stopId))
+    } else {
+      void actions.moveTo([current.item], stopId)
+    }
+  }
+
+  function newStopFromSheet() {
+    const current = sheet
+    setSheet(null)
+    if (current === null) return
+    if (current.source === 'selection') afterAction(actions.newStop(selected))
+    else void actions.newStop([current.item])
   }
 
   function afterAction(done: Promise<boolean>) {
@@ -135,7 +238,26 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           role="status"
         >
           {t('mediaBatch.remaining', { count: remaining })}
+          {activeFilter === 'all' ? null : (
+            <span
+              className="ml-2 text-sm font-normal text-muted"
+              data-testid="batch-shown"
+            >
+              {t('mediaBatch.shown', { count: shown })}
+            </span>
+          )}
         </p>
+        {remaining > 0 && canEdit ? (
+          <button
+            className={buttonVariants({ variant: 'primary' })}
+            type="button"
+            onClick={(event) => {
+              setQuickSort({ opener: event.currentTarget })
+            }}
+          >
+            {t('quickSort.open')}
+          </button>
+        ) : null}
         {remaining > 0 && canEdit ? (
           <button
             aria-pressed={selection.mode}
@@ -155,6 +277,14 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
         {canEdit ? <OrganizeJourneyButton journeyId={journeyId} /> : null}
       </div>
 
+      {remaining > 0 ? (
+        <BatchFilterBar
+          active={activeFilter}
+          model={filterModel}
+          onChange={setFilter}
+        />
+      ) : null}
+
       {remaining === 0 ? (
         <EmptyState
           action={
@@ -171,7 +301,14 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           title={t('mediaBatch.emptyTitle')}
         />
       ) : (
-        <div className="space-y-6">
+        <div
+          className={cn(
+            'space-y-6 select-none [-webkit-touch-callout:none]',
+            drag.dragging && 'touch-none',
+          )}
+          ref={drag.ref}
+          {...drag.gridProps}
+        >
           {days.map((day) => (
             <BatchDaySection
               allSelected={day.items.every((item) =>
@@ -184,6 +321,7 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
               key={day.key}
               locale={locale}
               selecting={canEdit && selection.mode}
+              uploaders={uploaders}
               onActivate={activate}
               onToggleDay={toggleDay}
             />
@@ -195,14 +333,20 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
         <BatchActionBar
           allStarred={selected.length > 0 && selected.every((i) => i.starred)}
           count={selected.length}
-          targets={targets}
           onClear={selection.clear}
           onDone={() => {
             afterAction(actions.done(selected))
           }}
-          onMoveTo={(targetId) => {
-            afterAction(actions.moveTo(selected, targetId))
+          onOpenMove={() => {
+            setSheet({ source: 'selection' })
           }}
+          {...(corrections
+            ? {
+                onFixTimeLocation: () => {
+                  setFix({ source: 'selection' })
+                },
+              }
+            : {})}
           onNewStop={() => {
             afterAction(actions.newStop(selected))
           }}
@@ -215,11 +359,28 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
         />
       ) : null}
 
+      {quickSort === null ? null : (
+        <QuickSortView
+          actions={actions}
+          baseUrl={BASE_URL}
+          items={items}
+          journeyId={journeyId}
+          returnFocusTo={quickSort.opener}
+          uploaders={uploaders}
+          tree={workspace.status === 'ready' ? workspace.tree : null}
+          onClose={() => {
+            setQuickSort(null)
+          }}
+        />
+      )}
+
       {viewer === null ? null : (
         <MediaViewer
           baseUrl={BASE_URL}
           edits={actions.edits}
-          groups={[{ id: 'batch', items: items, title: t('mediaBatch.title') }]}
+          groups={[
+            { id: 'batch', items: shownItems, title: t('mediaBatch.title') },
+          ]}
           locale={locale}
           returnFocusTo={viewer.opener}
           startId={viewer.startId}
@@ -229,6 +390,42 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           }}
           onDelete={(item) => {
             void actions.trash([item])
+          }}
+          onExtractToMoment={(item) => {
+            void actions.newStop([item])
+          }}
+          onMoveToMoment={(item) => {
+            setSheet({ item, source: 'viewer' })
+          }}
+          {...(corrections
+            ? {
+                onFixTimeLocation: (item: MediaItem) => {
+                  setFix({ item, source: 'viewer' })
+                },
+              }
+            : {})}
+        />
+      )}
+
+      {sheet === null || sheetItems.length === 0 ? null : (
+        <MoveToSheet
+          baseUrl={BASE_URL}
+          items={sheetItems}
+          stops={stops}
+          onClose={() => {
+            setSheet(null)
+          }}
+          onNewStop={newStopFromSheet}
+          onPick={pickStop}
+        />
+      )}
+
+      {fix === null || fixItems.length === 0 ? null : (
+        <FixTimeLocationSheet
+          items={fixItems}
+          journeyId={journeyId}
+          onClose={() => {
+            setFix(null)
           }}
         />
       )}

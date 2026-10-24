@@ -1,6 +1,4 @@
-import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import type { BatchMoveTarget } from '@/features/media-batch/model/move-targets'
 import { cn } from '@/shared/lib/cn'
 
 interface BatchActionBarProps {
@@ -8,11 +6,13 @@ interface BatchActionBarProps {
   count: number
   onClear: () => void
   onDone: () => void
-  onMoveTo: (targetId: string) => void
+  /** "Time and location" sheet; the button is absent without it. */
+  onFixTimeLocation?: () => void
+  /** Opens the Move-to sheet. */
+  onOpenMove: () => void
   onNewStop: () => void
   onStar: () => void
   onTrash: () => void
-  targets: readonly BatchMoveTarget[]
 }
 
 const BUTTON =
@@ -27,14 +27,13 @@ export function BatchActionBar({
   count,
   onClear,
   onDone,
-  onMoveTo,
+  onFixTimeLocation,
+  onOpenMove,
   onNewStop,
   onStar,
   onTrash,
-  targets,
 }: BatchActionBarProps) {
   const { t } = useTranslation()
-  const [picking, setPicking] = useState(false)
   const disabled = count === 0
   return (
     <div
@@ -43,32 +42,6 @@ export function BatchActionBar({
       data-testid="batch-action-bar"
       role="toolbar"
     >
-      {picking ? (
-        <div
-          aria-label={t('dayDetail.moveToTitle')}
-          className="mb-2 flex max-h-56 flex-col gap-0.5 overflow-auto border-b border-background/20 pb-2"
-          role="menu"
-        >
-          {targets.length === 0 ? (
-            <p className="px-3 py-2 opacity-80">{t('mediaBatch.noStops')}</p>
-          ) : (
-            targets.map((target) => (
-              <button
-                className="min-h-11 rounded-sm px-3 text-left hover:bg-background/15"
-                key={target.id}
-                role="menuitem"
-                type="button"
-                onClick={() => {
-                  setPicking(false)
-                  onMoveTo(target.id)
-                }}
-              >
-                {target.label}
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
       <div className="flex flex-wrap items-center gap-x-1 gap-y-0.5">
         <span
           aria-live="polite"
@@ -89,13 +62,11 @@ export function BatchActionBar({
           {allStarred ? t('dayDetail.unstar') : t('dayDetail.pickBest')}
         </button>
         <button
-          aria-expanded={picking}
+          aria-haspopup="dialog"
           className={BUTTON}
           disabled={disabled}
           type="button"
-          onClick={() => {
-            setPicking((open) => !open)
-          }}
+          onClick={onOpenMove}
         >
           {t('dayDetail.moveTo')}
         </button>
@@ -107,6 +78,17 @@ export function BatchActionBar({
         >
           {t('dayDetail.stopNew')}
         </button>
+        {onFixTimeLocation === undefined ? null : (
+          <button
+            aria-haspopup="dialog"
+            className={BUTTON}
+            disabled={disabled}
+            type="button"
+            onClick={onFixTimeLocation}
+          >
+            {t('mediaCorrections.action')}
+          </button>
+        )}
         <button
           className={BUTTON}
           disabled={disabled}
@@ -116,8 +98,12 @@ export function BatchActionBar({
           {t('dayDetail.toTrash')}
         </button>
         <button
-          className={cn(BUTTON, 'bg-primary font-semibold text-white')}
+          className={cn(
+            BUTTON,
+            'bg-primary font-semibold text-primary-foreground',
+          )}
           disabled={disabled}
+          title={t('mediaBatch.doneHint')}
           type="button"
           onClick={onDone}
         >

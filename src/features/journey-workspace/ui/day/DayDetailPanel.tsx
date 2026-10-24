@@ -4,12 +4,17 @@ import { useTranslation } from 'react-i18next'
 import { useDayNotes } from '@/entities/day-note/api/use-day-notes'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { WorkspaceEdits } from '@/features/journey-workspace/api/use-workspace-edits'
+import {
+  dayMediaCounts,
+  dayStatus,
+} from '@/features/journey-workspace/model/day-status'
 import { buildDayStops } from '@/features/journey-workspace/model/day-stops'
 import {
   dayPlaceNames,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
+import { DayStatusChips } from '@/features/journey-workspace/ui/DayStatusChips'
 import { CullView } from '@/features/journey-workspace/ui/cull/CullView'
 import { DayMiniMap } from '@/features/journey-workspace/ui/day/DayMiniMap'
 import { DayNoteEditor } from '@/features/journey-workspace/ui/day/DayNoteEditor'
@@ -19,6 +24,8 @@ import { SelectionBar } from '@/features/journey-workspace/ui/day/SelectionBar'
 import type { DayMediaActions } from '@/features/journey-workspace/ui/day/use-day-media-actions'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
 import { useNarrowScreen } from '@/features/journey-workspace/ui/day/use-narrow-screen'
+import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
+import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { cn } from '@/shared/lib/cn'
 
 export interface DayChip {
@@ -111,6 +118,7 @@ function DayDetailBody({
   const selection = useDaySelection()
   const narrow = useNarrowScreen()
   const [mapOpen, setMapOpen] = useState(false)
+  const [fixOpen, setFixOpen] = useState(false)
 
   const stops = useMemo(
     () =>
@@ -150,6 +158,11 @@ function DayDetailBody({
     (id) => placeNames.get(id),
     3,
   )
+  const status = dayStatus({
+    dated,
+    hasNote: notes.byDate.has(dayKey),
+    ...dayMediaCounts(moments),
+  })
   const meta = [
     dayNumber === null ? null : t('dayDetail.dayOf', { n: dayNumber }),
     places.length > 0 ? places.join(' · ') : null,
@@ -162,6 +175,10 @@ function DayDetailBody({
   const selected = useMemo(
     () => allMedia.filter((item) => selection.ids.has(item.id)),
     [allMedia, selection.ids],
+  )
+  const orderedSelected = useMemo(
+    () => orderedMedia.filter((item) => selection.ids.has(item.id)),
+    [orderedMedia, selection.ids],
   )
 
   useEffect(() => {
@@ -319,23 +336,6 @@ function DayDetailBody({
                 >
                   {t('dayDetail.selectMode')}
                 </button>
-                {/* TODO(4c): merge stops / move to another day. */}
-                <button
-                  className={chip}
-                  disabled
-                  title={t('dayDetail.splitSoon')}
-                  type="button"
-                >
-                  {t('dayDetail.mergeStops')}
-                </button>
-                <button
-                  className={chip}
-                  disabled
-                  title={t('dayDetail.splitSoon')}
-                  type="button"
-                >
-                  {t('dayDetail.moveToDay')}
-                </button>
               </div>
             </div>
           </aside>
@@ -361,6 +361,12 @@ function DayDetailBody({
             {dayLabel}
           </h2>
           <p className="mt-1.5 text-sm text-muted">{meta}</p>
+          <div
+            className="mt-2 flex flex-wrap items-center gap-2"
+            data-testid="day-status"
+          >
+            <DayStatusChips detail journeyId={journeyId} status={status} />
+          </div>
 
           <DayNoteEditor
             canEdit={canEdit}
@@ -392,6 +398,13 @@ function DayDetailBody({
                 label: `${String(index + 1)}. ${stop.title ?? t('dayDetail.stopNumber', { n: index + 1 })}`,
               }))}
               onClear={selection.clear}
+              {...(isMediaCorrectionsEnabled()
+                ? {
+                    onFixTimeLocation: () => {
+                      setFixOpen(true)
+                    },
+                  }
+                : {})}
               onMoveTo={(targetId) => {
                 void actions.moveMedia(selected, targetId).then((ok) => {
                   if (ok) selection.clear()
@@ -414,6 +427,15 @@ function DayDetailBody({
           ) : null}
         </div>
       </div>
+      {fixOpen && selected.length > 0 ? (
+        <FixTimeLocationSheet
+          items={orderedSelected}
+          journeyId={journeyId}
+          onClose={() => {
+            setFixOpen(false)
+          }}
+        />
+      ) : null}
       {cull?.open === true ? (
         <CullView
           baseUrl={baseUrl}
