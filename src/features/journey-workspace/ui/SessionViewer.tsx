@@ -3,7 +3,6 @@ import type { MediaItem } from '@/entities/media/model/media-library'
 import { BASE_URL } from '@/features/journey-workspace/lib/moment-labels'
 import { MediaViewer } from '@/features/journey-workspace/ui/MediaViewer'
 import type { WorkspaceSession } from '@/features/journey-workspace/ui/workspace-session'
-import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
 import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 
 /** Full-screen viewer over the session's media; renders nothing when closed. */
@@ -26,7 +25,7 @@ export function SessionViewer({ session }: { session: WorkspaceSession }) {
         onDelete={(item) => {
           void edits.trashMedia([item])
         }}
-        {...(isMediaCorrectionsEnabled() && session.canEdit
+        {...(session.canEdit
           ? {
               onFixTimeLocation: (item: MediaItem) => {
                 setFixing(item)

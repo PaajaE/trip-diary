@@ -29,10 +29,6 @@ vi.mock('@tanstack/react-router', async () => {
   const { MockLink } = await import('@/features/journey-workspace/test-router')
   return { Link: MockLink }
 })
-const flag = vi.hoisted(() => ({ corrections: false }))
-vi.mock('@/features/media-corrections/model/enabled', () => ({
-  isMediaCorrectionsEnabled: () => flag.corrections,
-}))
 vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
   FixTimeLocationSheet: ({ items }: { items: { id: string }[] }) => (
     <div role="dialog" aria-label="Fix sheet">
@@ -257,14 +253,7 @@ describe('DayDetailPanel', () => {
     })
   })
 
-  it('offers "Time and location" on the selection only with the flag on', () => {
-    setup()
-    fireEvent.click(photoButton(0), { metaKey: true })
-    expect(
-      screen.queryByRole('button', { name: 'Time and location' }),
-    ).toBeNull()
-    cleanup()
-    flag.corrections = true
+  it('offers "Time and location" on the selection', () => {
     setup()
     fireEvent.click(photoButton(0), { metaKey: true })
     fireEvent.click(photoButton(2), { shiftKey: true })
@@ -272,7 +261,6 @@ describe('DayDetailPanel', () => {
     expect(screen.getByRole('dialog', { name: 'Fix sheet' })).toHaveTextContent(
       '3',
     )
-    flag.corrections = false
   })
 
   it('moves the selection to a stop, creates a stop and trashes', async () => {

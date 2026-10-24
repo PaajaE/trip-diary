@@ -11,10 +11,6 @@ import {
   type UploadPhotoDeps,
 } from '@/features/media-upload/api/upload-photo'
 
-const env = vi.hoisted(() => ({
-  mediaAnalysis: undefined as boolean | undefined,
-}))
-vi.mock('@/shared/config/env', () => ({ publicEnv: env }))
 vi.mock('@/shared/api/supabase', () => ({ getSupabaseClient: vi.fn() }))
 vi.mock('@/entities/photo/lib/process-photo', () => ({
   processPhoto: vi.fn(),
@@ -116,16 +112,7 @@ describe('uploadPhoto media analysis', () => {
     width: 6,
   }
 
-  it('flag off: payload is unchanged and analysis is not run', async () => {
-    env.mediaAnalysis = undefined
-    const deps = makeDeps([])
-    await uploadPhoto(file, { deps, ownerId: OWNER })
-    expect(deps.analyzePhoto).not.toHaveBeenCalled()
-    expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual(base)
-  })
-
-  it('flag on: payload carries phash and quality', async () => {
-    env.mediaAnalysis = true
+  it('payload carries phash and quality', async () => {
     const deps = makeDeps([])
     await uploadPhoto(file, { deps, ownerId: OWNER })
     expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual({
@@ -133,23 +120,17 @@ describe('uploadPhoto media analysis', () => {
       phash: 123456789,
       quality: { exposure: 0.5, sharp: 12.34, v: 1 },
     })
-    env.mediaAnalysis = undefined
   })
 
   it.each([
     ['null', () => Promise.resolve(null)],
     ['rejection', () => Promise.reject(new Error('boom'))],
-  ])(
-    'flag on, analysis %s: upload still succeeds without them',
-    async (_n, fn) => {
-      env.mediaAnalysis = true
-      const deps = makeDeps([], { analyzePhoto: vi.fn(fn) })
-      await uploadPhoto(file, { deps, ownerId: OWNER })
-      expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual(base)
-      expect(deps.markMediaReady).toHaveBeenCalled()
-      env.mediaAnalysis = undefined
-    },
-  )
+  ])('analysis %s: upload still succeeds without them', async (_n, fn) => {
+    const deps = makeDeps([], { analyzePhoto: vi.fn(fn) })
+    await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(vi.mocked(deps.createMedia).mock.calls[0]?.[0]).toStrictEqual(base)
+    expect(deps.markMediaReady).toHaveBeenCalled()
+  })
 })
 
 describe('uploadPhoto', () => {

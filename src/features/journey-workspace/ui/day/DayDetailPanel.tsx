@@ -24,7 +24,6 @@ import { SelectionBar } from '@/features/journey-workspace/ui/day/SelectionBar'
 import type { DayMediaActions } from '@/features/journey-workspace/ui/day/use-day-media-actions'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
 import { useNarrowScreen } from '@/features/journey-workspace/ui/day/use-narrow-screen'
-import { isMediaCorrectionsEnabled } from '@/features/media-corrections/model/enabled'
 import { FixTimeLocationSheet } from '@/features/media-corrections/ui/FixTimeLocationSheet'
 import { cn } from '@/shared/lib/cn'
 
@@ -398,13 +397,9 @@ function DayDetailBody({
                 label: `${String(index + 1)}. ${stop.title ?? t('dayDetail.stopNumber', { n: index + 1 })}`,
               }))}
               onClear={selection.clear}
-              {...(isMediaCorrectionsEnabled()
-                ? {
-                    onFixTimeLocation: () => {
-                      setFixOpen(true)
-                    },
-                  }
-                : {})}
+              onFixTimeLocation={() => {
+                setFixOpen(true)
+              }}
               onMoveTo={(targetId) => {
                 void actions.moveMedia(selected, targetId).then((ok) => {
                   if (ok) selection.clear()

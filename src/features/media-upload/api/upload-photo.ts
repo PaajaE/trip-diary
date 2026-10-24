@@ -32,7 +32,6 @@ import {
   analyzeImageBlob,
   type ImageAnalysis,
 } from '@/features/media-upload/lib/analyze-image'
-import { publicEnv } from '@/shared/config/env'
 import {
   readRawExifTime,
   resolveCaptureTime,
@@ -78,7 +77,7 @@ export interface UploadedPhoto {
 
 /** Seams for tests; defaults hit the real repositories and the browser. */
 export interface UploadPhotoDeps {
-  /** Only called when the mediaAnalysis flag is on; must resolve null on failure. */
+  /** Must resolve null on failure; analysis never blocks an upload. */
   analyzePhoto: (blob: Blob) => Promise<ImageAnalysis | null>
   addVariant: (input: NewMediaVariant) => Promise<void>
   createMedia: (input: NewPhotoMedia) => Promise<void>
@@ -207,17 +206,15 @@ export async function uploadPhoto(
   const largest = variants.find((variant) => variant.kind === 'large')
   const total = variants.length
 
-  let analysis: { phash: number; quality: MediaQuality } | null = null
-  if (publicEnv.mediaAnalysis === true) {
-    // Prefer the medium variant: already oriented and cheap to decode.
-    const source =
-      variants.find((v) => v.kind === 'medium') ??
-      variants.find((v) => v.kind === 'small') ??
-      largest
-    if (source !== undefined) {
-      analysis = await deps.analyzePhoto(source.blob).catch(() => null)
-    }
-  }
+  // Prefer the medium variant: already oriented and cheap to decode.
+  const analysisSource =
+    variants.find((v) => v.kind === 'medium') ??
+    variants.find((v) => v.kind === 'small') ??
+    largest
+  const analysis: { phash: number; quality: MediaQuality } | null =
+    analysisSource === undefined
+      ? null
+      : await deps.analyzePhoto(analysisSource.blob).catch(() => null)
 
   const mediaId = deps.newId()
   await deps.createMedia({
