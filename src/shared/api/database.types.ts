@@ -835,6 +835,7 @@ export type Database = {
           altitude: number | null
           caption: string | null
           captured_at: string | null
+          captured_at_source: string | null
           captured_tz: string | null
           content_hash: string | null
           created_at: string
@@ -848,10 +849,13 @@ export type Database = {
           journey_id: string | null
           kind: Database['public']['Enums']['media_kind']
           latitude: number | null
+          location_source: string | null
           longitude: number | null
           moment_id: string | null
           owner_id: string
+          phash: number | null
           purge_claimed_at: string | null
+          quality: Json | null
           reviewed_at: string | null
           segment_override_id: string | null
           source_asset_id: string | null
@@ -864,6 +868,7 @@ export type Database = {
           altitude?: number | null
           caption?: string | null
           captured_at?: string | null
+          captured_at_source?: string | null
           captured_tz?: string | null
           content_hash?: string | null
           created_at?: string
@@ -877,10 +882,13 @@ export type Database = {
           journey_id?: string | null
           kind?: Database['public']['Enums']['media_kind']
           latitude?: number | null
+          location_source?: string | null
           longitude?: number | null
           moment_id?: string | null
           owner_id: string
+          phash?: number | null
           purge_claimed_at?: string | null
+          quality?: Json | null
           reviewed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
@@ -893,6 +901,7 @@ export type Database = {
           altitude?: number | null
           caption?: string | null
           captured_at?: string | null
+          captured_at_source?: string | null
           captured_tz?: string | null
           content_hash?: string | null
           created_at?: string
@@ -906,10 +915,13 @@ export type Database = {
           journey_id?: string | null
           kind?: Database['public']['Enums']['media_kind']
           latitude?: number | null
+          location_source?: string | null
           longitude?: number | null
           moment_id?: string | null
           owner_id?: string
+          phash?: number | null
           purge_claimed_at?: string | null
+          quality?: Json | null
           reviewed_at?: string | null
           segment_override_id?: string | null
           source_asset_id?: string | null
@@ -1931,6 +1943,18 @@ export type Database = {
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       is_time_zone_name: { Args: { p_value: string }; Returns: boolean }
+      journey_progress: {
+        Args: { p_journey_ids: string[] }
+        Returns: {
+          cover_media_id: string
+          days_total: number
+          days_with_note: number
+          journey_id: string
+          media_total: number
+          media_unreviewed: number
+          starred: number
+        }[]
+      }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
       list_journey_pending_invites: {
         Args: { p_journey_id: string }
@@ -2083,6 +2107,14 @@ export type Database = {
           p_stop_id: string
         }
         Returns: undefined
+      }
+      set_media_location: {
+        Args: { p_latitude: number; p_longitude: number; p_media_ids: string[] }
+        Returns: number
+      }
+      shift_media_time: {
+        Args: { p_delta_seconds: number; p_media_ids: string[] }
+        Returns: number
       }
       split_moment: {
         Args: { p_at: string; p_moment: string; p_new_id: string }
