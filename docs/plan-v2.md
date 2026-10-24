@@ -586,7 +586,7 @@ Skupiny A–C jsou jádro 4e. Skupiny D–G jdou po schválení a po ověření 
 `pnpm check` a `pnpm db:test` zelené; každá nová obrazovka ověřená na zařízení a ve ~390 px
 a ve 1400 px; slovník a tykání bez zbytků (kontrola `grep` v testu překladů).
 
-##### Rozhodnutí ke schválení uživatelem
+##### Rozhodnutí (2026-10-24: uživatel schválil všechny návrhy níže a vizi obrazovek)
 
 1. **Poloha pro rodinu:** zapnout vůbec? Výchozí návrh: vypnuto, zpoždění 3 h, přesnost
    „město“, mazání po 30 dnech. Poloha se nikdy nezveřejňuje přesněji, než dovolí nastavení,
