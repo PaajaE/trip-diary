@@ -27,9 +27,10 @@ export function BatchTile({
       aria-label={t(selecting ? 'dayDetail.selectPhoto' : 'viewer.open')}
       aria-pressed={selecting ? selected : undefined}
       className={cn(
-        'relative block aspect-square min-h-11 w-full touch-manipulation overflow-hidden rounded-sm bg-surface transition-shadow hover:shadow-soft',
+        'relative block aspect-square select-none min-h-11 w-full touch-manipulation overflow-hidden rounded-sm bg-surface transition-shadow hover:shadow-soft',
         selected && 'ring-3 ring-primary',
       )}
+      data-media-id={item.id}
       data-testid="batch-tile"
       type="button"
       onClick={(event) => {

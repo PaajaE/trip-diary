@@ -1,4 +1,5 @@
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -49,7 +50,14 @@ vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
     status: 'ready',
     tree: buildWorkspaceTree(
       [],
-      [mom(50, { title: 'Old Town' }), mom(51, { title: 'Harbour' })],
+      [
+        mom(50, { title: 'Old Town' }),
+        mom(51, {
+          endsAt: '2026-01-03T10:00:00+00:00',
+          startsAt: '2026-01-03T08:00:00+00:00',
+          title: 'Harbour',
+        }),
+      ],
       [],
     ),
   }),
@@ -156,21 +164,66 @@ describe('BatchPage', () => {
     })
   })
 
-  it('moves the selection into a chosen stop', async () => {
+  it('moves the selection into a stop chosen in the Move-to sheet', async () => {
     render(<BatchPage journeyId="j" />)
     fireEvent.click(screen.getByRole('button', { name: 'Select' }))
     fireEvent.click(tiles()[3]!)
     fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
-    const menu = screen.getByRole('menu')
-    expect(within(menu).getAllByRole('menuitem')).toHaveLength(2)
-    fireEvent.click(within(menu).getByRole('menuitem', { name: /Harbour/ }))
+    const sheet = screen.getByRole('dialog', { name: 'Move 1 photo to' })
+    const list = within(sheet).getByRole('list', { name: 'Stops' })
+    expect(within(list).getAllByRole('button')).toHaveLength(2)
+    // Harbour contains the photo in time, so it is the suggested stop.
+    const harbour = within(list).getByRole('button', { name: /Harbour/ })
+    expect(harbour).toHaveTextContent('Suggested')
+    expect(
+      within(list).getByRole('button', { name: /Old Town/ }),
+    ).not.toHaveTextContent('Suggested')
+    fireEvent.click(harbour)
     expect(actions.moveTo).toHaveBeenCalledWith(
       [b1],
       expect.stringMatching(/^0000/),
     )
+    expect(screen.queryByRole('dialog')).toBeNull()
     await waitFor(() => {
       expect(screen.queryByRole('toolbar')).toBeNull()
     })
+  })
+
+  it('offers previous / next stop relative to the first selected photo', () => {
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    // a1 is nearest to "Old Town" (first), so there is no previous stop.
+    fireEvent.click(tiles()[0]!)
+    fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
+    expect(screen.getByRole('button', { name: /Previous stop/ })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: /Next stop/ }))
+    expect(actions.moveTo).toHaveBeenCalledWith(
+      [a1],
+      expect.stringMatching(/^0000/),
+    )
+    expect(actions.moveTo.mock.calls[0]).toEqual([[a1], mom(51).id])
+  })
+
+  it('the sheet creates a new stop from the selection and closes on Esc / backdrop', () => {
+    render(<BatchPage journeyId="j" />)
+    fireEvent.click(screen.getByRole('button', { name: 'Select' }))
+    fireEvent.click(tiles()[0]!)
+    fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByRole('dialog')).toBeNull()
+    // Esc closed only the sheet; the selection survives.
+    expect(screen.getByRole('toolbar')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
+    fireEvent.click(screen.getByTestId('move-sheet-backdrop'))
+    expect(screen.queryByRole('dialog')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'New stop from selection' }),
+    )
+    expect(actions.newStop).toHaveBeenCalledWith([a1])
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 
   it('creates a new stop, trashes, and stars without clearing on star', async () => {
@@ -280,5 +333,240 @@ describe('BatchPage', () => {
     rerender(<BatchPage journeyId="j" />)
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
     expect(state.query.refetch).toHaveBeenCalled()
+  })
+
+  describe('filters', () => {
+    const geo = { latitude: 50, longitude: 14 }
+    const s1 = med(11, {
+      ...geo,
+      capturedAt: '2026-01-02T09:00:00+00:00',
+      phash: 7,
+    })
+    const s2 = med(12, {
+      ...geo,
+      capturedAt: '2026-01-02T09:00:05+00:00',
+      phash: 7,
+    })
+    const clip = med(13, {
+      ...geo,
+      capturedAt: '2026-01-03T09:00:00+00:00',
+      kind: 'video',
+    })
+    const bare = med(14, { capturedAt: '2026-01-03T10:00:00+00:00' })
+
+    it('shows chips with counts, hiding empty ones except "All"', () => {
+      render(<BatchPage journeyId="j" />)
+      const chips = screen.getByRole('group', { name: 'Batch filter' })
+      expect(within(chips).getAllByRole('button')).toHaveLength(2)
+      expect(
+        within(chips).getByRole('button', { name: /All/ }),
+      ).toHaveTextContent('5')
+      expect(
+        within(chips).getByRole('button', { name: /No location/ }),
+      ).toHaveTextContent('5')
+      expect(within(chips).queryByRole('button', { name: /Series/ })).toBeNull()
+      expect(within(chips).queryByRole('button', { name: /Videos/ })).toBeNull()
+    })
+
+    it('filters the sections, keeps the remaining counter and shows "Showing M"', () => {
+      state.query.data = [s1, s2, clip, bare]
+      render(<BatchPage journeyId="j" />)
+      expect(screen.queryByTestId('batch-shown')).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: /Series/ }))
+      expect(tiles()).toHaveLength(2)
+      expect(screen.getAllByTestId('batch-day')).toHaveLength(1)
+      expect(screen.getByTestId('batch-remaining')).toHaveTextContent(
+        'Left to sort: 4',
+      )
+      expect(screen.getByTestId('batch-shown')).toHaveTextContent('Showing 2')
+      fireEvent.click(screen.getByRole('button', { name: /Videos/ }))
+      expect(tiles()).toHaveLength(1)
+      fireEvent.click(screen.getByRole('button', { name: /No location/ }))
+      expect(tiles()).toHaveLength(1)
+      fireEvent.click(screen.getByRole('button', { name: /All/ }))
+      expect(tiles()).toHaveLength(4)
+      expect(screen.queryByTestId('batch-shown')).toBeNull()
+    })
+
+    it('"Select day" and range selection act on the shown media only', () => {
+      state.query.data = [s1, s2, clip, bare]
+      render(<BatchPage journeyId="j" />)
+      fireEvent.click(screen.getByRole('button', { name: /No location/ }))
+      fireEvent.click(
+        within(screen.getAllByTestId('batch-day')[0]!).getByRole('button', {
+          name: 'Select day',
+        }),
+      )
+      expect(screen.getByTestId('batch-selected')).toHaveTextContent(
+        'Selected 1 photo',
+      )
+      // Switching the filter drops the now hidden media from the selection.
+      fireEvent.click(screen.getByRole('button', { name: /Videos/ }))
+      expect(screen.getByTestId('batch-selected')).toHaveTextContent(
+        'Selected 0 photos',
+      )
+    })
+
+    it('falls back to "All" when nothing matches the filter any more', () => {
+      state.query.data = [s1, s2, clip, bare]
+      const { rerender } = render(<BatchPage journeyId="j" />)
+      fireEvent.click(screen.getByRole('button', { name: /Videos/ }))
+      state.query.data = [s1, s2, bare]
+      rerender(<BatchPage journeyId="j" />)
+      expect(tiles()).toHaveLength(3)
+      expect(screen.queryByTestId('batch-shown')).toBeNull()
+    })
+  })
+
+  describe('press-and-hold drag selection (synthetic events, jsdom has no layout)', () => {
+    const hit: { current: Element | null } = { current: null }
+    const touch = (id = 1, x = 10, y = 300) => ({
+      clientX: x,
+      clientY: y,
+      pointerId: id,
+      pointerType: 'touch',
+    })
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      hit.current = null
+      document.elementFromPoint = vi.fn(() => hit.current)
+      window.scrollBy = vi.fn()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    function hold(index: number) {
+      fireEvent.pointerDown(tiles()[index]!, touch())
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+    }
+    function dragTo(index: number, y = 300) {
+      hit.current = tiles()[index]!
+      fireEvent.pointerMove(tiles()[0]!, touch(1, 20, y))
+    }
+    const selectedText = () => screen.getByTestId('batch-selected').textContent
+
+    it('a 400 ms hold enters selection mode, then dragging selects and shrinks a range', () => {
+      render(<BatchPage journeyId="j" />)
+      hold(1)
+      expect(screen.getByRole('toolbar')).toBeTruthy()
+      expect(selectedText()).toBe('Selected 1 photo')
+      dragTo(3)
+      expect(selectedText()).toBe('Selected 3 photos')
+      dragTo(4)
+      expect(selectedText()).toBe('Selected 4 photos')
+      dragTo(2)
+      expect(selectedText()).toBe('Selected 2 photos')
+      dragTo(0)
+      expect(selectedText()).toBe('Selected 2 photos')
+      expect(tiles()[0]).toHaveAttribute('aria-pressed', 'true')
+      expect(tiles()[2]).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('locks the grid scroll only while the drag is active', () => {
+      render(<BatchPage journeyId="j" />)
+      const grid = screen.getAllByTestId('batch-day')[0]!.parentElement!
+      expect(grid).not.toHaveClass('touch-none')
+      hold(0)
+      expect(grid).toHaveClass('touch-none')
+      fireEvent.pointerUp(tiles()[0]!, touch())
+      expect(grid).not.toHaveClass('touch-none')
+    })
+
+    it('does not open or toggle the tile when the hold ends', () => {
+      render(<BatchPage journeyId="j" />)
+      hold(0)
+      dragTo(1)
+      fireEvent.pointerUp(tiles()[0]!, touch())
+      fireEvent.click(tiles()[1]!)
+      expect(selectedText()).toBe('Selected 2 photos')
+      expect(screen.queryByTestId('viewer')).toBeNull()
+      // The next real click toggles normally again.
+      fireEvent.click(tiles()[1]!)
+      expect(selectedText()).toBe('Selected 1 photo')
+    })
+
+    it('moving more than 10 px before the timer means scrolling', () => {
+      render(<BatchPage journeyId="j" />)
+      fireEvent.pointerDown(tiles()[0]!, touch())
+      fireEvent.pointerMove(tiles()[0]!, touch(1, 10, 320))
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(screen.queryByRole('toolbar')).toBeNull()
+    })
+
+    it('a small wobble or an early release does not start anything', () => {
+      render(<BatchPage journeyId="j" />)
+      fireEvent.pointerDown(tiles()[0]!, touch())
+      fireEvent.pointerMove(tiles()[0]!, touch(1, 14, 303))
+      act(() => {
+        vi.advanceTimersByTime(399)
+      })
+      fireEvent.pointerUp(tiles()[0]!, touch())
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(screen.queryByRole('toolbar')).toBeNull()
+    })
+
+    it('ignores the mouse and viewers without edit rights', () => {
+      render(<BatchPage journeyId="j" />)
+      fireEvent.pointerDown(tiles()[0]!, { ...touch(), pointerType: 'mouse' })
+      act(() => {
+        vi.advanceTimersByTime(600)
+      })
+      expect(screen.queryByRole('toolbar')).toBeNull()
+      cleanup()
+      state.canEdit = false
+      render(<BatchPage journeyId="j" />)
+      fireEvent.pointerDown(tiles()[0]!, touch())
+      act(() => {
+        vi.advanceTimersByTime(600)
+      })
+      expect(screen.queryByRole('toolbar')).toBeNull()
+    })
+
+    it('keeps an earlier selection and respects an active filter', () => {
+      state.query.data = [
+        med(21, { capturedAt: '2026-01-02T09:00:00+00:00' }),
+        med(22, { capturedAt: '2026-01-02T10:00:00+00:00', kind: 'video' }),
+        med(23, { capturedAt: '2026-01-02T11:00:00+00:00' }),
+        med(24, { capturedAt: '2026-01-02T12:00:00+00:00', kind: 'video' }),
+      ]
+      render(<BatchPage journeyId="j" />)
+      fireEvent.click(screen.getByRole('button', { name: /Videos/ }))
+      expect(tiles()).toHaveLength(2)
+      hold(0)
+      dragTo(1)
+      // Only the two videos are in reading order, the photo between them is not.
+      expect(selectedText()).toBe('Selected 2 photos')
+      fireEvent.pointerUp(tiles()[0]!, touch())
+      fireEvent.click(screen.getByRole('button', { name: /All/ }))
+      expect(tiles()).toHaveLength(4)
+    })
+
+    it('scrolls the page near the viewport edges and stops on release', () => {
+      render(<BatchPage journeyId="j" />)
+      hold(0)
+      dragTo(1, 4)
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      expect(window.scrollBy).toHaveBeenCalled()
+      const arg = vi.mocked(window.scrollBy).mock.calls[0]?.[0] as
+        | ScrollToOptions
+        | undefined
+      expect(arg?.top).toBeLessThan(0)
+      fireEvent.pointerUp(tiles()[0]!, touch(1, 20, 4))
+      vi.mocked(window.scrollBy).mockClear()
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(window.scrollBy).not.toHaveBeenCalled()
+    })
   })
 })
