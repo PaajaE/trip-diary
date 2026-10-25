@@ -45,6 +45,9 @@ vi.mock('@/features/auth/session', () => ({
     user: { email: 'ada@example.com', id: 'u1' },
   }),
 }))
+vi.mock('@/features/spaces/model/use-personal-space-handle', () => ({
+  usePersonalSpaceHandle: () => 'ada',
+}))
 vi.mock('@/features/sync/ui/SyncStatusControl', () => ({
   SyncStatusControl: () => null,
 }))
