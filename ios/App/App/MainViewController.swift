@@ -9,6 +9,9 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(MediaLibraryPlugin())
         bridge?.registerPluginInstance(VideoPlugin())
         applyAdaptiveBackground()
+        // Edge swipe = browser Back, which the router uses to close the
+        // full-screen map and to step up through the reader pages.
+        webView?.allowsBackForwardNavigationGestures = true
     }
 
     /// Same values as `--color-background` in src/index.css (light / dark), so

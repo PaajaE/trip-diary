@@ -18,11 +18,14 @@ export function ReaderBar({ signedIn }: { signedIn: boolean }) {
   const segments = pathname.split('/').filter(Boolean)
   const [spaceHandle, journeySlug] = segments
   if (spaceHandle === undefined) return null
-  const onJourney = segments.length < 3
+  const onJourney = journeySlug === undefined || segments.length < 3
   return (
-    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur">
+    <header
+      aria-label={t('reader.bar')}
+      className="sticky top-0 z-30 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(0.75rem,env(safe-area-inset-right))] pl-[max(0.75rem,env(safe-area-inset-left))] backdrop-blur"
+    >
       <div className="mx-auto flex min-h-12 max-w-6xl items-center justify-between gap-2">
-        {onJourney || journeySlug === undefined ? (
+        {onJourney ? (
           <Link className={ITEM} params={{ spaceHandle }} to="/$spaceHandle">
             <ArrowLeft aria-hidden="true" size={17} />
             {t('reader.backToSpace')}
