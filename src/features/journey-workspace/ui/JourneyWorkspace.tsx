@@ -466,7 +466,7 @@ export function JourneyWorkspace({
                 railCollapsed ? 'px-0' : 'px-2.5',
               )}
             >
-              <div className="no-scrollbar sticky top-20 max-h-[calc(100svh-6rem)] overflow-y-auto">
+              <div className="no-scrollbar sticky top-[calc(5rem+env(safe-area-inset-top))] max-h-[calc(100svh-6rem-env(safe-area-inset-top))] overflow-y-auto">
                 <StageRail
                   activeId={activeId}
                   chapters={overview.chapters}
@@ -590,7 +590,7 @@ export function JourneyWorkspace({
               />
               <aside
                 aria-label={t('workspace.mapHeading')}
-                className="sticky top-20 flex h-[calc(100svh-6rem)] min-w-0 flex-col self-start py-3.5 pr-3.5 pl-1"
+                className="sticky top-[calc(5rem+env(safe-area-inset-top))] flex h-[calc(100svh-6rem-env(safe-area-inset-top))] min-w-0 flex-col self-start py-3.5 pr-3.5 pl-1"
               >
                 <MapPanelHeader
                   halfActive={near(layout.rowWidth / 2)}

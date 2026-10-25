@@ -503,7 +503,9 @@ export function shellHtml(
     strings === undefined
       ? ''
       : `<div class="h-[53px] border-b border-border"></div><div class="mx-auto max-w-6xl space-y-14 px-5 py-10">${summary === '' ? '' : `<p class="reader-body max-w-[65ch] whitespace-pre-line text-lg leading-8">${escapeHtml(summary)}</p>`}${mapPreview === null || mapPreview === undefined ? '' : routeSectionHtml(mapPreview, strings)}</div>`
-  return `<div id="${SHELL_ID}"><main>${header}${body}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
+  // Same box as the React ReaderBar (src/app/ReaderBar.tsx): no layout shift.
+  const bar = `<div aria-hidden="true" class="h-[calc(var(--reader-bar-h)+1px)] border-b border-border/60"></div>`
+  return `<div id="${SHELL_ID}">${bar}<main>${header}${body}</main>${strings === undefined ? '' : LOCALE_SCRIPT}</div>`
 }
 
 function originOf(url) {

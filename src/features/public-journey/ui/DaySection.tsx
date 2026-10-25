@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { DayMosaic } from '@/features/public-journey/ui/DayMosaic'
 import { StopRow } from '@/features/public-journey/ui/StopRow'
 import { cn } from '@/shared/lib/cn'
+import { stageTextColor } from '@/shared/lib/stage-palette'
 
 export interface DayStop {
   excerpt: string
@@ -72,7 +73,7 @@ export function DaySection({
     <section
       aria-labelledby={`${id}-title`}
       className={cn(
-        'scroll-mt-16 space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
+        'scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
         lazy && '[contain-intrinsic-size:auto_52rem] [content-visibility:auto]',
       )}
       data-day={id}
@@ -95,7 +96,7 @@ export function DaySection({
           <h2
             className="reader-display text-2xl"
             id={`${id}-title`}
-            style={active ? { color } : undefined}
+            style={active ? { color: stageTextColor(color) } : undefined}
           >
             {heading}
           </h2>

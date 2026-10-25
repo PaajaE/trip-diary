@@ -300,7 +300,7 @@ export function SeriesView({
       <div className="flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:flex-row">
         {many ? (
           <button
-            className={cn(BIG, 'flex-1 bg-emerald-600 hover:bg-emerald-500')}
+            className={cn(BIG, 'flex-1 bg-emerald-700 hover:bg-emerald-600')}
             disabled={keepIds.length === 0}
             type="button"
             onClick={() => {
@@ -311,7 +311,7 @@ export function SeriesView({
           </button>
         ) : (
           <button
-            className={cn(BIG, 'flex-1 bg-emerald-600 hover:bg-emerald-500')}
+            className={cn(BIG, 'flex-1 bg-emerald-700 hover:bg-emerald-600')}
             type="button"
             onClick={() => {
               onKeep(keepIds, trashIds)

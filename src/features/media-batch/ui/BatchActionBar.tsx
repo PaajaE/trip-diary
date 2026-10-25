@@ -38,7 +38,7 @@ export function BatchActionBar({
   return (
     <div
       aria-label={t('mediaBatch.toolbar')}
-      className="fixed inset-x-2 bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-30 rounded-lg bg-foreground px-2 py-2 text-[13px] text-background shadow-soft min-[760px]:sticky min-[760px]:inset-x-auto min-[760px]:bottom-2 min-[760px]:mt-5"
+      className="fixed inset-x-2 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-30 rounded-lg bg-foreground px-2 py-2 text-[13px] text-background shadow-soft min-[760px]:sticky min-[760px]:inset-x-auto min-[760px]:bottom-2 min-[760px]:mt-5"
       data-testid="batch-action-bar"
       role="toolbar"
     >

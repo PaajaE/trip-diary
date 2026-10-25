@@ -21,6 +21,7 @@ import { Crumbs } from '@/features/public-journey/ui/Crumbs'
 import { MediaLightbox } from '@/features/public-journey/ui/MediaGallery'
 import { PublicMediaView } from '@/features/public-journey/ui/PublicMediaView'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
+import { stageTextColor } from '@/shared/lib/stage-palette'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
@@ -168,7 +169,10 @@ export function PublicMomentPage({
           <p
             className="text-xs font-semibold tracking-[0.14em] uppercase"
             style={{
-              color: stage === null ? undefined : model.stageColor(stage.id),
+              color:
+                stage === null
+                  ? undefined
+                  : stageTextColor(model.stageColor(stage.id)),
             }}
           >
             {eyebrow}
@@ -265,7 +269,7 @@ export function PublicMomentPage({
       </nav>
       <nav
         aria-label={t('publicJourney.floatingNav')}
-        className="fixed bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 whitespace-nowrap rounded-full bg-foreground px-5 py-3 text-sm text-background shadow-soft"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-1/2 z-30 flex -translate-x-1/2 items-center gap-4 whitespace-nowrap rounded-full bg-foreground px-5 py-3 text-sm text-background shadow-soft"
       >
         {stage === null ? null : (
           <Link

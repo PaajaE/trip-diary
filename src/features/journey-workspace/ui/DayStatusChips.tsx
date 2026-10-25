@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/cn'
 const CHIP =
   'inline-flex items-center gap-1 rounded-full px-[7px] py-px text-[11.5px]'
 const DONE = 'bg-primary-soft text-primary'
-const PENDING = 'bg-accent-soft text-accent'
+const PENDING = 'bg-accent-soft text-accent-strong'
 
 /**
  * The two derived status chips of a day: photos (sorted or how many are left)

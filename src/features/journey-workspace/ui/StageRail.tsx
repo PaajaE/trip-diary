@@ -76,7 +76,7 @@ function Thumb({
 function NewBadge() {
   const { t } = useTranslation()
   return (
-    <span className="inline-flex shrink-0 items-center rounded-full bg-accent-soft px-2 py-px text-[11.5px] text-accent">
+    <span className="inline-flex shrink-0 items-center rounded-full bg-accent-soft px-2 py-px text-[11.5px] text-accent-strong">
       {t('workspace.overview.newBadge')}
     </span>
   )

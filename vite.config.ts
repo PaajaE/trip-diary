@@ -77,7 +77,7 @@ export default defineConfig({
     VitePWA({
       includeAssets: ['app-icon.svg'],
       manifest: {
-        background_color: '#f7f4ed',
+        background_color: '#f8f5ef',
         description: 'A calm, offline-ready diary for journeys and memories.',
         display: 'standalone',
         icons: [
