@@ -53,7 +53,7 @@ export function ToastProvider({ children }: PropsWithChildren) {
             className={cn(
               'flex items-center justify-center gap-3 rounded-xl px-4 py-3 text-center text-sm font-medium shadow-lg',
               toast.variant === 'error'
-                ? 'bg-destructive text-destructive-foreground'
+                ? 'bg-destructive text-primary-foreground'
                 : 'bg-foreground text-background',
             )}
             key={toast.id}

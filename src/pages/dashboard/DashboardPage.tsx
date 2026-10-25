@@ -61,7 +61,7 @@ export function DashboardPage() {
     <main className="mx-auto min-h-[calc(100svh-4rem)] w-full max-w-5xl px-5 py-10 sm:px-8 sm:py-16">
       <header className="flex flex-col justify-between gap-6 pb-10 sm:flex-row sm:items-end">
         <div>
-          <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
+          <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent-strong uppercase">
             {t('dashboard.eyebrow')}
           </p>
           <h1 className="reader-display mt-3 text-4xl tracking-[-0.04em] sm:text-5xl">
@@ -170,7 +170,7 @@ export function JourneyCard({
       )}
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+          <p className="text-xs font-semibold uppercase tracking-wide text-accent-strong">
             {journey.syncStatus === undefined
               ? journey.role === 'owner'
                 ? t(`journey.status.${journey.status}`)
@@ -244,7 +244,7 @@ export function ContinueTripHero({
       className="mt-10 rounded-[1.5rem] bg-primary/10 p-6 sm:p-8"
       data-mode={mode}
     >
-      <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent uppercase">
+      <p className="text-[0.6875rem] font-semibold tracking-[0.18em] text-accent-strong uppercase">
         {mode === 'continue'
           ? t('dashboard.continueEyebrow')
           : t('dashboard.help.eyebrow')}

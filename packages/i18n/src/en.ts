@@ -255,6 +255,12 @@ export const en = {
     tips: 'Tips',
     signOut: 'Sign out',
   },
+  reader: {
+    bar: 'Reading mode',
+    backToJourney: 'Back to trip',
+    backToSpace: 'Back to space',
+    exit: 'Exit reading',
+  },
   owner: {
     breadcrumb: 'Breadcrumb',
     myJourneys: 'My journeys',

@@ -256,6 +256,12 @@ export const cs: TranslationResources = {
     tips: 'Tipy',
     signOut: 'Odhlásit se',
   },
+  reader: {
+    bar: 'Režim čtení',
+    backToJourney: 'Zpět na cestu',
+    backToSpace: 'Zpět na prostor',
+    exit: 'Ukončit čtení',
+  },
   owner: {
     breadcrumb: 'Drobečková navigace',
     myJourneys: 'Moje cesty',

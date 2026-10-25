@@ -25,50 +25,52 @@
 
 :root {
   color-scheme: light;
+  /* Height of the sticky reading-mode bar, status bar included. */
+  --reader-bar-h: calc(env(safe-area-inset-top) + 3rem);
 }
 
 /* Dark theme: same variables as @theme, overridden on :root. The explicit
    data-theme wins over the OS preference; 'auto' sets no attribute. */
 :root[data-theme='dark'] {
-  --color-background: #121512;
-  --color-surface: #1b201b;
+  --color-background: #1f2420;
+  --color-surface: #2a312b;
   --color-foreground: #f1eee6;
-  --color-muted: #a9b0a6;
-  --color-border: #2d352d;
-  --color-primary: #9cc3a6;
+  --color-muted: #bcc3b9;
+  --color-border: #434d44;
+  --color-primary: #abd0b4;
   --color-primary-foreground: #14201a;
   --color-accent: #e08a68;
   --color-accent-strong: #f0b89d;
   --color-destructive: #ff8f84;
-  --color-sunk: #171b17;
-  --color-faint: #7d867b;
-  --color-primary-soft: #25332a;
-  --color-accent-soft: #3a2a24;
+  --color-sunk: #252b26;
+  --color-faint: #98a195;
+  --color-primary-soft: #34463a;
+  --color-accent-soft: #4b3a32;
   --color-warn: #e0b25a;
-  --color-warn-soft: #3a3320;
-  --shadow-soft: 0 8px 24px rgb(0 0 0 / 35%);
+  --color-warn-soft: #463e27;
+  --shadow-soft: 0 8px 24px rgb(0 0 0 / 25%);
   color-scheme: dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']):not([data-theme='dark']) {
-    --color-background: #121512;
-    --color-surface: #1b201b;
+    --color-background: #1f2420;
+    --color-surface: #2a312b;
     --color-foreground: #f1eee6;
-    --color-muted: #a9b0a6;
-    --color-border: #2d352d;
-    --color-primary: #9cc3a6;
+    --color-muted: #bcc3b9;
+    --color-border: #434d44;
+    --color-primary: #abd0b4;
     --color-primary-foreground: #14201a;
     --color-accent: #e08a68;
     --color-accent-strong: #f0b89d;
     --color-destructive: #ff8f84;
-    --color-sunk: #171b17;
-    --color-faint: #7d867b;
-    --color-primary-soft: #25332a;
-    --color-accent-soft: #3a2a24;
+    --color-sunk: #252b26;
+    --color-faint: #98a195;
+    --color-primary-soft: #34463a;
+    --color-accent-soft: #4b3a32;
     --color-warn: #e0b25a;
-    --color-warn-soft: #3a3320;
-    --shadow-soft: 0 8px 24px rgb(0 0 0 / 35%);
+    --color-warn-soft: #463e27;
+    --shadow-soft: 0 8px 24px rgb(0 0 0 / 25%);
     color-scheme: dark;
   }
 }

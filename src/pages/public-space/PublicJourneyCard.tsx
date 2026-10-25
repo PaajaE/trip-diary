@@ -37,7 +37,7 @@ export function PublicJourneyCard({ journey, onOpen }: PublicJourneyCardProps) {
         />
       )}
       <div className="p-5">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-wide text-accent">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-semibold uppercase tracking-wide text-accent-strong">
           <span>{journey.statusLabel}</span>
           {journey.dateLabel === undefined ||
           journey.dateLabel === null ? null : (

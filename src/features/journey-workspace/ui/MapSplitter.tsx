@@ -83,7 +83,7 @@ export function MapSplitter({
         className="absolute inset-y-0 left-[6px] w-px bg-border"
       />
       {/* The row is as tall as the whole journey: keep the grip in view. */}
-      <span className="sticky top-20 flex h-[calc(100svh-6rem)] items-center">
+      <span className="sticky top-[calc(5rem+env(safe-area-inset-top))] flex h-[calc(100svh-6rem-env(safe-area-inset-top))] items-center">
         <span
           aria-hidden="true"
           className={cn(

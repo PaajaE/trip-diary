@@ -72,7 +72,7 @@ export function DaySection({
     <section
       aria-labelledby={`${id}-title`}
       className={cn(
-        'scroll-mt-16 space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
+        'scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
         lazy && '[contain-intrinsic-size:auto_52rem] [content-visibility:auto]',
       )}
       data-day={id}
