@@ -256,12 +256,6 @@ export const cs: TranslationResources = {
     tips: 'Tipy',
     signOut: 'Odhlásit se',
   },
-  reader: {
-    bar: 'Režim čtení',
-    backToJourney: 'Zpět na cestu',
-    backToSpace: 'Zpět na prostor',
-    exit: 'Ukončit čtení',
-  },
   owner: {
     breadcrumb: 'Drobečková navigace',
     myJourneys: 'Moje cesty',
@@ -1343,6 +1337,10 @@ export const cs: TranslationResources = {
     },
   },
   reader: {
+    bar: 'Režim čtení',
+    backToJourney: 'Zpět na cestu',
+    backToSpace: 'Zpět na prostor',
+    exit: 'Ukončit čtení',
     copyLink: 'Kopírovat odkaz',
     linkCopied: 'Odkaz zkopírován',
     mapAttributionMapy: 'Mapa © Mapy.com / Seznam.cz',
