@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { DayMosaic } from '@/features/public-journey/ui/DayMosaic'
 import { StopRow } from '@/features/public-journey/ui/StopRow'
 import { cn } from '@/shared/lib/cn'
+import { stageTextColor } from '@/shared/lib/stage-palette'
 
 export interface DayStop {
   excerpt: string
@@ -95,7 +96,7 @@ export function DaySection({
           <h2
             className="reader-display text-2xl"
             id={`${id}-title`}
-            style={active ? { color } : undefined}
+            style={active ? { color: stageTextColor(color) } : undefined}
           >
             {heading}
           </h2>
