@@ -863,7 +863,7 @@ export function QuickSortView({
 
         <div className="flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           <button
-            className={cn(BIG, 'bg-emerald-600 hover:bg-emerald-500')}
+            className={cn(BIG, 'bg-emerald-700 hover:bg-emerald-600')}
             disabled={isHandled}
             type="button"
             onClick={accept}

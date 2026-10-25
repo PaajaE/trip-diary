@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import type { Profile } from '@/entities/profile/model/profile'
 import {
   ProfileSettingsForm,
@@ -20,11 +21,12 @@ export function SettingsPage({
   profile,
   userId,
 }: SettingsPageProps) {
+  const { t } = useTranslation()
   return (
     <PageContainer width="form">
       <PageHeader
-        description="Upravte, jak vás ostatní cestovatelé uvidí."
-        title="Nastavení profilu"
+        description={t('profile.settings.pageDescription')}
+        title={t('profile.settings.pageTitle')}
       />
       <Card>
         <ProfileSettingsForm
