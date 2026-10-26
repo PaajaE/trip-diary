@@ -10,7 +10,12 @@ import {
   type UploaderModel,
 } from '@/features/media-batch/model/uploaders'
 
-export type BaseBatchFilter = 'all' | 'noLocation' | 'series' | 'video'
+export type BaseBatchFilter =
+  | 'all'
+  | 'noLocation'
+  | 'series'
+  | 'starred'
+  | 'video'
 
 /** "Uploaded by <member>" filter of a shared journey: `uploader:<user id>`. */
 export type UploaderFilter = `uploader:${string}`
@@ -32,6 +37,7 @@ export const BATCH_FILTERS: readonly BaseBatchFilter[] = [
   'all',
   'noLocation',
   'series',
+  'starred',
   'video',
 ]
 
@@ -74,12 +80,14 @@ export function buildFilterModel(
     ).flat(),
   )
   let noLocation = 0
+  let starred = 0
   let video = 0
   const byUploader = new Map<string, number>()
   for (const item of items) {
     if (uploaders !== undefined && isForeignUploader(uploaders, item.ownerId))
       byUploader.set(item.ownerId, (byUploader.get(item.ownerId) ?? 0) + 1)
     if (item.latitude === null || item.longitude === null) noLocation += 1
+    if (item.starred) starred += 1
     if (item.kind === 'video') video += 1
   }
   return {
@@ -87,6 +95,7 @@ export function buildFilterModel(
       all: items.length,
       noLocation,
       series: seriesIds.size,
+      starred,
       video,
     },
     seriesIds,
@@ -122,6 +131,8 @@ export function matchesFilter(
       return item.latitude === null || item.longitude === null
     case 'series':
       return model.seriesIds.has(item.id)
+    case 'starred':
+      return item.starred
     case 'video':
       return item.kind === 'video'
   }

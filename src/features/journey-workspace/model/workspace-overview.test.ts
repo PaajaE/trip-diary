@@ -117,6 +117,34 @@ describe('dayStopNames', () => {
 })
 
 describe('buildOverview', () => {
+  it('uses the photo day zones (SQL day rule), not only the fallback zone', () => {
+    // 16:00Z is 17:00 on 4 Jan in Prague but 05:00 on 5 Jan in Auckland,
+    // where the photos of that day were taken.
+    const stop = mom(30, {
+      latitude: 1,
+      longitude: 1,
+      startsAt: T('04', '16:00'),
+      endsAt: T('04', '16:30'),
+    })
+    const other = mom(31, {
+      startsAt: T('04', '17:00'),
+      endsAt: T('04', '18:00'),
+    })
+    const tree = buildWorkspaceTree(
+      [],
+      [stop, other],
+      [
+        photo(32, other.id, {
+          capturedAt: T('04', '17:00'),
+          capturedTz: 'Pacific/Auckland',
+        }),
+      ],
+    )
+    const overview = buildOverview(tree, none, 'Europe/Prague')
+    expect(overview.dayOfMoment.get(stop.id)).toBe('2026-01-05')
+    expect(overview.firstDay).toBe('2026-01-05')
+  })
+
   function journey() {
     const alpha = seg(1, {
       endsAt: T('05', '00:00'),

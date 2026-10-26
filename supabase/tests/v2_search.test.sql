@@ -22,7 +22,7 @@ select is(public.search_normalize('Ježero ŽLUŤOUČKÝ Příliš'), 'jezero zl
 -- owner c1, editor c2, member (read-only) c3, stranger c4
 set local role authenticated;
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-0000000000c1","role":"authenticated"}',true);
--- Pacific/Auckland is UTC+12 in June: 13:00Z on 06-01 is 01:00 on 06-02 locally
+-- Pacific/Auckland is UTC+12 in June: 13:00Z on 06-01 is 01:00 on 06-02 locally, which is still day 06-01 (day starts at 04:00)
 insert into public.journeys (id, creator_id, title, visibility, home_tz)
   values ('c1000000-0000-4000-8000-000000000001', auth.uid(), 'Search', 'private', 'Pacific/Auckland');
 insert into public.journey_members (journey_id, user_id, role) values
@@ -49,11 +49,11 @@ select ('c1400000-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, auth.uid(),
 
 -- matching, ordering, local dates
 select is((select array_agg(t.kind order by t.ord) from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') with ordinality as t(kind, id, local_date, title, snippet, ord)), array['moment','moment','day','media','media'], 'jezero: title, place name (accent form), day note and captions; ordered moment, day, media');
-select is((select array_agg(t.local_date order by t.ord) from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') with ordinality as t(kind, id, local_date, title, snippet, ord)), array['2026-06-02','2026-06-03','2026-06-02','2026-06-02',null]::date[], 'local dates in home_tz (moment at 13:00Z is the next local day); undated media last');
+select is((select array_agg(t.local_date order by t.ord) from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') with ordinality as t(kind, id, local_date, title, snippet, ord)), array['2026-06-01','2026-06-03','2026-06-02','2026-06-01',null]::date[], 'local dates in home_tz with 04:00 boundary (moment and media at 01:00 local belong to the previous day); undated media last');
 select is((select count(*)::int from public.search_journey('c1000000-0000-4000-8000-000000000001', 'JEŽERO')), 5, 'case- and accent-insensitive query');
 select is((select count(*)::int from public.search_journey('c1000000-0000-4000-8000-000000000001', 'ezer')), 5, 'substring match');
 select is((select count(*)::int from public.search_journey('c1000000-0000-4000-8000-000000000001', '  jezero  ')), 5, 'query is trimmed');
-select is((select local_date from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') where id = 'c1200000-0000-4000-8000-000000000001'), '2026-06-02'::date, 'moment day uses home_tz, not the UTC date');
+select is((select local_date from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') where id = 'c1200000-0000-4000-8000-000000000001'), '2026-06-01'::date, 'moment day uses home_tz and the 04:00 boundary, not the UTC date');
 select is((select title from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') where id = 'c1200000-0000-4000-8000-000000000002'), 'Ježero Krn', 'moment without title shows the place name');
 select is((select snippet from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') where id = 'c1200000-0000-4000-8000-000000000002'), 'Ježero Krn', 'place name match: snippet is the place name');
 select is((select count(*)::int from public.search_journey('c1000000-0000-4000-8000-000000000001', 'jezero') where id = 'c1200000-0000-4000-8000-000000000002'), 1, 'unpublished moment is returned to members');

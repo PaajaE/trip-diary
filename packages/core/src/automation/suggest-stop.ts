@@ -4,6 +4,8 @@ export interface SuggestStopMedia {
   capturedAt: string | null
   latitude: number | null
   longitude: number | null
+  /** Stop the photo is already in; that stop is never suggested again. */
+  momentId?: string | null
 }
 
 export interface SuggestStopStop {
@@ -33,7 +35,9 @@ function cmp(a: string, b: string): number {
 }
 
 /**
- * Suggests the stop a photo most likely belongs to.
+ * Suggests the stop a photo most likely belongs to. A photo already placed in
+ * a stop (`momentId`) is never sent back to it: the suggestion is another stop
+ * or null.
  * 1. 'inside': time within [startsAt, endsAt] (several: closest centre, then id).
  * 2. 'near_time': within nearTimeMs of a stop edge and (a side lacks coordinates
  *    or distance <= nearMeters); closest in time, then id.
@@ -64,6 +68,7 @@ export function suggestStop(
     meters: number | null
   }[] = []
   for (const stop of stops) {
+    if (stop.id === media.momentId) continue
     const start = Date.parse(stop.startsAt)
     const end = Date.parse(stop.endsAt)
     if (Number.isNaN(start) || Number.isNaN(end) || end < start) {

@@ -148,18 +148,22 @@ describe('planOrganization', () => {
     expect(one.momentsToCreate[0]?.id).toBe('new-1')
   })
 
-  it('suggests a stage boundary at the jump (local midnight of the new zone) and trips per stage', () => {
+  it('suggests a stage boundary at the jump (04:00 local of the new zone) and trips per stage', () => {
     const plan = planOrganization(empty(journeyMedia()), options())
+    // 04:00 day rule: v1 (10:00Z = 03:00 PDT on 09-05) still belongs to the
+    // day 09-04, so the Vancouver stage starts at 09-04 04:00 PDT (11:00Z).
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
       '2026-09-01T09:00:00.000Z',
-      '2026-09-05T07:00:00.000Z',
+      '2026-09-04T11:00:00.000Z',
     ])
-    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-05T07:00:00.000Z')
+    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-04T11:00:00.000Z')
     expect(plan.stageSuggestions[0]?.title).toBe('stage--1')
     expect(plan.tripSuggestions).toHaveLength(1)
     const trip = plan.tripSuggestions[0]
     expect(trip?.tripType).toBe('day')
-    expect(trip?.startsAt).toBe('2026-09-02T08:00:00.000Z')
+    // 04:00 day rule: b1 (08:00Z = 02:00 MDT) belongs to the day 09-01, so
+    // the 09-02 day trip starts with b2 instead.
+    expect(trip?.startsAt).toBe('2026-09-02T12:00:00.000Z')
     expect(trip?.endsAt).toBe('2026-09-02T17:00:00.000Z')
   })
 
@@ -332,8 +336,9 @@ describe('planOrganization', () => {
     expect(plan.segmentsToDelete).toEqual(['old-suggested'])
     // The manual stage covers the first stage region; the day trip is covered
     // by an accepted trip, so only the Vancouver stage remains suggested.
+    // 04:00 day rule: the Vancouver stage starts 09-04 04:00 PDT (11:00Z).
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
-      '2026-09-05T07:00:00.000Z',
+      '2026-09-04T11:00:00.000Z',
     ])
     expect(plan.tripSuggestions).toEqual([])
     expect(plan.segmentsToDelete).not.toContain('manual-stage')

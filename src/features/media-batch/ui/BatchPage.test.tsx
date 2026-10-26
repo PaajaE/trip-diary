@@ -50,6 +50,9 @@ vi.mock('@/entities/media/api/use-unreviewed-media-query', () => ({
 vi.mock('@/features/journey-workspace/api/use-can-edit-journey', () => ({
   useCanEditJourney: () => ({ canEdit: state.canEdit, ready: true }),
 }))
+vi.mock('@/features/journey-workspace/api/use-tree-place-names', () => ({
+  useTreePlaceNames: () => new Map<string, string>(),
+}))
 vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
   useJourneyWorkspace: () => ({
     status: 'ready',
@@ -246,14 +249,17 @@ describe('BatchPage', () => {
     fireEvent.click(tiles()[3]!)
     fireEvent.click(screen.getByRole('button', { name: 'Move to stop…' }))
     const sheet = screen.getByRole('dialog', { name: 'Move 1 photo to' })
-    const list = within(sheet).getByRole('list', { name: 'Stops' })
-    expect(within(list).getAllByRole('button')).toHaveLength(2)
-    // Harbour contains the photo in time, so it is the suggested stop.
-    const harbour = within(list).getByRole('button', { name: /Harbour/ })
+    // Harbour contains the photo in time: the suggestion sits on top ...
+    const suggestion = within(sheet).getByTestId('move-sheet-suggestion')
+    const harbour = within(suggestion).getByRole('button', { name: /Harbour/ })
     expect(harbour).toHaveTextContent('Suggested')
+    // ... and the other stops follow, grouped under a day heading.
+    const list = within(sheet).getByRole('group', { name: 'Stops' })
+    expect(within(list).getAllByRole('button')).toHaveLength(1)
     expect(
       within(list).getByRole('button', { name: /Old Town/ }),
     ).not.toHaveTextContent('Suggested')
+    expect(within(list).getAllByTestId('move-sheet-day')).toHaveLength(1)
     fireEvent.click(harbour)
     expect(actions.moveTo).toHaveBeenCalledWith(
       [b1],
@@ -314,7 +320,9 @@ describe('BatchPage', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Select' }))
     fireEvent.click(tiles()[1]!)
-    fireEvent.click(screen.getByRole('button', { name: /★/ }))
+    fireEvent.click(
+      within(screen.getByRole('toolbar')).getByRole('button', { name: /★/ }),
+    )
     expect(actions.star).toHaveBeenCalledWith([a2])
     // Star alone keeps the selection (and sorts nothing).
     expect(screen.getByRole('toolbar')).toBeTruthy()
@@ -492,7 +500,11 @@ describe('BatchPage', () => {
     it('shows chips with counts, hiding empty ones except "All"', () => {
       render(<BatchPage journeyId="j" />)
       const chips = screen.getByRole('group', { name: 'Batch filter' })
-      expect(within(chips).getAllByRole('button')).toHaveLength(2)
+      // All, No location and Best ★ (a2 is starred).
+      expect(within(chips).getAllByRole('button')).toHaveLength(3)
+      expect(
+        within(chips).getByRole('button', { name: /Best ★/ }),
+      ).toHaveTextContent('1')
       expect(
         within(chips).getByRole('button', { name: /All/ }),
       ).toHaveTextContent('5')

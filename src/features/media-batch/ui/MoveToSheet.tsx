@@ -90,6 +90,18 @@ export function MoveToSheet({
     }
   }, [])
 
+  const suggested = stops.find((stop) => stop.id === model.suggestedId)
+  const groups = useMemo(() => {
+    const out: { key: string; label: string; stops: MoveSheetStop[] }[] = []
+    for (const stop of stops) {
+      if (stop.id === model.suggestedId) continue
+      const last = out[out.length - 1]
+      if (last?.key === stop.dayKey) last.stops.push(stop)
+      else out.push({ key: stop.dayKey, label: stop.dayLabel, stops: [stop] })
+    }
+    return out
+  }, [stops, model.suggestedId])
+
   const reason =
     model.unavailable === 'noStops'
       ? t('mediaBatch.noStops')
@@ -116,6 +128,40 @@ export function MoveToSheet({
         <h2 className="text-lg font-semibold" id={titleId}>
           {t('mediaBatch.moveSheet.title', { count: items.length })}
         </h2>
+        <button
+          className="flex min-h-14 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary px-3 font-medium hover:bg-surface"
+          type="button"
+          onClick={onNewStop}
+        >
+          <Plus aria-hidden="true" size={18} />
+          <span className="min-w-0 truncate">
+            {t('mediaBatch.moveSheet.newFromSelection')}
+          </span>
+          {model.newStopPlace === null ? null : (
+            <span
+              className="min-w-0 truncate text-sm text-muted"
+              data-testid="move-sheet-new-place"
+            >
+              {t('mediaBatch.moveSheet.newStopAt', {
+                place: model.newStopPlace,
+              })}
+            </span>
+          )}
+        </button>
+        {suggested === undefined ? null : (
+          <section
+            aria-label={t('mediaBatch.moveSheet.suggestedSection')}
+            data-testid="move-sheet-suggestion"
+          >
+            <StopRow
+              baseUrl={baseUrl}
+              current={suggested.id === model.currentId}
+              stop={suggested}
+              suggested
+              onPick={onPick}
+            />
+          </section>
+        )}
         <div className="flex gap-2">
           <button
             className={BIG}
@@ -145,71 +191,33 @@ export function MoveToSheet({
             {reason}
           </p>
         )}
-        {stops.length === 0 ? null : (
-          <ul
-            aria-label={t('mediaBatch.moveSheet.stops')}
-            className="space-y-1"
-          >
-            {stops.map((stop) => (
-              <li key={stop.id}>
-                <button
-                  className={cn(
-                    'flex min-h-16 w-full touch-manipulation items-center gap-3 rounded-lg border px-2 py-2 text-left hover:bg-surface',
-                    stop.id === model.suggestedId
-                      ? 'border-primary'
-                      : 'border-border',
-                  )}
-                  type="button"
-                  onClick={() => {
-                    onPick(stop.id)
-                  }}
+        {groups.length === 0 ? null : (
+          <div aria-label={t('mediaBatch.moveSheet.stops')} role="group">
+            {groups.map((group) => (
+              <section className="mb-2" key={group.key}>
+                <h3
+                  className="sticky top-0 bg-background py-1 text-sm font-semibold text-muted"
+                  data-testid="move-sheet-day"
                 >
-                  {stop.cover === null ? (
-                    <span
-                      aria-hidden="true"
-                      className="flex size-12 shrink-0 items-center justify-center rounded-sm bg-surface text-muted"
-                      data-testid="move-sheet-placeholder"
-                    >
-                      <ImageOff size={18} />
-                    </span>
-                  ) : (
-                    <MediaThumb
-                      baseUrl={baseUrl}
-                      className="size-12"
-                      item={stop.cover}
-                    />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate font-medium">
-                      {stop.title}
-                    </span>
-                    <span className="block truncate text-sm text-muted">
-                      {stop.when}
-                      {' · '}
-                      {countsText(t, {
-                        photos: stop.photoCount,
-                        videos: stop.videoCount,
-                      }) || t('mediaBatch.moveSheet.empty')}
-                    </span>
-                  </span>
-                  {stop.id === model.suggestedId ? (
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
-                      {t('mediaBatch.moveSheet.suggested')}
-                    </span>
-                  ) : null}
-                </button>
-              </li>
+                  {group.label}
+                </h3>
+                <ul className="space-y-1">
+                  {group.stops.map((stop) => (
+                    <li key={stop.id}>
+                      <StopRow
+                        baseUrl={baseUrl}
+                        current={stop.id === model.currentId}
+                        stop={stop}
+                        suggested={false}
+                        onPick={onPick}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
-        <button
-          className="flex min-h-14 w-full touch-manipulation items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border px-3 font-medium hover:bg-surface"
-          type="button"
-          onClick={onNewStop}
-        >
-          <Plus aria-hidden="true" size={18} />
-          {t('mediaBatch.moveSheet.newFromSelection')}
-        </button>
         <button
           className="min-h-11 touch-manipulation rounded-lg px-3 text-muted hover:bg-surface"
           type="button"
@@ -220,5 +228,78 @@ export function MoveToSheet({
       </div>
     </div>,
     document.body,
+  )
+}
+
+/** One stop of the sheet: cover, name (or the lookup placeholder), time and counts. */
+function StopRow({
+  baseUrl,
+  current,
+  onPick,
+  stop,
+  suggested,
+}: {
+  baseUrl: string
+  current: boolean
+  onPick: (stopId: string) => void
+  stop: MoveSheetStop
+  suggested: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <button
+      aria-current={current ? 'true' : undefined}
+      className={cn(
+        'flex min-h-16 w-full touch-manipulation items-center gap-3 rounded-lg border px-2 py-2 text-left hover:bg-surface',
+        suggested ? 'border-primary' : 'border-border',
+      )}
+      type="button"
+      onClick={() => {
+        onPick(stop.id)
+      }}
+    >
+      {stop.cover === null ? (
+        <span
+          aria-hidden="true"
+          className="flex size-12 shrink-0 items-center justify-center rounded-sm bg-surface text-muted"
+          data-testid="move-sheet-placeholder"
+        >
+          <ImageOff size={18} />
+        </span>
+      ) : (
+        <MediaThumb baseUrl={baseUrl} className="size-12" item={stop.cover} />
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium">
+          {stop.pending ? (
+            <span
+              className="animate-pulse rounded-sm bg-surface px-1 text-muted"
+              data-testid="move-sheet-looking-up"
+            >
+              {stop.title}
+            </span>
+          ) : (
+            stop.title
+          )}
+        </span>
+        <span className="block truncate text-sm text-muted">
+          {stop.when}
+          {' · '}
+          {countsText(t, {
+            photos: stop.photoCount,
+            videos: stop.videoCount,
+          }) || t('mediaBatch.moveSheet.empty')}
+        </span>
+      </span>
+      {suggested ? (
+        <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+          {t('mediaBatch.moveSheet.suggested')}
+        </span>
+      ) : current ? (
+        <span className="shrink-0 rounded-full bg-surface px-2 py-0.5 text-xs font-semibold text-muted">
+          {t('mediaBatch.moveSheet.current')}
+        </span>
+      ) : null}
+    </button>
   )
 }

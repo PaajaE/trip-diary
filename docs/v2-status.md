@@ -527,7 +527,14 @@ Průběh 2026-10-24 (větev `claude/affectionate-knuth-8abj8b`, PR #46): impleme
 
 ## Fáze 4f — Automatické zastávky a třídění (2026-10-26, 📝 PROPOSED)
 
-Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Nic není implementované, žádná migrace nevznikla.
+Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Algoritmus (ZS-3 a dál) není implementovaný.
+
+**Balík A — Základy (2026-10-26, větev `claude/kind-hawking-wuv63g`, 🟡 IMPLEMENTED):**
+
+- **ZS-1** (migrace `20261027120000`–`20261027120300`, pgTAP): `moments.kind`, `trip_type` `walk`, `media.device`, den od 4:00 místního času (`local_day`, `journey_day_zones`, `pick_local_day`; `journey_progress`, `search_journey` a `get_public_journey` je používají). Lokálně se `db:*` nedaly spustit (Docker nestáhne image, chybí Supabase CLI), `database.types.ts` je upraven ručně. **CI na PR #51 zelené:** `db:test` 38 souborů / 763 testů, `db:lint`, `db:types` bez rozdílu. Do produkce nic neaplikováno.
+- **Pravidlo dne 4:00 v klientu:** `packages/core` (`local-day.ts`, `summarizeDays`, `summarizeZonedDays`, etapy, statistiky veřejné cesty) a `src/` (model veřejné cesty, dny pracovní plochy, hledání) odpovídají SQL. Testy a fixtures upraveny kvůli nové hranici.
+- **ZS-0** harness (`packages/core/src/automation/harness`): 26 scénářů, B-cubed F1, úpravy k pravdě, vlastnosti, `canada-v1`. **Baseline dnešního `clusterMoments`:** 14 scénářů selhává, Kanada 42,9 úprav na 100 fotek a F1 0,48 (cíl ≤ 3 a ≥ 0,85; `v1Entry` má jen 5 hrubých skupin), 5 000 fotek za 14 ms.
+- **ZS-2** rychlé třídění: sdílené porovnání a zoom (`PhotoCompare`), `MoveToSheet` všude, názvy míst se skeletonem místo „Zastávka 15:07“, `suggestStop` respektuje zařazení, pastelové tokeny akcí (kontrast v testu), vysvětlení ★ a filtr ★. **UNVERIFIED:** běh v prohlížeči, dotyk, iPhone.
 
 | Zjištění (VERIFIED čtením kódu, syntetické scénáře)                                                   | Úkol       |
 | ----------------------------------------------------------------------------------------------------- | ---------- |

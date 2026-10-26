@@ -9,6 +9,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import '@/app/i18n'
 import i18n from 'i18next'
+import type * as JourneySearchModule from '@/features/journey-workspace/model/journey-search'
 import type { JourneyWorkspaceState } from '@/features/journey-workspace/api/use-journey-workspace'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
 import { med, mom } from '@/features/journey-workspace/test-fixtures'
@@ -16,6 +17,9 @@ import { JourneySearch } from '@/features/journey-workspace/ui/JourneySearch'
 import { JourneySearchButton } from '@/features/journey-workspace/ui/JourneySearchButton'
 
 const navigate = vi.hoisted(() => vi.fn())
+const searched = vi.hoisted(() => ({
+  homeTz: undefined as string | null | undefined,
+}))
 const state = vi.hoisted(() => ({
   workspace: { status: 'loading' } as unknown as JourneyWorkspaceState,
 }))
@@ -32,6 +36,21 @@ vi.mock('@/entities/day-note/api/use-day-notes', () => ({
     save: vi.fn(),
   }),
 }))
+vi.mock('@/entities/journey/api/use-journey-home-tz-query', () => ({
+  useJourneyHomeTzQuery: () => ({ data: 'Pacific/Auckland' }),
+}))
+vi.mock('@/features/journey-workspace/model/journey-search', async () => {
+  const actual = await vi.importActual<typeof JourneySearchModule>(
+    '@/features/journey-workspace/model/journey-search',
+  )
+  return {
+    ...actual,
+    searchJourney: (...args: Parameters<typeof actual.searchJourney>) => {
+      searched.homeTz = args[0].homeTz
+      return actual.searchJourney(...args)
+    },
+  }
+})
 vi.mock('@/entities/place/api/use-journey-places', () => ({
   useJourneyPlaces: () => new Map(),
 }))
@@ -85,6 +104,12 @@ describe('JourneySearch', () => {
     expect(dialog.getAttribute('aria-modal')).toBe('true')
     expect(document.activeElement).toBe(field())
     expect(field().getAttribute('aria-label')).not.toBeNull()
+  })
+
+  it('searches with the journey home zone (04:00 day rule)', async () => {
+    render(<JourneySearch journeyId="j1" onClose={vi.fn()} />)
+    await type('jezer')
+    expect(searched.homeTz).toBe('Pacific/Auckland')
   })
 
   it('closes on Escape and the close button', () => {

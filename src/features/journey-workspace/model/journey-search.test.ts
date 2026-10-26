@@ -79,22 +79,73 @@ describe('searchJourney text', () => {
     expect(searchJourney(data, 'koupání').results[0]?.title).toBe('Ráno')
   })
 
-  it('computes local dates in the experience zone', () => {
-    const late = sm('late', {
-      body: 'noční',
-      startsAt: '2026-01-02T23:30:00+00:00',
-      tz: 'Europe/Prague',
-    })
-    const out = searchJourney({ ...EMPTY, moments: [late] }, 'noční')
-    expect(out.results[0]?.localDate).toBe('2026-01-03')
-    const ny = sm('ny', {
-      body: 'noční',
-      startsAt: '2026-01-03T02:00:00+00:00',
-      tz: 'America/New_York',
-    })
-    expect(
-      searchJourney({ ...EMPTY, moments: [ny] }, 'noční').results[0]?.localDate,
-    ).toBe('2026-01-02')
+  it('computes local dates in the home zone with a 04:00 day start', () => {
+    const at = (id: string, startsAt: string) =>
+      sm(id, { body: 'noční', startsAt })
+    const out = searchJourney(
+      {
+        ...EMPTY,
+        homeTz: 'Europe/Prague',
+        moments: [
+          at('a', '2026-01-02T23:30:00+00:00'), // 00:30 on 3 Jan -> 2 Jan
+          at('b', '2026-01-03T03:30:00+00:00'), // 04:30 on 3 Jan
+        ],
+      },
+      'noční',
+    )
+    expect(out.results.map((r) => [r.id, r.localDate])).toEqual([
+      ['a', '2026-01-02'],
+      ['b', '2026-01-03'],
+    ])
+  })
+
+  it('uses UTC when the home zone is unset', () => {
+    const out = searchJourney(
+      {
+        ...EMPTY,
+        moments: [
+          sm('a', { body: 'noční', startsAt: '2026-01-03T03:59:00+00:00' }),
+        ],
+      },
+      'noční',
+    )
+    expect(out.results[0]?.localDate).toBe('2026-01-02')
+  })
+
+  it('follows the majority zone of the photo days (zone crossing)', () => {
+    const photos = [
+      med(1, {
+        capturedAt: '2026-01-02T18:00:00+00:00',
+        capturedTz: 'America/New_York',
+      }),
+      med(2, {
+        caption: 'noční snímek',
+        capturedAt: '2026-01-03T02:00:00+00:00',
+        capturedTz: 'Europe/Prague',
+      }),
+      med(3, {
+        capturedAt: '2026-01-02T19:00:00+00:00',
+        capturedTz: 'America/New_York',
+        status: 'failed',
+      }),
+    ]
+    const out = searchJourney(
+      {
+        ...EMPTY,
+        homeTz: 'Europe/Prague',
+        media: photos,
+        moments: [
+          sm('m', { body: 'noční', startsAt: '2026-01-03T02:00:00+00:00' }),
+        ],
+      },
+      'noční',
+    )
+    // 02:00Z is 21:00 on 2 Jan in New York (a photo day spent there) and
+    // 03:00 on 3 Jan in Prague: the earlier photo day wins.
+    expect(out.results.map((r) => [r.kind, r.localDate])).toEqual([
+      ['moment', '2026-01-02'],
+      ['media', '2026-01-02'],
+    ])
   })
 
   it('gives media without a time the day of their moment', () => {

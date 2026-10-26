@@ -217,6 +217,29 @@ export function openSeries(
   return group === undefined ? [] : group.filter((m) => !handled.has(m))
 }
 
+/** Neighbours taken from the day when a photo has no series. */
+const COMPARE_NEIGHBOURS = 6
+
+/**
+ * Photos the compare view may pair with `id`: its series, else the nearest
+ * neighbours of the same day; never itself and never a trashed photo.
+ */
+export function comparePool(
+  session: QuickSortSession,
+  id: string,
+  handled: ReadonlyMap<string, SortOutcome>,
+): string[] {
+  const usable = (own: string) => own !== id && handled.get(own) !== 'trash'
+  const group = session.seriesOf.get(id)
+  if (group !== undefined && group.length >= 2) return group.filter(usable)
+  const day = session.days.find((entry) => entry.key === session.dayOf.get(id))
+  const at = day === undefined ? -1 : day.ids.indexOf(id)
+  if (day === undefined || at === -1) return []
+  return day.ids
+    .slice(Math.max(0, at - COMPARE_NEIGHBOURS), at + COMPARE_NEIGHBOURS + 1)
+    .filter(usable)
+}
+
 export interface QuickSortSummary {
   starred: number
   trashed: number

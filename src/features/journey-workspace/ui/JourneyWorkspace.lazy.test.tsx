@@ -88,7 +88,8 @@ function bigJourney() {
     mom(1000 + i, {
       latitude: 45 + i / 100,
       longitude: 8 + i / 100,
-      startsAt: `2026-01-02T${String(Math.floor(i / 6)).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}:00+00:00`,
+      // From 04:00 so every moment stays on one day (day starts at 04:00).
+      startsAt: new Date(Date.UTC(2026, 0, 2, 4) + i * 600_000).toISOString(),
     }),
   )
   const media = moments.flatMap((m, i) =>

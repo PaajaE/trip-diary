@@ -5,6 +5,7 @@ import {
 } from '@/features/journey-workspace/lib/outline-ids'
 import {
   dayElementId,
+  buildTreePhotoDays,
   groupMomentsByDay,
   LOOSE_SCOPE,
 } from '@/features/journey-workspace/model/workspace-days'
@@ -153,7 +154,10 @@ export interface WorkspaceMapModel {
 export function buildMapModel(
   tree: WorkspaceTree,
   labelOf: (entry: WorkspaceMoment) => string,
+  /** Home zone for days without photos; must equal the overview's `fallbackTz`. */
+  homeTz: string | null = null,
 ): WorkspaceMapModel {
+  const photoDays = buildTreePhotoDays(tree, homeTz)
   const scopes = new Map<string, string[]>()
   const expandFor = new Map<string, string[]>()
   const days = new Map<string, MapDay>()
@@ -162,7 +166,7 @@ export function buildMapModel(
   const entries = new Map<string, WorkspaceMoment>()
 
   const addDays = (scope: string, moments: WorkspaceMoment[]) => {
-    for (const day of groupMomentsByDay(moments)) {
+    for (const day of groupMomentsByDay(moments, homeTz, photoDays)) {
       const id = dayElementId(scope, day.key)
       const momentIds = day.moments.map((m) => m.moment.id)
       scopes.set(id, momentIds)

@@ -13,27 +13,35 @@ describe('day notes in the journey model', () => {
     expect(model.dayNoteByDate.size).toBe(1)
   })
 
-  it('puts a late-evening moment on the day of the stage zone, not UTC', () => {
-    // 2026-06-03T02:30Z is still 2 June 20:30 in Edmonton (stage zone), but
-    // already 3 June in Prague (home zone) and UTC.
-    const lateEvening = '2026-06-03T02:30:00+00:00'
+  it('uses the photo-day zone, the 04:00 rule and the home zone (SQL pick_local_day)', () => {
     const first = publicJourneyFixture.moments.find(
       (m) => m.id === FIXTURE_IDS.momentA,
     )
     if (first === undefined) throw new Error('fixture moment missing')
+    const model = buildJourneyModel(publicJourneyFixture)
+    const photoDays = publicJourneyFixture.media
+      .map((m) => m.capturedAt)
+      .filter((v): v is string => v !== null)
+    expect(photoDays.length).toBeGreaterThan(0)
+
+    // 2026-06-03T02:30Z is 2 June 20:30 in Edmonton (zone of the photo days),
+    // but 04:30 on 3 June in Prague (home zone).
+    const lateEvening = '2026-06-03T02:30:00+00:00'
+    expect(model.dayKeyOf(lateEvening, null)).toBe('2026-06-02')
+    // Away from every photo day the home zone applies, with 04:00 day start:
+    // 2026-07-10T01:00Z = 03:00 on 10 July in Prague -> 9 July.
+    expect(model.dayKeyOf('2026-07-10T01:00:00+00:00')).toBe('2026-07-09')
+    expect(model.dayKeyOf('2026-07-10T02:00:00+00:00')).toBe('2026-07-10')
+  })
+
+  it('falls back to UTC without a home zone and photos', () => {
     const model = buildJourneyModel({
       ...publicJourneyFixture,
-      moments: [{ ...first, startsAt: lateEvening }],
+      journey: { ...publicJourneyFixture.journey, homeTz: null },
+      media: [],
     })
-    const stage = model.segmentById.get(FIXTURE_IDS.stage) ?? null
-
-    expect(model.dayKeyOf(lateEvening, stage)).toBe('2026-06-02')
-    expect(model.dayKeyOf(lateEvening, null)).toBe('2026-06-03')
-
-    const days = model.daysOfStage(FIXTURE_IDS.stage)
-    expect(days.map((d) => [d.key, d.number, d.note])).toEqual([
-      ['2026-06-02', 1, 'Den u jezera.'],
-    ])
+    expect(model.dayKeyOf('2026-07-10T03:59:00+00:00')).toBe('2026-07-09')
+    expect(model.dayKeyOf('2026-07-10T04:00:00+00:00')).toBe('2026-07-10')
   })
 
   it('groups moments by day and numbers days from the first moment', () => {

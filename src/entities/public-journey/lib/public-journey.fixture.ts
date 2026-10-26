@@ -24,6 +24,7 @@ function photo(
 ): PublicMedia {
   return {
     capturedAt: '2026-06-02T10:00:00+00:00',
+    // 04:00 in Edmonton: the first minute of the day (04:00 day rule)
     capturedTz: 'America/Edmonton',
     caption: 'Lake Magog',
     durationMs: null,
@@ -130,7 +131,7 @@ export const publicJourneyFixture: PublicJourney = {
       latitude: null,
       longitude: null,
       placeId: id(50),
-      startsAt: '2026-06-03T09:00:00+00:00',
+      startsAt: '2026-06-03T13:00:00+00:00',
       title: 'Soukromé místo',
     },
     {
@@ -141,7 +142,7 @@ export const publicJourneyFixture: PublicJourney = {
       latitude: 51.0,
       longitude: -115.5,
       placeId: null,
-      startsAt: '2026-06-04T09:00:00+00:00',
+      startsAt: '2026-06-04T13:00:00+00:00',
       title: null,
     },
   ],

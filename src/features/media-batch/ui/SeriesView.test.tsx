@@ -25,6 +25,8 @@ function setup(items = [p1, p2, p3]) {
   const props = {
     onClose: vi.fn(),
     onKeep: vi.fn(),
+    onStar: vi.fn(),
+    onTrash: vi.fn(),
     onUndo: vi.fn(),
   }
   render(
@@ -100,18 +102,47 @@ describe('SeriesView', () => {
     expect(onKeep).toHaveBeenCalledWith([p2.id, p3.id], [p1.id])
   })
 
-  it('compare shows two large images', () => {
+  it('compare shows two large images and zoom keeps both visible', () => {
     setup([
       { ...p1, variants: [variant(p1.id)] },
       { ...p2, variants: [variant(p2.id)] },
     ])
-    expect(
-      screen.getByTestId('series-stage').querySelectorAll('img'),
-    ).toHaveLength(1)
+    const stage = screen.getByTestId('series-stage')
+    expect(stage.querySelectorAll('img')).toHaveLength(1)
     fireEvent.click(screen.getByRole('button', { name: 'Compare' }))
+    expect(stage.querySelectorAll('img')).toHaveLength(2)
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom' }))
+    expect(stage.querySelectorAll('img')).toHaveLength(2)
     expect(
-      screen.getByTestId('series-stage').querySelectorAll('img'),
-    ).toHaveLength(2)
+      within(stage)
+        .getAllByTestId('compare-pane')
+        .map((pane) => pane.getAttribute('data-zoom')),
+    ).toEqual(['2.000', '2.000'])
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(within(stage).getAllByTestId('compare-pane')).toHaveLength(1)
+  })
+
+  it('trash and star act on the compared photo B', () => {
+    const { onStar, onTrash, onClose } = setup()
+    fireEvent.keyDown(document.body, { key: 'c' })
+    fireEvent.click(screen.getByRole('button', { name: 'Trash photo B' }))
+    expect(onTrash).toHaveBeenCalledWith(expect.objectContaining({ id: p3.id }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Mark photo B as best' }),
+    )
+    expect(onStar).toHaveBeenCalledWith(expect.objectContaining({ id: p3.id }))
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('keeping B selects it without making it the main photo', () => {
+    const { onKeep } = setup()
+    fireEvent.keyDown(document.body, { key: 'c' })
+    fireEvent.click(screen.getByRole('button', { name: 'Keep photo B' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Keep selected (1), trash the rest' }),
+    )
+    expect(onKeep).toHaveBeenCalledWith([p3.id], [p1.id, p2.id])
   })
 
   it('keep all, close and Escape close; undo is wired', () => {
