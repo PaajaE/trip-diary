@@ -27,9 +27,11 @@ const plan: OrganizationPlan = {
     {
       endsAt: '2026-09-01T10:00:00.000Z',
       id: 'm1',
+      kind: 'stay',
       latitude: null,
       longitude: null,
       mediaIds: ['a'],
+      reason: 'stay: test',
       startsAt: '2026-09-01T09:00:00.000Z',
     },
   ],

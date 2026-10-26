@@ -154,11 +154,17 @@ export async function previewOrganization(
         media: media
           .filter((item) => item.status === 'ready')
           .map((item) => ({
+            altitude: item.altitude,
             capturedAt: item.capturedAt,
+            capturedTz: item.capturedTz,
+            device: item.device,
+            durationMs: item.durationMs,
             id: item.id,
+            kind: item.kind,
             latitude: item.latitude,
             longitude: item.longitude,
             momentId: item.momentId,
+            ownerId: item.ownerId,
           })),
         moments: moments.map((moment) => {
           const place =
@@ -174,6 +180,7 @@ export async function previewOrganization(
           return {
             endsAt: moment.endsAt,
             id: moment.id,
+            kind: moment.kind,
             locked: moment.locked,
             origin: moment.origin,
             ...(derived === undefined
@@ -252,6 +259,7 @@ export async function applyOrganizationPlan(
           endsAt: moment.endsAt,
           id: moment.id,
           journeyId,
+          kind: moment.kind,
           latitude: moment.latitude,
           locked: false,
           longitude: moment.longitude,

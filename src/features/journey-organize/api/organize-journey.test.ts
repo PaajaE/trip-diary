@@ -121,6 +121,42 @@ describe('organizeJourney', () => {
     ])
   })
 
+  it('writes the kind of the planned moment and maps the media facts', async () => {
+    const calls: string[] = []
+    // Two authors, one photo each at the same place: parallel owners are
+    // passed on to the detection, the moment is a plain stay/point.
+    const deps = makeDeps(calls, {
+      listMedia: vi.fn(() =>
+        Promise.resolve([
+          med(1, {
+            capturedAt: '2026-09-01T09:00:00+00:00',
+            device: 'Apple iPhone 15',
+            latitude: 51.1,
+            longitude: -115.3,
+            ownerId: uuid(501),
+          }),
+          med(2, {
+            capturedAt: '2026-09-01T09:02:00+00:00',
+            device: 'Apple iPhone 14',
+            latitude: 51.1,
+            longitude: -115.3,
+            ownerId: uuid(502),
+          }),
+        ]),
+      ),
+      listMoments: vi.fn(() => Promise.resolve([])),
+      listSegments: vi.fn(() => Promise.resolve([])),
+    })
+    const plan = await previewOrganization(J, deps)
+    expect(plan.momentsToCreate).toHaveLength(1)
+    expect(plan.momentsToCreate[0]).toMatchObject({ kind: 'point' })
+    expect(plan.momentsToCreate[0]?.reason).toMatch(/parallel streams/)
+    await organizeJourney(J, deps)
+    expect(deps.createMoments).toHaveBeenCalledWith([
+      expect.objectContaining({ kind: 'point' }),
+    ])
+  })
+
   it('stops at the failing step and names it', async () => {
     const calls: string[] = []
     const deps = makeDeps(calls, {

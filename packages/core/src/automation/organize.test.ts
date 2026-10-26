@@ -77,6 +77,7 @@ function applyPlan(
   const created: OrganizeMoment[] = plan.momentsToCreate.map((m) => ({
     endsAt: m.endsAt,
     id: m.id,
+    kind: m.kind,
     locked: false,
     origin: 'auto',
     startsAt: m.startsAt,
@@ -701,5 +702,158 @@ describe('planOrganization', () => {
       expect(plan.stageSuggestions.map((s) => s.stageKind)).toEqual(['stay'])
       expect(plan.segmentsToDelete).toEqual([])
     })
+  })
+})
+
+/** A morning walk of 12 photos, 12 min apart and 800 m, on Sep 1st. */
+function trekMedia(owner = 'anna', extra: Partial<OrganizeMedia> = {}) {
+  return Array.from(
+    { length: 12 },
+    (_, i): OrganizeMedia => ({
+      ...photo(
+        `t${String(i).padStart(2, '0')}`,
+        new Date(Date.UTC(2026, 8, 1, 8, i * 12)).toISOString(),
+        [51.089, -115.358 + (i * 800) / 69_900],
+      ),
+      ownerId: owner,
+      ...extra,
+    }),
+  )
+}
+
+describe('planOrganization ZS-4', () => {
+  it('plans moments with a kind and a reason', () => {
+    const plan = planOrganization(empty(journeyMedia()), options())
+    expect(plan.momentsToCreate.length).toBeGreaterThan(0)
+    for (const moment of plan.momentsToCreate) {
+      expect(['stay', 'point', 'en_route']).toContain(moment.kind)
+      expect(moment.reason).not.toBe('')
+    }
+  })
+
+  it('suggests an in-day trip as a trip segment and collapses its photos', () => {
+    const plan = planOrganization(empty(trekMedia()), options())
+    expect(plan.momentsToCreate).toHaveLength(1)
+    expect(plan.momentsToCreate[0]?.kind).toBe('en_route')
+    const trips = plan.tripSuggestions
+    expect(trips).toHaveLength(1)
+    expect(trips[0]?.tripType).toBe('trek')
+    expect(trips[0]?.reason).toMatch(/trip/)
+    // sub-day: the segment lasts hours, not days
+    const hours =
+      (Date.parse(trips[0]?.endsAt ?? '') -
+        Date.parse(trips[0]?.startsAt ?? '')) /
+      3_600_000
+    expect(hours).toBeGreaterThan(1.5)
+    expect(hours).toBeLessThan(24)
+  })
+
+  it('is idempotent with kinds: planning on its own result is empty', () => {
+    const input = empty(trekMedia())
+    const plan = planOrganization(input, options())
+    const next = applyPlan(input, plan)
+    const again = planOrganization(next, options(counterIds('again')))
+    expect(isPlanEmpty(again)).toBe(true)
+  })
+
+  it('recreates an auto moment whose stored kind no longer fits', () => {
+    const input = empty(trekMedia())
+    const plan = planOrganization(input, options())
+    const next = applyPlan(input, plan)
+    const stale: OrganizeInput = {
+      ...next,
+      moments: next.moments.map((moment) => ({ ...moment, kind: 'stay' })),
+    }
+    const again = planOrganization(stale, options(counterIds('again')))
+    expect(again.momentsToCreate).toHaveLength(1)
+    expect(again.momentsToDelete).toEqual(next.moments.map((m) => m.id))
+  })
+
+  it('does not suggest an in-day trip again over a rejected one', () => {
+    const first = planOrganization(empty(trekMedia()), options())
+    const trip = first.tripSuggestions[0]
+    expect(trip).toBeDefined()
+    const rejected: OrganizeSegment = {
+      endsAt: trip?.endsAt ?? '',
+      id: 'r1',
+      kind: 'trip',
+      origin: 'rejected',
+      startsAt: trip?.startsAt ?? '',
+      tripType: 'trek',
+    }
+    const plan = planOrganization(
+      { ...empty(trekMedia()), segments: [rejected] },
+      options(),
+    )
+    expect(plan.tripSuggestions).toEqual([])
+  })
+
+  it('keeps locked moments untouched and still sees their time for trips', () => {
+    const media = trekMedia().map((item, i) =>
+      i < 3 ? { ...item, momentId: 'locked-1' } : item,
+    )
+    const plan = planOrganization(
+      {
+        media,
+        moments: [
+          {
+            endsAt: '2026-09-01T08:30:00.000Z',
+            id: 'locked-1',
+            kind: 'stay',
+            locked: true,
+            origin: 'manual',
+            startsAt: '2026-09-01T08:00:00.000Z',
+          },
+        ],
+        segments: [],
+      },
+      options(),
+    )
+    const planned = plan.momentsToCreate.flatMap((m) => m.mediaIds)
+    expect(planned).not.toContain('t00')
+    expect(plan.momentsToDelete).not.toContain('locked-1')
+    expect(plan.tripSuggestions.map((t) => t.tripType)).toEqual(['trek'])
+  })
+
+  it('keeps photos at a natural place as stops, not as filler of the trek', () => {
+    const media = trekMedia('anna', { momentId: 'm1' })
+    const plan = planOrganization(
+      {
+        media,
+        moments: [
+          {
+            endsAt: '2026-09-01T10:30:00.000Z',
+            id: 'm1',
+            kind: 'stay',
+            locked: false,
+            origin: 'auto',
+            placeKind: 'natural',
+            placeName: 'Grotto Mountain',
+            startsAt: '2026-09-01T08:00:00.000Z',
+          },
+        ],
+        segments: [],
+      },
+      options(),
+    )
+    // The photos are at a natural place, so they are stops, not filler.
+    expect(plan.momentsToCreate.every((m) => m.kind !== 'en_route')).toBe(true)
+  })
+
+  it('plans two authors walking the same trek with one shared trip', () => {
+    const input = empty([
+      ...trekMedia('anna'),
+      ...trekMedia('bob').map((m) => ({
+        ...m,
+        id: `b-${m.id}`,
+        ownerId: 'bob',
+      })),
+    ])
+    const plan = planOrganization(input, options())
+    const owners = new Set(
+      plan.momentsToCreate.map((moment) => moment.mediaIds[0]?.[0]),
+    )
+    expect(owners.size).toBeGreaterThanOrEqual(1)
+    expect(plan.tripSuggestions).toHaveLength(1)
   })
 })

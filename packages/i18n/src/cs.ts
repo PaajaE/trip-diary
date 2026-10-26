@@ -149,6 +149,7 @@ export const cs: TranslationResources = {
         day: 'výlet',
         transfer: 'přesun',
         stay: 'pobyt',
+        walk: 'procházka',
       },
       example: {
         journey: 'Léto v Kanadě',
@@ -522,6 +523,14 @@ export const cs: TranslationResources = {
       day: 'Jednodenní výlet {{index}}',
       transfer: 'Přesun {{index}}',
       trek: 'Vícedenní túra {{index}}',
+      walk: 'Procházka {{index}}',
+    },
+    inDayTripTitle: {
+      trek: 'Túra {{index}}',
+      day: 'Projížďka {{index}}',
+      walk: 'Procházka {{index}}',
+      transfer: 'Přesun {{index}}',
+      stay: 'Pobyt {{index}}',
     },
   },
   mediaBatch: {
@@ -1516,6 +1525,7 @@ export const cs: TranslationResources = {
       stay: 'Pobyt',
       transfer: 'Přesun',
       trek: 'Trek',
+      walk: 'Procházka',
     },
     trips: 'Výlety',
     untitledMoment: 'Zastávka {{time}}',

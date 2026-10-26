@@ -21,6 +21,11 @@ export interface HarnessPoint extends MediaPoint {
 export interface Scenario {
   /** What the ideal result looks like, in words. */
   expectation: string
+  /**
+   * In-day trips the algorithm must find (ZS-4), as trip types in time order;
+   * empty = none (a walk or ride below 90 min / 3 km is no trip).
+   */
+  expectedTrips: ('day' | 'trek' | 'walk')[]
   /** Expected stop groups (media ids). Photos in no group are unconstrained. */
   expectedGroups: string[][]
   id: string
@@ -220,6 +225,7 @@ type ScenarioCore = Pick<
   Partial<
     Pick<
       Scenario,
+      | 'expectedTrips'
       | 'knownFailingToday'
       | 'livePairs'
       | 'toleranceEdits'
@@ -232,6 +238,7 @@ function scenario(core: ScenarioCore): Scenario {
   return {
     expectation: core.expectation,
     expectedGroups: core.expectedGroups,
+    expectedTrips: core.expectedTrips ?? [],
     id: core.id,
     knownFailingToday: core.knownFailingToday ?? false,
     label: core.label,
@@ -282,6 +289,7 @@ function scenarioB(): Scenario {
   return scenario({
     expectation: '1 trip',
     expectedGroups: [ids],
+    expectedTrips: ['trek'],
     id: 'B',
     knownFailingToday: true,
     label: 'Trek 6 h / 10 km, photo every 12 min',
@@ -446,6 +454,7 @@ function scenarioI(): Scenario {
   return scenario({
     expectation: '3 city stops + trek trip + dinner stop, drives are transit',
     expectedGroups: groups,
+    expectedTrips: ['trek'],
     id: 'I',
     knownFailingToday: true,
     label: 'Day: city, car, 4 h loop trek, car, dinner',
@@ -828,9 +837,47 @@ function scenarioAA(): Scenario {
   })
 }
 
+/**
+ * AB (ZS-4): an urban walk above the trip threshold (~2 h, 5.4 km, geocoded
+ * to a settlement): 7 stops of 4 photos and a `walk` trip around them.
+ */
+function scenarioAB(): Scenario {
+  const b = createBuilder('AB', 128)
+  const c = start()
+  const groups: string[][] = []
+  for (let sight = 0; sight < 7; sight += 1) {
+    groups.push(stay(b, c, 4, 1.5, { jitterM: 25 }))
+    travel(c, 13, 900)
+  }
+  for (const point of b.points) point.placeKind = 'settlement'
+  return scenario({
+    expectation: '7 stops inside one walk trip',
+    expectedGroups: groups,
+    expectedTrips: ['walk'],
+    id: 'AB',
+    label: 'Urban walk 2 h / 5.4 km, 7 stops of 4 photos',
+    points: b.points,
+  })
+}
+
+/** AC (ZS-4): a 2 h bike ride, a photo every 15 min: one ride, a `day` trip. */
+function scenarioAC(): Scenario {
+  const b = createBuilder('AC', 129)
+  const c = start()
+  const ids = drive(b, c, { dEast: 40_000, minutes: 120, photoEvery: 15 })
+  return scenario({
+    expectation: '1 ride inside one day trip',
+    expectedGroups: [ids],
+    expectedTrips: ['day'],
+    id: 'AC',
+    label: 'Bike 2 h / 40 km, photo every 15 min',
+    points: b.points,
+  })
+}
+
 /** Scenarios added after ZS-0 (ids AA and on), kept apart from the 26. */
 export function buildExtraScenarios(): Scenario[] {
-  return [scenarioAA()]
+  return [scenarioAA(), scenarioAB(), scenarioAC()]
 }
 
 /** All 26 scenarios in id order. Fresh objects on every call. */
@@ -888,6 +935,39 @@ export function generatePerfPoints(
       hop * Math.cos(angle),
       hop * Math.sin(angle),
     )
+  }
+  return b.points
+}
+
+/** All-day stay at one place: a photo every 30 s (long visit, perf). */
+export function generateLongStayPoints(count: number, seed: number) {
+  const b = createBuilder('L', seed)
+  for (let index = 0; index < count; index += 1) {
+    b.add({ east: 0, jitterM: 40, minute: index * 0.5, north: 0 })
+  }
+  return b.points
+}
+
+/** Bursts with equal capture timestamps, a few places (perf, ties). */
+export function generateEqualTimestampPoints(count: number, seed: number) {
+  const b = createBuilder('Q', seed)
+  for (let index = 0; index < count; index += 1) {
+    const burst = Math.floor(index / 100)
+    b.add({
+      east: (burst % 5) * 2000,
+      jitterM: 30,
+      minute: burst * 20,
+      north: 0,
+    })
+  }
+  return b.points
+}
+
+/** Photos without any GPS, one a minute (perf, time-only chain). */
+export function generateNoGpsPoints(count: number, seed: number) {
+  const b = createBuilder('N', seed)
+  for (let index = 0; index < count; index += 1) {
+    b.add({ east: 0, gps: false, minute: index, north: 0 })
   }
   return b.points
 }

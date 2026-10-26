@@ -1,9 +1,12 @@
+import { compareText } from '../compare.ts'
 import { createRng, type HarnessPoint } from './scenarios.ts'
 
 /** One group an algorithm returns, with its stable anchor id. */
 export interface PredictedGroup {
   anchorId: string
   ids: string[]
+  /** 'en_route' groups are collapsed photos on the way, not stops. */
+  kind?: 'en_route' | 'point' | 'stay'
 }
 
 export type GroupingAlgorithm = (
@@ -71,29 +74,58 @@ export function determinism(
   return result(first === second ? [] : ['two runs differ'])
 }
 
+function startOfGroup(
+  group: PredictedGroup,
+  times: ReadonlyMap<string, number>,
+): number {
+  let start = Number.POSITIVE_INFINITY
+  for (const id of group.ids) {
+    start = Math.min(start, times.get(id) ?? Number.POSITIVE_INFINITY)
+  }
+  return start
+}
+
 /**
  * Idempotence for a grouping: feeding the photos of one predicted group
  * back in alone must return that same single group (a settled group does
- * not fall apart when it is processed again).
+ * not fall apart when it is processed again). A collapsed 'en_route' group
+ * is defined by the stops around it, so it is fed together with the groups
+ * before and after it and must come back unchanged.
  */
 export function idempotence(
   algorithm: GroupingAlgorithm,
   points: readonly HarnessPoint[],
 ): PropertyResult {
   const violations: string[] = []
-  for (const group of algorithm(points)) {
-    const members = new Set(group.ids)
-    const again = algorithm(points.filter((point) => members.has(point.id)))
-    const only = again.length === 1 ? again[0] : undefined
-    if (
-      only?.ids.length !== group.ids.length ||
-      only.anchorId !== group.anchorId
-    ) {
+  const times = new Map(
+    points.map((point) => [point.id, Date.parse(point.capturedAt)]),
+  )
+  const groups = [...algorithm(points)].sort(
+    (a, b) =>
+      startOfGroup(a, times) - startOfGroup(b, times) ||
+      compareText(a.anchorId, b.anchorId),
+  )
+  groups.forEach((group, index) => {
+    const feed = new Set(group.ids)
+    if (group.kind === 'en_route') {
+      for (const other of [groups[index - 1], groups[index + 1]]) {
+        for (const id of other?.ids ?? []) feed.add(id)
+      }
+    }
+    const again = algorithm(points.filter((point) => feed.has(point.id)))
+    const same = again.find(
+      (candidate) => candidate.anchorId === group.anchorId,
+    )
+    const expected = new Set(group.ids)
+    const unchanged =
+      same?.ids.length === expected.size &&
+      same.ids.every((id) => expected.has(id))
+    if (!unchanged) {
       violations.push(
         `group ${group.anchorId} re-splits into ${String(again.length)}`,
       )
     }
-  }
+  })
   return result(violations)
 }
 
@@ -151,7 +183,7 @@ export function farPhotosKeepGroups(
 function oldestFirst(a: HarnessPoint, b: HarnessPoint): number {
   return (
     Date.parse(a.capturedAt) - Date.parse(b.capturedAt) ||
-    a.id.localeCompare(b.id)
+    compareText(a.id, b.id)
   )
 }
 

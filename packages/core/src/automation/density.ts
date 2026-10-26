@@ -7,6 +7,12 @@
 
 /** Photos on each side of a photo that make up its local window. */
 export const DENSITY_WINDOW = 5
+/**
+ * The density is judged from photos within this time of the photo only. A
+ * photo count window alone would let far neighbours (a stop hours away)
+ * change the verdict, so a settled stop would re-split when processed alone.
+ */
+export const DENSITY_WINDOW_MS = 20 * 60_000
 /** Time threshold = k x local median gap ... */
 export const TIME_THRESHOLD_K = 4
 /** ... but never below 10 min (burst, slow shooter) ... */
@@ -33,17 +39,36 @@ export function medianOf(values: readonly number[]): number | null {
 
 /**
  * Median gap between consecutive photos around `index` of an ascending list
- * of capture times (of one person, Live Photo clips excluded). Null when the
- * window holds no pair of photos.
+ * of capture times (of one person, Live Photo clips excluded), within
+ * `halfWindow` photos and `windowMs` of the photo. Null when the window holds
+ * no pair of photos.
  */
 export function localMedianGapMs(
   times: readonly number[],
   index: number,
   halfWindow: number = DENSITY_WINDOW,
+  windowMs: number = Number.POSITIVE_INFINITY,
 ): number | null {
   const gaps: number[] = []
-  const from = Math.max(0, index - halfWindow)
-  const to = Math.min(times.length - 1, index + halfWindow)
+  const centre = times[index]
+  if (centre === undefined) return null
+  // At most `halfWindow` photos on each side and not farther than `windowMs`.
+  let from = index
+  while (
+    from > 0 &&
+    index - from < halfWindow &&
+    centre - (times[from - 1] ?? Number.NEGATIVE_INFINITY) <= windowMs
+  ) {
+    from -= 1
+  }
+  let to = index
+  while (
+    to < times.length - 1 &&
+    to - index < halfWindow &&
+    (times[to + 1] ?? Number.POSITIVE_INFINITY) - centre <= windowMs
+  ) {
+    to += 1
+  }
   for (let at = from; at < to; at += 1) {
     const a = times[at]
     const b = times[at + 1]

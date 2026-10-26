@@ -1,9 +1,12 @@
+import { compareText } from './compare.ts'
 import { medianOf } from './density.ts'
-import { distanceKm, type GeoPoint } from './geo.ts'
+import { distanceKm, lonDelta, wrapLon, type GeoPoint } from './geo.ts'
 import {
+  durationOf,
   pointOf,
   sortDated,
   type DatedMediaPoint,
+  type MediaPlaceKind,
   type MediaPoint,
 } from './media-point.ts'
 
@@ -62,10 +65,14 @@ const STREAM_MIN_MARGIN = 0.2
 export const LIVE_PHOTO_MAX_CLIP_MS = 5000
 export const LIVE_PHOTO_MAX_GAP_MS = 2000
 export const LIVE_PHOTO_MAX_DISTANCE_KM = 0.03
+/** Stills looked at on each side of a clip (equal-second bursts). */
+const LIVE_PHOTO_MAX_CANDIDATES = 50
 
 export type LocationSource = 'cross-stream' | 'gps' | 'none' | 'same-stream'
 
 export interface PreparedPoint {
+  /** Altitude in metres, null when unknown. */
+  altitude: number | null
   /** 0..1; 1 for a real fix, lower for derived positions, 0 for none. */
   confidence: number
   device: string | null
@@ -77,8 +84,13 @@ export interface PreparedPoint {
   locationSource: LocationSource
   /** The real fix was dropped as an outlier (time is kept). */
   outlier: boolean
-  /** Author, '' when unknown. */
+  /**
+   * Author. Media without an author are NOT pooled into one person: each
+   * device gets its own anonymous key (see `ownerKey`).
+   */
   ownerId: string
+  /** Kind of the place the media was geocoded to, null when unknown. */
+  placeKind: MediaPlaceKind | null
   /** Applied hypothetical clock shift in ms (0 = none). */
   shiftMs: number
   streamKey: string
@@ -110,7 +122,12 @@ export interface ProbableDuplicate {
 }
 
 export interface PrepareOptions {
-  /** Use proposed stream shifts as a working hypothesis (default true). */
+  /**
+   * Group on the proposed stream shifts as a working hypothesis. Default
+   * FALSE: a clock shift is only ever a proposal. When on, the shifted photos
+   * are reported (`shiftMs`) and the stops built on them are flagged for
+   * review with a lower confidence.
+   */
   applyProposedClockShifts?: boolean
   /** Media that belong to locked (hand-curated) moments; left out. */
   lockedMediaIds?: ReadonlySet<string>
@@ -142,8 +159,28 @@ interface Draft {
   time: number
 }
 
+const ANONYMOUS_PREFIX = '\u0000anonymous:'
+
+/**
+ * Stream owner: the author, or for media without an author a key of its own
+ * device, so unknown authors never pool into one person.
+ */
+export function ownerKey(
+  ownerId: string | null | undefined,
+  device: string | null | undefined,
+): string {
+  return ownerId === null || ownerId === undefined || ownerId === ''
+    ? `${ANONYMOUS_PREFIX}${device ?? ''}`
+    : ownerId
+}
+
+/** The real author id of an owner key, '' for an anonymous one. */
+export function authorOf(owner: string): string {
+  return owner.startsWith(ANONYMOUS_PREFIX) ? '' : owner
+}
+
 function byId<T extends { id: string }>(a: T, b: T): number {
-  return a.id.localeCompare(b.id)
+  return compareText(a.id, b.id)
 }
 
 function lowerBound(
@@ -174,12 +211,17 @@ function groupBy<T>(items: readonly T[], key: (item: T) => string) {
   return groups
 }
 
+/** Median position; longitudes are taken relative to the first point. */
 export function medianPoint(points: readonly GeoPoint[]): GeoPoint | null {
+  const first = points[0]
+  if (first === undefined) return null
   const latitude = medianOf(points.map((point) => point.latitude))
-  const longitude = medianOf(points.map((point) => point.longitude))
-  return latitude === null || longitude === null
+  const offset = medianOf(
+    points.map((point) => lonDelta(first.longitude, point.longitude)),
+  )
+  return latitude === null || offset === null
     ? null
-    : { latitude, longitude }
+    : { latitude, longitude: wrapLon(first.longitude + offset) }
 }
 
 // --- Live Photo -------------------------------------------------------------
@@ -208,7 +250,9 @@ function linkLivePhotos(drafts: readonly Draft[]): void {
     for (const direction of [-1, 1]) {
       for (
         let at = index + direction;
-        at >= 0 && at < drafts.length;
+        at >= 0 &&
+        at < drafts.length &&
+        Math.abs(at - index) <= LIVE_PHOTO_MAX_CANDIDATES;
         at += direction
       ) {
         const other = drafts[at]
@@ -338,14 +382,49 @@ function markOutliers(streams: Map<string, Draft[]>): void {
 
 // --- Clock-shifted duplicate copies ----------------------------------------
 
+const CELL_SCALE = 1e4
+/** Grid columns around the globe, so cells wrap at the antimeridian. */
+const CELL_COLUMNS = 360 * CELL_SCALE
+
 function cellOf(point: GeoPoint): [number, number] {
-  return [Math.round(point.latitude * 1e4), Math.round(point.longitude * 1e4)]
+  const column =
+    ((Math.round((wrapLon(point.longitude) + 180) * CELL_SCALE) %
+      CELL_COLUMNS) +
+      CELL_COLUMNS) %
+    CELL_COLUMNS
+  return [Math.round(point.latitude * CELL_SCALE), column]
+}
+
+function cellKey(row: number, column: number): string {
+  return `${String(row)}:${String((column + CELL_COLUMNS) % CELL_COLUMNS)}`
+}
+
+/** A copy is only attached to an original that has no more copies than this. */
+export const DUPLICATE_MAX_COPIES_PER_ORIGINAL = 3
+
+/** First index of `items` (ascending by `time`) with time >= `target`. */
+function firstAtOrAfter(items: readonly Draft[], target: number): number {
+  let low = 0
+  let high = items.length
+  while (low < high) {
+    const middle = (low + high) >> 1
+    const item = items[middle]
+    if (item !== undefined && item.time < target) low = middle + 1
+    else high = middle
+  }
+  return low
 }
 
 /**
  * Real-data finding: a photo exists twice, the copy has no `captured_tz`, the
  * very same coordinates and a clock that is a whole number of hours off. Such
  * a copy would form its own stop hours away at the same place.
+ *
+ * Safeguards against swallowing a legitimate re-shot: same author, same
+ * device when both are known, the original carries a zone and the copy does
+ * not, and one original absorbs only a few copies. Originals sit in a grid
+ * cell sorted by time, so every copy looks up the 28 possible whole-hour
+ * offsets by binary search (no all-pairs scan at one busy place).
  */
 function findDuplicates(drafts: readonly Draft[]): ProbableDuplicate[] {
   const grid = new Map<string, Draft[]>()
@@ -358,11 +437,13 @@ function findDuplicates(drafts: readonly Draft[]): ProbableDuplicate[] {
       continue
     }
     const [row, column] = cellOf(draft.raw)
-    const key = `${String(row)}:${String(column)}`
+    const key = cellKey(row, column)
     const cell = grid.get(key)
     if (cell === undefined) grid.set(key, [draft])
     else cell.push(draft)
   }
+  // `drafts` are sorted by time, so every cell already is.
+  const absorbed = new Map<string, number>()
   const found: ProbableDuplicate[] = []
   for (const copy of drafts) {
     if (
@@ -376,42 +457,58 @@ function findDuplicates(drafts: readonly Draft[]): ProbableDuplicate[] {
     let best: { hours: number; original: Draft; residual: number } | null = null
     for (let dRow = -1; dRow <= 1; dRow += 1) {
       for (let dColumn = -1; dColumn <= 1; dColumn += 1) {
-        const cell = grid.get(
-          `${String(row + dRow)}:${String(column + dColumn)}`,
-        )
-        for (const original of cell ?? []) {
-          if (
-            original.id === copy.id ||
-            original.ownerId !== copy.ownerId ||
-            original.raw === null ||
-            distanceKm(original.raw, copy.raw) > DUPLICATE_MAX_DISTANCE_KM
-          ) {
-            continue
-          }
-          const delta = copy.time - original.time
-          const hours = Math.round(delta / HOUR_MS)
-          const residual = Math.abs(delta - hours * HOUR_MS)
-          if (
-            hours === 0 ||
-            Math.abs(hours) > MAX_SHIFT_HOURS ||
-            residual >= DUPLICATE_HOUR_TOLERANCE_MS
-          ) {
-            continue
-          }
-          if (
-            best === null ||
-            Math.abs(hours) < Math.abs(best.hours) ||
-            (Math.abs(hours) === Math.abs(best.hours) &&
-              (residual < best.residual ||
-                (residual === best.residual && original.id < best.original.id)))
-          ) {
-            best = { hours, original, residual }
+        const cell = grid.get(cellKey(row + dRow, column + dColumn))
+        if (cell === undefined) continue
+        for (
+          let hours = -MAX_SHIFT_HOURS;
+          hours <= MAX_SHIFT_HOURS;
+          hours += 1
+        ) {
+          if (hours === 0) continue
+          // original.time = copy.time - hours h (+- tolerance)
+          const target = copy.time - hours * HOUR_MS
+          let at = firstAtOrAfter(cell, target - DUPLICATE_HOUR_TOLERANCE_MS)
+          for (; at < cell.length; at += 1) {
+            const original = cell[at]
+            if (
+              original === undefined ||
+              original.time >= target + DUPLICATE_HOUR_TOLERANCE_MS
+            ) {
+              break
+            }
+            if (
+              original.id === copy.id ||
+              original.ownerId !== copy.ownerId ||
+              (original.device !== null &&
+                copy.device !== null &&
+                original.device !== copy.device) ||
+              original.raw === null ||
+              (absorbed.get(original.id) ?? 0) >=
+                DUPLICATE_MAX_COPIES_PER_ORIGINAL ||
+              distanceKm(original.raw, copy.raw) > DUPLICATE_MAX_DISTANCE_KM
+            ) {
+              continue
+            }
+            const residual = Math.abs(
+              copy.time - original.time - hours * HOUR_MS,
+            )
+            if (
+              best === null ||
+              Math.abs(hours) < Math.abs(best.hours) ||
+              (Math.abs(hours) === Math.abs(best.hours) &&
+                (residual < best.residual ||
+                  (residual === best.residual &&
+                    compareText(original.id, best.original.id) < 0)))
+            ) {
+              best = { hours, original, residual }
+            }
           }
         }
       }
     }
     if (best !== null) {
       copy.duplicateOf = best.original.id
+      absorbed.set(best.original.id, (absorbed.get(best.original.id) ?? 0) + 1)
       found.push({
         id: copy.id,
         offsetSeconds: -best.hours * 3600,
@@ -432,7 +529,7 @@ function duplicateProposals(
   })
   const proposals: ClockShiftProposal[] = []
   for (const [, list] of [...groups.entries()].sort(([a], [b]) =>
-    a.localeCompare(b),
+    compareText(a, b),
   )) {
     const first = list[0]
     const copy = first === undefined ? undefined : drafts.get(first.id)
@@ -445,7 +542,7 @@ function duplicateProposals(
       kind: 'duplicate-copy',
       mediaIds: list.map((duplicate) => duplicate.id).sort(),
       offsetSeconds: first.offsetSeconds,
-      ownerId: copy.ownerId === '' ? null : copy.ownerId,
+      ownerId: authorOf(copy.ownerId) === '' ? null : copy.ownerId,
     })
   }
   return proposals
@@ -458,6 +555,39 @@ interface Stream {
   drafts: Draft[]
   gpsShare: number
   key: string
+}
+
+/** Camera fixes and the partner's position at the same (shifted) moment. */
+export const STREAM_LOCATION_AGREE_KM = 3
+
+/**
+ * Share of the camera's own GPS fixes that agree (<= 3 km) with where the
+ * partner stream was at the shifted time. 1 when there is nothing to compare:
+ * time alone is then the only evidence and the proposal stays a proposal.
+ */
+function locationAgreement(
+  camera: Stream,
+  partner: Stream,
+  offsetMs: number,
+): number {
+  const anchors = partner.drafts.filter(
+    (draft) => draft.raw !== null && !draft.outlier,
+  )
+  let compared = 0
+  let agreed = 0
+  for (const draft of camera.drafts) {
+    if (draft.raw === null || draft.outlier) continue
+    const target = draft.time + offsetMs
+    const index = lowerBound(anchors, target, (item) => item.time)
+    const near = [anchors[index - 1], anchors[index]]
+      .filter((item): item is Draft => item !== undefined)
+      .filter((item) => Math.abs(item.time - target) <= STREAM_MATCH_MS)
+      .sort((a, b) => Math.abs(a.time - target) - Math.abs(b.time - target))[0]
+    if (near?.raw == null) continue
+    compared += 1
+    if (distanceKm(near.raw, draft.raw) <= STREAM_LOCATION_AGREE_KM) agreed += 1
+  }
+  return compared === 0 ? 1 : agreed / compared
 }
 
 function matchShare(
@@ -500,7 +630,7 @@ function proposeStreamOffsets(streams: ReadonlyMap<string, Draft[]>): {
   const proposals: ClockShiftProposal[] = []
   const shifts = new Map<string, number>()
   const byOwner = groupBy(
-    [...streams.entries()].sort(([a], [b]) => a.localeCompare(b)),
+    [...streams.entries()].sort(([a], [b]) => compareText(a, b)),
     ([, drafts]) => drafts[0]?.ownerId ?? '',
   )
   for (const entries of byOwner.values()) {
@@ -566,6 +696,11 @@ function proposeStreamOffsets(streams: ReadonlyMap<string, Draft[]>): {
         ) {
           continue
         }
+        // The photographer carried both devices: where the camera has a fix
+        // it must be where the partner was at the shifted time.
+        if (locationAgreement(camera, partner, top.hours * HOUR_MS) < 0.7) {
+          continue
+        }
         if (chosen === null || top.score > chosen.score) {
           chosen = { hours: top.hours, partner, score: top.score, unshifted }
         }
@@ -580,7 +715,7 @@ function proposeStreamOffsets(streams: ReadonlyMap<string, Draft[]>): {
         mediaIds: camera.drafts.map((draft) => draft.id).sort(),
         offsetSeconds: chosen.hours * 3600,
         ownerId:
-          camera.drafts[0]?.ownerId === ''
+          authorOf(camera.drafts[0]?.ownerId ?? '') === ''
             ? null
             : (camera.drafts[0]?.ownerId ?? null),
       })
@@ -605,7 +740,9 @@ interface Fill {
 function lerp(a: GeoPoint, b: GeoPoint, share: number): GeoPoint {
   return {
     latitude: a.latitude + (b.latitude - a.latitude) * share,
-    longitude: a.longitude + (b.longitude - a.longitude) * share,
+    longitude: wrapLon(
+      a.longitude + lonDelta(a.longitude, b.longitude) * share,
+    ),
   }
 }
 
@@ -620,30 +757,39 @@ function sameStreamFill(draft: Draft, anchors: readonly Draft[]): Fill | null {
   const afterOk = gapAfter <= FILL_WINDOW_MS
   const from = before?.raw ?? null
   const to = after?.raw ?? null
+  const candidates: Fill[] = []
   if (beforeOk && afterOk && from !== null && to !== null) {
     const span = gapBefore + gapAfter
     const trust = distanceKm(from, to) <= FILL_MAX_SPAN_KM ? 1 : 0.5
-    return {
+    candidates.push({
       confidence: baseConfidence(Math.min(gapBefore, gapAfter)) * trust,
       location: lerp(from, to, span === 0 ? 0 : gapBefore / span),
       source: 'same-stream',
-    }
+    })
   }
+  // The nearest one-sided anchor also stands when interpolation is rejected
+  // (anchors far apart): the photo was taken near the closer one.
   if (beforeOk && from !== null && (!afterOk || gapBefore <= gapAfter)) {
-    return {
+    candidates.push({
       confidence: baseConfidence(gapBefore) * 0.9,
       location: from,
       source: 'same-stream',
-    }
+    })
   }
-  if (afterOk && to !== null) {
-    return {
+  if (afterOk && to !== null && (!beforeOk || gapAfter < gapBefore)) {
+    candidates.push({
       confidence: baseConfidence(gapAfter) * 0.9,
       location: to,
       source: 'same-stream',
+    })
+  }
+  let best: Fill | null = null
+  for (const candidate of candidates) {
+    if (best === null || candidate.confidence > best.confidence) {
+      best = candidate
     }
   }
-  return null
+  return best
 }
 
 function crossStreamFill(
@@ -733,14 +879,14 @@ export function prepareMedia(
     media.filter((item) => !locked.has(item.id)),
   )
   const drafts: Draft[] = dated.map((item) => {
-    const ownerId = item.ownerId ?? ''
     const device = item.device ?? null
+    const ownerId = ownerKey(item.ownerId, device)
     const raw = pointOf(item)
     return {
       confidence: raw === null ? 0 : 1,
       device,
       duplicateOf: null,
-      durationMs: item.kind === 'video' ? Math.max(0, item.durationMs ?? 0) : 0,
+      durationMs: item.kind === 'video' ? durationOf(item) : 0,
       id: item.id,
       liveOf: null,
       location: raw,
@@ -776,7 +922,7 @@ export function prepareMedia(
   )
   const streamOffsets = proposeStreamOffsets(regular)
   proposals.push(...streamOffsets.proposals)
-  if (options.applyProposedClockShifts !== false) {
+  if (options.applyProposedClockShifts === true) {
     for (const draft of drafts) {
       draft.shiftMs = streamOffsets.shifts.get(draft.streamKey) ?? 0
     }
@@ -787,6 +933,12 @@ export function prepareMedia(
   const points: PreparedPoint[] = drafts
     .filter((draft) => draft.duplicateOf === null)
     .map((draft) => ({
+      altitude:
+        draft.src.altitude !== undefined &&
+        draft.src.altitude !== null &&
+        Number.isFinite(draft.src.altitude)
+          ? draft.src.altitude
+          : null,
       confidence: draft.confidence,
       device: draft.device,
       id: draft.id,
@@ -795,6 +947,7 @@ export function prepareMedia(
       locationSource: draft.source,
       outlier: draft.outlier,
       ownerId: draft.ownerId,
+      placeKind: draft.src.placeKind ?? null,
       shiftMs: draft.shiftMs,
       streamKey: draft.streamKey,
       time: draft.time,

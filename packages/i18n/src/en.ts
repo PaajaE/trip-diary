@@ -146,6 +146,7 @@ export const en = {
         day: 'day trip',
         transfer: 'transfer',
         stay: 'stay',
+        walk: 'walk',
       },
       example: {
         journey: 'Summer in Canada',
@@ -523,6 +524,14 @@ export const en = {
       day: 'Day trip {{index}}',
       transfer: 'Transfer {{index}}',
       trek: 'Multi-day trek {{index}}',
+      walk: 'Walk {{index}}',
+    },
+    inDayTripTitle: {
+      trek: 'Hike {{index}}',
+      day: 'Ride {{index}}',
+      walk: 'Walk {{index}}',
+      transfer: 'Transfer {{index}}',
+      stay: 'Stay {{index}}',
     },
   },
   mediaBatch: {
@@ -1521,6 +1530,7 @@ export const en = {
       stay: 'Stay',
       transfer: 'Transfer',
       trek: 'Trek',
+      walk: 'Walk',
     },
     trips: 'Trips',
     untitledMoment: 'Stop {{time}}',

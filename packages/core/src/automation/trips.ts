@@ -1,7 +1,7 @@
 import type { DaySummary } from './days.ts'
 import { centroid, distanceKm, type GeoPoint } from './geo.ts'
 
-export type SuggestedTripType = 'day' | 'trek' | 'transfer'
+export type SuggestedTripType = 'day' | 'trek' | 'transfer' | 'walk'
 
 export interface TripSuggestion {
   /** Local dates covered by the trip, in order. */

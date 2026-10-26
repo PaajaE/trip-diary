@@ -139,4 +139,197 @@ describe('detectStops', () => {
     expect(stop?.mediaIds).toContain(camera.id)
     expect(stop?.derivedLocationCount).toBe(1)
   })
+
+  it('collapses photos taken from a car into one en route stop', () => {
+    counter = 0
+    const before = stay(4, 1, 0, 0)
+    // 60 km in 40 min with two window photos, then a stay
+    const window = [photo(20, 22_500, 0), photo(35, 52_500, 0)]
+    const after = stay(4, 1, 45, 60_000)
+    const result = detectStops([...before, ...window, ...after])
+    expect(result.stops.map((stop) => stop.kind)).toEqual([
+      'stay',
+      'en_route',
+      'stay',
+    ])
+    const route = result.stops[1]
+    expect(route?.mediaIds).toEqual(window.map((item) => item.id))
+    expect(route?.collapsed).toHaveLength(2)
+    expect(route?.movement).toBe('vehicle')
+    expect(route?.reasons[0]).toMatch(/^en route/)
+    expect(result.transits.some((t) => t.mode === 'vehicle')).toBe(true)
+  })
+
+  it('keeps a photo at a known place or where the speed drops a point', () => {
+    counter = 0
+    const before = stay(4, 1, 0, 0)
+    const sight = photo(20, 22_500, 0, { placeKind: 'attraction' })
+    const slow = photo(35, 52_500, 0)
+    const after = stay(4, 1, 45, 60_000)
+    const stops = detectStops([...before, sight, slow, ...after]).stops
+    const ofSight = stops.find((stop) => stop.mediaIds.includes(sight.id))
+    expect(ofSight?.kind).toBe('point')
+    expect(ofSight?.mediaIds).toEqual([sight.id])
+  })
+
+  it('never collapses a lone ambiguous photo (27 km/h) between stays', () => {
+    counter = 0
+    const before = stay(3, 1, 0, 0)
+    const lone = photo(12, 4500, 0)
+    const after = stay(3, 1, 24, 9000)
+    const kinds = detectStops([...before, lone, ...after]).stops.map(
+      (stop) => stop.kind,
+    )
+    expect(kinds).toEqual(['stay', 'point', 'stay'])
+  })
+
+  it('does not merge a car at 100 km/h or distinct sights into one walk', () => {
+    counter = 0
+    // 6 photos 2 min apart, 3.3 km apart: 100 km/h, no anchor, dense
+    const car = Array.from({ length: 6 }, (_, i) => photo(i * 2, i * 3300, 0))
+    const stops = detectStops(car).stops
+    expect(
+      stops.every(
+        (stop) => stop.kind !== 'en_route' || stop.movement !== 'walk',
+      ),
+    ).toBe(true)
+  })
+
+  it('finds a trek and an urban walk inside a day', () => {
+    counter = 0
+    const trek = Array.from({ length: 12 }, (_, i) =>
+      photo(i * 12, i * 800, (i % 2) * 150),
+    )
+    const result = detectStops(trek)
+    expect(result.dayTrips).toHaveLength(1)
+    expect(result.dayTrips[0]?.tripType).toBe('trek')
+    expect(result.dayTrips[0]?.reason).toMatch(/trip/)
+    expect(result.stops).toHaveLength(1)
+    expect(result.stops[0]?.kind).toBe('en_route')
+    counter = 0
+    const city = Array.from({ length: 10 }, (_, i) =>
+      photo(i * 14, i * 500, 0, { placeKind: 'settlement' }),
+    )
+    expect(detectStops(city).dayTrips[0]?.tripType).toBe('walk')
+  })
+
+  it('does not make a trip below 90 min or 3 km', () => {
+    counter = 0
+    const short = Array.from({ length: 8 }, (_, i) => photo(i * 10, i * 400, 0))
+    expect(detectStops(short).dayTrips).toEqual([])
+    counter = 0
+    const slow = Array.from({ length: 8 }, (_, i) => photo(i * 15, i * 150, 0))
+    expect(detectStops(slow).dayTrips).toEqual([])
+  })
+
+  it('merges two authors in one car and shares the trip', () => {
+    counter = 0
+    const before = stay(4, 1, 0, 0)
+    const after = stay(4, 1, 45, 60_000)
+    const anna = [photo(20, 22_500, 0), photo(35, 52_500, 0)]
+    const bob = [
+      ...stay(4, 1, 0, 0).map((item) => ({ ...item, ownerId: 'bob' })),
+      photo(21, 23_500, 0, { ownerId: 'bob' }),
+      photo(36, 53_500, 0, { ownerId: 'bob' }),
+      ...stay(4, 1, 45, 60_000).map((item) => ({ ...item, ownerId: 'bob' })),
+    ]
+    const stops = detectStops([...before, ...anna, ...bob, ...after]).stops
+    const routes = stops.filter((stop) => stop.kind === 'en_route')
+    expect(routes).toHaveLength(1)
+    expect(routes[0]?.ownerIds).toEqual(['anna', 'bob'])
+  })
+
+  it('does not chain two far visits through one visit between them', () => {
+    counter = 0
+    const p1 = stay(3, 1, 0, 0)
+    const p2 = stay(3, 1, 0, 700)
+    const middle = Array.from({ length: 3 }, (_, i) =>
+      photo(i, 350 + i * 3, 0, { ownerId: 'bob' }),
+    )
+    const stops = detectStops([...p1, ...p2, ...middle]).stops
+    // one author never has two visits in the same group
+    for (const stop of stops) {
+      expect(stop.ownerIds.length).toBeLessThanOrEqual(2)
+    }
+    expect(stops.length).toBeGreaterThanOrEqual(2)
+  })
+
+  it('handles equal capture seconds and two devices of one author', () => {
+    counter = 0
+    const burst = Array.from({ length: 40 }, (_, i) =>
+      photo(0, (i % 4) * 3, 0, { device: i % 2 === 0 ? 'phone' : 'camera' }),
+    )
+    const result = detectStops(burst)
+    expect(result.stops).toHaveLength(1)
+    expect(result.stops[0]?.mediaIds).toHaveLength(40)
+    expect(result.stops[0]?.instant).toBe(false)
+  })
+
+  it('keeps a stay across the antimeridian in one place', () => {
+    counter = 0
+    const fiji = Array.from({ length: 6 }, (_, i) =>
+      photo(i, 0, 0, {
+        latitude: -17,
+        longitude: i % 2 === 0 ? 179.9992 : -179.9992,
+      }),
+    )
+    const [stop] = detectStops(fiji).stops
+    expect(stop?.mediaIds).toHaveLength(6)
+    expect(
+      Math.abs(Math.abs(stop?.position?.longitude ?? 0) - 180),
+    ).toBeLessThan(0.01)
+  })
+
+  it('flags a stop built on a clock-shift hypothesis for review', () => {
+    counter = 0
+    const phone = Array.from({ length: 8 }, (_, i) =>
+      photo(i * 2, 0, 0, { device: 'phone' }),
+    )
+    const camera = Array.from({ length: 8 }, (_, i) =>
+      photo(i * 2 + 1 - 180, 0, 0, {
+        device: 'camera',
+        latitude: null,
+        longitude: null,
+      }),
+    )
+    const plain = detectStops([...phone, ...camera])
+    expect(plain.stops.every((stop) => !stop.needsReview)).toBe(true)
+    expect(plain.clockShiftProposals).toHaveLength(1)
+    const guess = detectStops([...phone, ...camera], {
+      applyProposedClockShifts: true,
+    })
+    expect(guess.stops).toHaveLength(1)
+    expect(guess.stops[0]?.needsReview).toBe(true)
+    expect(guess.stops[0]?.reasons.join(' ')).toMatch(/review/)
+  })
+
+  it('keeps every clip of an explicit Live Photo chain', () => {
+    counter = 0
+    const still = photo(0, 0, 0)
+    const clip = photo(0, 0, 0, { kind: 'video', livePhotoOf: still.id })
+    const clipOfClip = photo(0, 0, 0, { kind: 'video', livePhotoOf: clip.id })
+    const result = detectStops([clipOfClip, clip, still])
+    expect(result.stops).toHaveLength(1)
+    expect(result.stops[0]?.mediaIds).toHaveLength(3)
+    // a cycle has no still: nothing is dropped
+    const a = photo(1, 0, 0, { kind: 'video' })
+    const b = photo(1, 0, 0, { kind: 'video' })
+    const cycle = detectStops([
+      { ...a, livePhotoOf: b.id },
+      { ...b, livePhotoOf: a.id },
+    ])
+    expect(cycle.stops.flatMap((stop) => stop.mediaIds).sort()).toEqual(
+      [a.id, b.id].sort(),
+    )
+  })
+
+  it('does not crash on invalid durations and positions', () => {
+    counter = 0
+    const result = detectStops([
+      photo(0, 0, 0, { durationMs: Number.NaN, kind: 'video' }),
+      photo(1, 0, 0, { latitude: Number.NaN }),
+      photo(2, 0, 0, { latitude: 0, longitude: 0 }),
+    ])
+    expect(result.stops.flatMap((stop) => stop.mediaIds)).toHaveLength(3)
+  })
 })

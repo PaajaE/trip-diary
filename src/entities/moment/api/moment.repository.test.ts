@@ -17,6 +17,7 @@ const row = {
   ends_at: '2026-01-01T11:00:00+00:00',
   id: M,
   journey_id: J,
+  kind: 'stay',
   latitude: 46.5,
   locked: false,
   longitude: 8.1,
