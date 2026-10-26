@@ -56,6 +56,7 @@ export function med(n: number, over: Partial<MediaItem> = {}): MediaItem {
     capturedAt: '2026-01-02T10:00:00+00:00',
     capturedTz: 'Europe/Prague',
     createdAt: NOW,
+    device: null,
     durationMs: null,
     focalX: null,
     focalY: null,

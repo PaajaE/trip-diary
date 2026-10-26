@@ -32,6 +32,8 @@ export const mediaItemSchema = z.object({
   capturedAt: instantSchema.nullable(),
   capturedTz: z.string().min(1).nullable(),
   createdAt: instantSchema,
+  /** Capture device (EXIF Make + Model); null when unknown or older rows. */
+  device: z.string().min(1).max(120).nullable().default(null),
   durationMs: z.number().int().positive().nullable(),
   focalX: z.number().min(0).max(1).nullable(),
   focalY: z.number().min(0).max(1).nullable(),

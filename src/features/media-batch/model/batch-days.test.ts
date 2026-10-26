@@ -17,6 +17,7 @@ function media(
     capturedAt,
     capturedTz,
     createdAt: '2026-01-01T00:00:00Z',
+    device: null,
     durationMs: null,
     focalX: null,
     focalY: null,

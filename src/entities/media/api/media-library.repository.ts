@@ -23,6 +23,7 @@ export function toMediaItem(row: MediaWithVariants): MediaItem {
     capturedAt: row.captured_at,
     capturedTz: row.captured_tz,
     createdAt: row.created_at,
+    device: row.device,
     durationMs: row.duration_ms,
     focalX: row.focal_x,
     focalY: row.focal_y,

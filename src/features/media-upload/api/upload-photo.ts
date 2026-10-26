@@ -24,6 +24,7 @@ import {
   type NewPhotoMedia,
   type SignPutResponse,
 } from '@/entities/media/model/media'
+import { normalizeDevice } from '@trip-diary/utils'
 import {
   processPhoto,
   type ProcessedPhoto,
@@ -163,13 +164,16 @@ export async function uploadPhoto(
   let processed: ProcessedPhoto
   let contentHash: string
   let captureTime: CaptureTime
+  let device: string | null
   try {
     processed = await deps.processPhoto(file)
     contentHash = await deps.hashFile(file)
-    captureTime = resolveCaptureTime(await deps.readExifTime(file), {
+    const exif = await deps.readExifTime(file)
+    captureTime = resolveCaptureTime(exif, {
       latitude: processed.latitude,
       longitude: processed.longitude,
     })
+    device = normalizeDevice(exif.make, exif.model)
   } catch (error) {
     if (error instanceof Error && error.message === 'HEIC_UNSUPPORTED') {
       throw new MediaUploadError('heic_unsupported', undefined, error)
@@ -221,6 +225,7 @@ export async function uploadPhoto(
     capturedAt,
     capturedTz,
     contentHash,
+    device,
     height: largest?.height ?? null,
     id: mediaId,
     ...(options.journeyId === undefined
