@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { currentAlgorithm } from './adapters.ts'
+import { currentAlgorithm, newAlgorithm } from './adapters.ts'
 import { evaluateCanada } from './canada.ts'
 import {
   scenarioPasses,
@@ -8,7 +8,11 @@ import {
   transitStats,
 } from './metrics.ts'
 import * as properties from './properties.ts'
-import { buildScenarios, generatePerfPoints } from './scenarios.ts'
+import {
+  buildExtraScenarios,
+  buildScenarios,
+  generatePerfPoints,
+} from './scenarios.ts'
 
 /**
  * ZS-0 baseline: today's `clusterMoments` measured by the harness. The
@@ -21,6 +25,8 @@ import { buildScenarios, generatePerfPoints } from './scenarios.ts'
  */
 
 const scenarios = buildScenarios()
+/** The 26 scenarios plus the ones added later (AA and on). */
+const allScenarios = [...scenarios, ...buildExtraScenarios()]
 
 interface BaselineRow {
   /** Edits to truth (splits + merges, see metrics.ts). */
@@ -80,6 +86,66 @@ const BASELINE_CANADA = {
 }
 
 /**
+ * ZS-3 recorded table of the NEW algorithm (`detectStops`), same shape as
+ * BASELINE. After ZS-3: streams, outlier filter, location fill-in, smooth
+ * density, stays and points. Not wired into the pipeline yet. Remaining
+ * misses are ZS-4 work (en route, trips inside a day): B trek, C/H drives,
+ * G ride, I loop trek, X window photo. Compared with the baseline, B, G and I
+ * have more edits because a trek or ride with a photo every 10+ min is a
+ * chain of valid points until ZS-4 groups it into a trip.
+ */
+// after ZS-3
+const NEW_BASELINE: readonly BaselineRow[] = [
+  { edits: 0, f1: 1, groups: 8, id: 'A', pass: true, transitSingle: 0 },
+  { edits: 24, f1: 0.085, groups: 25, id: 'B', pass: false, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 8, id: 'C', pass: false, transitSingle: 6 },
+  { edits: 0, f1: 1, groups: 1, id: 'D', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'E', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'F', pass: true, transitSingle: 0 },
+  { edits: 7, f1: 0.222, groups: 8, id: 'G', pass: false, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 7, id: 'H', pass: false, transitSingle: 6 },
+  { edits: 8, f1: 0.818, groups: 17, id: 'I', pass: false, transitSingle: 4 },
+  { edits: 0, f1: 1, groups: 4, id: 'J', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 2, id: 'K', pass: true, transitSingle: 0 },
+  { edits: 2, f1: 0.545, groups: 3, id: 'L', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 6, id: 'M', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'N', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'O', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 2, id: 'P', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'Q', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'R', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'S', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'T', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 8, id: 'U', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 6, id: 'V', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 3, id: 'W', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 3, id: 'X', pass: false, transitSingle: 1 },
+  { edits: 0, f1: 1, groups: 1, id: 'Y', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 1, id: 'Z', pass: true, transitSingle: 0 },
+  { edits: 0, f1: 1, groups: 2, id: 'AA', pass: true, transitSingle: 0 },
+]
+
+// after ZS-3 (coarse v1Entry truth with 5 groups: a smoke indicator only)
+const NEW_CANADA = {
+  edits: 30,
+  editsPer100: 61.224,
+  f1: 0.365,
+  predictedGroups: 23,
+}
+
+/** Properties of the new algorithm violated today (known, asserted). */
+const NEW_VIOLATIONS: Record<string, readonly string[]> = {
+  determinism: [],
+  // L: isolated, a chain of two pairs 29 min apart sees a denser local median
+  // and splits again (the density depends on the neighbouring photos).
+  idempotence: ['L'],
+  interleavedFarPhotos: [],
+  laterFarPhotos: [],
+  orderIndependence: [],
+  stableIds: [],
+}
+
+/**
  * Properties of today's algorithm. Listed are the scenarios where the
  * property is VIOLATED today (a known failing property, asserted so nothing is
  * skipped silently). A required property has an empty list.
@@ -129,12 +195,15 @@ const CHECKS: Record<string, Check> = {
   stableIds: properties.stableIds,
 }
 
-function evaluateScenarios(): (BaselineRow & {
+function evaluateScenarios(
+  algorithm: properties.GroupingAlgorithm = currentAlgorithm,
+  list: typeof scenarios = scenarios,
+): (BaselineRow & {
   expected: number
   label: string
 })[] {
-  return scenarios.map((scenario) => {
-    const predicted = currentAlgorithm(scenario.points).map((g) => g.ids)
+  return list.map((scenario) => {
+    const predicted = algorithm(scenario.points).map((g) => g.ids)
     const score = scoreGrouping(predicted, scenario.expectedGroups)
     const transit = transitStats(
       predicted,
@@ -259,6 +328,98 @@ describe('ZS-0 real ground truth (canada-v1)', () => {
   })
 })
 
+describe('ZS-3 new algorithm (detectStops)', () => {
+  it('matches the recorded NEW_BASELINE', () => {
+    const rows = evaluateScenarios(newAlgorithm, allScenarios)
+    expect(rows).toHaveLength(NEW_BASELINE.length)
+    for (const row of rows) {
+      const recorded = NEW_BASELINE.find((b) => b.id === row.id)
+      expect(recorded, row.id).toBeDefined()
+      expect(
+        {
+          edits: row.edits,
+          groups: row.groups,
+          pass: row.pass,
+          transitSingle: row.transitSingle,
+        },
+        row.id,
+      ).toEqual({
+        edits: recorded?.edits,
+        groups: recorded?.groups,
+        pass: recorded?.pass,
+        transitSingle: recorded?.transitSingle,
+      })
+      expect(round3(row.f1), row.id).toBe(recorded?.f1)
+    }
+  })
+
+  it('passes the ZS-3 gate scenarios', () => {
+    const rows = evaluateScenarios(newAlgorithm, allScenarios)
+    // sparse selection, outliers, clock offset, two phones, sparse day, copies
+    for (const id of ['U', 'W', 'V', 'D', 'N', 'O', 'P', 'Q', 'J', 'AA']) {
+      expect(rows.find((r) => r.id === id)?.pass, id).toBe(true)
+    }
+  })
+
+  it('is never worse than clusterMoments where it matters now', () => {
+    const before = evaluateScenarios(currentAlgorithm, allScenarios)
+    const after = evaluateScenarios(newAlgorithm, allScenarios)
+    // B, G, I are the in-day trip scenarios (ZS-4): a trek or ride with a
+    // photo every 10+ min is a chain of points until trips exist.
+    const zs4 = new Set(['B', 'G', 'I'])
+    for (const row of after) {
+      if (zs4.has(row.id)) continue
+      const old = before.find((b) => b.id === row.id)
+      const tolerance = allScenarios.find(
+        (x) => x.id === row.id,
+      )?.toleranceEdits
+      expect(row.edits, row.id).toBeLessThanOrEqual(
+        Math.max(old?.edits ?? 0, tolerance ?? 0),
+      )
+      expect(row.transitSingle, row.id).toBeLessThanOrEqual(
+        old?.transitSingle ?? 0,
+      )
+      if (old?.pass === true) expect(row.pass, row.id).toBe(true)
+    }
+  })
+
+  it('never splits a Live Photo pair', () => {
+    for (const scenario of allScenarios) {
+      const predicted = newAlgorithm(scenario.points).map((g) => g.ids)
+      expect(splitLivePairs(predicted, scenario.livePairs), scenario.id).toBe(0)
+    }
+  })
+
+  for (const [name, check] of Object.entries(CHECKS)) {
+    it(`${name}: records the known state`, () => {
+      const violated = allScenarios
+        .filter((s) => !check(newAlgorithm, s.points).holds)
+        .map((s) => s.id)
+      expect(violated).toEqual(NEW_VIOLATIONS[name])
+    })
+  }
+
+  it('matches the recorded canada-v1 smoke numbers', () => {
+    const report = evaluateCanada(newAlgorithm)
+    expect(report.predictedGroups).toBe(NEW_CANADA.predictedGroups)
+    expect(report.edits).toBe(NEW_CANADA.edits)
+    expect(round3(report.editsPer100)).toBe(NEW_CANADA.editsPer100)
+    expect(round3(report.bcubed.f1)).toBe(NEW_CANADA.f1)
+  })
+
+  it('groups 5 000 photos in under 2 s', () => {
+    const points = generatePerfPoints(5000, 7)
+    const started = performance.now()
+    const groups = newAlgorithm(points)
+    const ms = performance.now() - started
+    console.info(
+      `[harness] detectStops 5000 photos: ${ms.toFixed(1)} ms, ${String(groups.length)} groups`,
+    )
+    expect(ms).toBeLessThan(2000)
+    expect(groups.flatMap((g) => g.ids)).toHaveLength(5000)
+  })
+})
+
 describe('ZS-0 metrics', () => {
   it('scores a perfect grouping with zero edits', () => {
     const score = scoreGrouping([['a', 'b'], ['c']], [['b', 'a'], ['c']])
@@ -292,40 +453,47 @@ describe('ZS-0 performance', () => {
 })
 
 describe('ZS-0 report', () => {
-  it.runIf(reportEnabled())('prints a markdown table', () => {
-    const rows = evaluateScenarios()
-    const cell = (value: number | string): string => String(value)
-    const lines = [
-      '| Scenario | Expected | Predicted | Edits | B-cubed F1 | Transit single | Pass |',
-      '| --- | ---: | ---: | ---: | ---: | ---: | :---: |',
-      ...rows
-        .map((r) =>
-          [
-            `${r.id} ${r.label}`,
-            cell(r.expected),
-            cell(r.groups),
-            cell(r.edits),
-            r.f1.toFixed(3),
-            cell(r.transitSingle),
-            r.pass ? 'yes' : 'NO',
-          ].join(' | '),
-        )
-        .map((row) => `| ${row} |`),
-    ]
-    const canada = evaluateCanada(currentAlgorithm)
-    lines.push(
-      '',
-      'Canada v1: ' +
+  it.runIf(reportEnabled())(
+    'prints a markdown table, clusterMoments vs detectStops',
+    () => {
+      const before = evaluateScenarios(currentAlgorithm, allScenarios)
+      const after = evaluateScenarios(newAlgorithm, allScenarios)
+      const cell = (value: number | string): string => String(value)
+      const lines = [
+        '| Scenario | Expected | Groups old / new | Edits old / new | F1 old / new | Transit single old / new | Pass old / new |',
+        '| --- | ---: | ---: | ---: | ---: | ---: | :---: |',
+        ...before
+          .map((old, index) => {
+            const row = after[index]
+            if (row === undefined) return ''
+            return [
+              `${old.id} ${old.label}`,
+              cell(old.expected),
+              `${cell(old.groups)} / ${cell(row.groups)}`,
+              `${cell(old.edits)} / ${cell(row.edits)}`,
+              `${old.f1.toFixed(3)} / ${row.f1.toFixed(3)}`,
+              `${cell(old.transitSingle)} / ${cell(row.transitSingle)}`,
+              `${old.pass ? 'yes' : 'NO'} / ${row.pass ? 'yes' : 'NO'}`,
+            ].join(' | ')
+          })
+          .map((row) => `| ${row} |`),
+      ]
+      const describeCanada = (report: ReturnType<typeof evaluateCanada>) =>
         [
-          `${cell(canada.photos)} grouped photos`,
-          `${cell(canada.ungrouped)} ungrouped ignored`,
-          `${cell(canada.predictedGroups)} predicted vs ${cell(canada.expectedGroups)} expected groups`,
-          `edits ${cell(canada.edits)} (${canada.editsPer100.toFixed(1)} / 100 photos)`,
-          `B-cubed F1 ${canada.bcubed.f1.toFixed(3)}`,
-        ].join(', '),
-      `Failing scenarios: ${cell(rows.filter((r) => !r.pass).length)} / ${cell(rows.length)}`,
-    )
-    console.info(lines.join('\n'))
-    expect(lines.length).toBeGreaterThan(0)
-  })
+          `${cell(report.photos)} grouped photos`,
+          `${cell(report.ungrouped)} ungrouped ignored`,
+          `${cell(report.predictedGroups)} predicted vs ${cell(report.expectedGroups)} expected groups`,
+          `edits ${cell(report.edits)} (${report.editsPer100.toFixed(1)} / 100 photos)`,
+          `B-cubed F1 ${report.bcubed.f1.toFixed(3)}`,
+        ].join(', ')
+      lines.push(
+        '',
+        `Canada v1 clusterMoments: ${describeCanada(evaluateCanada(currentAlgorithm))}`,
+        `Canada v1 detectStops: ${describeCanada(evaluateCanada(newAlgorithm))}`,
+        `Failing scenarios old / new: ${cell(before.filter((r) => !r.pass).length)} / ${cell(after.filter((r) => !r.pass).length)} of ${cell(before.length)}`,
+      )
+      console.info(lines.join('\n'))
+      expect(lines.length).toBeGreaterThan(0)
+    },
+  )
 })

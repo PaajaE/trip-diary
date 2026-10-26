@@ -1,5 +1,22 @@
 export { centroid, distanceKm, type GeoPoint } from './geo.ts'
 export { type MediaPoint } from './media-point.ts'
+export { localMedianGapMs, sparsity, timeThresholdMs } from './density.ts'
+export {
+  prepareMedia,
+  type ClockShiftProposal,
+  type LocationSource,
+  type PreparedPoint,
+  type PrepareOptions,
+  type PrepareResult,
+  type ProbableDuplicate,
+} from './prepare.ts'
+export {
+  detectStops,
+  type DetectedStop,
+  type DetectStopsOptions,
+  type DetectStopsResult,
+  type StopKind,
+} from './stays.ts'
 export {
   DAY_START_HOUR,
   isKnownTimeZone,

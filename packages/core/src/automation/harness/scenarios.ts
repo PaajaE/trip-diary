@@ -786,6 +786,53 @@ function scenarioZ(): Scenario {
   })
 }
 
+/**
+ * AA (ZS-3, real-data finding): copies of photos with no time zone, the very
+ * same coordinates and a clock whole hours off. They must join the stop of
+ * the original instead of forming bogus stops hours away.
+ */
+function scenarioAA(): Scenario {
+  const b = createBuilder('AA', 127)
+  const c = start()
+  const first = stay(b, c, 6, 1, { jitterM: 20 })
+  travel(c, 40, 2000)
+  const second = stay(b, c, 6, 1, { jitterM: 20 })
+  for (const point of b.points) point.capturedTz = 'Europe/Prague'
+  const copy = (id: string | undefined, hours: number, group: string[]) => {
+    const original = b.points.find((point) => point.id === id)
+    if (original === undefined) return
+    const copyId = `AA${String(b.points.length + 1).padStart(4, '0')}`
+    b.points.push({
+      ...original,
+      capturedAt: new Date(
+        Date.parse(original.capturedAt) + hours * 3_600_000,
+      ).toISOString(),
+      capturedTz: null,
+      id: copyId,
+    })
+    group.push(copyId)
+  }
+  copy(first[0], 2, first)
+  copy(first[2], 2, first)
+  copy(first[4], 5, first)
+  copy(second[1], 1, second)
+  copy(second[3], 8, second)
+  return scenario({
+    expectation:
+      '2 stops; the clock-shifted copies join the stop of their original',
+    expectedGroups: [first, second],
+    id: 'AA',
+    knownFailingToday: true,
+    label: 'Copies without time zone, same coordinates, whole hours off',
+    points: b.points,
+  })
+}
+
+/** Scenarios added after ZS-0 (ids AA and on), kept apart from the 26. */
+export function buildExtraScenarios(): Scenario[] {
+  return [scenarioAA()]
+}
+
 /** All 26 scenarios in id order. Fresh objects on every call. */
 export function buildScenarios(): Scenario[] {
   return [
