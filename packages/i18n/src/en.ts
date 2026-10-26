@@ -518,6 +518,7 @@ export const en = {
       deleteMoments: 'removing old stops',
       deleteSegments: 'removing old suggestions',
       load: 'loading',
+      updateMoments: 'updating stops',
     },
     title: 'Organize automatically',
     tripTitle: {
@@ -1005,6 +1006,20 @@ export const en = {
     unassigned: 'Unassigned media',
     unassignedHint: 'Media that is not part of any stop.',
     lookingUpPlace: 'Looking up the place…',
+    stopName: {
+      dayPart: '{{weekday}} {{period}}',
+      district: '{{district}}, {{city}}',
+      near: 'near {{place}}',
+      ordinal: '{{name}} {{n}}',
+      period: {
+        afternoon: 'afternoon',
+        evening: 'evening',
+        lateMorning: 'late morning',
+        morning: 'morning',
+        night: 'night',
+      },
+      withPeriod: '{{name}} · {{period}}',
+    },
     untitledMoment: 'Stop {{time}}',
     dayNumber: 'Day {{n}}',
     dayUnknown: 'No date',

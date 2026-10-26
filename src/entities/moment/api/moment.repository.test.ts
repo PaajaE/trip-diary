@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  confirmMoments,
   deleteMoment,
   listJourneyMoments,
   mergeMoments,
@@ -36,6 +37,7 @@ for (const name of [
   'update',
   'delete',
   'eq',
+  'in',
   'order',
   'range',
   'maybeSingle',
@@ -112,6 +114,34 @@ describe('moment repository', () => {
     })
     await updateMoment(M, { placeId: null })
     expect(chain.update).toHaveBeenLastCalledWith({ place_id: null })
+  })
+
+  it('maps a kind or range change without locking (automation edits)', async () => {
+    result = { data: row, error: null }
+    await updateMoment(M, {
+      endsAt: '2026-01-01T12:00:00+00:00',
+      kind: 'point',
+      startsAt: '2026-01-01T09:00:00+00:00',
+    })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      ends_at: '2026-01-01T12:00:00+00:00',
+      kind: 'point',
+      starts_at: '2026-01-01T09:00:00+00:00',
+    })
+  })
+
+  it('confirms stops by locking them, nothing else', async () => {
+    await confirmMoments([M, J])
+    expect(from).toHaveBeenCalledWith('moments')
+    expect(chain.update).toHaveBeenLastCalledWith({ locked: true })
+    expect(chain.in).toHaveBeenCalledWith('id', [M, J])
+    from.mockClear()
+    await confirmMoments([])
+    expect(from).not.toHaveBeenCalled()
+    result = { data: null, error: { message: 'no' } }
+    await expect(confirmMoments([M])).rejects.toMatchObject({
+      code: 'update_failed',
+    })
   })
 
   it('reports not_found and empty patches', async () => {

@@ -141,11 +141,15 @@ export {
   type ReverseQuery,
 } from './places.ts'
 export {
+  DEFAULT_INTAKE_RADIUS_M,
+  DEFAULT_INTAKE_WINDOW_MS,
   DEFAULT_REJECTED_BOUNDARY_TOLERANCE_MS,
   isPlanEmpty,
+  isProtected,
   planOrganization,
   tripTypeOf,
   type MediaReassignment,
+  type MomentExtension,
   type OrganizationPlan,
   type OrganizeInput,
   type OrganizeMedia,
@@ -156,3 +160,33 @@ export {
   type PlannedSegment,
   type SegmentTitleInput,
 } from './organize.ts'
+export {
+  dayPeriodOfHour,
+  deriveStopNames,
+  type DayPeriod,
+  type StopName,
+  type StopNameBase,
+  type StopNameInput,
+  type StopNamePlace,
+} from './stop-names.ts'
+export {
+  DEFAULT_PLACE_BATCH_SIZE,
+  DEFAULT_PLACE_CELL_METERS,
+  placeCellKey,
+  planPlaceLookups,
+  runLimited,
+  type PlaceLookupCell,
+  type PlaceLookupOptions,
+  type PlaceLookupStop,
+} from './place-queue.ts'
+export {
+  hierarchyDepth,
+  isClearStage,
+  type DepthStage,
+  type HierarchyDepth,
+  type HierarchyDepthInput,
+  type HierarchyDepthOptions,
+  type HierarchyLevel,
+  type JourneySize,
+  type StageMode,
+} from './hierarchy-depth.ts'

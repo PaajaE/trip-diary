@@ -45,6 +45,7 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
   if (patch.coverMediaId !== undefined)
     update.cover_media_id = patch.coverMediaId
   if (patch.endsAt !== undefined) update.ends_at = patch.endsAt
+  if (patch.kind !== undefined) update.kind = patch.kind
   if (patch.latitude !== undefined) update.latitude = patch.latitude
   if (patch.locked !== undefined) update.locked = patch.locked
   if (patch.longitude !== undefined) update.longitude = patch.longitude
@@ -101,6 +102,21 @@ export async function updateMoment(
     throw new MomentError('not_found')
   }
   return toMoment(data)
+}
+
+/**
+ * Confirms stops ("Den sedí", a sorted stop): locks them so the automation
+ * never regroups them again. Content, range and place stay as they are.
+ */
+export async function confirmMoments(momentIds: string[]): Promise<void> {
+  if (momentIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('moments')
+    .update({ locked: true })
+    .in('id', momentIds)
+  if (error !== null) {
+    throw new MomentError('update_failed', error.message, error)
+  }
 }
 
 /**

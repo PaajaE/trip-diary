@@ -79,9 +79,23 @@ function makeDeps(calls: string[], over: Partial<OrganizeDeps> = {}) {
       n += 1
       return uuid(700 + n)
     },
+    updateMoment: vi.fn((id: string, patch: object) => {
+      calls.push(`updateMoment:${id}:${Object.keys(patch).sort().join(',')}`)
+      return Promise.resolve(mom(31))
+    }),
     ...over,
   }
   return deps
+}
+
+/** The fixture media with photo 1 outside any moment: moment 31 is emptied. */
+function looseMedia(calls: string[]) {
+  const base = makeDeps(calls).listMedia
+  return vi.fn(async (journeyId: string) =>
+    (await (base ?? (() => Promise.resolve([])))(journeyId)).map((item) =>
+      item.id === uuid(1) ? { ...item, momentId: null } : item,
+    ),
+  )
 }
 
 describe('organizeJourney', () => {
@@ -89,27 +103,28 @@ describe('organizeJourney', () => {
     const calls: string[] = []
     const result = await organizeJourney(J, makeDeps(calls))
     expect(result.ok).toBe(true)
+    // Stable id: photo 1 (the oldest) already anchors moment 31, so the
+    // moment keeps its id, grows to the new range and takes photos 2 and 3.
     expect(calls).toEqual([
-      'createMoments:1',
-      `assign:${uuid(701)}:2`,
-      `assign:${uuid(701)}:1`,
-      'deleteMoments:1',
+      `updateMoment:${uuid(31)}:endsAt,kind,latitude,longitude,startsAt`,
+      `assign:${uuid(31)}:2`,
       'deleteSegments:1',
       // a single-stage journey now also gets its (typed) stage suggestion
       'createSegments:1',
     ])
     if (result.ok) {
       expect(result.counts).toMatchObject({
-        mediaReassigned: 3,
-        momentsCreated: 1,
-        momentsDeleted: 1,
+        mediaReassigned: 2,
+        momentsCreated: 0,
+        momentsDeleted: 0,
+        momentsUpdated: 1,
       })
     }
   })
 
   it('writes auto unlocked moments created by the signed-in user', async () => {
     const calls: string[] = []
-    const deps = makeDeps(calls)
+    const deps = makeDeps(calls, { listMedia: looseMedia(calls) })
     await organizeJourney(J, deps)
     expect(deps.createMoments).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -161,6 +176,7 @@ describe('organizeJourney', () => {
     const calls: string[] = []
     const deps = makeDeps(calls, {
       assignMedia: vi.fn(() => Promise.reject(new Error('boom'))),
+      listMedia: looseMedia(calls),
     })
     const result = await organizeJourney(J, deps)
     expect(result.ok).toBe(false)
@@ -172,6 +188,51 @@ describe('organizeJourney', () => {
     expect(deps.deleteMoments).not.toHaveBeenCalled()
     expect(deps.deleteSegments).not.toHaveBeenCalled()
     expect(deps.createSegments).not.toHaveBeenCalled()
+  })
+
+  it('grows a confirmed stop by range only and moves the new photo into it', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      listMedia: vi.fn(() =>
+        Promise.resolve([
+          med(1, {
+            capturedAt: '2026-09-01T09:00:00+00:00',
+            latitude: 51.1,
+            longitude: -115.3,
+            momentId: uuid(31),
+          }),
+          med(2, {
+            capturedAt: '2026-09-01T10:00:00+00:00',
+            latitude: 51.1,
+            longitude: -115.3,
+          }),
+        ]),
+      ),
+      listMoments: vi.fn(() =>
+        Promise.resolve([
+          mom(31, {
+            endsAt: '2026-09-01T09:00:00+00:00',
+            locked: true,
+            origin: 'manual',
+            startsAt: '2026-09-01T09:00:00+00:00',
+            title: 'Our stop',
+          }),
+        ]),
+      ),
+      listSegments: vi.fn(() => Promise.resolve([])),
+    })
+    const result = await organizeJourney(J, deps)
+    expect(result.ok).toBe(true)
+    expect(deps.updateMoment).toHaveBeenCalledWith(uuid(31), {
+      endsAt: '2026-09-01T10:00:00.000Z',
+      startsAt: '2026-09-01T09:00:00.000Z',
+    })
+    expect(calls.filter((c) => c.startsWith('assign'))).toEqual([
+      `assign:${uuid(31)}:1`,
+    ])
+    expect(deps.createMoments).not.toHaveBeenCalled()
+    expect(deps.deleteMoments).not.toHaveBeenCalled()
+    if (result.ok) expect(result.counts.momentsExtended).toBe(1)
   })
 
   it('reports a load failure as step load without writing', async () => {
@@ -203,6 +264,7 @@ describe('organizeJourney', () => {
     const calls: string[] = []
     const progress: string[] = []
     const deps = makeDeps(calls, {
+      listMedia: looseMedia(calls),
       onProgress: (p) => {
         progress.push(`${p.step}:${String(p.done)}/${String(p.total)}`)
       },

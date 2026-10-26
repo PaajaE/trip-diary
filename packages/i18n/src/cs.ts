@@ -517,6 +517,7 @@ export const cs: TranslationResources = {
       deleteMoments: 'odstranění starých zastávek',
       deleteSegments: 'odstranění starých návrhů',
       load: 'načtení',
+      updateMoments: 'úprava zastávek',
     },
     title: 'Uspořádat automaticky',
     tripTitle: {
@@ -1002,6 +1003,20 @@ export const cs: TranslationResources = {
     unassigned: 'Nezařazená média',
     unassignedHint: 'Média, která nepatří do žádné zastávky.',
     lookingUpPlace: 'Hledám místo…',
+    stopName: {
+      dayPart: '{{weekday}} {{period}}',
+      district: '{{district}}, {{city}}',
+      near: 'u města {{place}}',
+      ordinal: '{{name}} {{n}}',
+      period: {
+        afternoon: 'odpoledne',
+        evening: 'večer',
+        lateMorning: 'dopoledne',
+        morning: 'ráno',
+        night: 'v noci',
+      },
+      withPeriod: '{{name}} · {{period}}',
+    },
     untitledMoment: 'Zastávka {{time}}',
     dayNumber: 'Den {{n}}',
     dayUnknown: 'Bez data',

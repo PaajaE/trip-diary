@@ -36,6 +36,8 @@ const plan: OrganizationPlan = {
     },
   ],
   momentsToDelete: [],
+  momentsToExtend: [],
+  momentsToUpdate: [],
   segmentsToDelete: [],
   stageSuggestions: [],
   tripSuggestions: [
