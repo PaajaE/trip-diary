@@ -20,12 +20,6 @@ export const LazySettingsRoutePage = lazy(() =>
   ),
 )
 
-export const LazyProfileRoutePage = lazy(() =>
-  import('@/pages/profile/ProfileRoutePage').then(({ ProfileRoutePage }) => ({
-    default: ProfileRoutePage,
-  })),
-)
-
 export const LazyCreateJourneyPage = lazy(() =>
   import('@/pages/journey/CreateJourneyPage').then(({ CreateJourneyPage }) => ({
     default: CreateJourneyPage,

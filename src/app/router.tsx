@@ -3,6 +3,7 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  redirect,
 } from '@tanstack/react-router'
 import { Capacitor } from '@capacitor/core'
 import { Suspense } from 'react'
@@ -20,7 +21,6 @@ import {
   LazyMediaLibraryDiagnosticsPage,
   LazyVideoUploadDevPage,
   LazyMediaUploadDevPage,
-  LazyProfileRoutePage,
   LazySettingsRoutePage,
   LazyJourneyQuickNoteRoutePage,
   LazySpacesRoutePage,
@@ -91,10 +91,18 @@ const settingsRoute = createRoute({
   component: LazySettingsRoutePage,
 })
 
-const profileRoute = createRoute({
+// v1 profile address; the public profile now lives at /$spaceHandle.
+const legacyProfileRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- TanStack Router redirect
+    throw redirect({
+      params: { spaceHandle: params.username },
+      replace: true,
+      to: '/$spaceHandle',
+    })
+  },
   getParentRoute: () => rootRoute,
   path: '/u/$username',
-  component: LazyProfileRoutePage,
 })
 
 const createJourneyRoute = createRoute({
@@ -255,7 +263,7 @@ const routeTree = rootRoute.addChildren([
   signUpRoute,
   dashboardRoute,
   settingsRoute,
-  profileRoute,
+  legacyProfileRoute,
   createJourneyRoute,
   journeyRoute,
   journeyMembersRoute,
