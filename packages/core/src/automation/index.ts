@@ -1,6 +1,15 @@
 export { centroid, distanceKm, type GeoPoint } from './geo.ts'
 export { type MediaPoint } from './media-point.ts'
 export {
+  DAY_START_HOUR,
+  isKnownTimeZone,
+  localDay,
+  majorityZone,
+  photoDayZones,
+  pickLocalDay,
+  type PhotoDayZones,
+} from './local-day.ts'
+export {
   clusterMoments,
   MOMENT_DWELL_GAP_MINUTES,
   MOMENT_DWELL_RADIUS_KM,

@@ -4,6 +4,8 @@ import type { GeoPoint } from './geo.ts'
 export interface MediaPoint {
   /** Exact capture instant (ISO 8601 with offset) or null when unknown. */
   capturedAt: string | null
+  /** IANA zone the photo was taken in (media captured_tz), when known. */
+  capturedTz?: string | null
   id: string
   latitude: number | null
   longitude: number | null

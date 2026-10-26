@@ -1,3 +1,4 @@
+import { DAY_START_HOUR } from './local-day.ts'
 import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
 import { clusterMoments } from './moments.ts'
@@ -259,9 +260,11 @@ function planMoments(
   return { mediaReassignments, momentsToCreate, momentsToDelete }
 }
 
+/** Start of a local day: 04:00 wall-clock time (see local-day.ts). */
 function dayStartMs(date: string, timeZone: string): number {
-  const instant = wallClockToInstant(`${date} 00:00:00`, timeZone)
-  return Date.parse(instant ?? `${date}T00:00:00Z`)
+  const hour = String(DAY_START_HOUR).padStart(2, '0')
+  const instant = wallClockToInstant(`${date} ${hour}:00:00`, timeZone)
+  return Date.parse(instant ?? `${date}T${hour}:00:00Z`)
 }
 
 function iso(ms: number): string {
