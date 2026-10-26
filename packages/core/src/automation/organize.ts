@@ -1,4 +1,4 @@
-import { DAY_START_HOUR } from './local-day.ts'
+import { DAY_START_HOUR, localDay } from './local-day.ts'
 import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
 import { detectStops, type DetectedDayTrip, type StopKind } from './stays.ts'
@@ -51,6 +51,10 @@ export interface OrganizeMedia {
 }
 
 export interface OrganizeMoment {
+  /** Text written by the user ('' = none). */
+  body?: string | undefined
+  /** Chosen cover photo (the algorithm never sets one). */
+  coverMediaId?: string | null | undefined
   endsAt: string
   id: string
   /** Stored kind; an auto moment is recreated when its kind changes. */
@@ -63,7 +67,11 @@ export interface OrganizeMoment {
   placeCountry?: string | undefined
   /** Display name of the moment's place, when it is known. */
   placeName?: string | undefined
+  /** False = hidden by the user (the default of an auto moment is true). */
+  published?: boolean | undefined
   startsAt: string
+  /** Name given by the user (the algorithm never stores a title). */
+  title?: string | null | undefined
 }
 
 export interface OrganizeSegment {
@@ -193,11 +201,14 @@ function segmentKey(
   return `${kind}|${tripType ?? ''}|${String(range.start)}|${String(range.end)}`
 }
 
-function toPoint(
-  media: OrganizeMedia,
-  placeOf?: ReadonlyMap<string, PlaceInfo>,
-): MediaPoint {
-  const placeKind = media.placeKind ?? placeOf?.get(media.id)?.kind
+/**
+ * The place kind comes ONLY from the explicit per-photo input. The place of
+ * the moment a photo belongs to is not used: such a moment may be recreated
+ * by this very run (or still lack a place until it is geocoded), which would
+ * flip the result from run to run.
+ */
+function toPoint(media: OrganizeMedia): MediaPoint {
+  const placeKind = media.placeKind
   return {
     capturedAt: media.capturedAt,
     id: media.id,
@@ -219,9 +230,7 @@ function toPoint(
 /** Media of hand-made (locked or manual) moments: never regrouped. */
 function protectedMedia(input: OrganizeInput): Set<string> {
   const protectedIds = new Set(
-    input.moments
-      .filter((moment) => moment.locked || moment.origin !== 'auto')
-      .map((moment) => moment.id),
+    input.moments.filter(isProtected).map((moment) => moment.id),
   )
   return new Set(
     input.media
@@ -229,6 +238,22 @@ function protectedMedia(input: OrganizeInput): Set<string> {
         (item) => item.momentId !== null && protectedIds.has(item.momentId),
       )
       .map((item) => item.id),
+  )
+}
+
+/**
+ * Hand-made moments are never regrouped or recreated: locked, manual, or
+ * carrying content of the user (title, text, cover, hidden) even when an
+ * older edit forgot to lock them. The automation itself writes none of that.
+ */
+export function isProtected(moment: OrganizeMoment): boolean {
+  return (
+    moment.locked ||
+    moment.origin !== 'auto' ||
+    (moment.title ?? '').trim() !== '' ||
+    (moment.body ?? '').trim() !== '' ||
+    (moment.coverMediaId ?? null) !== null ||
+    moment.published === false
   )
 }
 
@@ -243,9 +268,7 @@ function planMoments(
 > {
   // Hand-made moments (locked or manual) are never touched or regrouped.
   const protectedIds = new Set(
-    input.moments
-      .filter((moment) => moment.locked || moment.origin !== 'auto')
-      .map((moment) => moment.id),
+    input.moments.filter(isProtected).map((moment) => moment.id),
   )
   const replaceable = input.moments.filter(
     (moment) => !protectedIds.has(moment.id),
@@ -415,6 +438,15 @@ function toJourneyDays(
 /** Trip kinds of the stage organiser mapped to the stored trip types. */
 export function tripTypeOf(kind: StageTripKind): SuggestedTripType {
   return kind === 'day' ? 'day' : 'trek'
+}
+
+/** Local day (YYYY-MM-DD, 04:00 start) of an instant, UTC date if the zone is unknown. */
+function localDayOf(instant: number, timeZone: string): string {
+  try {
+    return localDay(instant, timeZone)
+  } catch {
+    return new Date(instant).toISOString().slice(0, 10)
+  }
 }
 
 /** Names of an in-day trip: the natural place most of its photos are at. */
@@ -675,7 +707,7 @@ function planSegments(
       names: inDayNames(trip, tripType, placeOf, labels),
       range,
       reason: trip.reason,
-      startsOn: trip.startsAt.slice(0, 10),
+      startsOn: localDayOf(start, options.homeTz),
       tripType,
     })
   }
@@ -773,8 +805,7 @@ export function planOrganization(
   input: OrganizeInput,
   options: OrganizeOptions,
 ): OrganizationPlan {
-  const placeOf = placesOfMedia(input)
-  const points = input.media.map((item) => toPoint(item, placeOf))
+  const points = input.media.map((item) => toPoint(item))
   const lockedMediaIds = protectedMedia(input)
   // Moments are detected without the hand-made media; trips are about time
   // and movement, so they see all media (one more pass only when needed).

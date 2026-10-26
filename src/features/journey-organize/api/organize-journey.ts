@@ -178,6 +178,8 @@ export async function previewOrganization(
                   region: place.region,
                 })
           return {
+            body: moment.body,
+            coverMediaId: moment.coverMediaId,
             endsAt: moment.endsAt,
             id: moment.id,
             kind: moment.kind,
@@ -190,7 +192,9 @@ export async function previewOrganization(
                   placeKind: derived.kind,
                   placeName: derived.name,
                 }),
+            published: moment.published,
             startsAt: moment.startsAt,
+            title: moment.title,
           }
         }),
         segments: segments.map((segment) => ({

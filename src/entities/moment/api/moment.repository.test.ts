@@ -86,6 +86,34 @@ describe('moment repository', () => {
     })
   })
 
+  it('locks the moment when title, body, cover or published are edited', async () => {
+    result = { data: { ...row, locked: true }, error: null }
+    await updateMoment(M, { body: 'text', title: 'Name' })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      body: 'text',
+      locked: true,
+      title: 'Name',
+    })
+    await updateMoment(M, { coverMediaId: J })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      cover_media_id: J,
+      locked: true,
+    })
+    await updateMoment(M, { published: false })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      locked: true,
+      published: false,
+    })
+    // an explicit lock flag wins; a pure place or time change does not lock
+    await updateMoment(M, { locked: false, title: 'x' })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      locked: false,
+      title: 'x',
+    })
+    await updateMoment(M, { placeId: null })
+    expect(chain.update).toHaveBeenLastCalledWith({ place_id: null })
+  })
+
   it('reports not_found and empty patches', async () => {
     await expect(updateMoment(M, { title: 'x' })).rejects.toMatchObject({
       code: 'not_found',

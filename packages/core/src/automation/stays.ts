@@ -575,31 +575,65 @@ function buildStop(
   }
 }
 
-/** Merges in-day trips of all authors that overlap in time (shared trips). */
+/** Overlap of two trips (ms) and the shorter duration. */
+function overlapOf(a: DetectedDayTrip, b: DetectedDayTrip) {
+  const start = Math.max(Date.parse(a.startsAt), Date.parse(b.startsAt))
+  const end = Math.min(Date.parse(a.endsAt), Date.parse(b.endsAt))
+  const shorter = Math.min(
+    Date.parse(a.endsAt) - Date.parse(a.startsAt),
+    Date.parse(b.endsAt) - Date.parse(b.startsAt),
+  )
+  return { overlap: end - start, shorter }
+}
+
+/**
+ * Shared trips: the same walk or ride of two authors is one trip. Only trips
+ * of the SAME type merge, only when they overlap by at least half of the
+ * shorter one and come from different authors, and a merged trip is never
+ * merged again, so overlaps cannot chain into one long trip.
+ */
 function mergeTrips(trips: readonly DetectedDayTrip[]): DetectedDayTrip[] {
   const sorted = [...trips].sort(
     (a, b) =>
-      compareText(a.startsAt, b.startsAt) || compareText(a.endsAt, b.endsAt),
+      compareText(a.startsAt, b.startsAt) ||
+      compareText(a.endsAt, b.endsAt) ||
+      compareText(a.tripType, b.tripType),
   )
   const out: DetectedDayTrip[] = []
+  const merged = new Set<DetectedDayTrip>()
   for (const trip of sorted) {
-    const last = out[out.length - 1]
-    if (last !== undefined && trip.startsAt < last.endsAt) {
-      const longer = trip.distanceM > last.distanceM ? trip : last
-      out[out.length - 1] = {
-        distanceM: longer.distanceM,
-        endsAt: trip.endsAt > last.endsAt ? trip.endsAt : last.endsAt,
-        mediaIds: [...new Set([...last.mediaIds, ...trip.mediaIds])],
-        ownerIds: [...new Set([...last.ownerIds, ...trip.ownerIds])].sort(
-          compareText,
-        ),
-        reason: `${longer.reason} (merged with an overlapping trip of another author)`,
-        startsAt: last.startsAt,
-        tripType: longer.tripType,
+    const partner = out.find((other) => {
+      if (
+        merged.has(other) ||
+        other.tripType !== trip.tripType ||
+        other.ownerIds.length === 0 ||
+        trip.ownerIds.length === 0 ||
+        other.ownerIds.some((owner) => trip.ownerIds.includes(owner))
+      ) {
+        return false
       }
-    } else {
+      const { overlap, shorter } = overlapOf(other, trip)
+      return shorter > 0 && overlap >= 0.5 * shorter
+    })
+    if (partner === undefined) {
       out.push(trip)
+      continue
     }
+    const longer = trip.distanceM > partner.distanceM ? trip : partner
+    const union: DetectedDayTrip = {
+      distanceM: longer.distanceM,
+      endsAt: trip.endsAt > partner.endsAt ? trip.endsAt : partner.endsAt,
+      mediaIds: [...new Set([...partner.mediaIds, ...trip.mediaIds])],
+      ownerIds: [...new Set([...partner.ownerIds, ...trip.ownerIds])].sort(
+        compareText,
+      ),
+      reason: `${longer.reason} (merged with the same trip of another author)`,
+      startsAt:
+        partner.startsAt < trip.startsAt ? partner.startsAt : trip.startsAt,
+      tripType: longer.tripType,
+    }
+    out[out.indexOf(partner)] = union
+    merged.add(union)
   }
   return out
 }

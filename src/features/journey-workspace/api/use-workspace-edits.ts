@@ -350,7 +350,8 @@ export function useWorkspaceEdits(journeyId: string): WorkspaceEdits {
           optimisticUpdate<Moment[]>(
             queryClient,
             momentQueryKeys.journey(journeyId),
-            (list) => patchListItem(list, moment.id, value),
+            (list) =>
+              patchListItem(list, moment.id, { ...value, locked: true }),
           )
         return run({
           apply: () => updateMoment(moment.id, text),

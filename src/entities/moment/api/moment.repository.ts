@@ -53,6 +53,14 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
   if (patch.published !== undefined) update.published = patch.published
   if (patch.startsAt !== undefined) update.starts_at = patch.startsAt
   if (patch.title !== undefined) update.title = patch.title
+  // A conscious edit of the content locks the moment (plan principle: every
+  // deliberate intervention locks), so the automation never regroups it.
+  const editsContent =
+    patch.body !== undefined ||
+    patch.coverMediaId !== undefined ||
+    patch.published !== undefined ||
+    patch.title !== undefined
+  if (patch.locked === undefined && editsContent) update.locked = true
   return update
 }
 

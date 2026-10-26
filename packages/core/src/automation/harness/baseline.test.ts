@@ -144,7 +144,9 @@ const ZS3_CANADA = {
  * adapter runs it: camera clock shifts as a flagged hypothesis), same shape.
  * Scenarios AA-AC were added with ZS-3/ZS-4. `groups` counts the collapsed
  * "en route" groups too; `transitSingle` ignores them (they are not stops).
- * L is accepted with 3 edits (4 groups of a pair each, tolerance 3).
+ * L regressed 0 (clusterMoments) / 2 (ZS-3) -> 3 edits: still inside its
+ * tolerance of 3 (4 pair groups) and the price of an idempotent density
+ * window, so it is accepted. L is accepted with 3 edits (4 groups of a pair each, tolerance 3).
  */
 // after ZS-4
 const AFTER_ZS4: readonly BaselineRow[] = [
@@ -583,6 +585,12 @@ describe('ZS-4 algorithm (detectStops, en route, in-day trips)', () => {
     expect(ZS3_CANADA.edits).toBe(30)
   })
 
+  // The < 2 s gate holds for dense data (a few hundred days at most). A journey
+  // with ONE photo per day over 5 000 days takes ~5-7 s: the hot spot is the
+  // pre-existing day layer (stages.ts createPartitioner: about 400 000
+  // scatter sums of up to 80 days each, distanceKm), not the stop detection.
+  // No cheap exact fix exists (haversine scatter has no prefix sums), so it
+  // is left as is; a real journey has far fewer days than that.
   it('plans 5 000 photos end to end (planOrganization) in under 2 s', () => {
     const points = generatePerfPoints(5000, 7)
     const started = performance.now()

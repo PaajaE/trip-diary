@@ -816,28 +816,163 @@ describe('planOrganization ZS-4', () => {
   })
 
   it('keeps photos at a natural place as stops, not as filler of the trek', () => {
-    const media = trekMedia('anna', { momentId: 'm1' })
-    const plan = planOrganization(
+    const media = trekMedia('anna', { placeKind: 'natural' })
+    const plan = planOrganization(empty(media), options())
+    expect(plan.momentsToCreate.every((m) => m.kind !== 'en_route')).toBe(true)
+  })
+
+  /** 12 photos 10 min apart on a 130 km drive. */
+  function driveMedia(momentId: string | null): OrganizeMedia[] {
+    return Array.from(
+      { length: 12 },
+      (_, i): OrganizeMedia => ({
+        ...photo(
+          `d${String(i).padStart(2, '0')}`,
+          new Date(Date.UTC(2026, 8, 1, 8, i * 10)).toISOString(),
+          [51.089, -115.358 + (i * 11_000) / 69_900],
+          momentId,
+        ),
+        ownerId: 'anna',
+      }),
+    )
+  }
+
+  it('does not let the place of an old auto moment change the result', () => {
+    const kindsFor = (place: Partial<OrganizeMoment>) => {
+      const plan = planOrganization(
+        {
+          media: driveMedia('old'),
+          moments: [
+            {
+              endsAt: '2026-09-01T10:00:00.000Z',
+              id: 'old',
+              kind: 'stay',
+              locked: false,
+              origin: 'auto',
+              startsAt: '2026-09-01T08:00:00.000Z',
+              ...place,
+            },
+          ],
+          segments: [],
+        },
+        options(),
+      )
+      return plan.momentsToCreate.map(
+        (m) => `${m.kind}:${String(m.mediaIds.length)}`,
+      )
+    }
+    const without = kindsFor({})
+    expect(without).toEqual(['en_route:12'])
+    expect(kindsFor({ placeKind: 'settlement', placeName: 'Banff' })).toEqual(
+      without,
+    )
+  })
+
+  it('stays empty after apply even when the new moments get a place later', () => {
+    const input = empty(driveMedia(null))
+    const plan = planOrganization(input, options())
+    const next = applyPlan(input, plan)
+    const geocoded: OrganizeInput = {
+      ...next,
+      moments: next.moments.map((moment) => ({
+        ...moment,
+        placeKind: 'settlement',
+        placeName: 'Banff',
+      })),
+    }
+    expect(
+      isPlanEmpty(planOrganization(geocoded, options(counterIds('again')))),
+    ).toBe(true)
+  })
+
+  it('never recreates an unlocked auto moment that carries user content', () => {
+    const edits: Partial<OrganizeMoment>[] = [
+      { title: 'Our lake' },
+      { body: 'We swam.' },
+      { coverMediaId: 'd01' },
+      { published: false },
+    ]
+    for (const edit of edits) {
+      const media = driveMedia('mine')
+      const plan = planOrganization(
+        {
+          media,
+          moments: [
+            {
+              endsAt: '2026-09-01T10:00:00.000Z',
+              id: 'mine',
+              kind: 'stay',
+              locked: false,
+              origin: 'auto',
+              startsAt: '2026-09-01T08:00:00.000Z',
+              ...edit,
+            },
+          ],
+          segments: [],
+        },
+        options(),
+      )
+      expect(plan.momentsToDelete, JSON.stringify(edit)).toEqual([])
+      expect(plan.momentsToCreate, JSON.stringify(edit)).toEqual([])
+      expect(plan.mediaReassignments, JSON.stringify(edit)).toEqual([])
+    }
+    // empty strings and the default published flag are not user content
+    const plain = planOrganization(
       {
-        media,
+        media: driveMedia('plain'),
         moments: [
           {
-            endsAt: '2026-09-01T10:30:00.000Z',
-            id: 'm1',
+            body: '',
+            coverMediaId: null,
+            endsAt: '2026-09-01T10:00:00.000Z',
+            id: 'plain',
             kind: 'stay',
             locked: false,
             origin: 'auto',
-            placeKind: 'natural',
-            placeName: 'Grotto Mountain',
+            published: true,
             startsAt: '2026-09-01T08:00:00.000Z',
+            title: null,
           },
         ],
         segments: [],
       },
       options(),
     )
-    // The photos are at a natural place, so they are stops, not filler.
-    expect(plan.momentsToCreate.every((m) => m.kind !== 'en_route')).toBe(true)
+    expect(plain.momentsToDelete).toEqual(['plain'])
+  })
+
+  it('does not merge in-day trips of different types or chain overlaps', () => {
+    const walk = trekMedia('anna')
+    const ride = Array.from(
+      { length: 8 },
+      (_, i): OrganizeMedia => ({
+        ...photo(
+          `r${String(i)}`,
+          new Date(Date.UTC(2026, 8, 1, 9, i * 15)).toISOString(),
+          [51.2, -115.358 + (i * 5000) / 69_900],
+        ),
+        ownerId: 'bob',
+      }),
+    )
+    const plan = planOrganization(empty([...walk, ...ride]), options())
+    expect(plan.tripSuggestions.map((t) => t.tripType).sort()).toEqual([
+      'day',
+      'trek',
+    ])
+  })
+
+  it('numbers an in-day trip by its local day', () => {
+    const titles: string[] = []
+    planOrganization(empty(trekMedia()), {
+      ...options(),
+      homeTz: 'Pacific/Auckland',
+      segmentTitle: (input) => {
+        titles.push(`${input.startsOn}:${String(input.inDay)}`)
+        return 'x'
+      },
+    })
+    // 08:00 UTC on Sep 1st is 20:00 Sep 1st in Auckland
+    expect(titles.some((t) => t === '2026-09-01:true')).toBe(true)
   })
 
   it('plans two authors walking the same trek with one shared trip', () => {
