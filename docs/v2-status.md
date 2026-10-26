@@ -524,3 +524,15 @@ UX review stavu aplikace (kód, texty, plán; **aplikace nespuštěna, žádné 
 | Dashboard bez fotek a bez počtu k roztřídění; Přehled bez stavu dne                                    | UX-14, 39 |
 
 Průběh 2026-10-24 (větev `claude/affectionate-knuth-8abj8b`, PR #46): implementovány UX-01–03, DB D1–D3 (pgTAP a `db:types` v CI zelené), UX-10/11/14/15, core funkce pro série a návrh zastávky, import `phash` a `quality` za vypínačem `VITE_MEDIA_ANALYSIS` (výchozí vypnuto, produkční DB sloupce nemá), Rychlé třídění, Série, souhrn, filtry a výběr tažením v dávce, odvozený stav dne. Ověřeno: `typecheck`, `lint`, 999 testů, `prettier`, `build`, CI. **Neověřeno:** běh v prohlížeči, dotyková gesta, iPhone, výkon a paměť výpočtu `phash` ve WKWebView, kalibrace prahů ostrosti a sérií (UNVERIFIED), e2e Playwright. D1–D3 nejsou v produkci.
+
+## Fáze 4f — Automatické zastávky a třídění (2026-10-26, 📝 PROPOSED)
+
+Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Nic není implementované, žádná migrace nevznikla.
+
+| Zjištění (VERIFIED čtením kódu, syntetické scénáře)                                                   | Úkol       |
+| ----------------------------------------------------------------------------------------------------- | ---------- |
+| `clusterMoments` selhává ve 14 z 24 scénářů (pěší zastávky slité, jednofotkové z jízd, řídký výběr)   | ZS-3, ZS-4 |
+| Vrstva dnů nezná výlet ani přesun uvnitř dne                                                          | ZS-4       |
+| Uspořádání je ruční tlačítko, názvy chybí („Zastávka 15:07“), doplněk nekontroluje ruční zastávky     | ZS-5, ZS-7 |
+| `QuickSortView`: přetékající fotka, zoom schová porovnání, chybí ovladače na dotyku, holý seznam cílů | ZS-2       |
+| `media` nemá zařízení, dny podle `home_tz` × pásma fotek                                              | ZS-1       |
