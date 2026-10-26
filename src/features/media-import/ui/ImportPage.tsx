@@ -44,6 +44,7 @@ import type {
   MediaSource,
 } from '@/features/media-import/model/types'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
+import { useAutoOrganizeAfterUpload } from '@/features/journey-organize/api/use-auto-organize'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/Button'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -118,6 +119,8 @@ function ImportView({
   const native = isMediaLibraryAvailable()
   const kind = native ? 'photokit' : 'web-files'
   const { queue, setSource, snapshot } = useImportQueue(journeyId, ownerId)
+  // ZS-7: every finished batch is organised automatically (state for 7b UI).
+  useAutoOrganizeAfterUpload(journeyId, snapshot)
   const sourceRef = useRef<MediaSource | null>(null)
 
   const [cursor, setCursor] = useState<ImportCursor | null>(null)

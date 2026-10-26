@@ -66,6 +66,13 @@ export {
 } from './suggest-stop.ts'
 export { findDuplicateGroups, type DuplicateOptions } from './duplicates.ts'
 export {
+  classifyGap,
+  GAP_MIN_DISTANCE_M,
+  type GapClass,
+  type GapFeatures,
+  type MovementMode,
+} from './gaps.ts'
+export {
   DEFAULT_STAGE_SHIFT_KM,
   suggestStageBoundaries,
   summarizeDays,

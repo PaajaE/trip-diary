@@ -23,6 +23,10 @@ import {
   deleteSuggestedSegments,
   listJourneySegmentsIncludingRejected,
 } from '@/entities/segment/api/segment.repository'
+import type { MediaItem } from '@/entities/media/model/media-library'
+import type { Moment } from '@/entities/moment/model/moment'
+import type { Place } from '@/entities/place/model/place'
+import type { Segment } from '@/entities/segment/model/segment'
 import { getCurrentUserId } from '@/shared/api/current-user'
 
 export type OrganizeStep =
@@ -130,15 +134,21 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
   return out
 }
 
-/**
- * Dry run: loads the journey and plans, without writing anything. Hand-made
- * data (locked/manual moments, manual/accepted/rejected segments) is passed
- * to the planner, which never changes it.
- */
-export async function previewOrganization(
+/** What the planner reads: the stored journey as it is right now. */
+export interface OrganizeState {
+  homeTz: string | null
+  media: MediaItem[]
+  moments: Moment[]
+  places: ReadonlyMap<string, Place>
+  /** All segments, rejected suggestions included. */
+  segments: Segment[]
+}
+
+/** Loads everything the planner (and the undo snapshot) needs. */
+export async function loadOrganizeState(
   journeyId: string,
   overrides: Partial<OrganizeDeps> = {},
-): Promise<OrganizationPlan> {
+): Promise<OrganizeState> {
   const deps = resolveDeps(overrides)
   try {
     const [media, moments, segments, homeTz] = await Promise.all([
@@ -157,6 +167,33 @@ export async function previewOrganization(
         : await deps.listPlaces(placeIds).catch(() => [])
       ).map((place) => [place.id, place]),
     )
+    return { homeTz, media, moments, places, segments }
+  } catch (error) {
+    throw new OrganizeError('load', error)
+  }
+}
+
+/**
+ * Dry run: loads the journey and plans, without writing anything. Hand-made
+ * data (locked/manual moments, manual/accepted/rejected segments) is passed
+ * to the planner, which never changes it.
+ */
+export async function previewOrganization(
+  journeyId: string,
+  overrides: Partial<OrganizeDeps> = {},
+): Promise<OrganizationPlan> {
+  const state = await loadOrganizeState(journeyId, overrides)
+  return planFromState(state, overrides)
+}
+
+/** Plans from an already loaded state (pure apart from `newId`). */
+export function planFromState(
+  state: OrganizeState,
+  overrides: Partial<OrganizeDeps> = {},
+): OrganizationPlan {
+  const deps = resolveDeps(overrides)
+  const { homeTz, media, moments, places, segments } = state
+  try {
     return planOrganization(
       {
         media: media

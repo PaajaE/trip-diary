@@ -33,7 +33,9 @@ beforeEach(async () => {
 
 describe('Dexie upload job store', () => {
   it('declares the new tables in schema version 17 (existing tables untouched)', () => {
-    expect(localDb.verno).toBe(17)
+    // Version 18 (ZS-7) only adds organizeSnapshots; the upload tables stay.
+    expect(localDb.verno).toBe(18)
+    expect(localDb.organizeSnapshots.schema.primKey.name).toBe('journeyId')
     expect(localDb.uploadJobs.schema.primKey.name).toBe('id')
     expect(localDb.importCursors.schema.primKey.name).toBe('key')
     expect(localDb.entries.schema.primKey.name).toBe('id')

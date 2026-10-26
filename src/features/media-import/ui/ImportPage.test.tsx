@@ -44,6 +44,10 @@ vi.mock('@/features/media-import/api/use-import-queue', () => ({
 vi.mock('@/entities/media/api/upload-jobs.store', () => ({
   dexieUploadJobStore: { getCursor },
 }))
+// The automatic organisation after a batch has its own tests (journey-organize).
+vi.mock('@/features/journey-organize/api/use-auto-organize', () => ({
+  useAutoOrganizeAfterUpload: () => ({ queued: false, status: 'idle' }),
+}))
 vi.mock('@/features/journey-organize/ui/OrganizeJourneyButton', () => ({
   OrganizeJourneyButton: () => (
     <button type="button">Organize automatically</button>
