@@ -12,7 +12,7 @@ import '@/app/i18n'
 import i18n from 'i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
-import { med, mom } from '@/features/journey-workspace/test-fixtures'
+import { med, mom, variant } from '@/features/journey-workspace/test-fixtures'
 import { QuickSortView } from '@/features/media-batch/ui/QuickSortView'
 
 const haptics = vi.hoisted(() => ({ haptic: vi.fn() }))
@@ -561,13 +561,198 @@ describe('QuickSortView', () => {
     expect(screen.getByText('Enter: accept suggestion')).toBeTruthy()
   })
 
-  it('C toggles compare and Z toggles zoom', () => {
-    setup()
-    const compare = screen.getByRole('button', { name: 'Compare' })
-    key('c')
-    expect(compare.getAttribute('aria-pressed')).toBe('true')
-    const zoom = screen.getByRole('button', { name: 'Zoom 100%' })
-    key('z')
-    expect(zoom.getAttribute('aria-pressed')).toBe('true')
+  describe('compare and zoom', () => {
+    const withImage = (item: MediaItem): MediaItem => ({
+      ...item,
+      variants: [variant(item.id, 'large')],
+    })
+    const photos = [a, b, c, d].map(withImage)
+    const stageImages = () => [
+      ...screen.getByTestId('quick-sort-stage').querySelectorAll('img'),
+    ]
+    const panes = () => screen.queryAllByTestId('compare-pane')
+
+    it('compares two photos of the series and zooms both together', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      expect(panes()).toHaveLength(1)
+      const toggle = screen.getByRole('button', { name: 'Compare' })
+      key('c')
+      expect(toggle.getAttribute('aria-pressed')).toBe('true')
+      expect(panes()).toHaveLength(2)
+      // Partner is the other photo of the series, labelled with its caption.
+      expect(panes().map((pane) => pane.getAttribute('data-photo-id'))).toEqual(
+        [b.id, c.id],
+      )
+      expect(
+        stageImages().filter((img) => img.hasAttribute('src')),
+      ).toHaveLength(2)
+      const zoom = screen.getByRole('button', { name: 'Zoom' })
+      key('z')
+      expect(zoom.getAttribute('aria-pressed')).toBe('true')
+      // Zoom does not hide the compared photo: both panes are zoomed.
+      expect(panes()).toHaveLength(2)
+      expect(panes().map((pane) => pane.getAttribute('data-zoom'))).toEqual([
+        '2.000',
+        '2.000',
+      ])
+      expect(screen.getAllByTestId('compare-caption')).toHaveLength(2)
+    })
+
+    it('Esc leaves zoom first, then compare, then the view', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      key('z')
+      key('Escape')
+      expect(panes().map((pane) => pane.getAttribute('data-zoom'))).toEqual([
+        '1.000',
+        '1.000',
+      ])
+      expect(panes()).toHaveLength(2)
+      key('Escape')
+      expect(panes()).toHaveLength(1)
+      expect(screen.queryByTestId('quick-sort-summary')).toBeNull()
+      expect(screen.getByRole('dialog', { name: 'Quick sort' })).toBeTruthy()
+    })
+
+    it('zoom resets when moving to another photo', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('z')
+      expect(panes()[0]?.getAttribute('data-zoom')).toBe('2.000')
+      await act(async () => {
+        key('ArrowRight')
+      })
+      expect(panes()[0]?.getAttribute('data-zoom')).toBe('1.000')
+    })
+
+    it('Tab swaps A and B; [ and ] pick the partner; controls are real buttons', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      key('Tab')
+      expect(panes().map((pane) => pane.getAttribute('data-photo-id'))).toEqual(
+        [c.id, b.id],
+      )
+      expect(
+        screen.getByRole('button', { name: 'Previous photo to compare' }),
+      ).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Swap A and B' })).toBeTruthy()
+    })
+
+    it('Trash, Keep and star act on B as well as on A', async () => {
+      const { calls } = setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Mark photo B as best' }),
+        )
+      })
+      expect(calls.star).toHaveBeenCalledWith([
+        expect.objectContaining({ id: c.id }),
+      ])
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Keep photo B' }))
+      })
+      expect(calls.done).toHaveBeenCalledWith([
+        expect.objectContaining({ id: c.id }),
+      ])
+      // Acting on B does not move away from A.
+      expect(progress()).toBe('2 of 4')
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Trash photo A' }))
+      })
+      expect(calls.trash).toHaveBeenCalledWith([
+        expect.objectContaining({ id: b.id }),
+      ])
+    })
+
+    it('Tab does not swap while focus is on a control; Keep on B still allows star', async () => {
+      const { calls } = setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      const ids = () =>
+        panes().map((pane) => pane.getAttribute('data-photo-id'))
+      key('Tab', screen.getByRole('button', { name: 'Swap A and B' }))
+      expect(ids()).toEqual([b.id, c.id])
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Keep photo B' }))
+      })
+      expect(
+        screen
+          .getByRole('button', { name: 'Keep photo B' })
+          .hasAttribute('disabled'),
+      ).toBe(true)
+      await act(async () => {
+        fireEvent.click(
+          screen.getByRole('button', { name: 'Mark photo B as best' }),
+        )
+      })
+      expect(calls.star).toHaveBeenCalledTimes(1)
+    })
+
+    it('A -> B -> A does not restore the old zoom or swap', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      key('Tab')
+      key('z')
+      await act(async () => {
+        key('ArrowRight')
+      })
+      await act(async () => {
+        key('ArrowLeft')
+      })
+      expect(panes()[0]?.getAttribute('data-zoom')).toBe('1.000')
+      expect(panes()[0]?.getAttribute('data-photo-id')).toBe(b.id)
+    })
+
+    it('held C / Z keys do not repeat', async () => {
+      setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      fireEvent.keyDown(document.body, { key: 'z', repeat: true })
+      expect(panes()[0]?.getAttribute('data-zoom')).toBe('1.000')
+    })
+
+    it('never pairs with a trashed photo', async () => {
+      const { calls } = setup({ items: photos })
+      await act(async () => {
+        key('ArrowRight')
+      })
+      key('c')
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Trash photo B' }))
+      })
+      expect(calls.trash).toHaveBeenCalledWith([
+        expect.objectContaining({ id: c.id }),
+      ])
+      expect(progress()).toBe('2 of 4')
+      // c is trashed: the series has no other partner left.
+      expect(panes()).toHaveLength(1)
+    })
+
+    it('shows the controls without a keyboard (touch)', () => {
+      setup({ items: photos })
+      expect(screen.getByRole('button', { name: 'Compare' })).toBeTruthy()
+      expect(screen.getByRole('button', { name: 'Zoom' })).toBeTruthy()
+    })
   })
 })

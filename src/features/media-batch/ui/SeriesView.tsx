@@ -3,12 +3,13 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { BestReason } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
-import { getViewerUrls } from '@/features/journey-workspace/lib/media-thumb'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import {
   recommendForSeries,
   relativeSharpness,
 } from '@/features/media-batch/model/series'
+import { PhotoCompare } from '@/features/media-batch/ui/PhotoCompare'
+import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
 import { cn } from '@/shared/lib/cn'
 
 export interface SeriesViewProps {
@@ -20,6 +21,10 @@ export interface SeriesViewProps {
   onClose: () => void
   /** Keeps `keepIds` in the batch and trashes `trashIds`. */
   onKeep: (keepIds: string[], trashIds: string[]) => void
+  /** ★ on one photo (B in the compare view too). */
+  onStar: (item: MediaItem) => void
+  /** Trashes one photo; the series view stays open. */
+  onTrash: (item: MediaItem) => void
   onUndo: () => void
 }
 
@@ -33,35 +38,6 @@ const REASON_KEYS: Record<BestReason, string> = {
 const BIG =
   'flex min-h-14 items-center justify-center gap-2 rounded-2xl px-4 text-base font-semibold disabled:opacity-40'
 
-function BigImage({
-  baseUrl,
-  item,
-  label,
-}: {
-  baseUrl: string
-  item: MediaItem
-  label?: string
-}) {
-  const url = getViewerUrls(item, baseUrl).imageUrl
-  return (
-    <figure className="relative flex min-h-0 flex-1 items-center justify-center">
-      {url !== null ? (
-        <img
-          alt={item.caption ?? ''}
-          className="max-h-full max-w-full object-contain"
-          draggable={false}
-          src={url}
-        />
-      ) : null}
-      {label === undefined ? null : (
-        <figcaption className="absolute left-2 top-2 rounded-full bg-black/60 px-3 py-1 text-xs">
-          {label}
-        </figcaption>
-      )}
-    </figure>
-  )
-}
-
 /**
  * "Vyber tu nejlepší": a series of similar photos with the recommended one
  * large, a relative sharpness bar per thumbnail and a two-up compare. Rendered
@@ -73,6 +49,8 @@ export function SeriesView({
   items,
   onClose,
   onKeep,
+  onStar,
+  onTrash,
   onUndo,
 }: SeriesViewProps) {
   const { t } = useTranslation()
@@ -83,8 +61,6 @@ export function SeriesView({
   const [mainId, setMainId] = useState(
     () => recommendation?.id ?? items[0]?.id ?? '',
   )
-  const [partnerId, setPartnerId] = useState<string | null>(null)
-  const [compare, setCompare] = useState(false)
   const [many, setMany] = useState(false)
   const [kept, setKept] = useState<ReadonlySet<string>>(new Set())
 
@@ -98,12 +74,30 @@ export function SeriesView({
     }
   }, [])
 
+  const main = items.find((item) => item.id === mainId) ?? items[0]
+  const compare = usePhotoCompare(main, items)
+
   const latestClose = useRef(onClose)
+  const latestCompare = useRef(compare)
   useEffect(() => {
     latestClose.current = onClose
+    latestCompare.current = compare
   })
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (event.ctrlKey || event.metaKey || event.altKey) return
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      )
+        return
+      if (latestCompare.current.handleKey(event)) {
+        event.preventDefault()
+        return
+      }
       if (event.key !== 'Escape') return
       event.preventDefault()
       latestClose.current()
@@ -114,11 +108,7 @@ export function SeriesView({
     }
   }, [])
 
-  const main = items.find((item) => item.id === mainId) ?? items[0]
   if (main === undefined) return null
-  const partner =
-    items.find((item) => item.id === partnerId && item.id !== main.id) ??
-    items.find((item) => item.id !== main.id)
 
   const select = (id: string) => {
     if (many) {
@@ -129,10 +119,16 @@ export function SeriesView({
         return next
       })
     }
-    if (id !== main.id) {
-      setPartnerId(main.id)
-      setMainId(id)
-    }
+    if (id !== main.id) setMainId(id)
+  }
+  const keepPhoto = (target: MediaItem) => {
+    setMany(true)
+    setKept((current) => {
+      const next = new Set(many ? current : [])
+      if (next.has(target.id)) next.delete(target.id)
+      else next.add(target.id)
+      return next
+    })
   }
   const startMany = () => {
     setMany(true)
@@ -175,20 +171,6 @@ export function SeriesView({
         >
           <Undo2 aria-hidden="true" />
         </button>
-        <button
-          aria-pressed={compare}
-          className={cn(
-            'flex min-h-11 items-center rounded-full bg-white/10 px-4 text-sm font-medium hover:bg-white/20',
-            compare && 'bg-white/30',
-          )}
-          disabled={items.length < 2}
-          type="button"
-          onClick={() => {
-            setCompare((value) => !value)
-          }}
-        >
-          {t('series.compare')}
-        </button>
       </div>
 
       <div
@@ -215,19 +197,20 @@ export function SeriesView({
         ) : null}
       </div>
 
-      <div
-        className={cn(
-          'grid min-h-0 flex-1 gap-2 px-2',
-          compare && partner !== undefined
-            ? 'grid-rows-2 md:grid-cols-2 md:grid-rows-1'
-            : 'grid-rows-1',
-        )}
-        data-testid="series-stage"
-      >
-        <BigImage baseUrl={baseUrl} item={main} />
-        {compare && partner !== undefined ? (
-          <BigImage baseUrl={baseUrl} item={partner} />
-        ) : null}
+      <div className="flex min-h-0 flex-1 flex-col px-2">
+        <PhotoCompare
+          actions={{
+            keep: keepPhoto,
+            kept: (target) => many && kept.has(target.id),
+            star: onStar,
+            trash: onTrash,
+          }}
+          api={compare}
+          baseUrl={baseUrl}
+          main={main}
+          sharpness={sharpness}
+          testId="series-stage"
+        />
       </div>
 
       <ul

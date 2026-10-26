@@ -4,6 +4,7 @@ import {
   DEFAULT_MEDIA_BASE_URL,
   getThumbUrl,
   pickThumbVariant,
+  pickZoomImageVariant,
 } from '@/features/journey-workspace/lib/media-thumb'
 import { med, variant } from '@/features/journey-workspace/test-fixtures'
 
@@ -34,5 +35,22 @@ describe('media thumbnails', () => {
     expect(buildMediaUrl('/a/b.webp', 'https://m.example/')).toBe(
       'https://m.example/a/b.webp',
     )
+  })
+
+  it('zoom takes the largest variant, never a smaller one when a larger exists', () => {
+    const id = med(1).id
+    const mk = (...kinds: Parameters<typeof variant>[1][]) =>
+      med(1, { variants: kinds.map((k) => variant(id, k)) })
+    expect(pickZoomImageVariant(mk('thumb', 'medium', 'large'))?.kind).toBe(
+      'large',
+    )
+    expect(pickZoomImageVariant(mk('large'))?.kind).toBe('large')
+    expect(pickZoomImageVariant(mk('thumb', 'small'))?.kind).toBe('small')
+    expect(pickZoomImageVariant(mk())).toBeNull()
+    const video = med(1, {
+      kind: 'video',
+      variants: [variant(id, 'video'), variant(id, 'poster', 'k/p.jpg')],
+    })
+    expect(pickZoomImageVariant(video)?.kind).toBe('poster')
   })
 })

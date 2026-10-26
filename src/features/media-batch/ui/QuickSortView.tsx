@@ -29,6 +29,7 @@ import { batchMoveTargets } from '@/features/media-batch/model/move-targets'
 import {
   advanceOpen,
   buildSession,
+  comparePool,
   countOpen,
   dayIsDone,
   handledMap,
@@ -52,7 +53,10 @@ import {
   uploaderText,
   type UploaderModel,
 } from '@/features/media-batch/model/uploaders'
+import { relativeSharpness } from '@/features/media-batch/model/series'
+import { PhotoCompare } from '@/features/media-batch/ui/PhotoCompare'
 import { SeriesView } from '@/features/media-batch/ui/SeriesView'
+import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
 import { cn } from '@/shared/lib/cn'
 import { haptic, type HapticKind } from '@/shared/lib/haptics'
 import { buttonVariants } from '@/shared/ui/button-variants'
@@ -86,51 +90,11 @@ const REASON_KEYS = {
   near_time: 'quickSort.reasonNearTime',
 } as const
 
+/** Only measures how long the session took; never an event time. */
+const msSince = (since: number): number => performance.now() - since
+
 const BIG =
   'flex min-h-14 items-center justify-center gap-2 rounded-2xl px-3 text-base font-semibold disabled:opacity-40'
-
-function Stage({
-  baseUrl,
-  dimmed,
-  item,
-  zoom,
-}: {
-  baseUrl: string
-  dimmed: boolean
-  item: MediaItem
-  zoom: boolean
-}) {
-  const { t } = useTranslation()
-  const { imageUrl, videoUrl } = getViewerUrls(item, baseUrl)
-  if (videoUrl !== null) {
-    return (
-      // eslint-disable-next-line jsx-a11y/media-has-caption -- travel videos have no caption tracks
-      <video
-        aria-label={item.caption ?? t('workspace.video')}
-        className="max-h-full max-w-full object-contain"
-        controls
-        key={item.id}
-        playsInline
-        poster={imageUrl ?? undefined}
-        preload="metadata"
-        src={videoUrl}
-      />
-    )
-  }
-  if (imageUrl === null) return null
-  return (
-    <img
-      alt={item.caption ?? ''}
-      className={cn(
-        zoom ? 'max-h-none max-w-none' : 'max-h-full max-w-full object-contain',
-        dimmed && 'opacity-30',
-      )}
-      draggable={false}
-      key={item.id}
-      src={imageUrl}
-    />
-  )
-}
 
 /**
  * "Rychlé třídění": one unsorted photo at a time, full screen. The primary
@@ -180,8 +144,6 @@ export function QuickSortView({
   const [history, setHistory] = useState<SortHistory>([])
   const [overlay, setOverlay] = useState<Overlay>('none')
   const [elapsedMs, setElapsedMs] = useState(0)
-  const [compare, setCompare] = useState(false)
-  const [zoom, setZoom] = useState(false)
 
   const handled = useMemo(() => handledMap(history), [history])
   const index = Math.max(
@@ -192,6 +154,16 @@ export function QuickSortView({
   const item = id === undefined ? undefined : itemOf(id)
   const outcome = id === undefined ? undefined : handled.get(id)
   const isHandled = outcome !== undefined
+
+  // Compare + zoom, shared with the series view. The partner pool is the
+  // photo's series (else its day neighbours), never a trashed photo.
+  const pool = (
+    id === undefined ? [] : comparePool(session, id, handled)
+  ).flatMap((own) => {
+    const found = itemOf(own)
+    return found === undefined ? [] : [found]
+  })
+  const compare = usePhotoCompare(item, pool)
 
   const stops = useMemo(
     () =>
@@ -236,7 +208,7 @@ export function QuickSortView({
   const lastDay = lastSortedDay(session, history)
 
   const openSummary = () => {
-    setElapsedMs(performance.now() - startedAt)
+    setElapsedMs(msSince(startedAt))
     setOverlay('summary')
   }
   const requestExit = () => {
@@ -279,33 +251,53 @@ export function QuickSortView({
     })
   }
 
-  const trash = () => {
-    if (item === undefined || isHandled) return
+  // A (the current photo) is locked once handled. B only when trashed: a kept
+  // B can still be starred or trashed in the same pass.
+  const canAct = (
+    target: MediaItem | undefined,
+    keepsOnly = false,
+  ): target is MediaItem =>
+    target !== undefined &&
+    (target.id === id || keepsOnly
+      ? !handled.has(target.id)
+      : handled.get(target.id) !== 'trash')
+  /** Acts on A (the current photo, then moves on) or on B (stays on A). */
+  const trashPhoto = (target: MediaItem | undefined) => {
+    if (!canAct(target)) return
     commit(
-      { ids: [item.id], type: 'trash' },
-      () => actions.trash([item]),
-      'advance',
+      { ids: [target.id], type: 'trash' },
+      () => actions.trash([target]),
+      target.id === id ? 'advance' : { goTo: id ?? target.id },
     )
   }
-  const star = () => {
-    if (item === undefined || isHandled) return
+  const starPhoto = (target: MediaItem | undefined) => {
+    if (!canAct(target)) return
     seq.current += 1
     const action: SortAction = {
-      ids: [item.id],
+      ids: [target.id],
       seq: seq.current,
-      type: item.starred ? 'unstar' : 'star',
+      type: target.starred ? 'unstar' : 'star',
     }
     haptic('light')
     setHistory((h) => pushAction(h, action))
-    void actions.star([item])
+    void actions.star([target])
+  }
+  const donePhoto = (target: MediaItem | undefined) => {
+    if (!canAct(target, true)) return
+    commit(
+      { ids: [target.id], type: 'done' },
+      () => actions.done([target]),
+      target.id === id ? 'advance' : { goTo: id ?? target.id },
+    )
+  }
+  const trash = () => {
+    trashPhoto(item)
+  }
+  const star = () => {
+    starPhoto(item)
   }
   const done = () => {
-    if (item === undefined || isHandled) return
-    commit(
-      { ids: [item.id], type: 'done' },
-      () => actions.done([item]),
-      'advance',
-    )
+    donePhoto(item)
   }
   const moveTo = (momentId: string) => {
     if (item === undefined || isHandled) return
@@ -394,6 +386,18 @@ export function QuickSortView({
     })
   }
 
+  /** Trashes one photo from inside the series view, which stays open. */
+  const trashOneFromSeries = (target: MediaItem) => {
+    if (!canAct(target)) return
+    const rest = seriesOpen.filter((own) => own !== target.id)
+    const goTo = id !== undefined && rest.includes(id) ? id : rest[0]
+    if (goTo === undefined) return
+    if (rest.length < 2) setOverlay('none')
+    commit({ ids: [target.id], type: 'trash' }, () => actions.trash([target]), {
+      goTo,
+    })
+  }
+
   const continueSession = (targetId?: string) => {
     setOverlay('none')
     const fallback = session.ids.find((own) => !handled.has(own))
@@ -403,6 +407,7 @@ export function QuickSortView({
 
   const latest = useRef({
     accept,
+    compare,
     navigate,
     overlay,
     requestExit,
@@ -415,6 +420,7 @@ export function QuickSortView({
   useEffect(() => {
     latest.current = {
       accept,
+      compare,
       navigate,
       onClose,
       openSeriesView,
@@ -498,6 +504,11 @@ export function QuickSortView({
         if (event.repeat && !repeatable) return
         fn()
       }
+      // Compare and zoom own C, Z, [ ], Tab and the first Esc presses.
+      if (now.compare.handleKey(event)) {
+        event.preventDefault()
+        return
+      }
       switch (event.key) {
         case 'Escape':
           run(now.requestExit)
@@ -537,18 +548,6 @@ export function QuickSortView({
         case 'g':
         case 'G':
           run(now.openSeriesView)
-          break
-        case 'c':
-        case 'C':
-          run(() => {
-            setCompare((value) => !value)
-          })
-          break
-        case 'z':
-        case 'Z':
-          run(() => {
-            setZoom((value) => !value)
-          })
           break
         default:
           break
@@ -597,13 +596,18 @@ export function QuickSortView({
   const handledCount = session.ids.filter((own) => handled.has(own)).length
   const percent = Math.round((handledCount / Math.max(1, total)) * 100)
 
-  // The photo to compare with: a neighbour in its series, else the previous one.
-  const partnerId =
-    seriesOpen.find((own) => own !== id) ??
-    session.ids[index - 1] ??
-    session.ids[index + 1]
-  const partner =
-    compare && partnerId !== undefined ? itemOf(partnerId) : undefined
+  const stopTitleOf = (target: MediaItem): string | null => {
+    if (tree === null || target.momentId === null) return null
+    const entry = collectMoments(tree).find(
+      (found) => found.moment.id === target.momentId,
+    )
+    return entry === undefined ? null : momentTitle(entry, t, locale)
+  }
+  const compareSharpness = relativeSharpness([
+    item,
+    ...(compare.partner === undefined ? [] : [compare.partner]),
+    ...pool,
+  ])
 
   const outcomeLabel =
     outcome === 'trash'
@@ -682,23 +686,13 @@ export function QuickSortView({
 
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div
-            className={cn(
-              'relative min-h-0 flex-1 px-2',
-              zoom
-                ? 'overflow-auto'
-                : cn(
-                    'grid items-center justify-items-center gap-2',
-                    partner === undefined
-                      ? 'grid-cols-1'
-                      : 'grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1',
-                  ),
-            )}
+            className="relative flex min-h-0 flex-1 flex-col px-2"
             data-testid="quick-sort-stage"
             onTouchEnd={(event) => {
               const start = touchStart.current
               const end = event.changedTouches[0]
               touchStart.current = null
-              if (zoom || start === null || end === undefined) return
+              if (compare.zoomed || start === null || end === undefined) return
               const dx = end.clientX - start.x
               const dy = end.clientY - start.y
               if (dy < -SWIPE_MIN_PX && Math.abs(dy) > Math.abs(dx) * 1.5) {
@@ -713,38 +707,38 @@ export function QuickSortView({
             }}
             onTouchStart={(event) => {
               const point = event.touches[0]
+              // A second finger is a pinch, not a swipe.
               touchStart.current =
-                point === undefined
+                point === undefined || event.touches.length > 1
                   ? null
                   : { x: point.clientX, y: point.clientY }
             }}
           >
-            <Stage
+            <PhotoCompare
+              actions={{
+                disabled: (target) =>
+                  target.id === id
+                    ? handled.has(target.id)
+                    : handled.get(target.id) === 'trash',
+                keepDisabled: (target) => handled.has(target.id),
+                keep: donePhoto,
+                star: starPhoto,
+                trash: trashPhoto,
+              }}
+              api={compare}
               baseUrl={baseUrl}
               dimmed={isHandled}
-              item={item}
-              zoom={zoom}
-            />
-            {partner === undefined || zoom ? null : (
-              <Stage
-                baseUrl={baseUrl}
-                dimmed={false}
-                item={partner}
-                zoom={false}
-              />
-            )}
-            {item.starred ? (
-              <Star
-                aria-label={t('quickSort.starredBadge')}
-                className="absolute right-4 top-2 fill-amber-400 text-amber-400"
-                role="img"
-              />
-            ) : null}
-            {outcomeLabel === null ? null : (
-              <p className="absolute left-4 top-2 rounded-full bg-black/70 px-3 py-1 text-xs">
-                {outcomeLabel}
-              </p>
-            )}
+              main={item}
+              sharpness={compareSharpness}
+              stopTitle={stopTitleOf}
+              testId="quick-sort-compare"
+            >
+              {outcomeLabel === null ? null : (
+                <p className="pointer-events-none absolute left-2 top-2 rounded-full bg-black/70 px-3 py-1 text-xs">
+                  {outcomeLabel}
+                </p>
+              )}
+            </PhotoCompare>
           </div>
 
           <aside className="shrink-0 space-y-3 px-3 pt-2 lg:w-80 lg:overflow-y-auto lg:border-l lg:border-white/10 lg:p-4">
@@ -790,28 +784,6 @@ export function QuickSortView({
             </section>
 
             <div className="hidden space-y-4 text-sm lg:block">
-              <div className="flex gap-2">
-                <button
-                  aria-pressed={compare}
-                  className={cn(chip, compare && 'bg-white/30')}
-                  type="button"
-                  onClick={() => {
-                    setCompare((value) => !value)
-                  }}
-                >
-                  {t('quickSort.compare')}
-                </button>
-                <button
-                  aria-pressed={zoom}
-                  className={cn(chip, zoom && 'bg-white/30')}
-                  type="button"
-                  onClick={() => {
-                    setZoom((value) => !value)
-                  }}
-                >
-                  {t('quickSort.zoom')}
-                </button>
-              </div>
               <section aria-label={t('quickSort.panelFacts')}>
                 <h3 className="text-xs uppercase tracking-wide text-white/60">
                   {t('quickSort.panelFacts')}
@@ -933,6 +905,8 @@ export function QuickSortView({
             setOverlay('none')
           }}
           onKeep={keepFromSeries}
+          onStar={starPhoto}
+          onTrash={trashOneFromSeries}
           onUndo={undo}
         />
       ) : null}
