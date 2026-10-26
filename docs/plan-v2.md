@@ -609,6 +609,206 @@ první krok UX-31 je krátký spike na 300 fotkách); `phash` vyžaduje dekódov
 importu, což prodlouží import (měřit); tisk knihovny vyžaduje fotky v rozlišení, které se
 neukládá (originály zůstávají v knihovně) — kniha musí varovat u malých fotek.
 
+#### Fáze 4f — Automatické zastávky a třídění (2026-10-26, 📝 PROPOSED)
+
+Vychází z rozboru algoritmu a toku třídění (2026-10-26) a z diskuse nad ním. Uživatel
+schválil všechna doporučení (rozhodnutí 10 v kap. 9). Navazuje na 4e (UX-30, UX-38)
+a mění fázi 3 v bodě 1 (shlukování do momentů). Nic není implementováno.
+
+##### Zjištění
+
+- **Shlukování selhává ve 14 z 24 syntetických scénářů** (jen `clusterMoments`, stage
+  a trip vrstva nespuštěna). Pěší zastávky se slévají (procházka městem: 1 moment
+  místo 8), z jízd vznikají jednofotkové „zastávky“ (180 km autem: 8 momentů),
+  řídký výběr fotek se zhroutí do jednoho momentu, osamělá fotka zmizí ve vzdáleném
+  sousedovi, dva telefony 20 km od sebe dají 40 jednofotkových momentů. Příčiny
+  (`moments.ts`): pevné prahy 15 min / 3 km od těžiště, slučování skupin < 3 fotky do
+  sousedů až 6 h / 5 km bez stropu, žádný filtr odlehlých GPS, žádné proudy podle
+  autora, fotky bez GPS jen časem do 30 min.
+- **Vrstva dnů** (`days.ts`, `stages.ts`, `trips.ts`, `journey-plan.ts`) zná jen celé
+  dny. Výlet nebo přesun uvnitř dne nevzniká, i když ho `segments` (`starts_at`,
+  `ends_at`, `trip_type`) unesou bez migrace.
+- **Rychlost mezi fotkami** rozliší chůzi, kolo a auto jen při krátkých mezerách.
+  Při dlouhé mezeře (auto s fotkou po 2 h, kolona) je potřeba víc signálů a míra jistoty.
+- **Tok:** „Uspořádat automaticky“ je ruční tlačítko, nic ho nespouští. Rychlé třídění
+  bez existujících zastávek nabízí u každé fotky „Nová zastávka“. Titulek
+  „Zastávka 15:07“ je náhradní popisek (`placeNames = null`). Fotky z doplňku se
+  nekontrolují proti existujícím ručním zastávkám.
+- **Třídění na webu** (`QuickSortView.tsx`): fotka přetéká pod lištu (grid bez pevné
+  výšky řádku), zoom schová porovnávanou fotku, na dotyku chybí Porovnat a Zoom,
+  „Zoom 100 %“ bere variantu `large`, partner porovnání je náhodný, akce platí jen pro
+  hlavní fotku, seznam „Změnit“ nepoužívá bohatý `MoveToSheet`, barvy jsou natvrdo
+  ve třech pohledech, ★ nikde nevysvětluje, k čemu slouží.
+- **Reálná pravda už v repu je:** `packages/core/src/automation/fixtures/canada-v1.ts`
+  (9 dní reálné cesty, anonymizované souřadnice, ruční seskupení z v1 v `v1Entry`).
+  Celá Kanada (`locked`/`manual` zastávky v produkci) se čte jen přes orchestrátora.
+
+##### Principy
+
+1. Stroj navrhne, člověk potvrdí. Každé rozhodnutí algoritmu nese **důvod**
+   („rozděleno: 2,4 km autem“), stejně jako etapy ve `stages.ts`.
+2. Žádná fotka se neztratí. Koš je obnovitelný, nejistota se řeší viditelně.
+3. Ptáme se jen tam, kde to má dopad. Práce se řadí podle jistoty.
+4. UI nemluví nepravdu: žádné „Zastávka 15:07“ a žádný interval u jedné fotky („kolem 15:07“).
+5. Měříme, nehádáme. Metrikou je práce uživatele, ne abstraktní index.
+6. Hloubka hierarchie odpovídá velikosti cesty. Prázdná úroveň se neukazuje.
+
+##### Algoritmus „Pobyt – pohyb – výlet“
+
+Čisté deterministické funkce v `packages/core/src/automation`, bez platformních závislostí.
+
+1. **Příprava.** Proudy podle autora (`owner_id`) a zařízení (nový sloupec, ZS-D3).
+   Filtr odlehlých GPS (daleko od mediánu sousedů ±30 min nebo nemožná rychlost →
+   bod ztratí polohu, ne čas). Doplnění polohy fotkám bez GPS ze stejného proudu nebo
+   interpolací. Podezřelý posun hodin foťáku (celé hodiny proti proudu s GPS) se
+   **navrhne** k opravě přes `shift_media_time` (D2), nikdy se neopraví potichu.
+   Video počítá s trváním, Live Photo nevytváří druhý bod.
+2. **Pobyty.** Prostorově časové shluky s adaptivním poloměrem (výchozí 150–300 m).
+   Časový práh je **plynulý**: k × medián mezer v klouzavém okně dané osoby, s dolní
+   a horní mezí. Pevný přepínač „řídký den“ se nepoužívá. Dopoledne husté
+   a odpoledne řídké se zpracují správně. V řídkém úseku je každá fotka záměrný důkaz
+   přítomnosti a nic se nesráží: zastávky vznikají z prostorové blízkosti (~400 m)
+   a osamělá fotka je platná zastávka typu `point`.
+3. **Mezery mezi pobyty.** Klasifikuje se úsek, ne pár fotek: vzdálenost, čas,
+   rychlost, nadmořská výška, druh místa, sousední úseky. Výsledek: chůze, kolo,
+   vozidlo, nebo neznámý přesun, s jistotou. Když pravidla nestačí, přichází v úvahu
+   malý HMM (Viterbi), pořád deterministický.
+4. **Cestou.** Fotky z jízdy (vozidlo kolem) tvoří sbalenou zastávku typu `en_route`
+   u přesunu. Zastávkou `stay`/`point` se stanou jen u známého místa (atrakce, vrchol,
+   město do 150 m), při zpomalení, při ≥ 3 fotkách v ~300 m nebo ≥ 10 min, nebo
+   v řídkém výběru (bod 2). Povýšení z „Cestou“ je jedno ťuknutí.
+5. **Výlet uvnitř dne.** Pěšky nebo na kole ≥ 90 min a ≥ 3 km (příroda nebo smyčka)
+   = segment `trip` (`trek`/`day`) s rozhledy jako zastávkami. Městská procházka nad
+   prahem je výlet `walk` (nový `trip_type`, ZS-D2) se zastávkami jako body, pod
+   prahem samostatné zastávky. Vícedenní výlety dál řeší `trips.ts` (večery mimo
+   základnu) a obě vrstvy používají stejné typy.
+6. **Souběh osob.** Více autorů současně na různých místech → **paralelní zastávky**
+   podle osoby. Blízké proudy (stovky metrů) se spojí. **Výlety a etapy zůstávají
+   společné**, protože členství v úsecích se určuje časem (kap. 4.1). Výlet jen jedné
+   osoby je fáze 6.
+7. **Příjem do stávajícího.** Nová fotka se zařadí do existující zastávky, pokud do ní
+   patří časem i polohou. Potvrzenou zastávku jde **jen rozšířit**, a to v časovém
+   okně u jejího okraje (výchozí ±2 h) a nikdy přes hranici dne. Zbytek vytvoří nové
+   zastávky. Stabilní ID (kotva = nejstarší fotka).
+8. **Zámek.** Každý vědomý zásah (přesun fotky, přejmenování, sloučení, rozdělení,
+   potvrzení) zastávku zamkne (`locked`) a automatika na ni už nesáhne.
+9. **Názvy.** Automatika **neukládá `title`**, jen `place_id`. UI název odvodí: konkrétní
+   místo (vrchol, jezero, atrakce) → čtvrť a město → „u města“ → denní doba
+   („čtvrtek odpoledne“). Stejné názvy v jednom dni se rozliší („Banff · ráno“). Před
+   dorazením se ukáže skeleton „Hledám místo…“. Uložený `title` = ruční název a zámek
+   (v souladu s rozhodnutím 8: názvy z míst jsou jen návrh).
+10. **Geokódování** běží už při uspořádání: cache po mřížce, dávky, pořadí podle
+    viditelnosti (nejdřív aktuální den). Ověřit denní limit Geoapify na volném tarifu.
+
+Tvar dne (město, celodenní výlet, výlet + zastávky, přesunový den, pobytový den, řídký
+den) se odvozuje, neukládá se. Interní typy (`stay`, `point`, `en_route`) uživatel
+nevidí, jen ikonu (špendlík, bota, auto) a čas („kolem 15:07“).
+
+##### UX: hloubka podle velikosti cesty
+
+| Rozsah cesty             | Co uživatel vidí                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------- |
+| výlet na jeden den       | zastávky (bez dnů a etap)                                                                     |
+| víkend, týdenní dovolená | dny → zastávky, výlety a přesuny jako karty ve dni, základna („bydleli jsme v…“) z `trips.ts` |
+| delší trip (2–6 týdnů)   | dny, etapy jako návrh                                                                         |
+| velká cesta (měsíce)     | etapy → dny → zastávky, třídění a postup po etapách                                           |
+
+Etapa se nabídne až při ≥ 2 navržených etapách s jasným důvodem, jinak úroveň neexistuje.
+Odvozeno, bez DB.
+
+##### UX: tok
+
+**Nahrání → automatické uspořádání → Příjem → třídění po dnech → konec dne (UX-38).**
+
+1. **Auto-uspořádání po nahrání** běží samo (zařazení do existujících, nové zastávky,
+   výlety, přesuny, názvy, série, návrhy do koše). Nové zastávky mají štítek „nová“.
+   **Vrátit uspořádání** vrací jen strukturu nezamčených zastávek, nikdy koš, ★
+   a ruční zásahy.
+2. **Příjem** ukazuje **jen nově přišlé dny** (na cestě večer z telefonu, doma
+   hromadně). Práci řadí podle jistoty: „32 zastávek vypadá jistě, 8 potřebuje oko“.
+3. **Třídění po dnech, jedna smyčka** (spojuje kontrolu zastávek a třídění fotek):
+   nahoře pás zastávek dne (obálka, název, počet), pod ním fotky aktuální zastávky
+   s akcemi **Koš · Nechat · ★ Nejlepší**, tah nahoru = koš, Undo, automatický posun.
+   Rozdělit = „řez před touto fotkou“, sloučit = přetažení na souseda nebo „sloučit
+   s předchozí“. Dotřídění zastávky ji potvrdí (zámek). Dny s vysokou jistotou mají
+   hromadné **„Den sedí“**. Karta „Nevím kam“ pro nezařazené.
+4. **Potvrzení struktury ≠ fotky roztříděné.** „Den sedí“ nebo potvrzení zastávky
+   neoznačí fotky jako vyřízené (`reviewed_at`). Fotka je roztříděná až po projití.
+   Pak platí „co není v koši, zůstává“. Návrhy do koše (rozmazané, duplicity, balast)
+   jsou označené a zesvětlené s důvodem, ne smazané.
+5. **Porovnání a zoom** (jedna komponenta pro třídění i sérii): vedle sebe na šířku,
+   nad sebou na výšku, pevné řádky `minmax(0,1fr)`, popisek pod každou fotkou. Partner
+   je nejbližší ze stejné série, nikdy z koše, s výběrem `[` `]`, a `Tab` fotky prohodí.
+   Akce pro A i B. Synchronní zoom na bod (dvojklik nebo dvojťuk, pinch, Ctrl+kolečko,
+   tažení, `Z`), úrovně Celé → 100 % → 200 % s dotažením největší varianty a skutečným
+   měřítkem v popisku. Ovladače i na dotyku.
+6. **Jeden list „Přesunout do“:** `MoveToSheet` všude (obálky, počty, čas, návrh nahoře,
+   seskupení po dnech, „Nová zastávka“ s názvem místa). `batchMoveTargets` a vlastní
+   overlay se odstraní.
+7. **Vizuál:** oprava layoutu fotky, pastelové tokeny `--color-action-keep/trash/star`
+   pro všechny tři pohledy (WCAG AA), vysvětlení ★ (tooltip, nápověda zkratek, toast po
+   prvním označení, filtr ★). Nová slova („Cestou“, „Přesun“) projdou slovníkem UX-02.
+
+##### DB kontrakt (aditivní, DB první)
+
+| #     | Obsah                                                                                                                                                                                                                                                                     | Proč                       |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| ZS-D1 | `moments.kind text` (`stay`/`point`/`en_route`, default `stay`), check constraint, granty jako u ostatních sloupců `moments`                                                                                                                                              | „Cestou“, body, UI a počty |
+| ZS-D2 | `trip_type` rozšířit o `walk`                                                                                                                                                                                                                                             | městská procházka          |
+| ZS-D3 | `media.device text` (normalizovaný EXIF Make + Model, nullable), plnění při importu (web i iOS)                                                                                                                                                                           | proudy, posun hodin        |
+| ZS-D4 | **Hranice dne ve 4:00 místního času**, pásmo dne = pásmo převahy fotek toho dne (jinak `home_tz`). Jedna definice v SQL (sdílená funkce pro `journey_progress`, `day_notes`, veřejné RPC) i v `core` (`summarizeZonedDays`), pgTAP včetně přejezdu pásem a datové hranice | dny bez zdvojení a děr     |
+
+Bez migrace: výlet a přesun uvnitř dne (`segments`, ověřit RLS a pgTAP), zámek (`locked`,
+`origin`), jistota (odvozená, v UI jen pro řazení práce).
+
+##### Měření
+
+- **Harness (ZS-0):** 24 scénářů jako fixtures (doplnit video a Live Photo) a vlastnosti:
+  nezávislost na pořadí vstupu, idempotence, přidání vzdálených fotek nezmění zamčenou
+  zastávku, stabilní ID, zóny a DST, přejezd datové hranice.
+- **Reálná pravda:** `canada-v1.ts` hned. Celá Kanada jen s `locked`/`manual`
+  zastávkami, neupravené automatické nejsou pravda.
+- **Metriky:** **počet úprav k pravdě** (rozdělení a sloučení na 100 fotek, odpovídá
+  bráně „Kanada do 30 minut“) a **B-cubed F1** po fotkách. Randův index se nepoužívá.
+
+| Metrika (výchozí cíle, doladit po ZS-0) | Cíl             |
+| --------------------------------------- | --------------- |
+| Úpravy k pravdě                         | ≤ 3 / 100 fotek |
+| B-cubed F1 zastávek (Kanada)            | ≥ 0,85          |
+| Média ve správném výletu (brána fáze 3) | ≥ 90 %          |
+| Jednofotkové zastávky z jízd            | ≤ 5 %           |
+| Selhání z 24 scénářů                    | 0               |
+| Výkon, 5 000 fotek (bez geokódování)    | < 2 s           |
+| Determinismus a idempotence             | 100 %           |
+
+##### Úkoly (stav všech: 📝 PROPOSED)
+
+| ID   | Úkol                                                                                                                                                                            | Role | Závisí na   |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ----------- |
+| ZS-0 | Harness: 24 scénářů, vlastnosti, `canada-v1.ts`, metriky, baseline dnešního algoritmu                                                                                           | app  | —           |
+| ZS-1 | DB kontrakt ZS-D1 až D4, pgTAP, `db:types`                                                                                                                                      | db   | —           |
+| ZS-2 | Rychlé opravy třídění: layout fotky, porovnání a zoom, `MoveToSheet` všude, pastelové tokeny, vysvětlení ★, `placeNames` se skeletonem, `suggestStop` respektuje zařazení fotky | app  | —           |
+| ZS-3 | Příprava a robustnost: proudy, odlehlé body, doplnění polohy, návrh posunu hodin, plynulá hustota, body                                                                         | app  | ZS-0, ZS-1  |
+| ZS-4 | Pobyty, klasifikace mezer, „Cestou“, výlet uvnitř dne (`walk`/`trek`/`day`), souběh osob, důvody                                                                                | app  | ZS-3        |
+| ZS-5 | Příjem do stávajícího, okno rozšíření, zámek při zásahu, názvy bez `title`, geokódování při uspořádání                                                                          | app  | ZS-4        |
+| ZS-6 | Hloubka hierarchie podle velikosti cesty                                                                                                                                        | app  | ZS-4        |
+| ZS-7 | Tok: auto-uspořádání po nahrání, Vrátit uspořádání, Příjem nových dnů podle jistoty, třídění po dnech, „Den sedí“, Nevím kam                                                    | app  | ZS-5, UX-30 |
+| ZS-8 | Ladění na reálných datech, iPhone (paměť dvou velkých fotek ve WKWebView), EXIF `GPSSpeed` a čas v GPX (UNVERIFIED)                                                             | app  | ZS-7        |
+
+Pořadí: ZS-0, ZS-1 a ZS-2 souběžně (nezávislé). Pak ZS-3 → ZS-4 → ZS-5, ZS-6 → ZS-7 → ZS-8.
+Před ZS-7 krátké schválení tvaru obrazovek (mockupy).
+
+**Brány:** ZS-3: scénáře řídkého výběru, odlehlých bodů, posunu hodin a dvou telefonů
+v zelených, nic se nezhoršilo. ZS-4: procházka, túra, jízda, kolo, vlak a smíšený den
+v zelených, výlet a přesun uvnitř dne v `segments`. ZS-7: celý tok na reálných datech,
+koš, Undo a Vrátit uspořádání ověřené. ZS-8: cíle z tabulky metrik, iPhone i web.
+Vždy `pnpm check` a `pnpm db:test` zelené.
+
+Rizika: průjezd × zastávka u jediné fotky je z dat nerozhodnutelný (proto jistota
+a „Cestou“ s povýšením). Reálná GPS jsou hlučnější než scénáře, prahy jsou jen
+výchozí. Geokódování stovek zastávek trvá minuty (cache, pořadí podle viditelnosti).
+Změna hranice dne se dotkne DB, klienta i veřejných stránek najednou.
+
 ### Fáze 5 — Prezentační vrstva
 
 - **Rozhodnutí na začátku fáze:** předgenerované veřejné stránky (při publikaci)
@@ -821,3 +1021,11 @@ dalších samostatných reportů.
    zůstává `moments`). Etapa zůstává etapou (název „kapitola“ zamítnut). Zápis ke dni
    ano, vedle textů fotky, zastávky, výletu, etapy a cesty. Detail dne je panel
    s vlastní adresou. Výběr nejlepších ano. Pořadí kap. 5, Fáze 4c.
+10. **Automatické zastávky a třídění (2026-10-26):** uspořádání běží samo po nahrání,
+    hranice dne ve 4:00 místního času (pásmo dne = pásmo převahy fotek). Osamělá fotka
+    při jízdě jde do „Cestou“, zastávkou je jen u známého místa nebo v řídkém výběru.
+    Kontrola zastávek a třídění fotek jsou jedna smyčka po dnech s hromadným „Den sedí“.
+    Potvrzení struktury neoznačí fotky jako roztříděné. Souběh osob jen u zastávek,
+    výlety a etapy společné. `moments.kind`, `trip_type` `walk` a `media.device` jako
+    aditivní migrace. Metriky: úpravy k pravdě a B-cubed F1. Hloubka hierarchie podle
+    velikosti cesty. Podrobnosti kap. 5, Fáze 4f.

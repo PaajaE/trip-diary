@@ -43,8 +43,17 @@ fáze, brány a rozhodnutí (kap. 9). Stav fází se zapisuje do `docs/v2-status
   Only one agent edits a given file, migration, or shared type at a time.
 - Do not assume MCP tools (Supabase, Cloudflare) are available to subagents. Production
   access is read-only and done by the orchestrator on request.
+- Model choice for subagents: the cheapest model that does the task reliably (Agent tool
+  `model`). `haiku` for read-only searches and small, well-specified local edits;
+  `sonnet` for bounded features, test suites and UI reviews; the default (strongest)
+  model for DB contract, migrations, RLS, algorithms, cross-layer decisions and their
+  reviews. Never `haiku` for security-sensitive work. A task that fails acceptance
+  twice or leaves its brief is rerun one tier up, not retried on the same model.
+- Commits and pushes to the session's working branch are allowed after a task is
+  verified (diff read, checks run and green). Never push to another branch, open or
+  merge a PR, or rewrite pushed history without asking.
 - Ask the user before: remote migrations or DB writes, deploys, secrets/auth changes,
-  Cloudflare production changes, deleting data, commits/pushes, destructive git,
+  Cloudflare production changes, deleting data, destructive git,
   installing MCPs/plugins/dependencies. Never print or commit secrets.
 - Preserve uncommitted changes: no stash, reset, clean, or revert.
 - New technical docs and agent configuration are written in English.
