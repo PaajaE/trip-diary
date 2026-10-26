@@ -40,14 +40,16 @@ function media(
 
 describe('groupBatchByDay', () => {
   it('groups by the local day of the capture zone, not by UTC', () => {
-    // 23:30 UTC on 1 Jun is already 2 Jun in Prague (UTC+2).
+    // 02:30 UTC on 2 Jun is 04:30 in Prague (UTC+2): the day starts at 04:00,
+    // so it is 2 Jun, while 23:30 UTC on 1 Jun (01:30 on 2 Jun) is still 1 Jun.
     const days = groupBatchByDay([
       media('a', '2026-06-01T10:00:00Z'),
-      media('b', '2026-06-01T23:30:00Z'),
+      media('b', '2026-06-02T02:30:00Z'),
       media('c', '2026-06-02T08:00:00Z'),
+      media('d', '2026-06-01T23:30:00Z'),
     ])
     expect(days.map((day) => [day.key, day.items.map((i) => i.id)])).toEqual([
-      ['2026-06-01', ['a']],
+      ['2026-06-01', ['a', 'd']],
       ['2026-06-02', ['b', 'c']],
     ])
   })

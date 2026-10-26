@@ -1,3 +1,10 @@
+import {
+  isKnownTimeZone,
+  localDay,
+  pickLocalDay,
+  photoDayZones,
+  type PhotoDayZones,
+} from '@trip-diary/core/automation'
 import { browserZone } from '@/features/journey-workspace/lib/format-range'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
 
@@ -8,39 +15,22 @@ export const LOOSE_SCOPE = 'loose'
 export const UNKNOWN_DAY = 'unknown'
 
 const zoneCache = new Map<string, string>()
-const dayFormatters = new Map<string, Intl.DateTimeFormat>()
 
 function safeZone(tz: string | null): string {
   if (tz !== null) {
     const cached = zoneCache.get(tz)
     if (cached !== undefined) return cached
-    try {
-      new Intl.DateTimeFormat('en', { timeZone: tz })
+    if (isKnownTimeZone(tz)) {
       zoneCache.set(tz, tz)
       return tz
-    } catch {
-      /* fall through to the device zone */
     }
   }
   return browserZone()
 }
 
-function dayFormatter(zone: string): Intl.DateTimeFormat {
-  let formatter = dayFormatters.get(zone)
-  if (formatter === undefined) {
-    formatter = new Intl.DateTimeFormat('en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      timeZone: zone,
-      year: 'numeric',
-    })
-    dayFormatters.set(zone, formatter)
-  }
-  return formatter
-}
-
 /**
- * Local calendar day ("2026-05-29") of an instant in an IANA zone. A missing
+ * Local calendar day ("2026-05-29") of an instant in an IANA zone; a day
+ * starts at 04:00 local time (00:40 is still the previous day). A missing
  * or invalid zone means the device zone; a missing or invalid instant has no day (null).
  */
 export function localDayKey(
@@ -50,10 +40,53 @@ export function localDayKey(
   if (iso === null) return null
   const time = Date.parse(iso)
   if (Number.isNaN(time)) return null
-  const parts = dayFormatter(safeZone(tz)).formatToParts(new Date(time))
-  const pick = (type: string) =>
-    parts.find((part) => part.type === type)?.value ?? ''
-  return `${pick('year')}-${pick('month')}-${pick('day')}`
+  return localDay(time, safeZone(tz))
+}
+
+/** A media item as far as day zones are concerned. */
+export interface DatedMedia {
+  capturedAt: string | null
+  capturedTz: string | null
+  /** Omitted = ready. Only ready media vote (like SQL journey_day_zones). */
+  status?: string
+}
+
+/**
+ * Photo days of a journey and the zone each is mostly spent in (SQL
+ * journey_day_zones): ready, dated media vote with their capture zone, else
+ * the home zone (UTC when unset). Build once per tree, not per item.
+ */
+export function buildPhotoDays(
+  media: readonly DatedMedia[],
+  homeTz: string | null,
+): PhotoDayZones {
+  const home = homeTz !== null && isKnownTimeZone(homeTz) ? homeTz : 'UTC'
+  const photos: { instant: number; zone: string }[] = []
+  for (const item of media) {
+    if (item.status !== undefined && item.status !== 'ready') continue
+    if (item.capturedAt === null) continue
+    const instant = Date.parse(item.capturedAt)
+    if (Number.isNaN(instant)) continue
+    const own = item.capturedTz
+    photos.push({
+      instant,
+      zone: own !== null && isKnownTimeZone(own) ? own : home,
+    })
+  }
+  return photoDayZones(photos)
+}
+
+function dayOf(
+  entry: WorkspaceMoment,
+  fallbackTz: string | null,
+  photoDays: PhotoDayZones | null,
+): string | null {
+  if (photoDays === null) {
+    return localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
+  }
+  const time = Date.parse(entry.moment.startsAt)
+  if (Number.isNaN(time)) return null
+  return pickLocalDay(time, fallbackTz, photoDays.dates, photoDays.zones)
 }
 
 export interface MomentDay {
@@ -67,18 +100,20 @@ export interface MomentDay {
 
 /**
  * Groups time-ordered moments by local calendar day of their start in their
- * own zone (fallback: `fallbackTz`, then UTC). Days keep first-seen order;
+ * own zone (fallback: `fallbackTz`, then the device zone). With `photoDays`
+ * the SQL rule applies instead (pick_local_day: photo day zones, else
+ * `fallbackTz` as home zone, UTC when unset). Days keep first-seen order;
  * moments without a usable start go to one trailing UNKNOWN_DAY group.
  */
 export function groupMomentsByDay(
   entries: readonly WorkspaceMoment[],
   fallbackTz: string | null = null,
+  photoDays: PhotoDayZones | null = null,
 ): MomentDay[] {
   const days = new Map<string, MomentDay>()
   const counts = new Map<string, Map<string, number>>()
   for (const entry of entries) {
-    const key =
-      localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz) ?? UNKNOWN_DAY
+    const key = dayOf(entry, fallbackTz, photoDays) ?? UNKNOWN_DAY
     let day = days.get(key)
     if (day === undefined) {
       day = { key, moments: [], photoCount: 0, placeIds: [] }
@@ -138,10 +173,11 @@ export function dayPlaceNames(
 export function firstDayKey(
   entries: readonly WorkspaceMoment[],
   fallbackTz: string | null = null,
+  photoDays: PhotoDayZones | null = null,
 ): string | null {
   let first: string | null = null
   for (const entry of entries) {
-    const key = localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
+    const key = dayOf(entry, fallbackTz, photoDays)
     if (key !== null && (first === null || key < first)) first = key
   }
   return first
