@@ -22,6 +22,7 @@ function toMoment(row: MomentRow): Moment {
     endsAt: row.ends_at,
     id: row.id,
     journeyId: row.journey_id,
+    kind: row.kind,
     latitude: row.latitude,
     locked: row.locked,
     longitude: row.longitude,
@@ -52,6 +53,14 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
   if (patch.published !== undefined) update.published = patch.published
   if (patch.startsAt !== undefined) update.starts_at = patch.startsAt
   if (patch.title !== undefined) update.title = patch.title
+  // A conscious edit of the content locks the moment (plan principle: every
+  // deliberate intervention locks), so the automation never regroups it.
+  const editsContent =
+    patch.body !== undefined ||
+    patch.coverMediaId !== undefined ||
+    patch.published !== undefined ||
+    patch.title !== undefined
+  if (patch.locked === undefined && editsContent) update.locked = true
   return update
 }
 
@@ -210,6 +219,7 @@ export async function createMoments(inputs: NewMoment[]): Promise<void> {
       ends_at: input.endsAt,
       id: input.id,
       journey_id: input.journeyId,
+      kind: input.kind ?? 'stay',
       latitude: input.latitude,
       locked: input.locked ?? false,
       longitude: input.longitude,

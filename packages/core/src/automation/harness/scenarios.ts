@@ -21,6 +21,11 @@ export interface HarnessPoint extends MediaPoint {
 export interface Scenario {
   /** What the ideal result looks like, in words. */
   expectation: string
+  /**
+   * In-day trips the algorithm must find (ZS-4), as trip types in time order;
+   * empty = none (a walk or ride below 90 min / 3 km is no trip).
+   */
+  expectedTrips: ('day' | 'trek' | 'walk')[]
   /** Expected stop groups (media ids). Photos in no group are unconstrained. */
   expectedGroups: string[][]
   id: string
@@ -220,6 +225,7 @@ type ScenarioCore = Pick<
   Partial<
     Pick<
       Scenario,
+      | 'expectedTrips'
       | 'knownFailingToday'
       | 'livePairs'
       | 'toleranceEdits'
@@ -232,6 +238,7 @@ function scenario(core: ScenarioCore): Scenario {
   return {
     expectation: core.expectation,
     expectedGroups: core.expectedGroups,
+    expectedTrips: core.expectedTrips ?? [],
     id: core.id,
     knownFailingToday: core.knownFailingToday ?? false,
     label: core.label,
@@ -282,6 +289,7 @@ function scenarioB(): Scenario {
   return scenario({
     expectation: '1 trip',
     expectedGroups: [ids],
+    expectedTrips: ['trek'],
     id: 'B',
     knownFailingToday: true,
     label: 'Trek 6 h / 10 km, photo every 12 min',
@@ -446,6 +454,7 @@ function scenarioI(): Scenario {
   return scenario({
     expectation: '3 city stops + trek trip + dinner stop, drives are transit',
     expectedGroups: groups,
+    expectedTrips: ['trek'],
     id: 'I',
     knownFailingToday: true,
     label: 'Day: city, car, 4 h loop trek, car, dinner',
@@ -786,6 +795,91 @@ function scenarioZ(): Scenario {
   })
 }
 
+/**
+ * AA (ZS-3, real-data finding): copies of photos with no time zone, the very
+ * same coordinates and a clock whole hours off. They must join the stop of
+ * the original instead of forming bogus stops hours away.
+ */
+function scenarioAA(): Scenario {
+  const b = createBuilder('AA', 127)
+  const c = start()
+  const first = stay(b, c, 6, 1, { jitterM: 20 })
+  travel(c, 40, 2000)
+  const second = stay(b, c, 6, 1, { jitterM: 20 })
+  for (const point of b.points) point.capturedTz = 'Europe/Prague'
+  const copy = (id: string | undefined, hours: number, group: string[]) => {
+    const original = b.points.find((point) => point.id === id)
+    if (original === undefined) return
+    const copyId = `AA${String(b.points.length + 1).padStart(4, '0')}`
+    b.points.push({
+      ...original,
+      capturedAt: new Date(
+        Date.parse(original.capturedAt) + hours * 3_600_000,
+      ).toISOString(),
+      capturedTz: null,
+      id: copyId,
+    })
+    group.push(copyId)
+  }
+  copy(first[0], 2, first)
+  copy(first[2], 2, first)
+  copy(first[4], 5, first)
+  copy(second[1], 1, second)
+  copy(second[3], 8, second)
+  return scenario({
+    expectation:
+      '2 stops; the clock-shifted copies join the stop of their original',
+    expectedGroups: [first, second],
+    id: 'AA',
+    knownFailingToday: true,
+    label: 'Copies without time zone, same coordinates, whole hours off',
+    points: b.points,
+  })
+}
+
+/**
+ * AB (ZS-4): an urban walk above the trip threshold (~2 h, 5.4 km, geocoded
+ * to a settlement): 7 stops of 4 photos and a `walk` trip around them.
+ */
+function scenarioAB(): Scenario {
+  const b = createBuilder('AB', 128)
+  const c = start()
+  const groups: string[][] = []
+  for (let sight = 0; sight < 7; sight += 1) {
+    groups.push(stay(b, c, 4, 1.5, { jitterM: 25 }))
+    travel(c, 13, 900)
+  }
+  for (const point of b.points) point.placeKind = 'settlement'
+  return scenario({
+    expectation: '7 stops inside one walk trip',
+    expectedGroups: groups,
+    expectedTrips: ['walk'],
+    id: 'AB',
+    label: 'Urban walk 2 h / 5.4 km, 7 stops of 4 photos',
+    points: b.points,
+  })
+}
+
+/** AC (ZS-4): a 2 h bike ride, a photo every 15 min: one ride, a `day` trip. */
+function scenarioAC(): Scenario {
+  const b = createBuilder('AC', 129)
+  const c = start()
+  const ids = drive(b, c, { dEast: 40_000, minutes: 120, photoEvery: 15 })
+  return scenario({
+    expectation: '1 ride inside one day trip',
+    expectedGroups: [ids],
+    expectedTrips: ['day'],
+    id: 'AC',
+    label: 'Bike 2 h / 40 km, photo every 15 min',
+    points: b.points,
+  })
+}
+
+/** Scenarios added after ZS-0 (ids AA and on), kept apart from the 26. */
+export function buildExtraScenarios(): Scenario[] {
+  return [scenarioAA(), scenarioAB(), scenarioAC()]
+}
+
 /** All 26 scenarios in id order. Fresh objects on every call. */
 export function buildScenarios(): Scenario[] {
   return [
@@ -841,6 +935,39 @@ export function generatePerfPoints(
       hop * Math.cos(angle),
       hop * Math.sin(angle),
     )
+  }
+  return b.points
+}
+
+/** All-day stay at one place: a photo every 30 s (long visit, perf). */
+export function generateLongStayPoints(count: number, seed: number) {
+  const b = createBuilder('L', seed)
+  for (let index = 0; index < count; index += 1) {
+    b.add({ east: 0, jitterM: 40, minute: index * 0.5, north: 0 })
+  }
+  return b.points
+}
+
+/** Bursts with equal capture timestamps, a few places (perf, ties). */
+export function generateEqualTimestampPoints(count: number, seed: number) {
+  const b = createBuilder('Q', seed)
+  for (let index = 0; index < count; index += 1) {
+    const burst = Math.floor(index / 100)
+    b.add({
+      east: (burst % 5) * 2000,
+      jitterM: 30,
+      minute: burst * 20,
+      north: 0,
+    })
+  }
+  return b.points
+}
+
+/** Photos without any GPS, one a minute (perf, time-only chain). */
+export function generateNoGpsPoints(count: number, seed: number) {
+  const b = createBuilder('N', seed)
+  for (let index = 0; index < count; index += 1) {
+    b.add({ east: 0, gps: false, minute: index, north: 0 })
   }
   return b.points
 }

@@ -10,6 +10,9 @@ import {
 } from '@trip-diary/utils'
 
 export interface RawExifTime {
+  /** EXIF Make / Model (raw strings), for the media.device column. */
+  make?: string | null
+  model?: string | null
   dateTimeOriginal: string | null
   offsetTimeOriginal: string | null
   subsecTimeOriginal: string | null
@@ -67,14 +70,22 @@ export function resolveCaptureTime(
 
 /** Reads raw (unrevived) EXIF time strings so no local zone is applied. */
 export async function readRawExifTime(file: File): Promise<RawExifTime> {
-  const empty = {
+  const empty: RawExifTime = {
+    make: null,
+    model: null,
     dateTimeOriginal: null,
     offsetTimeOriginal: null,
     subsecTimeOriginal: null,
   }
   try {
     const tags = (await exifr.parse(await file.arrayBuffer(), {
-      pick: ['DateTimeOriginal', 'OffsetTimeOriginal', 'SubSecTimeOriginal'],
+      pick: [
+        'Make',
+        'Model',
+        'DateTimeOriginal',
+        'OffsetTimeOriginal',
+        'SubSecTimeOriginal',
+      ],
       reviveValues: false,
     })) as Record<string, unknown> | undefined
     const text = (value: unknown): string | null =>
@@ -84,6 +95,8 @@ export async function readRawExifTime(file: File): Promise<RawExifTime> {
           ? String(value)
           : null
     return {
+      make: text(tags?.Make),
+      model: text(tags?.Model),
       dateTimeOriginal: text(tags?.DateTimeOriginal),
       offsetTimeOriginal: text(tags?.OffsetTimeOriginal),
       subsecTimeOriginal: text(tags?.SubSecTimeOriginal),

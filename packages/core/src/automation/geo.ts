@@ -18,19 +18,37 @@ export function distanceKm(a: GeoPoint, b: GeoPoint): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-/** Arithmetic mean of points; fine for the small extent of one moment. */
+/** Longitude difference `to - from` folded into [-180, 180] (antimeridian). */
+export function lonDelta(from: number, to: number): number {
+  let delta = (to - from) % 360
+  if (delta > 180) delta -= 360
+  else if (delta < -180) delta += 360
+  return delta
+}
+
+/** Longitude folded into [-180, 180]. */
+export function wrapLon(longitude: number): number {
+  return lonDelta(0, longitude)
+}
+
+/**
+ * Arithmetic mean of points; fine for the small extent of one moment. The
+ * longitude is averaged relative to the first point, so a group across the
+ * antimeridian (Fiji, Chukotka) does not end up on the other side of Earth.
+ */
 export function centroid(points: readonly GeoPoint[]): GeoPoint | null {
-  if (points.length === 0) {
+  const first = points[0]
+  if (first === undefined) {
     return null
   }
   let latitude = 0
-  let longitude = 0
+  let offset = 0
   for (const point of points) {
     latitude += point.latitude
-    longitude += point.longitude
+    offset += lonDelta(first.longitude, point.longitude)
   }
   return {
     latitude: latitude / points.length,
-    longitude: longitude / points.length,
+    longitude: wrapLon(first.longitude + offset / points.length),
   }
 }

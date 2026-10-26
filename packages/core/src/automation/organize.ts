@@ -1,7 +1,7 @@
-import { DAY_START_HOUR } from './local-day.ts'
+import { DAY_START_HOUR, localDay } from './local-day.ts'
 import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
-import { clusterMoments } from './moments.ts'
+import { detectStops, type DetectedDayTrip, type StopKind } from './stays.ts'
 import {
   findJourneyTrips,
   planJourney,
@@ -19,21 +19,46 @@ import {
   type NameLabels,
 } from './names.ts'
 import type { StagePlanOptions, StageTripKind } from './stages.ts'
+import { compareText } from './compare.ts'
 import { wallClockToInstant } from './time-zone.ts'
 import type { SuggestedTripType } from './trips.ts'
 
 /** A ready media item of the journey. Only ready media are organised. */
 export interface OrganizeMedia {
+  /** Altitude (m), when known. */
+  altitude?: number | null | undefined
   capturedAt: string | null
+  /** IANA zone the media was taken in, when known. */
+  capturedTz?: string | null | undefined
+  /** Normalised capture device (EXIF make + model), when known. */
+  device?: string | null | undefined
+  /** Video length in ms. */
+  durationMs?: number | null | undefined
   id: string
+  kind?: 'photo' | 'video' | null | undefined
+  /** Id of the still when this video is the clip of a Live Photo. */
+  livePhotoOf?: string | null | undefined
   latitude: number | null
   longitude: number | null
   momentId: string | null
+  /** Author (stream key for parallel stops). */
+  ownerId?: string | null | undefined
+  /**
+   * Kind of the place the media was geocoded to (within ~150 m). When absent
+   * the place of the moment it belongs to is used (not of 'en_route' ones).
+   */
+  placeKind?: PlaceKind | null | undefined
 }
 
 export interface OrganizeMoment {
+  /** Text written by the user ('' = none). */
+  body?: string | undefined
+  /** Chosen cover photo (the algorithm never sets one). */
+  coverMediaId?: string | null | undefined
   endsAt: string
   id: string
+  /** Stored kind; an auto moment is recreated when its kind changes. */
+  kind?: StopKind | undefined
   locked: boolean
   origin: 'auto' | 'manual'
   /** Kind of the moment's place, when it is known (names the suggestions). */
@@ -42,7 +67,11 @@ export interface OrganizeMoment {
   placeCountry?: string | undefined
   /** Display name of the moment's place, when it is known. */
   placeName?: string | undefined
+  /** False = hidden by the user (the default of an auto moment is true). */
+  published?: boolean | undefined
   startsAt: string
+  /** Name given by the user (the algorithm never stores a title). */
+  title?: string | null | undefined
 }
 
 export interface OrganizeSegment {
@@ -57,6 +86,8 @@ export interface OrganizeSegment {
 }
 
 export interface SegmentTitleInput {
+  /** True for a trip inside one day (a walk or ride), not a multi-day one. */
+  inDay?: boolean
   kind: 'stage' | 'trip'
   /**
    * 1-based position among all suggestions of the same kind in the whole
@@ -93,9 +124,13 @@ export interface OrganizeInput {
 export interface PlannedMoment {
   endsAt: string
   id: string
+  /** 'stay' and 'point' are stops, 'en_route' collapses photos on the way. */
+  kind: StopKind
   latitude: number | null
   longitude: number | null
   mediaIds: string[]
+  /** Short English diagnostic of why the moment looks like this (not UI text). */
+  reason: string
   startsAt: string
 }
 
@@ -166,44 +201,84 @@ function segmentKey(
   return `${kind}|${tripType ?? ''}|${String(range.start)}|${String(range.end)}`
 }
 
+/**
+ * The place kind comes ONLY from the explicit per-photo input. The place of
+ * the moment a photo belongs to is not used: such a moment may be recreated
+ * by this very run (or still lack a place until it is geocoded), which would
+ * flip the result from run to run.
+ */
 function toPoint(media: OrganizeMedia): MediaPoint {
+  const placeKind = media.placeKind
   return {
     capturedAt: media.capturedAt,
     id: media.id,
     latitude: media.latitude,
     longitude: media.longitude,
+    ...(media.altitude === undefined ? {} : { altitude: media.altitude }),
+    ...(media.capturedTz === undefined ? {} : { capturedTz: media.capturedTz }),
+    ...(media.device === undefined ? {} : { device: media.device }),
+    ...(media.durationMs === undefined ? {} : { durationMs: media.durationMs }),
+    ...(media.kind === undefined ? {} : { kind: media.kind }),
+    ...(media.livePhotoOf === undefined
+      ? {}
+      : { livePhotoOf: media.livePhotoOf }),
+    ...(media.ownerId === undefined ? {} : { ownerId: media.ownerId }),
+    ...(placeKind === undefined ? {} : { placeKind }),
   }
 }
 
-function planMoments(
-  input: OrganizeInput,
-  options: OrganizeOptions,
-): Pick<
-  OrganizationPlan,
-  'mediaReassignments' | 'momentsToCreate' | 'momentsToDelete'
-> {
-  // Hand-made moments (locked or manual) are never touched or regrouped.
+/** Media of hand-made (locked or manual) moments: never regrouped. */
+function protectedMedia(input: OrganizeInput): Set<string> {
   const protectedIds = new Set(
-    input.moments
-      .filter((moment) => moment.locked || moment.origin !== 'auto')
-      .map((moment) => moment.id),
+    input.moments.filter(isProtected).map((moment) => moment.id),
   )
-  const replaceable = input.moments.filter(
-    (moment) => !protectedIds.has(moment.id),
-  )
-  const lockedMediaIds = new Set(
+  return new Set(
     input.media
       .filter(
         (item) => item.momentId !== null && protectedIds.has(item.momentId),
       )
       .map((item) => item.id),
   )
+}
 
-  const { moments: clusters } = clusterMoments(input.media.map(toPoint), {
-    lockedMediaIds,
-  })
+/**
+ * Hand-made moments are never regrouped or recreated: locked, manual, or
+ * carrying content of the user (title, text, cover, hidden) even when an
+ * older edit forgot to lock them. The automation itself writes none of that.
+ */
+export function isProtected(moment: OrganizeMoment): boolean {
+  return (
+    moment.locked ||
+    moment.origin !== 'auto' ||
+    (moment.title ?? '').trim() !== '' ||
+    (moment.body ?? '').trim() !== '' ||
+    (moment.coverMediaId ?? null) !== null ||
+    moment.published === false
+  )
+}
+
+function planMoments(
+  input: OrganizeInput,
+  options: OrganizeOptions,
+  detection: ReturnType<typeof detectStops>,
+  lockedMediaIds: ReadonlySet<string>,
+): Pick<
+  OrganizationPlan,
+  'mediaReassignments' | 'momentsToCreate' | 'momentsToDelete'
+> {
+  // Hand-made moments (locked or manual) are never touched or regrouped.
+  const protectedIds = new Set(
+    input.moments.filter(isProtected).map((moment) => moment.id),
+  )
+  const replaceable = input.moments.filter(
+    (moment) => !protectedIds.has(moment.id),
+  )
+  const stops = detection.stops
   const momentOf = new Map(input.media.map((item) => [item.id, item.momentId]))
-  const datedIds = new Set(clusters.flatMap((cluster) => cluster.mediaIds))
+  const kindOfMoment = new Map(
+    input.moments.map((moment) => [moment.id, moment.kind]),
+  )
+  const datedIds = new Set(stops.flatMap((stop) => stop.mediaIds))
 
   const datedMembers = new Map<string, number>()
   const undatedHolders = new Set<string>()
@@ -225,28 +300,34 @@ function planMoments(
   const mediaReassignments: MediaReassignment[] = []
   const byId = new Map(input.media.map((item) => [item.id, item]))
 
-  for (const cluster of clusters) {
-    const firstMoment = momentOf.get(cluster.mediaIds[0] ?? '') ?? null
-    // The same group of photos keeps its existing auto moment (idempotence).
+  for (const stop of stops) {
+    const firstMoment = momentOf.get(stop.mediaIds[0] ?? '') ?? null
+    // The same group of photos keeps its existing auto moment (idempotence),
+    // unless its kind changed (the stored kind could not be updated).
+    const storedKind =
+      firstMoment === null ? undefined : kindOfMoment.get(firstMoment)
     if (
       firstMoment !== null &&
       replaceableIds.has(firstMoment) &&
-      datedMembers.get(firstMoment) === cluster.mediaIds.length &&
-      cluster.mediaIds.every((id) => momentOf.get(id) === firstMoment)
+      (storedKind === undefined || storedKind === stop.kind) &&
+      datedMembers.get(firstMoment) === stop.mediaIds.length &&
+      stop.mediaIds.every((id) => momentOf.get(id) === firstMoment)
     ) {
       kept.add(firstMoment)
       continue
     }
     const id = options.newId()
     momentsToCreate.push({
-      endsAt: cluster.endsAt,
+      endsAt: stop.endsAt,
       id,
-      latitude: cluster.centroid?.latitude ?? null,
-      longitude: cluster.centroid?.longitude ?? null,
-      mediaIds: cluster.mediaIds,
-      startsAt: cluster.startsAt,
+      kind: stop.kind,
+      latitude: stop.position?.latitude ?? null,
+      longitude: stop.position?.longitude ?? null,
+      mediaIds: stop.mediaIds,
+      reason: stop.reasons.join('; '),
+      startsAt: stop.startsAt,
     })
-    for (const mediaId of cluster.mediaIds) {
+    for (const mediaId of stop.mediaIds) {
       if (byId.get(mediaId)?.momentId !== id) {
         mediaReassignments.push({ mediaId, momentId: id })
       }
@@ -281,6 +362,9 @@ interface PlaceInfo {
 function placesOfMedia(input: OrganizeInput): Map<string, PlaceInfo> {
   const byMoment = new Map<string, PlaceInfo>()
   for (const moment of input.moments) {
+    // The place of a collapsed "en route" moment says nothing about where its
+    // photos were taken (it was set for the middle of a ride).
+    if (moment.kind === 'en_route') continue
     const name = moment.placeName?.trim()
     if (name !== undefined && name !== '') {
       byMoment.set(moment.id, {
@@ -356,9 +440,39 @@ export function tripTypeOf(kind: StageTripKind): SuggestedTripType {
   return kind === 'day' ? 'day' : 'trek'
 }
 
+/** Local day (YYYY-MM-DD, 04:00 start) of an instant, UTC date if the zone is unknown. */
+function localDayOf(instant: number, timeZone: string): string {
+  try {
+    return localDay(instant, timeZone)
+  } catch {
+    return new Date(instant).toISOString().slice(0, 10)
+  }
+}
+
+/** Names of an in-day trip: the natural place most of its photos are at. */
+function inDayNames(
+  trip: DetectedDayTrip,
+  tripType: SuggestedTripType,
+  placeOf: ReadonlyMap<string, PlaceInfo>,
+  labels: NameLabels,
+): string[] {
+  if (tripType !== 'trek') return []
+  const tally = new Map<string, number>()
+  for (const id of trip.mediaIds) {
+    const place = placeOf.get(id)
+    if (place?.kind !== 'natural') continue
+    tally.set(place.name, (tally.get(place.name) ?? 0) + 1)
+  }
+  const best = [...tally.entries()].sort(
+    (a, b) => b[1] - a[1] || compareText(a[0], b[0]),
+  )[0]
+  return best === undefined ? [] : [labels.trek(best[0])]
+}
+
 function planSegments(
   input: OrganizeInput,
   options: OrganizeOptions,
+  dayTrips: readonly DetectedDayTrip[],
 ): Pick<
   OrganizationPlan,
   'segmentsToDelete' | 'stageSuggestions' | 'tripSuggestions'
@@ -379,7 +493,7 @@ function planSegments(
 
   // All dated media take part (also those in locked moments): segments are
   // about time, not about moment membership.
-  const { dated } = sortDated(input.media.map(toPoint))
+  const { dated } = sortDated(input.media.map((item) => toPoint(item)))
   const timeOf = new Map(dated.map((item) => [item.id, item.time]))
   const placeOf = placesOfMedia(input)
 
@@ -388,6 +502,7 @@ function planSegments(
     /** Place-based names, best first (empty when the places know none). */
     names: string[]
     range: Range
+    inDay?: boolean
     reason?: string
     stageKind?: JourneyStageKind
     startsOn: string
@@ -502,7 +617,7 @@ function planSegments(
   }
   const keptTrips = keptSegments
     .filter((segment) => segment.kind === 'trip')
-    .map(rangeOf)
+    .map((segment) => ({ range: rangeOf(segment), type: segment.tripType }))
   const rejectedTrips = rejected
     .filter((segment) => segment.kind === 'trip')
     .map((segment) => ({ range: rangeOf(segment), type: segment.tripType }))
@@ -540,7 +655,7 @@ function planSegments(
       start,
     }
     if (
-      keptTrips.some((kept) => overlaps(range, kept)) ||
+      keptTrips.some((kept) => overlaps(range, kept.range)) ||
       rejectedTrips.some((r) => r.type === tripType && overlaps(range, r.range))
     ) {
       continue
@@ -554,6 +669,45 @@ function planSegments(
       ),
       range,
       startsOn: trip.days[0]?.date ?? '',
+      tripType,
+    })
+  }
+  // In-day trips (a walk or ride of >= 90 min and >= 3 km, found from the
+  // photos). They sit in time inside a stage and may sit inside a day-level
+  // trip of ANOTHER type; a day-level trip of the same type that already
+  // covers them (or a hand-made / rejected one) makes them redundant.
+  const dayLevel = [...trips]
+  for (const trip of dayTrips) {
+    const start = Date.parse(trip.startsAt)
+    const end = Date.parse(trip.endsAt)
+    if (Number.isNaN(start) || Number.isNaN(end)) continue
+    const range = { end: end > start ? end : start + MIN_SEGMENT_MS, start }
+    const tripType: SuggestedTripType = trip.tripType
+    const covered = (other: Range): boolean => {
+      const common =
+        Math.min(range.end, other.end) - Math.max(range.start, other.start)
+      return common >= 0.8 * (range.end - range.start)
+    }
+    if (
+      keptTrips.some(
+        (kept) => kept.type === tripType && overlaps(range, kept.range),
+      ) ||
+      rejectedTrips.some(
+        (r) => r.type === tripType && overlaps(range, r.range),
+      ) ||
+      dayLevel.some(
+        (other) => other.tripType === tripType && covered(other.range),
+      )
+    ) {
+      continue
+    }
+    trips.push({
+      inDay: true,
+      kind: 'trip',
+      names: inDayNames(trip, tripType, placeOf, labels),
+      range,
+      reason: trip.reason,
+      startsOn: localDayOf(start, options.homeTz),
       tripType,
     })
   }
@@ -577,6 +731,7 @@ function planSegments(
       candidate.names[0] ??
       options.segmentTitle({
         index: ordinals[candidate.kind],
+        ...(candidate.inDay === true ? { inDay: true } : {}),
         kind: candidate.kind,
         stageKind: candidate.stageKind ?? null,
         startsOn: candidate.startsOn,
@@ -650,8 +805,17 @@ export function planOrganization(
   input: OrganizeInput,
   options: OrganizeOptions,
 ): OrganizationPlan {
+  const points = input.media.map((item) => toPoint(item))
+  const lockedMediaIds = protectedMedia(input)
+  // Moments are detected without the hand-made media; trips are about time
+  // and movement, so they see all media (one more pass only when needed).
+  const detection = detectStops(points, { lockedMediaIds })
+  const dayTrips =
+    lockedMediaIds.size === 0
+      ? detection.dayTrips
+      : detectStops(points).dayTrips
   return {
-    ...planMoments(input, options),
-    ...planSegments(input, options),
+    ...planMoments(input, options, detection, lockedMediaIds),
+    ...planSegments(input, options, dayTrips),
   }
 }

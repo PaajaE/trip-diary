@@ -1,3 +1,4 @@
+import { compareText } from './compare.ts'
 import { distanceKm } from './geo.ts'
 import { BASE_RADIUS_KM, stayBase } from './stages.ts'
 import type {
@@ -101,7 +102,7 @@ function tally(days: readonly JourneyDay[]): Tally[] {
   }
   return [...byName.values()].sort(
     (a, b) =>
-      b.photos - a.photos || a.first - b.first || a.name.localeCompare(b.name),
+      b.photos - a.photos || a.first - b.first || compareText(a.name, b.name),
   )
 }
 

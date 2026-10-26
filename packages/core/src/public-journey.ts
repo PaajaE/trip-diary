@@ -17,7 +17,13 @@ const latitude = z.number().min(-90).max(90)
 const longitude = z.number().min(-180).max(180)
 
 export const segmentKindSchema = z.enum(['stage', 'trip'])
-export const tripTypeSchema = z.enum(['trek', 'day', 'transfer', 'stay'])
+export const tripTypeSchema = z.enum([
+  'trek',
+  'day',
+  'transfer',
+  'stay',
+  'walk',
+])
 export const mediaKindSchema = z.enum(['photo', 'video'])
 export const mediaVariantKindSchema = z.enum([
   'thumb',

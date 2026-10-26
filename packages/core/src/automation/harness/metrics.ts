@@ -127,6 +127,8 @@ export function scoreGrouping(
 }
 
 export interface TransitStats {
+  /** Transit photos in a group collapsed as "en route" (not a stop). */
+  collapsed: number
   /** Transit photos found in some predicted group that holds a stop photo. */
   absorbed: number
   /** Transit photos alone in their predicted group (a fake stop). */
@@ -137,26 +139,36 @@ export interface TransitStats {
   transit: number
 }
 
-/** How the photos taken while moving were treated (single-photo stops). */
+/**
+ * How the photos taken while moving were treated (single-photo stops).
+ * `enRoute` lists the predicted groups that are collapsed "en route" stops
+ * (kind en_route): such a group is by design not a stop, so a transit photo
+ * alone in it is not a fake stop (it is counted in `collapsed`).
+ */
 export function transitStats(
   predicted: Grouping,
   transitIds: readonly string[],
   expected: Grouping,
+  enRoute: Grouping = [],
 ): TransitStats {
   const transitSet = new Set(transitIds)
   const stopIds = new Set(expected.flat())
+  const collapsedGroups = new Set(enRoute.map((group) => group.join('\u0000')))
   let transit = 0
   let single = 0
   let absorbed = 0
+  let collapsed = 0
   for (const group of predicted) {
     const inGroup = group.filter((id) => transitSet.has(id)).length
     if (inGroup === 0) continue
     transit += inGroup
-    if (group.length === 1) single += 1
+    if (collapsedGroups.has(group.join('\u0000'))) collapsed += inGroup
+    else if (group.length === 1) single += 1
     else if (group.some((id) => stopIds.has(id))) absorbed += inGroup
   }
   return {
     absorbed,
+    collapsed,
     single,
     singleShare: transit === 0 ? 0 : single / transit,
     transit,

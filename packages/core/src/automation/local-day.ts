@@ -77,6 +77,24 @@ export function localDay(instant: number | Date, timeZone: string): string {
   return `${pad(previous.getUTCFullYear(), 4)}-${pad(previous.getUTCMonth() + 1, 2)}-${pad(previous.getUTCDate(), 2)}`
 }
 
+const DAY_MS = 86_400_000
+/**
+ * A zone is at most 14 h from UTC and the day starts at 04:00 local, so the
+ * local day of an instant is within a day or two of its UTC date.
+ */
+const DAY_MATCH_WINDOW_MS = 2 * DAY_MS
+const dateStarts = new WeakMap<readonly string[], number[]>()
+
+/** UTC midnight (ms) of each date; cached per array (hot loop of the pass). */
+function startsOf(dates: readonly string[]): number[] {
+  let starts = dateStarts.get(dates)
+  if (starts?.length !== dates.length) {
+    starts = dates.map((date) => Date.parse(`${date}T00:00:00Z`))
+    dateStarts.set(dates, starts)
+  }
+  return starts
+}
+
 /**
  * Day of an instant: the earliest photo day (`dates[i]` spent in `zones[i]`)
  * whose zone puts the instant on that day, otherwise its day in `homeZone`.
@@ -88,10 +106,21 @@ export function pickLocalDay(
   zones: readonly string[],
 ): string {
   let best: string | null = null
+  const time = typeof instant === 'number' ? instant : instant.getTime()
+  const starts = startsOf(dates)
   for (let index = 0; index < dates.length; index += 1) {
     const date = dates[index]
     const zone = zones[index]
     if (date === undefined || zone === undefined) {
+      continue
+    }
+    // A date far from the instant cannot be its local day in any zone.
+    const start = starts[index]
+    if (
+      start !== undefined &&
+      !Number.isNaN(start) &&
+      Math.abs(time - start) > DAY_MATCH_WINDOW_MS
+    ) {
       continue
     }
     if (
