@@ -6,7 +6,8 @@
  *   - longer trip (2-6 weeks):  days -> stops, stages offered as a suggestion;
  *   - grand journey (months):   stages -> days -> stops.
  * The stage level exists only with >= 2 stages that each have a clear
- * reason; otherwise there is no stage level at all.
+ * reason; otherwise there is no stage level at all. Exception: stages the
+ * user made or accepted are always shown as the top level (never hidden).
  */
 
 export type JourneySize = 'day' | 'grand' | 'long' | 'short'
@@ -90,47 +91,34 @@ export function hierarchyDepth(
     isClearStage(stage, options.minStageMs),
   ).length
   const hasStages = stageCount >= 2
+  // Stages the user made or accepted are never hidden, whatever the size.
+  const userMade = input.stages.some(
+    (stage) =>
+      stage.kind === 'stage' &&
+      (stage.origin === 'manual' || stage.origin === 'accepted'),
+  )
 
+  let size: JourneySize
+  let levels: HierarchyLevel[]
+  let stageMode: StageMode = 'none'
   if (spanDays <= 1) {
-    return {
-      levels: ['stops'],
-      size: 'day',
-      spanDays,
-      stageCount,
-      stageMode: 'none',
-    }
+    size = 'day'
+    levels = ['stops']
+  } else if (spanDays <= maxShort) {
+    size = 'short'
+    levels = ['days', 'stops']
+  } else if (spanDays <= maxLong) {
+    size = 'long'
+    levels = ['days', 'stops']
+    if (hasStages) stageMode = 'suggestion'
+  } else {
+    size = 'grand'
+    levels = hasStages ? ['stages', 'days', 'stops'] : ['days', 'stops']
+    if (hasStages) stageMode = 'primary'
   }
-  if (spanDays <= maxShort) {
-    return {
-      levels: ['days', 'stops'],
-      size: 'short',
-      spanDays,
-      stageCount,
-      stageMode: 'none',
-    }
+  if (userMade && stageMode !== 'primary') {
+    levels = ['stages', ...levels]
+    stageMode = 'primary'
   }
-  if (spanDays <= maxLong) {
-    return {
-      levels: ['days', 'stops'],
-      size: 'long',
-      spanDays,
-      stageCount,
-      stageMode: hasStages ? 'suggestion' : 'none',
-    }
-  }
-  return hasStages
-    ? {
-        levels: ['stages', 'days', 'stops'],
-        size: 'grand',
-        spanDays,
-        stageCount,
-        stageMode: 'primary',
-      }
-    : {
-        levels: ['days', 'stops'],
-        size: 'grand',
-        spanDays,
-        stageCount,
-        stageMode: 'none',
-      }
+  return { levels, size, spanDays, stageCount, stageMode }
 }

@@ -23,28 +23,37 @@ function stop(
 }
 
 describe('placeCellKey', () => {
-  it('puts positions a few hundred metres apart into one ~1 km cell', () => {
+  it('is the edge function cache key (~110 m cells)', () => {
+    expect(placeCellKey(51.17841, -115.57082)).toBe('51.178,-115.571')
     expect(placeCellKey(51.1784, -115.5708)).toBe(
-      placeCellKey(51.1786, -115.5712),
+      placeCellKey(51.1782, -115.5711),
     )
-    // ~2 km north is another cell
+    // ~200 m north is another cell
     expect(placeCellKey(51.1784, -115.5708)).not.toBe(
-      placeCellKey(51.1964, -115.5708),
+      placeCellKey(51.1802, -115.5708),
     )
-  })
-
-  it('keys depend on the cell size', () => {
-    expect(placeCellKey(50, 14, 500)).not.toBe(placeCellKey(50, 14, 1000))
   })
 })
 
 describe('planPlaceLookups', () => {
   const stops = [
     stop('d1a', '2026-09-01T16:00:00Z', 51.1784, -115.5708, '2026-09-01'),
-    stop('d1b', '2026-09-01T17:00:00Z', 51.1786, -115.5712, '2026-09-01'),
+    stop('d1b', '2026-09-01T17:00:00Z', 51.1782, -115.5711, '2026-09-01'),
     stop('d2', '2026-09-02T16:00:00Z', 51.4254, -116.1773, '2026-09-02'),
     stop('d3', '2026-09-03T16:00:00Z', 50.2, -116.0, '2026-09-03'),
   ]
+
+  it('gives stops 600 m apart (a lake and a peak) separate lookups', () => {
+    const batches = planPlaceLookups([
+      stop('lake', '2026-09-01T16:00:00Z', 51.4166, -116.2177, '2026-09-01'),
+      // ~600 m east
+      stop('peak', '2026-09-01T17:00:00Z', 51.4166, -116.2091, '2026-09-01'),
+    ])
+    expect(batches.flat().map((cell) => cell.momentIds)).toEqual([
+      ['lake'],
+      ['peak'],
+    ])
+  })
 
   it('looks a cell up once and orders the most recent day first', () => {
     const batches = planPlaceLookups(stops)

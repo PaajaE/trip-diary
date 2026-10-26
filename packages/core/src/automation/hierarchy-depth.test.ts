@@ -78,6 +78,38 @@ describe('hierarchyDepth', () => {
     })
   })
 
+  it('never hides stages the user made or accepted, on any journey size', () => {
+    const mine = [
+      stage('2026-07-01T04:00:00Z', '2026-07-02T04:00:00Z', {
+        origin: 'manual',
+      }),
+    ]
+    for (const count of [1, 5, 30]) {
+      expect(
+        hierarchyDepth({ dayKeys: days('2026-07-01', count), stages: mine }),
+        String(count),
+      ).toMatchObject({ stageMode: 'primary' })
+    }
+    expect(
+      hierarchyDepth({ dayKeys: days('2026-07-01', 5), stages: mine }).levels,
+    ).toEqual(['stages', 'days', 'stops'])
+    expect(
+      hierarchyDepth({ dayKeys: ['2026-07-01'], stages: mine }).levels,
+    ).toEqual(['stages', 'stops'])
+    // a rejected or a trip never brings the level
+    expect(
+      hierarchyDepth({
+        dayKeys: days('2026-07-01', 5),
+        stages: [
+          stage('2026-07-01T04:00:00Z', '2026-07-02T04:00:00Z', {
+            kind: 'trip',
+            origin: 'manual',
+          }),
+        ],
+      }).stageMode,
+    ).toBe('none')
+  })
+
   it('does not depend on the order of days', () => {
     const dayKeys = days('2026-07-01', 50)
     expect(

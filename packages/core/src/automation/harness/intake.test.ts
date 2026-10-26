@@ -11,6 +11,7 @@ import {
   harnessOptions,
   intakeInvariants,
   laterUpload,
+  toMedia,
 } from './intake.ts'
 import { buildExtraScenarios, buildScenarios } from './scenarios.ts'
 
@@ -272,23 +273,207 @@ describe('ZS-5 stable stop ids', () => {
     expect(isPlanEmpty(planOrganization(settled, harnessOptions()))).toBe(true)
   })
 
-  it('gives a new id when an older photo now anchors the stop', () => {
+  it('keeps the moment (and its place) when a new photo is older than its first one', () => {
+    // A: o1-o3 12:00-12:20; a new shot at 11:55 at the same place.
     const first: OrganizeInput = {
-      media: [media('a1', at(BASE, 10)), media('a2', at(BASE, 20))],
+      media: [
+        media('o1', '2026-07-10T12:00:00.000Z'),
+        media('o2', '2026-07-10T12:10:00.000Z'),
+        media('o3', '2026-07-10T12:20:00.000Z'),
+      ],
       moments: [],
       segments: [],
     }
     const stored = applyPlan(first, planOrganization(first, harnessOptions()))
     const oldId = stored.moments[0]?.id
-    const more = {
+    const more: OrganizeInput = {
       ...stored,
-      media: [...stored.media, media('a0', at(BASE, 0))],
+      media: [...stored.media, media('n0', '2026-07-10T11:55:00.000Z')],
     }
-    const again = planOrganization(more, harnessOptions('UTC'))
-    expect(again.momentsToCreate.map((m) => m.mediaIds)).toEqual([
-      ['a0', 'a1', 'a2'],
+    const again = planOrganization(more, harnessOptions('UTC', {}, 'again'))
+    expect(again.momentsToCreate).toEqual([])
+    expect(again.momentsToDelete).toEqual([])
+    expect(again.momentsToUpdate.map((m) => [m.id, m.mediaIds])).toEqual([
+      [oldId, ['n0', 'o1', 'o2', 'o3']],
     ])
-    expect(again.momentsToDelete).toEqual([oldId])
+    expect(again.momentsToUpdate[0]?.clearPlace).toBeUndefined()
+    expect(again.momentsToUpdate[0]?.startsAt).toBe('2026-07-10T11:55:00.000Z')
+    const settled = applyPlan(more, again)
+    expect(
+      isPlanEmpty(planOrganization(settled, harnessOptions('UTC', {}, 'x'))),
+    ).toBe(true)
+  })
+
+  it('never lets two stops reuse the same moment', () => {
+    // One stored moment holds two photos 3 h apart: two stops now.
+    const input: OrganizeInput = {
+      media: [
+        media('p1', '2026-07-10T08:00:00.000Z', P, 'M'),
+        media('p2', '2026-07-10T11:00:00.000Z', FAR, 'M'),
+      ],
+      moments: [
+        {
+          endsAt: '2026-07-10T11:00:00.000Z',
+          id: 'M',
+          locked: false,
+          origin: 'auto',
+          startsAt: '2026-07-10T08:00:00.000Z',
+        },
+      ],
+      segments: [],
+    }
+    const plan = planOrganization(input, harnessOptions())
+    expect(plan.momentsToUpdate.map((m) => [m.id, m.mediaIds])).toEqual([
+      ['M', ['p1']],
+    ])
+    expect(plan.momentsToCreate.map((m) => m.mediaIds)).toEqual([['p2']])
+  })
+
+  it('is idempotent with a clock-shifted duplicate copy (anchor excludes copies)', () => {
+    // o1-o3 12:00-12:20Z in Edmonton; c1 is a copy of o1 with a camera
+    // clock 6 h off (06:00Z) and no zone, at the same position.
+    const points: OrganizeMedia[] = [
+      media('o1', '2026-07-10T12:00:00.000Z', P, null, {
+        capturedTz: 'America/Edmonton',
+      }),
+      media('o2', '2026-07-10T12:10:00.000Z', P, null, {
+        capturedTz: 'America/Edmonton',
+      }),
+      media('o3', '2026-07-10T12:20:00.000Z', P, null, {
+        capturedTz: 'America/Edmonton',
+      }),
+      media('c1', '2026-07-10T06:00:00.000Z', P, null, { capturedTz: null }),
+    ]
+    let state: OrganizeInput = { media: points, moments: [], segments: [] }
+    const first = planOrganization(state, harnessOptions())
+    // c1 is attached to o1's stop as a copy (last), although it is "older"
+    expect(first.momentsToCreate.map((m) => m.mediaIds)).toEqual([
+      ['o1', 'o2', 'o3', 'c1'],
+    ])
+    state = applyPlan(state, first)
+    const ids = state.moments.map((m) => m.id).sort()
+    for (const prefix of ['r1', 'r2', 'r3']) {
+      const plan = planOrganization(state, harnessOptions('UTC', {}, prefix))
+      expect(isPlanEmpty(plan), prefix).toBe(true)
+      state = applyPlan(state, plan)
+    }
+    expect(state.moments.map((m) => m.id).sort()).toEqual(ids)
+  })
+
+  it('flags a kept stop that moved far so its place is looked up again', () => {
+    const near = [50.0871, 14.4211] as const // ~15 m
+    const moved = (place: readonly [number, number]) =>
+      planOrganization(
+        {
+          media: [
+            media('a1', at(BASE, 0), place, 'A'),
+            media('a2', at(BASE, 10), place, 'A'),
+          ],
+          moments: [
+            {
+              endsAt: at(BASE, 10),
+              id: 'A',
+              latitude: P[0],
+              locked: false,
+              longitude: P[1],
+              origin: 'auto',
+              startsAt: at(BASE, 0),
+            },
+          ],
+          segments: [],
+        },
+        harnessOptions(),
+      ).momentsToUpdate[0]
+    expect(moved(FAR)?.clearPlace).toBe(true)
+    expect(moved(near)?.clearPlace).toBeUndefined()
+  })
+})
+
+describe('ZS-5 intake after an interrupted apply (no chaining)', () => {
+  // Confirmed stop 10:00-12:00; n1 13:50 joins (1 h 50 after the edge),
+  // n2 15:30 is 3 h 30 after the stored edge and must never join, even
+  // when an apply stops half way and the next run starts from that state.
+  const stop = confirmed({
+    endsAt: '2026-07-10T12:00:00.000Z',
+    startsAt: '2026-07-10T10:00:00.000Z',
+  })
+  const input = withLocked(
+    [
+      media('n1', '2026-07-10T13:50:00.000Z'),
+      media('n2', '2026-07-10T15:30:00.000Z'),
+    ],
+    stop,
+  )
+
+  type Step = 'create' | 'assignN1' | 'assignAll' | 'all'
+  /** Applies the plan up to a step, in the app's order (media before range). */
+  function partial(state: OrganizeInput, step: Step): OrganizeInput {
+    const plan = planOrganization(state, harnessOptions('UTC', {}, step))
+    const full = applyPlan(state, plan)
+    if (step === 'all') return full
+    const created = full.moments.filter((m) =>
+      plan.momentsToCreate.some((c) => c.id === m.id),
+    )
+    const assignedIds =
+      step === 'create'
+        ? new Set<string>()
+        : step === 'assignN1'
+          ? new Set(['n1'])
+          : new Set(plan.mediaReassignments.map((r) => r.mediaId))
+    return {
+      ...state,
+      media: full.media.map((item) =>
+        assignedIds.has(item.id)
+          ? item
+          : (state.media.find((m) => m.id === item.id) ?? item),
+      ),
+      // ranges are written last, so a stop in an interrupted run keeps its range
+      moments: [...state.moments, ...created],
+    }
+  }
+
+  for (const step of ['create', 'assignN1', 'assignAll', 'all'] as const) {
+    it(`converges without chaining after stopping at "${step}"`, () => {
+      let state = partial(input, step)
+      for (const prefix of ['a', 'b', 'c']) {
+        const plan = planOrganization(state, harnessOptions('UTC', {}, prefix))
+        state = applyPlan(state, plan)
+      }
+      const locked = state.moments.find((m) => m.id === 'L')
+      expect(locked?.endsAt).toBe('2026-07-10T13:50:00.000Z')
+      expect(state.media.find((m) => m.id === 'n1')?.momentId).toBe('L')
+      expect(state.media.find((m) => m.id === 'n2')?.momentId).not.toBe('L')
+      expect(
+        isPlanEmpty(planOrganization(state, harnessOptions('UTC', {}, 'z'))),
+      ).toBe(true)
+      expect(intakeInvariants(state, harnessOptions()).violations).toEqual([])
+    })
+  }
+
+  it('repairs only members near the edge, never a far one', () => {
+    const odd = withLocked(
+      [media('old', '2026-07-09T10:00:00.000Z', P, 'L')],
+      stop,
+    )
+    expect(planOrganization(odd, harnessOptions()).momentsToExtend).toEqual([])
+  })
+
+  it('does not let a Live Photo clip widen the range', () => {
+    const clip = withLocked(
+      [
+        media('n1', '2026-07-10T13:00:00.000Z'),
+        // the clip's own time is far off (another clock)
+        media('n1-clip', '2026-07-10T18:00:00.000Z', P, null, {
+          kind: 'video',
+          livePhotoOf: 'n1',
+        }),
+      ],
+      stop,
+    )
+    const extension = planOrganization(clip, harnessOptions())
+      .momentsToExtend[0]
+    expect(extension?.mediaIds).toEqual(['n1', 'n1-clip'])
+    expect(extension?.endsAt).toBe('2026-07-10T13:00:00.000Z')
   })
 })
 
@@ -318,22 +503,21 @@ describe('ZS-5 intake properties over the harness scenarios', () => {
 
   it('a later upload into unlocked stops keeps the anchored ids', () => {
     for (const scenario of scenarios) {
+      // full media facts (zone, device, Live Photo), so clock-shifted copies
+      // and clips take part like in the product
       const input: OrganizeInput = {
-        media: scenario.points.map((point) => ({
-          capturedAt: point.capturedAt,
-          id: point.id,
-          latitude: point.latitude,
-          longitude: point.longitude,
-          momentId: null,
-          ownerId: point.author,
-        })),
+        media: scenario.points.map((point) => toMedia(point)),
         moments: [],
         segments: [],
       }
       const stored = applyPlan(input, planOrganization(input, harnessOptions()))
-      // Re-planning the same photos changes nothing (idempotence).
+      // Re-planning the same photos changes nothing (idempotence), twice.
+      const again = planOrganization(stored, harnessOptions('UTC', {}, 'r'))
+      expect(isPlanEmpty(again), scenario.id).toBe(true)
       expect(
-        isPlanEmpty(planOrganization(stored, harnessOptions())),
+        isPlanEmpty(
+          planOrganization(applyPlan(stored, again), harnessOptions()),
+        ),
         scenario.id,
       ).toBe(true)
     }

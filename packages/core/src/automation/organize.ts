@@ -143,6 +143,12 @@ export interface PlannedMoment {
   /** Short English diagnostic of why the moment looks like this (not UI text). */
   reason: string
   startsAt: string
+  /**
+   * Only on `momentsToUpdate`: the kept moment moved more than
+   * `PLACE_STALE_DISTANCE_M`, so its stored place is cleared and resolved
+   * again.
+   */
+  clearPlace?: boolean
 }
 
 export interface PlannedSegment {
@@ -190,8 +196,9 @@ export interface OrganizationPlan {
   /** Confirmed stops that only grow to take in new photos. */
   momentsToExtend: MomentExtension[]
   /**
-   * Auto, unlocked moments that keep their id (stable id: same oldest photo)
-   * but get a new range, position, kind or members.
+   * Auto, unlocked moments that keep their id (stable id: the moment holding
+   * the stop's oldest already-assigned photo) but get a new range, position,
+   * kind or members.
    */
   momentsToUpdate: PlannedMoment[]
   /** Old segments with origin 'suggested' that the fresh set replaces. */
@@ -327,7 +334,17 @@ interface Intake {
  * the stop's photos; without GPS on either side only a photo inside the
  * stored range joins. A Live Photo clip follows its still. Collapsed
  * 'en_route' stops take nothing in. Ties: smaller time gap, then distance,
- * then id. The window is measured from the STORED range, never chained.
+ * then id. The window is measured from the STORED range, never chained
+ * within a run. A clip never widens the range (only stills count).
+ *
+ * Repair after a partial apply: the app moves the photos first and writes
+ * the range last, so a failure in between leaves members just outside the
+ * stored range. Such members (within the window of an edge, same day) only
+ * widen the range again; they never move the window for new photos, so a
+ * rerun cannot chain. Members further away (older data) are left alone.
+ * Separate successful runs do measure from the range the previous run
+ * stored: each intake is bounded, the total growth is not (no DB marker of
+ * the confirmed range exists).
  */
 function intakeIntoConfirmed(
   input: OrganizeInput,
@@ -342,7 +359,6 @@ function intakeIntoConfirmed(
   const fresh = input.media.filter(
     (item) => item.momentId === null || !knownMoments.has(item.momentId),
   )
-  if (fresh.length === 0) return { assigned, extensions: [] }
 
   const windowMs = options.intakeWindowMs ?? DEFAULT_INTAKE_WINDOW_MS
   const radiusKm = (options.intakeRadiusM ?? DEFAULT_INTAKE_RADIUS_M) / 1000
@@ -396,7 +412,19 @@ function intakeIntoConfirmed(
   }
   targets.sort((a, b) => a.start - b.start || compareText(a.id, b.id))
 
+  /** Inside the range, or within the window of an edge on the edge's day. */
+  const gapTo = (time: number, target: Target): number | null => {
+    if (time >= target.start && time <= target.end) return 0
+    const before = time < target.start
+    const gap = before ? target.start - time : time - target.end
+    const edgeDay = before ? target.startDay : target.endDay
+    return gap > windowMs || dayOf(time) !== edgeDay ? null : gap
+  }
+
+  // Times that may widen a range: stills only (a clip follows its still).
   const timeOf = new Map<string, number>()
+  // Sort key of the joined media (a clip sorts with its still).
+  const sortTime = new Map<string, number>()
   const added = new Map<string, string[]>()
   const primaries = fresh.filter((item) => (item.livePhotoOf ?? null) === null)
   for (const item of primaries) {
@@ -405,14 +433,9 @@ function intakeIntoConfirmed(
     const here = gpsOf(item)
     let best: { distance: number; gap: number; id: string } | null = null
     for (const target of targets) {
-      const inside = time >= target.start && time <= target.end
-      let gap = 0
-      if (!inside) {
-        const before = time < target.start
-        gap = before ? target.start - time : time - target.end
-        const edgeDay = before ? target.startDay : target.endDay
-        if (gap > windowMs || dayOf(time) !== edgeDay) continue
-      }
+      const gap = gapTo(time, target)
+      if (gap === null) continue
+      const inside = gap === 0
       let distance = 0
       if (here === null || target.position === null) {
         if (!inside) continue
@@ -434,12 +457,16 @@ function intakeIntoConfirmed(
     if (best === null) continue
     assigned.set(item.id, best.id)
     timeOf.set(item.id, time)
+    sortTime.set(item.id, time)
   }
   // A Live Photo clip goes where its still is (joined now or already there).
   const momentOfMedia = new Map(
     input.media.map((item) => [item.id, item.momentId]),
   )
   const protectedIds = new Set(confirmed.map((moment) => moment.id))
+  const capturedOf = new Map(
+    input.media.map((item) => [item.id, item.capturedAt]),
+  )
   for (const item of fresh) {
     const still = item.livePhotoOf ?? null
     if (still === null) continue
@@ -450,8 +477,9 @@ function intakeIntoConfirmed(
         : null)
     if (target === null) continue
     assigned.set(item.id, target)
-    const time = parsedTime(item.capturedAt)
-    if (time !== null) timeOf.set(item.id, time)
+    const stillTime =
+      sortTime.get(still) ?? parsedTime(capturedOf.get(still) ?? null)
+    if (stillTime !== null) sortTime.set(item.id, stillTime)
   }
   for (const [mediaId, momentId] of assigned) {
     const list = added.get(momentId)
@@ -459,25 +487,50 @@ function intakeIntoConfirmed(
     else list.push(mediaId)
   }
 
+  // Members already moved in by an earlier, interrupted apply (stills only).
+  const strays = new Map<string, number[]>()
+  const targetById = new Map(targets.map((target) => [target.id, target]))
+  for (const item of input.media) {
+    const target =
+      item.momentId === null ? undefined : targetById.get(item.momentId)
+    if (target === undefined || (item.livePhotoOf ?? null) !== null) continue
+    const time = parsedTime(item.capturedAt)
+    if (time === null || (time >= target.start && time <= target.end)) continue
+    if (gapTo(time, target) === null) continue
+    const list = strays.get(target.id)
+    if (list === undefined) strays.set(target.id, [time])
+    else list.push(time)
+  }
+
   const extensions: MomentExtension[] = []
   for (const target of targets) {
-    const mediaIds = added.get(target.id)
-    if (mediaIds === undefined) continue
+    const mediaIds = added.get(target.id) ?? []
+    const stray = strays.get(target.id) ?? []
+    if (mediaIds.length === 0 && stray.length === 0) continue
     mediaIds.sort(
       (a, b) =>
-        (timeOf.get(a) ?? Number.POSITIVE_INFINITY) -
-          (timeOf.get(b) ?? Number.POSITIVE_INFINITY) || compareText(a, b),
+        (sortTime.get(a) ?? Number.POSITIVE_INFINITY) -
+          (sortTime.get(b) ?? Number.POSITIVE_INFINITY) || compareText(a, b),
     )
-    const times = mediaIds
-      .map((id) => timeOf.get(id))
-      .filter((time): time is number => time !== undefined)
+    const times = [
+      ...stray,
+      ...mediaIds
+        .map((id) => timeOf.get(id))
+        .filter((time): time is number => time !== undefined),
+    ]
     const start = Math.min(target.start, ...times)
     const end = Math.max(target.end, ...times)
+    if (start === target.start && end === target.end && mediaIds.length === 0) {
+      continue
+    }
     extensions.push({
       endsAt: iso(end),
       id: target.id,
       mediaIds,
-      reason: `intake: ${String(mediaIds.length)} new photo(s) within ${String(Math.round(windowMs / 60_000))} min and ${String(Math.round(radiusKm * 1000))} m`,
+      reason:
+        mediaIds.length === 0
+          ? `intake: range repaired to cover ${String(stray.length)} member(s) of an interrupted apply`
+          : `intake: ${String(mediaIds.length)} new photo(s) within ${String(Math.round(windowMs / 60_000))} min and ${String(Math.round(radiusKm * 1000))} m`,
       startsAt: iso(start),
     })
   }
@@ -502,6 +555,35 @@ function samePosition(
     planned !== null &&
     Math.abs(stored.latitude - planned.latitude) < 1e-7 &&
     Math.abs(stored.longitude - planned.longitude) < 1e-7
+  )
+}
+
+/** A kept moment that moved this far loses its place (it is looked up again). */
+export const PLACE_STALE_DISTANCE_M = 150
+
+function movedFar(
+  stored: {
+    latitude?: number | null | undefined
+    longitude?: number | null | undefined
+  },
+  planned: GeoPoint | null,
+): boolean {
+  if (
+    stored.latitude === undefined ||
+    stored.longitude === undefined ||
+    stored.latitude === null ||
+    stored.longitude === null ||
+    planned === null
+  ) {
+    return false
+  }
+  return (
+    distanceKm(
+      { latitude: stored.latitude, longitude: stored.longitude },
+      planned,
+    ) *
+      1000 >
+    PLACE_STALE_DISTANCE_M
   )
 }
 
@@ -534,8 +616,6 @@ function planMoments(
 
   const datedMembers = new Map<string, number>()
   const undatedHolders = new Set<string>()
-  // Oldest detected photo (time, then id) of each moment: its stable anchor.
-  const oldest = new Map<string, { id: string; time: number }>()
   for (const item of input.media) {
     if (item.momentId === null || lockedMediaIds.has(item.id)) continue
     if (datedIds.has(item.id)) {
@@ -543,15 +623,6 @@ function planMoments(
         item.momentId,
         (datedMembers.get(item.momentId) ?? 0) + 1,
       )
-      const time = parsedTime(item.capturedAt) ?? Number.POSITIVE_INFINITY
-      const known = oldest.get(item.momentId)
-      if (
-        known === undefined ||
-        time < known.time ||
-        (time === known.time && compareText(item.id, known.id) < 0)
-      ) {
-        oldest.set(item.momentId, { id: item.id, time })
-      }
     } else {
       undatedHolders.add(item.momentId)
     }
@@ -564,14 +635,20 @@ function planMoments(
   const mediaReassignments: MediaReassignment[] = []
 
   for (const stop of stops) {
-    const anchorMoment = momentOf.get(stop.anchorMediaId) ?? null
-    const reuse =
-      anchorMoment !== null &&
-      replaceableIds.has(anchorMoment) &&
-      !kept.has(anchorMoment) &&
-      oldest.get(anchorMoment)?.id === stop.anchorMediaId
-        ? anchorMoment
-        : null
+    // Stable id: the stop keeps the replaceable moment that holds its oldest
+    // already-assigned member. `stop.mediaIds` is time ordered with probable
+    // duplicate copies at the end, the same order stays.ts anchors by, so a
+    // clock-shifted copy never decides the id, and a new photo older than
+    // the stop's first one does not replace the moment either. Stops come
+    // in time order; a moment is reused by at most one stop.
+    let reuse: string | null = null
+    for (const mediaId of stop.mediaIds) {
+      const holder = momentOf.get(mediaId) ?? null
+      if (holder !== null && replaceableIds.has(holder) && !kept.has(holder)) {
+        reuse = holder
+        break
+      }
+    }
     const planned: PlannedMoment = {
       endsAt: stop.endsAt,
       id: reuse ?? options.newId(),
@@ -583,10 +660,12 @@ function planMoments(
       startsAt: stop.startsAt,
     }
     if (reuse !== null) {
-      // Stable id: the moment whose oldest photo anchors this stop keeps its
-      // id; it is updated only when something about it changed.
+      // Updated only when something about it changed.
       kept.add(reuse)
       const stored = momentById.get(reuse)
+      if (stored !== undefined && movedFar(stored, stop.position)) {
+        planned.clearPlace = true
+      }
       const unchanged =
         stored !== undefined &&
         (stored.kind === undefined || stored.kind === stop.kind) &&
@@ -1080,8 +1159,8 @@ function planSegments(
 /**
  * Plans the automatic organisation of one journey (plan 3/4, 4f): new photos
  * join confirmed stops that fit them (only growing them), the rest is
- * clustered into stops; an auto moment keeps its id while its oldest photo
- * anchors a stop. Stage and trip suggestions replace older ones.
+ * clustered into stops; an auto moment keeps its id while it holds the
+ * oldest already-assigned photo of a stop. Stage and trip suggestions replace older ones.
  * Pure: it only describes the changes; the app applies them. Hand-made data
  * always wins: locked/manual moments and their media, manual/accepted
  * segments and rejected suggestions are never changed or suggested again.

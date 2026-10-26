@@ -105,9 +105,10 @@ describe('organizeJourney', () => {
     expect(result.ok).toBe(true)
     // Stable id: photo 1 (the oldest) already anchors moment 31, so the
     // moment keeps its id, grows to the new range and takes photos 2 and 3.
+    // Media move first, the range is written after them.
     expect(calls).toEqual([
-      `updateMoment:${uuid(31)}:endsAt,kind,latitude,longitude,startsAt`,
       `assign:${uuid(31)}:2`,
+      `updateMoment:${uuid(31)}:endsAt,kind,latitude,longitude,startsAt`,
       'deleteSegments:1',
       // a single-stage journey now also gets its (typed) stage suggestion
       'createSegments:1',
@@ -233,6 +234,103 @@ describe('organizeJourney', () => {
     expect(deps.createMoments).not.toHaveBeenCalled()
     expect(deps.deleteMoments).not.toHaveBeenCalled()
     if (result.ok) expect(result.counts.momentsExtended).toBe(1)
+  })
+
+  it('writes the grown range only after the photos moved; a failure leaves the range alone', async () => {
+    const confirmedDeps = (over: Partial<OrganizeDeps>) => {
+      const calls: string[] = []
+      return {
+        calls,
+        deps: makeDeps(calls, {
+          listMedia: vi.fn(() =>
+            Promise.resolve([
+              med(1, {
+                capturedAt: '2026-09-01T09:00:00+00:00',
+                latitude: 51.1,
+                longitude: -115.3,
+                momentId: uuid(31),
+              }),
+              med(2, {
+                capturedAt: '2026-09-01T10:00:00+00:00',
+                latitude: 51.1,
+                longitude: -115.3,
+              }),
+            ]),
+          ),
+          listMoments: vi.fn(() =>
+            Promise.resolve([
+              mom(31, {
+                endsAt: '2026-09-01T09:00:00+00:00',
+                locked: true,
+                origin: 'manual',
+                startsAt: '2026-09-01T09:00:00+00:00',
+              }),
+            ]),
+          ),
+          listSegments: vi.fn(() => Promise.resolve([])),
+          ...over,
+        }),
+      }
+    }
+    const ok = confirmedDeps({})
+    await organizeJourney(J, ok.deps)
+    expect(ok.calls.slice(0, 2)).toEqual([
+      `assign:${uuid(31)}:1`,
+      `updateMoment:${uuid(31)}:endsAt,startsAt`,
+    ])
+    // assign fails: no range was written
+    const failAssign = confirmedDeps({
+      assignMedia: vi.fn(() => Promise.reject(new Error('x'))),
+    })
+    const first = await organizeJourney(J, failAssign.deps)
+    expect(first.ok).toBe(false)
+    if (!first.ok) expect(first.error.step).toBe('assignMedia')
+    expect(failAssign.deps.updateMoment).not.toHaveBeenCalled()
+    // range write fails after the move: reported as its own step
+    const failRange = confirmedDeps({
+      updateMoment: vi.fn(() => Promise.reject(new Error('x'))),
+    })
+    const second = await organizeJourney(J, failRange.deps)
+    expect(second.ok).toBe(false)
+    if (!second.ok) {
+      expect(second.error.step).toBe('updateMoments')
+      expect(second.counts.mediaReassigned).toBe(1)
+      expect(second.counts.momentsExtended).toBe(0)
+    }
+    expect(failRange.deps.deleteMoments).not.toHaveBeenCalled()
+  })
+
+  it('clears the place of a kept stop that moved far', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      listMedia: vi.fn(() =>
+        Promise.resolve([
+          med(1, {
+            capturedAt: '2026-09-01T09:00:00+00:00',
+            latitude: 51.2,
+            longitude: -115.3,
+            momentId: uuid(31),
+          }),
+        ]),
+      ),
+      listMoments: vi.fn(() =>
+        Promise.resolve([
+          mom(31, {
+            endsAt: '2026-09-01T09:00:00+00:00',
+            latitude: 51.1, // ~11 km away from its photo now
+            longitude: -115.3,
+            placeId: uuid(77),
+            startsAt: '2026-09-01T09:00:00+00:00',
+          }),
+        ]),
+      ),
+      listSegments: vi.fn(() => Promise.resolve([])),
+    })
+    await organizeJourney(J, deps)
+    expect(deps.updateMoment).toHaveBeenCalledWith(
+      uuid(31),
+      expect.objectContaining({ latitude: 51.2, placeId: null }),
+    )
   })
 
   it('reports a load failure as step load without writing', async () => {

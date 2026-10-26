@@ -245,8 +245,9 @@ function emptyCounts(): OrganizeCounts {
 /**
  * Applies a plan through repositories. Order (each step is safe to rerun
  * after a failure because a rerun re-plans from the stored state):
- * create moments, update kept auto moments and grow confirmed ones (range
- * only, never text, cover or lock), move media, delete orphaned auto
+ * create moments, move media, then update kept auto moments and grow
+ * confirmed ones (range only, never text, cover or lock; written after the
+ * media so a range never grows without its photos), delete orphaned auto
  * moments, delete old suggested segments, insert fresh suggested segments.
  * Stops at the first failing step. The automation writes no title: names
  * come from the place (see stop-names in core), resolved afterwards by the
@@ -296,28 +297,6 @@ export async function applyOrganizationPlan(
       advance(step, part.length)
     }
 
-    step = 'updateMoments'
-    for (const moment of plan.momentsToUpdate) {
-      await deps.updateMoment(moment.id, {
-        endsAt: moment.endsAt,
-        kind: moment.kind,
-        latitude: moment.latitude,
-        longitude: moment.longitude,
-        startsAt: moment.startsAt,
-      })
-      counts.momentsUpdated += 1
-      advance(step, 1)
-    }
-    for (const extension of plan.momentsToExtend) {
-      // Range only: a pure range patch does not touch text, cover or lock.
-      await deps.updateMoment(extension.id, {
-        endsAt: extension.endsAt,
-        startsAt: extension.startsAt,
-      })
-      counts.momentsExtended += 1
-      advance(step, 1)
-    }
-
     step = 'assignMedia'
     const byMoment = new Map<string, string[]>()
     for (const { mediaId, momentId } of plan.mediaReassignments) {
@@ -331,6 +310,32 @@ export async function applyOrganizationPlan(
         counts.mediaReassigned += part.length
         advance(step, part.length)
       }
+    }
+
+    step = 'updateMoments'
+    // After the media moved: a range never grows without its photos, so an
+    // interrupted run cannot let the next one chain the intake window.
+    for (const moment of plan.momentsToUpdate) {
+      await deps.updateMoment(moment.id, {
+        endsAt: moment.endsAt,
+        kind: moment.kind,
+        latitude: moment.latitude,
+        longitude: moment.longitude,
+        // Moved far: the old place is wrong; the place job looks it up again.
+        ...(moment.clearPlace === true ? { placeId: null } : {}),
+        startsAt: moment.startsAt,
+      })
+      counts.momentsUpdated += 1
+      advance(step, 1)
+    }
+    for (const extension of plan.momentsToExtend) {
+      // Range only: a pure range patch does not touch text, cover or lock.
+      await deps.updateMoment(extension.id, {
+        endsAt: extension.endsAt,
+        startsAt: extension.startsAt,
+      })
+      counts.momentsExtended += 1
+      advance(step, 1)
     }
 
     step = 'deleteMoments'

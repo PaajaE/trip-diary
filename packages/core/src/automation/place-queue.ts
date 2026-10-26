@@ -1,19 +1,20 @@
 import { compareText } from './compare.ts'
 import { isKnownTimeZone, localDay } from './local-day.ts'
+import { lookupGridKey } from './places.ts'
 import { timeZoneAt } from './time-zone.ts'
 
 /**
  * Order and batching of place lookups for stops without a place (plan 4f,
- * point 10). Pure: the app runs the lookups. Stops are bucketed into grid
- * cells (~1 km by default) so one lookup names every stop of a cell; cells
+ * point 10). Pure: the app runs the lookups. Stops are bucketed into the
+ * SAME grid cells the resolve-place edge function caches by (`lookupGridKey`:
+ * 3 decimals, ~110 m), so one lookup names only stops the server would name
+ * the same anyway; a lake and a peak 1 km apart get their own lookups. Cells
  * of the visible day come first, then the most recent days. Stops that
  * already have a place are not passed in, so a rerun only resolves what is
  * still missing (resumable).
  */
 
-export const DEFAULT_PLACE_CELL_METERS = 1000
 export const DEFAULT_PLACE_BATCH_SIZE = 10
-const METERS_PER_DEGREE = 111_320
 
 export interface PlaceLookupStop {
   /** Local day (YYYY-MM-DD, 04:00 rule); from `startsAt` and the zone when absent. */
@@ -41,24 +42,13 @@ export interface PlaceLookupCell {
 export interface PlaceLookupOptions {
   /** Batch size (cells per batch). */
   batchSize?: number
-  /** Edge of a grid cell in metres. */
-  cellMeters?: number
   /** Day on screen; its cells come first. */
   focusDayKey?: string | null
 }
 
-/** Grid key of a position for cells of `cellMeters` (rows by latitude). */
-export function placeCellKey(
-  latitude: number,
-  longitude: number,
-  cellMeters: number = DEFAULT_PLACE_CELL_METERS,
-): string {
-  const step = cellMeters / METERS_PER_DEGREE
-  const row = Math.floor(latitude / step)
-  const rowLatitude = (row + 0.5) * step
-  const cos = Math.max(0.01, Math.cos((rowLatitude * Math.PI) / 180))
-  const col = Math.floor(longitude / (step / cos))
-  return `${String(cellMeters)}:${String(row)}:${String(col)}`
+/** Grid key of a position: the edge function's cache key (~110 m cells). */
+export function placeCellKey(latitude: number, longitude: number): string {
+  return lookupGridKey({ latitude, longitude })
 }
 
 function dayKeyOf(stop: PlaceLookupStop): string {
@@ -85,7 +75,6 @@ export function planPlaceLookups(
   stops: readonly PlaceLookupStop[],
   options: PlaceLookupOptions = {},
 ): PlaceLookupCell[][] {
-  const cellMeters = options.cellMeters ?? DEFAULT_PLACE_CELL_METERS
   const batchSize = Math.max(1, options.batchSize ?? DEFAULT_PLACE_BATCH_SIZE)
   const focus = options.focusDayKey ?? null
 
@@ -116,7 +105,7 @@ export function planPlaceLookups(
 
   const cells = new Map<string, { first: number; rows: Row[] }>()
   for (const row of rows) {
-    const key = placeCellKey(row.stop.latitude, row.stop.longitude, cellMeters)
+    const key = placeCellKey(row.stop.latitude, row.stop.longitude)
     const cell = cells.get(key)
     if (cell === undefined) cells.set(key, { first: row.time, rows: [row] })
     else cell.rows.push(row)

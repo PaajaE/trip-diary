@@ -171,7 +171,6 @@ export {
 } from './stop-names.ts'
 export {
   DEFAULT_PLACE_BATCH_SIZE,
-  DEFAULT_PLACE_CELL_METERS,
   placeCellKey,
   planPlaceLookups,
   runLimited,

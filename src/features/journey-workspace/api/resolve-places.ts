@@ -17,17 +17,32 @@ export const MAX_CONSECUTIVE_FAILURES = 3
  * strictly sequential.
  */
 export const PLACE_LOOKUP_CONCURRENCY = 1
+/**
+ * Minimum spacing between the starts of two uncached lookups (client-side
+ * courtesy pacing; the server enforces none). Cached cells are not delayed.
+ */
+export const PLACE_LOOKUP_MIN_INTERVAL_MS = 200
 
 export interface ResolvePlacesDeps {
   /** Client cell cache (grid key -> place or null); survives reruns. */
   cache: Map<string, Place | null>
   concurrency?: number
+  /** Spacing between uncached lookups (ms); default PLACE_LOOKUP_MIN_INTERVAL_MS. */
+  minIntervalMs?: number
+  /** Clock for the pacing only (not a time of any media); default Date.now. */
+  now?: () => number
   /** Called when a stop got its place (cache updates). */
   onPlace?: (momentId: string, place: Place) => void
   onProgress?: (done: number, total: number) => void
   resolve?: typeof resolvePlace
   setPlace?: typeof setMomentPlaceIfEmpty
+  /** Waits ms; default a timer. Injected in tests. */
+  sleep?: (ms: number) => Promise<void>
   stopped?: () => boolean
+}
+
+function defaultSleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 export interface ResolvePlacesResult {
@@ -58,7 +73,19 @@ export async function resolveMissingPlaces(
   deps: ResolvePlacesDeps,
   options: PlaceLookupOptions = {},
 ): Promise<ResolvePlacesResult> {
-  const resolve = deps.resolve ?? resolvePlace
+  const lookup = deps.resolve ?? resolvePlace
+  const interval = deps.minIntervalMs ?? PLACE_LOOKUP_MIN_INTERVAL_MS
+  const now = deps.now ?? (() => Date.now())
+  const sleep = deps.sleep ?? defaultSleep
+  let nextSlot = Number.NEGATIVE_INFINITY
+  /** Paced lookup: each start waits for its slot (also with concurrency > 1). */
+  const resolve = async (latitude: number, longitude: number) => {
+    const start = Math.max(now(), nextSlot)
+    nextSlot = start + interval
+    const wait = start - now()
+    if (wait > 0) await sleep(wait)
+    return lookup(latitude, longitude)
+  }
   const setPlace = deps.setPlace ?? setMomentPlaceIfEmpty
   const stopped = deps.stopped ?? (() => false)
   const missing = moments.filter(needsPlace)

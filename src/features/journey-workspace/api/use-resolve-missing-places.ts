@@ -9,6 +9,12 @@ import {
   resolveMissingPlaces,
 } from '@/features/journey-workspace/api/resolve-places'
 
+interface Session {
+  attempted: Set<string>
+  cancelled: boolean
+  running: boolean
+}
+
 export interface PlaceResolveProgress {
   done: number
   total: number
@@ -16,7 +22,7 @@ export interface PlaceResolveProgress {
 
 /**
  * Background job: gives moments that have coordinates but no place a place
- * name (`resolveMissingPlaces`: one lookup per ~1 km cell, visible day first,
+ * name (`resolveMissingPlaces`: one lookup per ~110 m cell (the server cache key), visible day first, paced,
  * sequential, never overriding a place). It runs again whenever new stops
  * without a place appear (e.g. right after "Organize automatically"), skips
  * stops it already tried in this session (no retry loop), and stops when
@@ -32,30 +38,42 @@ export function useResolveMissingPlaces(
   const [progress, setProgress] = useState<PlaceResolveProgress | null>(null)
   // Re-checks for new waiting stops after a run (e.g. organize added some).
   const [round, setRound] = useState(0)
-  const attempted = useRef(new Set<string>())
   const cache = useRef(new Map<string, Place | null>())
-  const running = useRef(false)
-  const cancelled = useRef(false)
   const focus = useRef(focusDayKey)
   useEffect(() => {
     focus.current = focusDayKey
   }, [focusDayKey])
+  /**
+   * One session per journey while enabled: its own cancel flag, attempted
+   * set and running flag. Switching the journey or disabling cancels the old
+   * session's run; a moments update (a place just saved) does not.
+   */
+  const session = useRef<Session | null>(null)
   useEffect(() => {
-    cancelled.current = false
-    return () => {
-      cancelled.current = true
+    if (!enabled) return
+    const current: Session = {
+      attempted: new Set(),
+      cancelled: false,
+      running: false,
     }
-  }, [client, journeyId])
+    session.current = current
+    return () => {
+      current.cancelled = true
+      if (session.current === current) session.current = null
+    }
+  }, [client, enabled, journeyId])
 
   useEffect(() => {
-    if (!enabled || moments === undefined || running.current) return
+    const current = session.current
+    if (!enabled || moments === undefined || current === null) return
+    if (current.running || current.cancelled) return
     const todo = moments.filter(
-      (m) => needsPlace(m) && !attempted.current.has(m.id),
+      (m) => needsPlace(m) && !current.attempted.has(m.id),
     )
     if (todo.length === 0) return
-    for (const m of todo) attempted.current.add(m.id)
-    running.current = true
-    const stopped = () => cancelled.current
+    for (const m of todo) current.attempted.add(m.id)
+    current.running = true
+    const stopped = () => current.cancelled
     const run = async () => {
       setProgress({ done: 0, total: todo.length })
       try {
@@ -83,11 +101,11 @@ export function useResolveMissingPlaces(
           { focusDayKey: focus.current },
         )
       } finally {
-        running.current = false
-        if (!stopped()) {
-          setProgress(null)
-          setRound((value) => value + 1)
-        }
+        current.running = false
+        // A cancelled run leaves the progress to a session that follows;
+        // without one (disabled) the progress is cleared.
+        if (!stopped() || session.current === null) setProgress(null)
+        if (!stopped()) setRound((value) => value + 1)
       }
     }
     void run()
