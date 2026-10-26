@@ -65,6 +65,7 @@ const key = (k: string, target: Element = document.body) => {
 interface Options {
   items?: MediaItem[]
   fail?: 'trash' | 'moveTo'
+  placeNames?: ReadonlyMap<string, string>
   tree?: typeof tree | null
 }
 
@@ -128,6 +129,9 @@ function setup(options: Options = {}) {
         baseUrl="https://m.test"
         items={items}
         journeyId="j1"
+        {...(options.placeNames === undefined
+          ? {}
+          : { placeNames: options.placeNames })}
         tree={options.tree === undefined ? tree : options.tree}
         onClose={onClose}
       />
@@ -140,6 +144,7 @@ function setup(options: Options = {}) {
 const progress = () => screen.getByTestId('quick-sort-progress').textContent
 
 beforeEach(async () => {
+  window.localStorage.clear()
   await i18n.changeLanguage('en')
 })
 afterEach(cleanup)
@@ -153,9 +158,11 @@ describe('QuickSortView', () => {
     expect(document.body.style.overflow).toBe('hidden')
     const card = screen.getByTestId('quick-sort-suggestion')
     expect(within(card).getByText('Old Town')).toBeTruthy()
-    expect(within(card).getByText(/during this stop/)).toBeTruthy()
+    expect(within(card).getByText(/matches this stop/)).toBeTruthy()
+    // The internal wording never reaches the user.
+    expect(within(card).queryByText(/was taken during/)).toBeNull()
     for (const name of [
-      'To stop Old Town',
+      'File here',
       'Trash',
       'Best',
       'Sorted',
@@ -216,7 +223,7 @@ describe('QuickSortView', () => {
   it('files into the suggested stop and moves on', async () => {
     const { calls } = setup()
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: 'To stop Old Town' }))
+      fireEvent.click(screen.getByRole('button', { name: 'File here' }))
     })
     expect(calls.moveTo).toHaveBeenCalledWith(
       [expect.objectContaining({ id: a.id })],
@@ -240,12 +247,89 @@ describe('QuickSortView', () => {
   it('"Change" lists every stop and files there', async () => {
     const { calls } = setup()
     fireEvent.click(screen.getByRole('button', { name: 'Change' }))
-    const sheet = screen.getByRole('dialog', { name: 'Move to stop' })
+    const sheet = screen.getByRole('dialog', { name: 'Move 1 photo to' })
     await act(async () => {
       fireEvent.click(within(sheet).getByRole('button', { name: /Old Town/ }))
     })
     expect(calls.moveTo).toHaveBeenCalledWith(expect.anything(), OLD_TOWN.id)
-    expect(screen.queryByRole('dialog', { name: 'Move to stop' })).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Move 1 photo to' })).toBeNull()
+  })
+
+  it('never sends a photo back to the stop it is already in', async () => {
+    const placed = { ...a, momentId: OLD_TOWN.id }
+    const { calls } = setup({ items: [placed] })
+    const card = screen.getByTestId('quick-sort-suggestion')
+    expect(within(card).getByText(/already in the stop Old Town/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'File here' })).toBeNull()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Keep it there' }))
+    })
+    expect(calls.done).toHaveBeenCalledTimes(1)
+    expect(calls.moveTo).not.toHaveBeenCalled()
+  })
+
+  it('shows a lookup placeholder, not a made-up "Stop 15:07", until the place is known', () => {
+    const lookup = mom(60, {
+      endsAt: '2026-01-02T09:05:00+00:00',
+      latitude: 51,
+      longitude: -115,
+      placeId: 'place-1',
+      startsAt: '2026-01-02T09:05:00+00:00',
+    })
+    const lookupTree = buildWorkspaceTree([], [lookup], [])
+    const { unmount } = render(
+      <QuickSortView
+        actions={{} as never}
+        baseUrl="https://m.test"
+        items={[a]}
+        journeyId="j"
+        tree={lookupTree}
+        onClose={vi.fn()}
+      />,
+    )
+    const card = screen.getByTestId('quick-sort-suggestion')
+    expect(within(card).getByText('Looking up the place…')).toBeTruthy()
+    expect(screen.queryByText(/Stop \d{1,2}:\d{2}/)).toBeNull()
+    unmount()
+    render(
+      <QuickSortView
+        actions={{} as never}
+        baseUrl="https://m.test"
+        items={[a]}
+        journeyId="j"
+        placeNames={new Map([['place-1', 'Banff']])}
+        tree={lookupTree}
+        onClose={vi.fn()}
+      />,
+    )
+    expect(
+      within(screen.getByTestId('quick-sort-suggestion')).getByText('Banff'),
+    ).toBeTruthy()
+  })
+
+  it('explains ★ in the tooltip, the shortcut panel and once after the first ★', async () => {
+    setup()
+    const star = screen.getByRole('button', { name: /^Best/ })
+    expect(star.getAttribute('title')).toMatch(/cover.*mosaic.*public story/)
+    expect(star.getAttribute('aria-describedby')).not.toBeNull()
+    expect(screen.getByText(/★ = pick for covers/)).toBeTruthy()
+    expect(screen.queryByTestId('quick-sort-star-toast')).toBeNull()
+    await act(async () => {
+      fireEvent.click(star)
+    })
+    expect(screen.getByTestId('quick-sort-star-toast').textContent).toMatch(
+      /★ means best/,
+    )
+    expect(window.localStorage.getItem('trip-diary:star-hint-seen')).toBe('1')
+  })
+
+  it('does not repeat the ★ explanation once it was seen', async () => {
+    window.localStorage.setItem('trip-diary:star-hint-seen', '1')
+    setup()
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /^Best/ }))
+    })
+    expect(screen.queryByTestId('quick-sort-star-toast')).toBeNull()
   })
 
   it('"Sorted" only marks as reviewed (no stop)', async () => {

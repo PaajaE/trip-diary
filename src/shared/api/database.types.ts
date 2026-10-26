@@ -1999,7 +1999,7 @@ export type Database = {
           updated_at: string
         }[]
       }
-      local_day: { Args: { p_tz: string; p_ts: string }; Returns: string }
+      local_day: { Args: { p_ts: string; p_tz: string }; Returns: string }
       mark_media_reviewed: {
         Args: { p_media_ids: string[]; p_reviewed?: boolean }
         Returns: number
@@ -2099,7 +2099,12 @@ export type Database = {
         Returns: string
       }
       pick_local_day: {
-        Args: { p_dates: string[]; p_home_tz: string; p_ts: string; p_tzs: string[] }
+        Args: {
+          p_dates: string[]
+          p_home_tz: string
+          p_ts: string
+          p_tzs: string[]
+        }
         Returns: string
       }
       purge_media: { Args: { p_media_ids: string[] }; Returns: string[] }

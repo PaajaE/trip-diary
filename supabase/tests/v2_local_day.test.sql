@@ -20,7 +20,7 @@ select is(public.local_day('2026-06-10T03:59:00Z', 'UTC'), '2026-06-09'::date, '
 select is(public.local_day('2026-06-11T13:59:00Z', 'Pacific/Auckland'), '2026-06-11'::date, 'date line: Auckland (UTC+12) 01:59 on 06-12 is day 06-11');
 select is(public.local_day('2026-06-11T13:59:00Z', 'Pacific/Honolulu'), '2026-06-10'::date, 'date line: Honolulu (UTC-10) 03:59 on 06-11 is day 06-10');
 select is(public.local_day('2026-06-11T14:00:00Z', 'Pacific/Honolulu'), '2026-06-11'::date, 'date line: Honolulu 04:00 starts day 06-11');
-select ok((select provolatile = 'i' from pg_proc where oid = 'public.local_day(timestamptz, text)'::regprocedure), 'local_day is immutable');
+select ok((select provolatile = 's' from pg_proc where oid = 'public.local_day(timestamptz, text)'::regprocedure), 'local_day is stable (tz database may change)');
 
 -- ---- pick_local_day (pure) --------------------------------------------------
 select is(public.pick_local_day('2026-06-10T22:40:00Z', 'Europe/Prague', '{}'::date[], '{}'::text[]), '2026-06-10'::date, 'no photo days: falls back to home_tz');

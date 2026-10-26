@@ -35,6 +35,33 @@ export function visibleTitle(
   return place?.trim() ?? ''
 }
 
+export interface StopLabel {
+  /** The name is still being looked up; `text` is then the placeholder. */
+  pending: boolean
+  text: string
+}
+
+/**
+ * Label of a stop in lists: title, else place name. Without either, a stop
+ * that has (or will get) a place shows "looking up the place" and one that
+ * never can (no coordinates, no place) shows "Stop N". Never a made-up
+ * "Stop 15:07" title.
+ */
+export function stopLabel(
+  entry: WorkspaceMoment,
+  placeNames: ReadonlyMap<string, string> | null,
+  t: TFunction,
+  position: number,
+): StopLabel {
+  const shown = visibleTitle(entry, placeNames)
+  if (shown !== '') return { pending: false, text: shown }
+  const { latitude, longitude, placeId } = entry.moment
+  if (placeId !== null || (latitude !== null && longitude !== null)) {
+    return { pending: true, text: t('workspace.lookingUpPlace') }
+  }
+  return { pending: false, text: t('dayDetail.stopNumber', { n: position }) }
+}
+
 /** Name for menus, dialogs, the viewer and screen readers (never empty). */
 export function momentTitle(
   entry: WorkspaceMoment,

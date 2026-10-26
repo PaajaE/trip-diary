@@ -6,7 +6,11 @@ import {
   type PhotoDayZones,
 } from '@trip-diary/core/automation'
 import { browserZone } from '@/features/journey-workspace/lib/format-range'
-import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
+import {
+  collectMoments,
+  type WorkspaceMoment,
+  type WorkspaceTree,
+} from '@/features/journey-workspace/model/workspace-tree'
 
 /** Scope id of the day groups of moments that belong to no segment. */
 export const LOOSE_SCOPE = 'loose'
@@ -74,6 +78,20 @@ export function buildPhotoDays(
     })
   }
   return photoDayZones(photos)
+}
+
+/** `buildPhotoDays` over every media item of a workspace tree (moments and unassigned). */
+export function buildTreePhotoDays(
+  tree: WorkspaceTree,
+  homeTz: string | null,
+): PhotoDayZones {
+  return buildPhotoDays(
+    [
+      ...collectMoments(tree).flatMap((entry) => entry.media),
+      ...tree.unassigned,
+    ],
+    homeTz,
+  )
 }
 
 function dayOf(

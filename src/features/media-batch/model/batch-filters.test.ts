@@ -28,7 +28,13 @@ const clip = med(4, {
 describe('batch filters', () => {
   it('counts every chip', () => {
     const model = buildFilterModel([s1, s2, lone, clip])
-    expect(model.counts).toEqual({ all: 4, noLocation: 1, series: 2, video: 1 })
+    expect(model.counts).toEqual({
+      all: 4,
+      noLocation: 1,
+      series: 2,
+      starred: 0,
+      video: 1,
+    })
     expect(model.seriesIds.has(s1.id)).toBe(true)
     expect(model.seriesIds.has(lone.id)).toBe(false)
   })
@@ -42,6 +48,17 @@ describe('batch filters', () => {
     ])
     expect(visibleFilters(buildFilterModel([s1]))).toEqual(['all'])
     expect(visibleFilters(buildFilterModel([]))).toEqual(['all'])
+  })
+
+  it('has a ★ chip that matches starred photos and shows only when there are some', () => {
+    const star = { ...s1, starred: true }
+    const items = [star, s2, lone, clip]
+    const model = buildFilterModel(items)
+    expect(model.counts.starred).toBe(1)
+    expect(visibleFilters(model)).toContain('starred')
+    expect(visibleFilters(buildFilterModel([s1, s2]))).not.toContain('starred')
+    expect(matchesFilter(star, 'starred', model)).toBe(true)
+    expect(matchesFilter(s2, 'starred', model)).toBe(false)
   })
 
   it('matches by predicate', () => {

@@ -6,6 +6,8 @@ import { useUnreviewedMediaQuery } from '@/entities/media/api/use-unreviewed-med
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { useCanEditJourney } from '@/features/journey-workspace/api/use-can-edit-journey'
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
+import { useTreePlaceNames } from '@/features/journey-workspace/api/use-tree-place-names'
+import { browserZone } from '@/features/journey-workspace/lib/format-range'
 import { BASE_URL } from '@/features/journey-workspace/lib/moment-labels'
 import { MediaViewer } from '@/features/journey-workspace/ui/MediaViewer'
 import { useDaySelection } from '@/features/journey-workspace/ui/day/use-day-selection'
@@ -99,12 +101,14 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
     () => (items ?? []).filter((item) => selection.ids.has(item.id)),
     [items, selection.ids],
   )
+  const tree = workspace.status === 'ready' ? workspace.tree : null
+  const placeNames = useTreePlaceNames(journeyId, tree)
   const stops = useMemo(
     () =>
-      workspace.status === 'ready'
-        ? buildMoveStops(workspace.tree, t, locale)
-        : [],
-    [workspace, t, locale],
+      tree === null
+        ? []
+        : buildMoveStops(tree, t, locale, placeNames, browserZone()),
+    [tree, t, locale, placeNames],
   )
   const sheetItems = useMemo(() => {
     if (sheet === null) return []
@@ -366,7 +370,8 @@ export function BatchPage({ journeyId }: { journeyId: string }) {
           journeyId={journeyId}
           returnFocusTo={quickSort.opener}
           uploaders={uploaders}
-          tree={workspace.status === 'ready' ? workspace.tree : null}
+          placeNames={placeNames}
+          tree={tree}
           onClose={() => {
             setQuickSort(null)
           }}

@@ -46,6 +46,9 @@ vi.mock('@/entities/media/api/use-unreviewed-media-query', () => ({
 vi.mock('@/features/journey-workspace/api/use-can-edit-journey', () => ({
   useCanEditJourney: () => ({ canEdit: true, ready: true }),
 }))
+vi.mock('@/features/journey-workspace/api/use-tree-place-names', () => ({
+  useTreePlaceNames: () => new Map<string, string>(),
+}))
 vi.mock('@/features/journey-workspace/api/use-journey-workspace', () => ({
   useJourneyWorkspace: () => ({
     status: 'ready',

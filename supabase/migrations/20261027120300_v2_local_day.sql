@@ -10,7 +10,7 @@
 --
 -- Functions (all internal: execute is revoked from clients, callers are
 -- SECURITY DEFINER functions or pgTAP running as the owner):
---   local_day(ts, tz)                      pure, immutable
+--   local_day(ts, tz)                      pure, stable (AT TIME ZONE depends on the tz database)
 --   journey_day_zones(journey)             photo days and their majority zone
 --   pick_local_day(ts, home_tz, dates, tzs) day of an instant, pure
 -- Replaced (new definitions, same signatures and grants):
@@ -20,7 +20,7 @@
 create or replace function public.local_day(p_ts timestamptz, p_tz text)
 returns date
 language sql
-immutable
+stable
 parallel safe
 set search_path = ''
 as $$
@@ -74,7 +74,7 @@ create or replace function public.pick_local_day(
 )
 returns date
 language sql
-immutable
+stable
 parallel safe
 set search_path = ''
 as $$
@@ -172,16 +172,20 @@ declare
   v_repl text := $r$public.pick_local_day(
           vm.starts_at,
           coalesce(j.home_tz, 'UTC'),
-          (select z.dates from public.journey_day_zones(j.id) z),
-          (select z2.tzs from public.journey_day_zones(j.id) z2)
+          z.dates,
+          z.tzs
         ) = dn.local_date$r$;
+  -- the zones are computed once per day note, not once per visible moment
+  v_join_old text := 'join journey j on j.id = dn.journey_id';
+  v_join_new text := E'join journey j on j.id = dn.journey_id\n      cross join lateral public.journey_day_zones(j.id) z';
 begin
   v_def := pg_get_functiondef(v_sig::regprocedure);
-  if position(v_old in v_def) = 0 then
+  if position(v_old in v_def) = 0 or position(v_join_old in v_def) = 0 then
     raise exception 'anchor not found in %', v_sig;
   end if;
-  v_new := replace(v_def, v_old, v_repl);
-  if v_new = v_def or v_new not like '%pick_local_day%' then
+  v_new := replace(replace(v_def, v_old, v_repl), v_join_old, v_join_new);
+  if v_new = v_def or v_new not like '%pick_local_day%'
+     or v_new not like '%journey_day_zones%' then
     raise exception 'local day patch did not apply to %', v_sig;
   end if;
   execute v_new;

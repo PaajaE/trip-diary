@@ -15,17 +15,18 @@ import type { MediaItem } from '@/entities/media/model/media-library'
 import {
   formatDuration,
   formatInstantDate,
+  browserZone,
   formatLocalTime,
   mediaDisplayZone,
 } from '@/features/journey-workspace/lib/format-range'
-import { momentTitle } from '@/features/journey-workspace/lib/moment-labels'
 import { getViewerUrls } from '@/features/journey-workspace/lib/media-thumb'
-import {
-  collectMoments,
-  type WorkspaceTree,
-} from '@/features/journey-workspace/model/workspace-tree'
+import type { WorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
 import type { BatchActions } from '@/features/media-batch/api/use-batch-actions'
-import { batchMoveTargets } from '@/features/media-batch/model/move-targets'
+import { buildMoveStops } from '@/features/media-batch/model/move-sheet'
+import {
+  markStarHintSeen,
+  starHintSeen,
+} from '@/features/media-batch/model/star-hint'
 import {
   advanceOpen,
   buildSession,
@@ -54,6 +55,7 @@ import {
   type UploaderModel,
 } from '@/features/media-batch/model/uploaders'
 import { relativeSharpness } from '@/features/media-batch/model/series'
+import { MoveToSheet } from '@/features/media-batch/ui/MoveToSheet'
 import { PhotoCompare } from '@/features/media-batch/ui/PhotoCompare'
 import { SeriesView } from '@/features/media-batch/ui/SeriesView'
 import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
@@ -71,14 +73,20 @@ export interface QuickSortViewProps {
   items: readonly MediaItem[]
   journeyId: string
   onClose: () => void
+  /** Place names by place id; a stop without a name yet shows a lookup placeholder. */
+  placeNames?: ReadonlyMap<string, string>
   returnFocusTo?: HTMLElement | null
-  /** Stops for the suggestion and the "Změnit" list; null while loading. */
+  /** Stops for the suggestion and the "Změnit" sheet; null while loading. */
   tree: WorkspaceTree | null
   /** Shared journeys only: marks media uploaded by another member. */
   uploaders?: UploaderModel
 }
 
 type Overlay = 'none' | 'change' | 'series' | 'summary'
+
+const NO_PLACE_NAMES: ReadonlyMap<string, string> = new Map()
+/** How long the one-time ★ explanation stays on screen. */
+const STAR_HINT_MS = 7000
 
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), video[controls], [href], [tabindex]:not([tabindex="-1"])'
@@ -114,6 +122,7 @@ export function QuickSortView({
   items,
   journeyId,
   onClose,
+  placeNames = NO_PLACE_NAMES,
   returnFocusTo = null,
   tree,
   uploaders = NO_UPLOADERS,
@@ -121,11 +130,10 @@ export function QuickSortView({
   const { t, i18n } = useTranslation()
   const locale = i18n.language
   const titleId = useId()
-  const changeTitleId = useId()
+  const starHintId = useId()
   const summaryTitleId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
   const summaryFocusRef = useRef<HTMLButtonElement>(null)
-  const changeRef = useRef<HTMLDivElement>(null)
   const touchStart = useRef<{ x: number; y: number } | null>(null)
   const seq = useRef(0)
 
@@ -144,6 +152,7 @@ export function QuickSortView({
   const [history, setHistory] = useState<SortHistory>([])
   const [overlay, setOverlay] = useState<Overlay>('none')
   const [elapsedMs, setElapsedMs] = useState(0)
+  const [starToast, setStarToast] = useState(false)
 
   const handled = useMemo(() => handledMap(history), [history])
   const index = Math.max(
@@ -169,19 +178,8 @@ export function QuickSortView({
     () =>
       tree === null
         ? []
-        : collectMoments(tree).map((entry) => ({
-            endsAt: entry.moment.endsAt,
-            id: entry.moment.id,
-            latitude: entry.moment.latitude,
-            longitude: entry.moment.longitude,
-            name: momentTitle(entry, t, locale),
-            startsAt: entry.moment.startsAt,
-          })),
-    [tree, t, locale],
-  )
-  const targets = useMemo(
-    () => (tree === null ? [] : batchMoveTargets(tree, t, locale)),
-    [tree, t, locale],
+        : buildMoveStops(tree, t, locale, placeNames, browserZone()),
+    [tree, t, locale, placeNames],
   )
   const suggestion = useMemo(
     () =>
@@ -192,6 +190,7 @@ export function QuickSortView({
               capturedAt: item.capturedAt,
               latitude: item.latitude,
               longitude: item.longitude,
+              momentId: item.momentId,
             },
             stops,
           ),
@@ -201,6 +200,9 @@ export function QuickSortView({
     suggestion === null
       ? undefined
       : stops.find((stop) => stop.id === suggestion.stopId)
+  const placedIn = item?.momentId ?? null
+  const currentStop =
+    placedIn === null ? undefined : stops.find((stop) => stop.id === placedIn)
 
   const seriesOpen = id === undefined ? [] : openSeries(session, id, handled)
   const hasSeries = seriesOpen.length >= 2
@@ -281,6 +283,11 @@ export function QuickSortView({
     haptic('light')
     setHistory((h) => pushAction(h, action))
     void actions.star([target])
+    // One-time explanation after the very first ★ on this device.
+    if (!target.starred && !starHintSeen()) {
+      markStarHintSeen()
+      setStarToast(true)
+    }
   }
   const donePhoto = (target: MediaItem | undefined) => {
     if (!canAct(target, true)) return
@@ -325,8 +332,10 @@ export function QuickSortView({
     )
   }
   const accept = () => {
-    if (suggestion === null) newStop()
-    else moveTo(suggestion.stopId)
+    if (suggestion !== null) moveTo(suggestion.stopId)
+    // Already in a stop and nothing better: keep it there.
+    else if (item !== undefined && item.momentId !== null) done()
+    else newStop()
   }
 
   const navigate = (delta: 1 | -1) => {
@@ -432,6 +441,16 @@ export function QuickSortView({
     }
   })
 
+  useEffect(() => {
+    if (!starToast) return
+    const timer = window.setTimeout(() => {
+      setStarToast(false)
+    }, STAR_HINT_MS)
+    return () => {
+      window.clearTimeout(timer)
+    }
+  }, [starToast])
+
   // Focus in, trap Tab inside the topmost layer, return focus, lock scroll.
   useEffect(() => {
     const opener = returnFocusTo ?? document.activeElement
@@ -492,13 +511,8 @@ export function QuickSortView({
         }
         return
       }
-      if (now.overlay === 'change') {
-        if (event.key === 'Escape') {
-          event.preventDefault()
-          setOverlay('none')
-        }
-        return
-      }
+      // The "Move to" sheet owns every key (Esc included) while it is open.
+      if (now.overlay === 'change') return
       const run = (fn: () => void, repeatable = false) => {
         event.preventDefault()
         if (event.repeat && !repeatable) return
@@ -562,7 +576,6 @@ export function QuickSortView({
   // Move focus into the layer that just opened; back to the dialog on close.
   useEffect(() => {
     if (overlay === 'summary') summaryFocusRef.current?.focus()
-    else if (overlay === 'change') changeRef.current?.focus()
     else if (overlay === 'none') rootRef.current?.focus({ preventScroll: true })
   }, [overlay])
 
@@ -598,16 +611,22 @@ export function QuickSortView({
 
   const stopTitleOf = (target: MediaItem): string | null => {
     if (tree === null || target.momentId === null) return null
-    const entry = collectMoments(tree).find(
-      (found) => found.moment.id === target.momentId,
-    )
-    return entry === undefined ? null : momentTitle(entry, t, locale)
+    const found = stops.find((stop) => stop.id === target.momentId)
+    return found === undefined ? null : found.title
   }
   const compareSharpness = relativeSharpness([
     item,
     ...(compare.partner === undefined ? [] : [compare.partner]),
     ...pool,
   ])
+
+  // The suggestion block above names the stop; the button only says what happens.
+  const acceptLabel =
+    suggestion !== null && suggestedStop !== undefined
+      ? t(item.momentId === null ? 'quickSort.fileHere' : 'quickSort.moveHere')
+      : item.momentId !== null
+        ? t('quickSort.keepThere')
+        : t('quickSort.newStop')
 
   const outcomeLabel =
     outcome === 'trash'
@@ -671,7 +690,7 @@ export function QuickSortView({
               role="progressbar"
             >
               <div
-                className="h-full bg-emerald-400"
+                className="h-full bg-action-keep"
                 style={{ width: `${String(percent)}%` }}
               />
             </div>
@@ -761,11 +780,19 @@ export function QuickSortView({
               </p>
               {suggestion !== null && suggestedStop !== undefined ? (
                 <>
-                  <p className="mt-1 font-semibold">{suggestedStop.name}</p>
+                  <p className="mt-1 font-semibold">
+                    <StopName stop={suggestedStop} />
+                  </p>
                   <p className="text-sm text-white/70">
                     {t(REASON_KEYS[suggestion.reason])}
                   </p>
                 </>
+              ) : currentStop !== undefined ? (
+                <p className="mt-1 text-sm text-white/70">
+                  {currentStop.pending
+                    ? t('quickSort.alreadyInUnknown')
+                    : t('quickSort.alreadyIn', { name: currentStop.title })}
+                </p>
               ) : (
                 <p className="mt-1 text-sm text-white/70">
                   {t('quickSort.noSuggestion')}
@@ -814,6 +841,7 @@ export function QuickSortView({
                 <ul className="mt-1 space-y-0.5 text-white/80">
                   <li>{t('quickSort.shortcutAccept')}</li>
                   <li>{t('quickSort.shortcutStar')}</li>
+                  <li>{t('quickSort.shortcutStarWhy')}</li>
                   <li>{t('quickSort.shortcutTrash')}</li>
                   <li>{t('quickSort.shortcutUndo')}</li>
                   <li>{t('quickSort.shortcutSeries')}</li>
@@ -833,16 +861,27 @@ export function QuickSortView({
           {t('quickSort.keyboardHints')}
         </p>
 
+        {starToast ? (
+          <p
+            className="mx-3 shrink-0 rounded-2xl bg-action-star px-4 py-2 text-sm text-action-star-foreground"
+            data-testid="quick-sort-star-toast"
+            role="status"
+          >
+            {t('quickSort.starToast')}
+          </p>
+        ) : null}
+
         <div className="flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
           <button
-            className={cn(BIG, 'bg-emerald-700 hover:bg-emerald-600')}
+            className={cn(
+              BIG,
+              'bg-action-keep text-action-keep-foreground hover:bg-action-keep-hover',
+            )}
             disabled={isHandled}
             type="button"
             onClick={accept}
           >
-            {suggestion !== null && suggestedStop !== undefined
-              ? t('quickSort.toStop', { name: suggestedStop.name })
-              : t('quickSort.newStop')}
+            {acceptLabel}
           </button>
           <div className="flex gap-2">
             <button
@@ -855,7 +894,10 @@ export function QuickSortView({
               <Undo2 aria-hidden="true" />
             </button>
             <button
-              className={cn(BIG, 'flex-1 bg-red-600 hover:bg-red-500')}
+              className={cn(
+                BIG,
+                'flex-1 bg-action-trash text-action-trash-foreground hover:bg-action-trash-hover',
+              )}
               disabled={isHandled}
               type="button"
               onClick={trash}
@@ -864,21 +906,26 @@ export function QuickSortView({
               {t('quickSort.trash')}
             </button>
             <button
+              aria-describedby={starHintId}
               aria-pressed={item.starred}
               className={cn(
                 BIG,
-                'flex-1 bg-amber-400 text-black hover:bg-amber-300',
+                'flex-1 bg-action-star text-action-star-foreground hover:bg-action-star-hover',
               )}
               disabled={isHandled}
+              title={t('quickSort.starHint')}
               type="button"
               onClick={star}
             >
               <Star
                 aria-hidden="true"
-                className={item.starred ? 'fill-black' : ''}
+                className={item.starred ? 'fill-action-star-foreground' : ''}
               />
               {starLabel}
             </button>
+            <span className="sr-only" id={starHintId}>
+              {t('quickSort.starHint')}
+            </span>
             <button
               className={cn(BIG, 'bg-white/10 text-sm hover:bg-white/20')}
               disabled={isHandled}
@@ -912,53 +959,16 @@ export function QuickSortView({
       ) : null}
 
       {overlay === 'change' ? (
-        <div
-          aria-labelledby={changeTitleId}
-          aria-modal="true"
-          className="absolute inset-0 z-20 flex items-end justify-center bg-black/70 sm:items-center"
-          role="dialog"
-        >
-          <div
-            className="flex max-h-[80dvh] w-full max-w-md flex-col gap-2 rounded-t-2xl bg-background p-4 text-foreground outline-none sm:rounded-2xl"
-            ref={changeRef}
-            tabIndex={-1}
-          >
-            <h3 className="text-base font-semibold" id={changeTitleId}>
-              {t('quickSort.changeTitle')}
-            </h3>
-            <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-              {targets.map((target) => (
-                <li key={target.id}>
-                  <button
-                    className="min-h-11 w-full rounded-xl px-3 text-left hover:bg-surface"
-                    type="button"
-                    onClick={() => {
-                      moveTo(target.id)
-                    }}
-                  >
-                    {target.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button
-              className="min-h-11 rounded-xl border border-border px-3 font-medium hover:bg-surface"
-              type="button"
-              onClick={newStop}
-            >
-              {t('quickSort.newStop')}
-            </button>
-            <button
-              className="min-h-11 rounded-xl px-3 text-muted-foreground hover:bg-surface"
-              type="button"
-              onClick={() => {
-                setOverlay('none')
-              }}
-            >
-              {t('quickSort.changeClose')}
-            </button>
-          </div>
-        </div>
+        <MoveToSheet
+          baseUrl={baseUrl}
+          items={[item]}
+          stops={stops}
+          onClose={() => {
+            setOverlay('none')
+          }}
+          onNewStop={newStop}
+          onPick={moveTo}
+        />
       ) : null}
 
       {overlay === 'summary' ? (
@@ -1035,5 +1045,23 @@ export function QuickSortView({
       ) : null}
     </div>,
     document.body,
+  )
+}
+
+/** Stop name; a placeholder while the place is looked up shows as a skeleton. */
+function StopName({
+  stop,
+}: {
+  stop: { pending: boolean; title: string }
+}): ReactNode {
+  return stop.pending ? (
+    <span
+      className="animate-pulse rounded-sm bg-white/10 px-1 text-white/70"
+      data-testid="quick-sort-looking-up"
+    >
+      {stop.title}
+    </span>
+  ) : (
+    stop.title
   )
 }

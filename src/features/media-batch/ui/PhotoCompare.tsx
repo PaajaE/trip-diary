@@ -64,8 +64,12 @@ export interface PhotoCompareProps {
 
 const CHIP =
   'flex min-h-11 items-center justify-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium text-white hover:bg-white/20 disabled:opacity-40'
-const ICON_BTN =
-  'flex size-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-40'
+const ICON_BASE =
+  'flex size-11 items-center justify-center rounded-full disabled:opacity-40'
+const ICON_BTN = `${ICON_BASE} bg-white/10 text-white hover:bg-white/20`
+const ICON_KEEP = `${ICON_BASE} bg-action-keep text-action-keep-foreground hover:bg-action-keep-hover`
+const ICON_TRASH = `${ICON_BASE} bg-action-trash text-action-trash-foreground hover:bg-action-trash-hover`
+const ICON_STAR = `${ICON_BASE} bg-action-star text-action-star-foreground hover:bg-action-star-hover`
 const TAP_MS = 300
 const TAP_SLOP_PX = 24
 const WHEEL_SENSITIVITY = 0.003
@@ -397,7 +401,7 @@ function Pane({
         {item.starred ? (
           <Star
             aria-label={t('quickSort.starredBadge')}
-            className="mr-1 inline fill-amber-400 text-amber-400"
+            className="mr-1 inline fill-action-star text-action-star"
             role="img"
             size={14}
           />
@@ -407,7 +411,7 @@ function Pane({
           <span className="mt-1 flex gap-2">
             <button
               aria-label={t('photoCompare.trash', { which })}
-              className={cn(ICON_BTN, 'bg-red-600 hover:bg-red-500')}
+              className={ICON_TRASH}
               disabled={disabled}
               type="button"
               onClick={() => {
@@ -419,10 +423,7 @@ function Pane({
             <button
               aria-label={t('photoCompare.keep', { which })}
               aria-pressed={actions.kept?.(item) ?? false}
-              className={cn(
-                ICON_BTN,
-                actions.kept?.(item) === true && 'bg-emerald-600',
-              )}
+              className={actions.kept?.(item) === true ? ICON_KEEP : ICON_BTN}
               disabled={keepOff}
               type="button"
               onClick={() => {
@@ -437,7 +438,7 @@ function Pane({
                 { which },
               )}
               aria-pressed={item.starred}
-              className={cn(ICON_BTN, 'bg-amber-400 text-black')}
+              className={ICON_STAR}
               disabled={disabled}
               type="button"
               onClick={() => {
@@ -446,7 +447,7 @@ function Pane({
             >
               <Star
                 aria-hidden="true"
-                className={item.starred ? 'fill-black' : ''}
+                className={item.starred ? 'fill-action-star-foreground' : ''}
                 size={18}
               />
             </button>

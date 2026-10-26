@@ -17,6 +17,17 @@
   --color-accent-soft: #f6e4dc;
   --color-warn: #8a5d10;
   --color-warn-soft: #f5ead2;
+  /* Pastel action colours of the sorting views (keep / trash / best). Text on
+     them is dark in both themes; contrast is checked in src/test/theme-contrast.test.ts. */
+  --color-action-keep: #bfe3c8;
+  --color-action-keep-foreground: #123320;
+  --color-action-keep-hover: #a9d8b5;
+  --color-action-trash: #f3c1bb;
+  --color-action-trash-foreground: #4a1511;
+  --color-action-trash-hover: #eeaaa2;
+  --color-action-star: #f6dc8a;
+  --color-action-star-foreground: #3f2e00;
+  --color-action-star-hover: #f0cd5e;
   --radius-sm: 0.5rem;
   --radius-md: 1rem;
   --radius-lg: 1.25rem;
@@ -49,6 +60,15 @@
   --color-accent-soft: #4b3a32;
   --color-warn: #e0b25a;
   --color-warn-soft: #463e27;
+  --color-action-keep: #8fcfa0;
+  --color-action-keep-foreground: #0d2616;
+  --color-action-keep-hover: #a6dcb4;
+  --color-action-trash: #f0a39a;
+  --color-action-trash-foreground: #3d0f0b;
+  --color-action-trash-hover: #f5b8b0;
+  --color-action-star: #efcf6a;
+  --color-action-star-foreground: #352700;
+  --color-action-star-hover: #f5dc8c;
   --shadow-soft: 0 8px 24px rgb(0 0 0 / 25%);
   --map-filter: brightness(0.82) saturate(0.9);
   color-scheme: dark;
@@ -72,6 +92,15 @@
     --color-accent-soft: #4b3a32;
     --color-warn: #e0b25a;
     --color-warn-soft: #463e27;
+    --color-action-keep: #8fcfa0;
+    --color-action-keep-foreground: #0d2616;
+    --color-action-keep-hover: #a6dcb4;
+    --color-action-trash: #f0a39a;
+    --color-action-trash-foreground: #3d0f0b;
+    --color-action-trash-hover: #f5b8b0;
+    --color-action-star: #efcf6a;
+    --color-action-star-foreground: #352700;
+    --color-action-star-hover: #f5dc8c;
     --shadow-soft: 0 8px 24px rgb(0 0 0 / 25%);
     --map-filter: brightness(0.82) saturate(0.9);
     color-scheme: dark;

@@ -178,7 +178,7 @@ export function SeriesView({
         data-testid="series-chips"
       >
         {main.id === recommendation?.id ? (
-          <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-xs font-medium text-emerald-200">
+          <span className="rounded-full bg-action-keep/20 px-3 py-1 text-xs font-medium text-action-keep">
             {t('series.recommended')}
           </span>
         ) : null}
@@ -245,14 +245,14 @@ export function SeriesView({
                 {item.starred ? (
                   <Star
                     aria-hidden="true"
-                    className="absolute right-0.5 top-0.5 fill-amber-400 text-amber-400"
+                    className="absolute right-0.5 top-0.5 fill-action-star text-action-star"
                     size={14}
                   />
                 ) : null}
                 {isKept ? (
                   <Check
                     aria-label={t('series.selected')}
-                    className="absolute bottom-1 right-1 rounded-full bg-emerald-500 p-0.5"
+                    className="absolute bottom-1 right-1 rounded-full bg-action-keep p-0.5 text-action-keep-foreground"
                     role="img"
                     size={18}
                   />
@@ -283,7 +283,10 @@ export function SeriesView({
       <div className="flex shrink-0 flex-col gap-2 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1 sm:flex-row">
         {many ? (
           <button
-            className={cn(BIG, 'flex-1 bg-emerald-700 hover:bg-emerald-600')}
+            className={cn(
+              BIG,
+              'flex-1 bg-action-keep text-action-keep-foreground hover:bg-action-keep-hover',
+            )}
             disabled={keepIds.length === 0}
             type="button"
             onClick={() => {
@@ -294,7 +297,10 @@ export function SeriesView({
           </button>
         ) : (
           <button
-            className={cn(BIG, 'flex-1 bg-emerald-700 hover:bg-emerald-600')}
+            className={cn(
+              BIG,
+              'flex-1 bg-action-keep text-action-keep-foreground hover:bg-action-keep-hover',
+            )}
             type="button"
             onClick={() => {
               onKeep(keepIds, trashIds)

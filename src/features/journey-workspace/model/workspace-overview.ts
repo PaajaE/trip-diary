@@ -16,6 +16,7 @@ import {
   firstDayKey,
   groupMomentsByDay,
   type MomentDay,
+  buildTreePhotoDays,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 import {
@@ -212,9 +213,11 @@ export function buildOverview(
   noteDays: ReadonlySet<string> = new Set(),
 ): WorkspaceOverview {
   const all = collectMoments(tree)
-  const firstDay = firstDayKey(all, fallbackTz)
+  // The SQL day rule (04:00 boundary, zone of the photos), once per tree.
+  const photoDays = buildTreePhotoDays(tree, fallbackTz)
+  const firstDay = firstDayKey(all, fallbackTz, photoDays)
   const written = momentsUnderWrittenSegments(tree)
-  const days = groupMomentsByDay(all, fallbackTz)
+  const days = groupMomentsByDay(all, fallbackTz, photoDays)
   const dayOfMoment = new Map<string, string>()
   for (const day of days)
     for (const entry of day.moments) dayOfMoment.set(entry.moment.id, day.key)
@@ -241,7 +244,7 @@ export function buildOverview(
     const loose = entry.kind === 'loose'
     const moments = loose ? entry.moments : flattenMoments(entry.node)
     const cover = loose ? (moments[0]?.cover ?? null) : entry.node.cover
-    const cards = groupMomentsByDay(moments, fallbackTz).map((day) =>
+    const cards = groupMomentsByDay(moments, fallbackTz, photoDays).map((day) =>
       cardOf(day, cover?.id ?? null),
     )
     const progress = chapterProgress(cards)

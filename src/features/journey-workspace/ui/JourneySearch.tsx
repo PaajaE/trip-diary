@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useDayNotes } from '@/entities/day-note/api/use-day-notes'
+import { useJourneyHomeTzQuery } from '@/entities/journey/api/use-journey-home-tz-query'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { useJourneyPlaces } from '@/entities/place/api/use-journey-places'
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
@@ -84,6 +85,7 @@ export function JourneySearch({
   const navigate = useNavigate()
   const workspace = useJourneyWorkspace(journeyId)
   const notes = useDayNotes(journeyId)
+  const homeTz = useJourneyHomeTzQuery(journeyId).data ?? null
   const tree = workspace.status === 'ready' ? workspace.tree : null
   const ordered = useMemo(
     () => (tree === null ? [] : collectMoments(tree)),
@@ -106,6 +108,7 @@ export function JourneySearch({
   )
   const data = useMemo<SearchData>(
     () => ({
+      homeTz,
       dayNotes: [...notes.byDate].map(([date, body]) => ({ body, date })),
       media: [
         ...ordered.flatMap((entry) => entry.media),
@@ -124,7 +127,7 @@ export function JourneySearch({
         tz: entry.tz,
       })),
     }),
-    [notes.byDate, ordered, placeNames, tree],
+    [homeTz, notes.byDate, ordered, placeNames, tree],
   )
   const mediaById = useMemo(
     () => new Map(data.media.map((item) => [item.id, item])),
