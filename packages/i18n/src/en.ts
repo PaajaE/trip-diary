@@ -263,6 +263,7 @@ export const en = {
     tabs: {
       workspace: 'Journey',
       import: 'Add',
+      flow: 'New days',
       batch: 'Sorting',
       quick: 'Note',
       members: 'Members',
@@ -417,6 +418,14 @@ export const en = {
   // v2 terminology: Journey > Stage > Trip > Moment > Photo/Video, Tip.
   // Use t('terms.<name>.count', { count }) for pluralised labels.
   terms: {
+    day: {
+      singular: 'Day',
+      plural: 'Days',
+      count_one: '{{count}} day',
+      count_few: '{{count}} days',
+      count_many: '{{count}} days',
+      count_other: '{{count}} days',
+    },
     journey: {
       singular: 'Journey',
       plural: 'Journeys',
@@ -1664,6 +1673,82 @@ export const en = {
   },
   /** ZS-7 flow screens (7b/7c). */
   flow: {
+    screen: {
+      intake: {
+        title: 'New days',
+        loading: 'Loading new days…',
+        loadError: 'Could not load the new days.',
+        empty: 'No new days. They show up here after you upload more photos.',
+        unknownTime_one:
+          '{{count}} photo without a date, you will find it in sorting',
+        unknownTime_few:
+          '{{count}} photos without a date, you will find them in sorting',
+        unknownTime_many:
+          '{{count}} photos without a date, you will find them in sorting',
+        unknownTime_other:
+          '{{count}} photos without a date, you will find them in sorting',
+        openDayLabel: 'Go through {{day}}',
+        confirmUndoTitle: 'Undo the arrangement?',
+        confirmUndoBody:
+          'Restores the split of unlocked stops to how it was before the automatic arrangement. The trash, stars and manual edits stay.',
+        confirmUndo: 'Undo arrangement',
+        nothingToUndo: 'Nothing to undo.',
+        autoRetry: 'Try arranging again',
+        autoStatus: 'Automatic arrangement status',
+      },
+      review: {
+        loading: 'Loading stops…',
+        loadError: 'Could not load the stops.',
+        dayMissing: 'This day is no longer here.',
+        back: 'Back to new days',
+        mapLabel: 'Map of the day',
+        mapNoPoints: 'The stops of this day have no location.',
+        stopsList: 'Stops of the day',
+        filterLabel: 'Which stops to show',
+        menuLabel: 'Actions for stop {{name}}',
+        locked: 'Locked',
+        uncertain: 'Uncertain stop, check it',
+        number: 'Stop {{number}}',
+        firstStop: 'The first stop of the day has nothing to merge with',
+        emptyToCheck: 'Nothing to check. Switch to the whole day.',
+        renameLabel: 'Stop name',
+        save: 'Save',
+        actionError: 'The change did not work. Try again.',
+        expand: 'Expand',
+        collapse: 'Collapse',
+        unassignedBody: 'The last part of the check',
+        unassignedOpen: 'Open unassigned',
+        confirming: 'Confirming…',
+        transitLabel: 'Move between stops',
+        tripLabel: 'Trip {{title}}',
+        tripStops: 'Stops of the trip',
+        photoStrip: 'Photos of the stop',
+        moreCount: '+{{count}}',
+        noStopsDay: 'This day has no stops.',
+      },
+      splitSheet: {
+        photoLabel: 'Photo at {{time}}',
+        cutBefore: 'Cut before the photo at {{time}}',
+        cannotCut: 'Cannot cut here',
+        before: 'Before the cut: {{time}}',
+        after: 'After the cut: {{time}}',
+      },
+      unassigned: {
+        close: 'Close unassigned',
+        axis: 'Time axis of the day',
+        axisNoLocation: 'no location',
+        photoToggle: 'Photo at {{time}}',
+        noGroups: 'No placement suggestions.',
+        restTitle_one: '{{count}} photo left without a suggestion',
+        restTitle_few: '{{count}} photos left without a suggestion',
+        restTitle_many: '{{count}} photos left without a suggestion',
+        restTitle_other: '{{count}} photos left without a suggestion',
+        moveElsewhere: 'Move the selected elsewhere',
+        selected: 'Selected {{count}}',
+        empty: 'Nothing left. Everything is placed.',
+        error: 'The change did not work. Try again.',
+      },
+    },
     auto: {
       done_one: 'Organized: {{count}} new stop.',
       done_few: 'Organized: {{count}} new stops.',
@@ -1775,6 +1860,8 @@ export const en = {
       },
       tripFacts: '{{time}} · {{km}} km · {{mode}}',
       tripMode: {
+        stay: 'stay',
+        transfer: 'transfer',
         day: 'trip',
         trek: 'on foot',
         walk: 'on foot',

@@ -7,6 +7,7 @@ import { cn } from '@/shared/lib/cn'
 
 export type JourneyTab =
   | 'batch'
+  | 'flow'
   | 'import'
   | 'members'
   | 'quick'
@@ -59,6 +60,16 @@ export function JourneyTabs({
             to="/j/$journeyId/workspace"
           >
             {t('owner.tabs.workspace')}
+          </Link>
+        </li>
+        <li>
+          <Link
+            aria-current={aria('flow')}
+            className={tab('flow')}
+            params={{ journeyId }}
+            to="/j/$journeyId/flow"
+          >
+            {t('owner.tabs.flow')}
           </Link>
         </li>
         <li>

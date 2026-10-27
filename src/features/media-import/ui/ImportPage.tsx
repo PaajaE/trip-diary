@@ -741,6 +741,13 @@ function QueueSection({
               {t('mediaImport.organizeOffer')}
             </p>
             <OrganizeJourneyButton journeyId={journeyId} />
+            <Link
+              className={buttonVariants({ variant: 'secondary' })}
+              params={{ journeyId }}
+              to="/j/$journeyId/flow"
+            >
+              {t('owner.tabs.flow')}
+            </Link>
             <p className="pt-2 text-sm text-muted">
               {t('mediaImport.sortOffer')}
             </p>
