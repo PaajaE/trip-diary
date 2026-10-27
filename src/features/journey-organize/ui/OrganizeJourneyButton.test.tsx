@@ -13,10 +13,13 @@ import type { OrganizationPlan } from '@trip-diary/core/automation'
 import { OrganizeJourneyButton } from '@/features/journey-organize/ui/OrganizeJourneyButton'
 
 const preview = vi.fn()
-const apply = vi.fn()
+const organizeNow = vi.fn()
 vi.mock('@/features/journey-organize/api/organize-journey', () => ({
-  applyOrganizationPlan: (...args: unknown[]) => apply(...args) as unknown,
   previewOrganization: (...args: unknown[]) => preview(...args) as unknown,
+}))
+// The apply re-plans under the organizer (lock + snapshot), never the preview.
+vi.mock('@/features/journey-organize/api/auto-organize', () => ({
+  organizeNow: (...args: unknown[]) => organizeNow(...args) as unknown,
 }))
 const showToast = vi.fn()
 vi.mock('@/shared/ui/use-toast', () => ({ useToast: () => ({ showToast }) }))
@@ -80,21 +83,25 @@ describe('OrganizeJourneyButton', () => {
     expect(screen.getByText('Stage and trip suggestions: 1')).toBeTruthy()
     expect(screen.getByText(/locked and hand-made stops/)).toBeTruthy()
     expect(screen.getByText(/Rejected suggestions will not/)).toBeTruthy()
-    expect(apply).not.toHaveBeenCalled()
+    expect(organizeNow).not.toHaveBeenCalled()
   })
 
-  it('applies the shown plan on confirm and reports the result', async () => {
+  it('re-plans through the organizer on confirm and reports the result', async () => {
     preview.mockResolvedValue(plan)
-    apply.mockResolvedValue({
-      counts: {
-        mediaReassigned: 1,
-        momentsCreated: 1,
-        momentsDeleted: 0,
-        segmentsDeleted: 0,
-        stagesCreated: 0,
-        tripsCreated: 1,
+    organizeNow.mockResolvedValue({
+      plan,
+      result: {
+        counts: {
+          mediaReassigned: 1,
+          momentsCreated: 1,
+          momentsDeleted: 0,
+          segmentsDeleted: 0,
+          stagesCreated: 0,
+          tripsCreated: 1,
+        },
+        ok: true,
       },
-      ok: true,
+      unreadyIds: [],
     })
     renderButton()
     fireEvent.click(
@@ -103,7 +110,7 @@ describe('OrganizeJourneyButton', () => {
     await screen.findByText('New stops: 1')
     fireEvent.click(screen.getByRole('button', { name: 'Organize' }))
     await waitFor(() => {
-      expect(apply).toHaveBeenCalledWith('j', plan, expect.anything())
+      expect(organizeNow).toHaveBeenCalledWith('j', expect.anything())
     })
     await waitFor(() => {
       expect(showToast).toHaveBeenCalledWith({
@@ -128,12 +135,28 @@ describe('OrganizeJourneyButton', () => {
     expect(screen.queryByRole('button', { name: 'Organize' })).toBeNull()
   })
 
+  it('says so when the fresh plan has nothing left to change', async () => {
+    preview.mockResolvedValue(plan)
+    organizeNow.mockResolvedValue({ plan, result: null, unreadyIds: [] })
+    renderButton()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Organize automatically' }),
+    )
+    await screen.findByText('New stops: 1')
+    fireEvent.click(screen.getByRole('button', { name: 'Organize' }))
+    await waitFor(() => {
+      expect(showToast).toHaveBeenCalledWith({
+        message: expect.stringMatching(/Nothing to change/) as string,
+      })
+    })
+  })
+
   it('names the failed step in an error toast', async () => {
     preview.mockResolvedValue(plan)
-    apply.mockResolvedValue({
-      counts: {},
-      error: { step: 'assignMedia' },
-      ok: false,
+    organizeNow.mockResolvedValue({
+      plan,
+      result: { counts: {}, error: { step: 'assignMedia' }, ok: false },
+      unreadyIds: [],
     })
     renderButton()
     fireEvent.click(

@@ -1750,10 +1750,15 @@ export const cs: TranslationResources = {
       confirmHint_other:
         'Potvrdí všech {{count}} zastávek. Zamknou se a další nahrání je nepřeskupí.',
       enRoute: 'Cestou',
+      /** Only when the stretch is classified as a vehicle; else Neutral. */
       enRoutePhotos_one: '{{count}} fotka z okna auta',
       enRoutePhotos_few: '{{count}} fotky z okna auta',
       enRoutePhotos_many: '{{count}} fotky z okna auta',
       enRoutePhotos_other: '{{count}} fotek z okna auta',
+      enRoutePhotosNeutral_one: '{{count}} fotka cestou',
+      enRoutePhotosNeutral_few: '{{count}} fotky cestou',
+      enRoutePhotosNeutral_many: '{{count}} fotky cestou',
+      enRoutePhotosNeutral_other: '{{count}} fotek cestou',
       promote: 'Udělat z ní zastávku',
       transit: {
         bike: 'Na kole, {{km}} km',

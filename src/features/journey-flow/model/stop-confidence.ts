@@ -27,7 +27,10 @@ export const NEAR_RIDE_MAX_MEDIA = 2
 export const PARALLEL_MIN_KM = 1
 
 export type ConfidenceReason =
-  /** One photo: the data cannot tell a stop from a pass-by. */
+  /**
+   * One photo: the data cannot tell a stop from a pass-by. Only reported
+   * together with another signal (a lone point alone is a valid stop).
+   */
   | 'singlePoint'
   /** Inside a drive (rides on both sides, or a small stop next to one). */
   | 'nearRide'
@@ -150,9 +153,10 @@ export function dayConfidence(
       if (!overlaps) return false
       if (other.media.some((item) => own.has(item.ownerId))) return false
       const there = centres.get(other.id) ?? null
+      // Without GPS on both sides "elsewhere" cannot be told.
       return (
-        here === null ||
-        there === null ||
+        here !== null &&
+        there !== null &&
         distanceKm(here, there) >= PARALLEL_MIN_KM
       )
     })
@@ -175,6 +179,9 @@ export function dayConfidence(
       if (far) reasons.push('spread')
     }
 
+    // A lone photo is a valid point (sparse days): its count only adds to
+    // the doubt when another signal already questions the stop.
+    if (reasons.length === 1 && reasons[0] === 'singlePoint') reasons.length = 0
     const level: ConfidenceLevel =
       reasons.length === 0
         ? 'high'

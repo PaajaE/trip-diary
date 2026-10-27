@@ -88,6 +88,45 @@ describe('buildDaySort', () => {
   })
 })
 
+describe('day sort guards', () => {
+  it('never suggests a ★ photo for the trash, not even a copy', () => {
+    const model = buildDaySort(
+      (() => {
+        const day = days((media) => {
+          const dark = media.find((item) => item.momentId === ID.hotel)
+          if (dark !== undefined) {
+            dark.starred = true
+            dark.quality = { exposure: 0.01, sharp: 1, v: 1 }
+          }
+        })[0]
+        if (day === undefined) return fail()
+        const starred = day.media.find((item) => item.starred)
+        // Even when it is also flagged as a probable copy.
+        return {
+          ...day,
+          duplicates: [
+            { id: starred?.id ?? '', offsetSeconds: 3600, originalId: 'x' },
+          ],
+        }
+      })(),
+    )
+    const hotel = model.stops.find((stop) => stop.stop.id === ID.hotel)
+    const starred = hotel?.photos.find((photo) => photo.item.starred)
+    expect(starred?.trashHint).toBeNull()
+  })
+
+  it('"Den sedí" only confirms stops that still hold photos', () => {
+    const day = days()[0] ?? fail()
+    const emptied = {
+      ...day,
+      stops: day.stops.map((stop) =>
+        stop.id === ID.ride ? { ...stop, media: [] } : stop,
+      ),
+    }
+    expect(buildDaySort(emptied).daySitsIds).not.toContain(ID.ride)
+  })
+})
+
 describe('buildDayEnd', () => {
   it('sums up keep, trash and ★ and proposes the cover from the ★', () => {
     const all = days((media) => {

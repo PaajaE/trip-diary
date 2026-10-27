@@ -1,8 +1,15 @@
 import { describe, expect, it, vi } from 'vitest'
-import { runAutoOrganize } from '@/features/journey-organize/api/auto-organize'
+import {
+  organizeNow,
+  organizeWithSnapshot,
+  runAutoOrganize,
+} from '@/features/journey-organize/api/auto-organize'
 import type { OrganizeDeps } from '@/features/journey-organize/api/organize-journey'
 import { memorySnapshotStore } from '@/features/journey-organize/api/organize-snapshot.store'
-import type { AutoRunOutcome } from '@/features/journey-organize/model/auto-organize'
+import {
+  IDLE_STATE,
+  type AutoRunOutcome,
+} from '@/features/journey-organize/model/auto-organize'
 import { med, mom, uuid } from '@/features/journey-workspace/test-fixtures'
 
 const J = uuid(999)
@@ -29,6 +36,12 @@ function organizeDeps(
       calls.push('assign')
       return Promise.resolve()
     }),
+    moveIfUnchanged: vi.fn(
+      (ids: readonly string[], to: string | null, from: string | null) => {
+        calls.push(`move:${to ?? 'none'}<-${from ?? 'none'}`)
+        return Promise.resolve([...ids])
+      },
+    ),
     createMoments: vi.fn(() => {
       calls.push('createMoments')
       return Promise.resolve()
@@ -63,9 +76,9 @@ describe('runAutoOrganize', () => {
     const calls: string[] = []
     const store = memorySnapshotStore()
     const put = store.put
-    store.put = (snapshot) => {
+    store.put = (userId, snapshot) => {
       calls.push('snapshot')
-      return put(snapshot)
+      return put(userId, snapshot)
     }
     const rememberRun = vi.fn()
     const resolvePlaces = vi.fn(() => {
@@ -85,21 +98,24 @@ describe('runAutoOrganize', () => {
     expect(calls[0]).toBe('snapshot')
     expect(calls.indexOf('createMoments')).toBeGreaterThan(0)
     expect(calls[calls.length - 1]).toBe('places')
-    const snapshot = await store.get(J)
+    const snapshot = await store.get(USER, J)
     expect(snapshot?.runId).toBe('run-1')
     expect(snapshot?.takenAt).toBe('2026-09-01T20:00:00.000Z')
     const created =
       outcome.kind === 'applied' ? outcome.createdMomentIds : ['?']
     expect(created.length).toBeGreaterThan(0)
     expect(snapshot?.createdMomentIds).toEqual(created)
-    expect(rememberRun).toHaveBeenCalledWith(J, 'run-1', created)
+    expect(rememberRun).toHaveBeenCalledWith(USER, J, 'run-1', created)
+    // Photos move only from where they were planned (conditional write).
+    expect(calls).toContain(`move:${created[0] ?? ''}<-none`)
+    expect(calls).not.toContain('assign')
     expect(ctx.applied).toEqual([outcome])
   })
 
   it('writes nothing (and keeps the old snapshot) when the plan is empty', async () => {
     const calls: string[] = []
     const store = memorySnapshotStore()
-    store.rows.set(J, { old: true })
+    store.rows.set(J, { data: { old: true }, userId: USER })
     const resolvePlaces = vi.fn(() => Promise.resolve(null))
     const ctx = context()
     const outcome = await runAutoOrganize(J, ctx.value, {
@@ -107,8 +123,8 @@ describe('runAutoOrganize', () => {
       resolvePlaces,
       store,
     })
-    expect(outcome).toEqual({ kind: 'nothing' })
-    expect(store.rows.get(J)).toEqual({ old: true })
+    expect(outcome).toEqual({ kind: 'nothing', unreadyIds: [] })
+    expect(store.rows.get(J)).toEqual({ data: { old: true }, userId: USER })
     expect(calls).toEqual([])
     expect(resolvePlaces).not.toHaveBeenCalled()
   })
@@ -129,7 +145,7 @@ describe('runAutoOrganize', () => {
   it('reports a partial run with the stops it did create', async () => {
     const calls: string[] = []
     const deps = organizeDeps(calls)
-    deps.assignMedia = () => Promise.reject(new Error('offline'))
+    deps.moveIfUnchanged = () => Promise.reject(new Error('offline'))
     const rememberRun = vi.fn()
     const outcome = await runAutoOrganize(J, context().value, {
       newRunId: () => 'run-2',
@@ -144,10 +160,73 @@ describe('runAutoOrganize', () => {
         outcome.counts.momentsCreated,
       )
       expect(rememberRun).toHaveBeenCalledWith(
+        USER,
         J,
         'run-2',
         outcome.createdMomentIds,
       )
     }
+  })
+
+  it('reports requested media that are not ready yet', async () => {
+    const calls: string[] = []
+    const pending = med(9, { status: 'uploading' })
+    const outcome = await runAutoOrganize(
+      J,
+      context().value,
+      {
+        organize: organizeDeps(calls, [pending]),
+        resolvePlaces: () => Promise.resolve(null),
+        store: memorySnapshotStore(),
+      },
+      [pending.id, uuid(404)],
+    )
+    expect(outcome).toEqual({
+      kind: 'nothing',
+      unreadyIds: [pending.id, uuid(404)],
+    })
+  })
+
+  it('plans and writes under the journey lock', async () => {
+    const calls: string[] = []
+    const locked: string[] = []
+    const lock = <T>(journey: string, task: () => Promise<T>) => {
+      calls.push('lock')
+      locked.push(journey)
+      return task()
+    }
+    await organizeWithSnapshot(J, {
+      lock,
+      organize: organizeDeps(calls),
+      store: memorySnapshotStore(),
+    })
+    expect(locked).toEqual([J])
+    expect(calls[0]).toBe('lock')
+  })
+
+  it('manual organize waits for the organizer and re-plans on the current state', async () => {
+    const calls: string[] = []
+    const exclusive = <T>(_journey: string, task: () => Promise<T>) => {
+      calls.push('exclusive')
+      return task()
+    }
+    const organizer = {
+      exclusive,
+      getState: () => IDLE_STATE,
+      request: () => undefined,
+      settled: () => Promise.resolve(),
+      subscribe: () => () => undefined,
+    }
+    const listMedia = vi.fn(() => Promise.resolve([]))
+    const { result } = await organizeNow(
+      J,
+      { ...organizeDeps(calls), listMedia },
+      organizer,
+      { store: memorySnapshotStore() },
+    )
+    expect(calls[0]).toBe('exclusive')
+    // The state is loaded inside the exclusive task, at apply time.
+    expect(listMedia).toHaveBeenCalledTimes(1)
+    expect(result).toBeNull()
   })
 })

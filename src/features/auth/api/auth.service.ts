@@ -71,4 +71,9 @@ export async function signOut(): Promise<void> {
   if (error !== null) {
     throw error
   }
+  // Per-user flow state (markers, undo snapshot) does not outlive the
+  // session. Loaded on demand: Dexie stays out of the sign-in path.
+  const { clearFlowState } =
+    await import('@/features/journey-flow/api/flow-owner')
+  await clearFlowState()
 }

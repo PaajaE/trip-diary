@@ -133,11 +133,11 @@ export function arrivedAfter(createdAt: string, seenUpTo: string | null) {
 export function isNewStop(
   moment: Pick<Moment, 'createdAt' | 'id' | 'locked' | 'origin'>,
   markers: FlowMarkers,
+  /** `newStopIds(markers)`, computed once by callers that check many stops. */
+  ids: ReadonlySet<string> = newStopIds(markers),
 ): boolean {
   if (moment.origin !== 'auto' || moment.locked) return false
-  if (markers.runs.some((run) => run.momentIds.includes(moment.id))) {
-    return true
-  }
+  if (ids.has(moment.id)) return true
   return (
     markers.seenUpTo !== null &&
     arrivedAfter(moment.createdAt, markers.seenUpTo)

@@ -22,27 +22,46 @@ const snapshot = buildOrganizeSnapshot(
   { runId: 'r', takenAt: '2026-01-01T00:00:00.000Z' },
 )
 
+const U = uuid(500)
+
 afterEach(async () => {
   await localDb.organizeSnapshots.clear()
+  window.localStorage.clear()
 })
 
 describe('dexieSnapshotStore', () => {
-  it('keeps the last run per journey', async () => {
-    await dexieSnapshotStore.put(snapshot)
-    await dexieSnapshotStore.put({ ...snapshot, runId: 'r2' })
-    expect((await dexieSnapshotStore.get(J))?.runId).toBe('r2')
-    await dexieSnapshotStore.remove(J)
-    expect(await dexieSnapshotStore.get(J)).toBeNull()
+  it('keeps the last run per journey and user', async () => {
+    await dexieSnapshotStore.put(U, snapshot)
+    await dexieSnapshotStore.put(U, { ...snapshot, runId: 'r2' })
+    expect((await dexieSnapshotStore.get(U, J))?.runId).toBe('r2')
+    // Another user on the device never sees it.
+    expect(await dexieSnapshotStore.get(uuid(501), J)).toBeNull()
+  })
+
+  it('drops the snapshot only while it is still the one of the run', async () => {
+    await dexieSnapshotStore.put(U, { ...snapshot, runId: 'newer' })
+    expect(await dexieSnapshotStore.removeRun(U, J, 'r')).toBe(false)
+    expect((await dexieSnapshotStore.get(U, J))?.runId).toBe('newer')
+    expect(await dexieSnapshotStore.removeRun(U, J, 'newer')).toBe(true)
+    expect(await dexieSnapshotStore.get(U, J)).toBeNull()
   })
 
   it('drops an invalid row on read', async () => {
-    await localDb.organizeSnapshots.put({ data: { version: 0 }, journeyId: J })
-    expect(await dexieSnapshotStore.get(J)).toBeNull()
+    await localDb.organizeSnapshots.put({
+      data: { version: 0 },
+      journeyId: J,
+      userId: U,
+    })
+    expect(await dexieSnapshotStore.get(U, J)).toBeNull()
     expect(await localDb.organizeSnapshots.get(J)).toBeUndefined()
   })
 
   it('drops a row stored under another journey', async () => {
-    await localDb.organizeSnapshots.put({ data: snapshot, journeyId: uuid(5) })
-    expect(await dexieSnapshotStore.get(uuid(5))).toBeNull()
+    await localDb.organizeSnapshots.put({
+      data: snapshot,
+      journeyId: uuid(5),
+      userId: U,
+    })
+    expect(await dexieSnapshotStore.get(U, uuid(5))).toBeNull()
   })
 })

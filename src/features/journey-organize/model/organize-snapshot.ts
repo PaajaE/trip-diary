@@ -19,7 +19,8 @@ import type { MediaItem } from '@/entities/media/model/media-library'
 import { momentKindSchema, type Moment } from '@/entities/moment/model/moment'
 import { tripTypeSchema, type Segment } from '@/entities/segment/model/segment'
 
-export const ORGANIZE_SNAPSHOT_VERSION = 1
+/** 2: extensions carry a content key (v1 snapshots are dropped on read). */
+export const ORGANIZE_SNAPSHOT_VERSION = 2
 
 const instantSchema = z.iso.datetime({ offset: true })
 
@@ -60,9 +61,18 @@ export const organizeSnapshotSchema = z.object({
   /** Auto stops the run deleted, as they were. */
   deletedMoments: z.array(snapshotMomentSchema),
   deletedSegments: z.array(snapshotSegmentSchema),
-  /** Confirmed stops whose range only grew (range before and after). */
+  /**
+   * Confirmed stops whose range only grew (range before and after) and a
+   * key of their user content (title, text, cover) at the time of the run:
+   * if it changed since, the stop is the user's and keeps its photos.
+   */
   extensions: z.array(
-    z.object({ after: rangeSchema, before: rangeSchema, id: z.uuid() }),
+    z.object({
+      after: rangeSchema,
+      before: rangeSchema,
+      contentKey: z.string().max(64),
+      id: z.uuid(),
+    }),
   ),
   journeyId: z.uuid(),
   /** Media the run moved: where each was before (null = no stop) and after. */
@@ -121,6 +131,22 @@ export interface SnapshotState {
   segments: readonly Segment[]
 }
 
+/**
+ * Short deterministic key of the user content of a stop (title, text,
+ * cover): FNV-1a over the three values, so no text is stored twice.
+ */
+export function contentKeyOf(
+  moment: Pick<Moment, 'body' | 'coverMediaId' | 'title'>,
+): string {
+  const text = `${moment.title ?? ''}\u0000${moment.body}\u0000${moment.coverMediaId ?? ''}`
+  let hash = 0x811c9dc5
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return `${String(text.length)}:${hash.toString(16)}`
+}
+
 function structureOf(moment: Moment): SnapshotMoment {
   return {
     endsAt: moment.endsAt,
@@ -172,6 +198,7 @@ export function buildOrganizeSnapshot(
           {
             after: { endsAt: extension.endsAt, startsAt: extension.startsAt },
             before: { endsAt: stored.endsAt, startsAt: stored.startsAt },
+            contentKey: contentKeyOf(stored),
             id: extension.id,
           },
         ]
@@ -233,6 +260,8 @@ export type RestoreSkipReason =
   | 'notEmpty'
   /** A suggestion the user accepted (or rejected) after the run. */
   | 'decided'
+  /** The photo is the cover of its stop now: it is never taken out. */
+  | 'cover'
 
 export interface RestoreSkip {
   id: string
@@ -257,10 +286,17 @@ export interface RestorePlan {
   deleteMoments: string[]
   /** Suggested segments the run created, still undecided. */
   deleteSegments: string[]
-  /** Media moves back, grouped by target (null = no stop). */
-  moveMedia: { mediaIds: string[]; momentId: string | null }[]
+  /**
+   * Media moves back, grouped by target (null = no stop) and by the stop
+   * they must still be in (`from`): the write is conditional on it.
+   */
+  moveMedia: { from: string; mediaIds: string[]; momentId: string | null }[]
   /** Deleted stops re-created with the same id. */
   recreateMoments: SnapshotMoment[]
+  /**
+   * Replaced suggestions re-created: stages first, then trips; a parent
+   * that is gone (and not re-created) is dropped (parentId null).
+   */
   recreateSegments: SnapshotSegment[]
   /** Confirmed stops whose range goes back (range only). */
   revertExtensions: { endsAt: string; id: string; startsAt: string }[]
@@ -311,6 +347,12 @@ export function planRestore(
   const momentById = new Map(current.moments.map((m) => [m.id, m]))
   const mediaById = new Map(current.media.map((item) => [item.id, item]))
   const segmentById = new Map(current.segments.map((s) => [s.id, s]))
+  const movedOf = new Map<string, OrganizeSnapshot['media']>()
+  for (const entry of snapshot.media) {
+    const list = movedOf.get(entry.after)
+    if (list === undefined) movedOf.set(entry.after, [entry])
+    else list.push(entry)
+  }
   const skipped: RestoreSkip[] = []
   const skip = (
     target: RestoreSkip['target'],
@@ -405,6 +447,11 @@ export function planRestore(
       skip('media', entry.mediaId, 'changed')
       continue
     }
+    // A photo that became the cover of its stop stays (also in confirmed stops).
+    if (momentById.get(entry.after)?.coverMediaId === entry.mediaId) {
+      skip('media', entry.mediaId, 'cover')
+      continue
+    }
     const out = canRelease(entry.after)
     const into = entry.before === null ? null : canReceive(entry.before)
     const reason = out ?? into
@@ -419,18 +466,19 @@ export function planRestore(
   //    and only while it still has exactly the range the run wrote.
   const revertExtensions: RestorePlan['revertExtensions'] = []
   const blocked = new Set<string>()
+  const moving = new Set(moves.map((move) => move.mediaId))
   for (const extension of snapshot.extensions) {
     const now = momentById.get(extension.id)
-    const ownMoves = snapshot.media.filter((m) => m.after === extension.id)
-    const allBack = ownMoves.every((m) => {
-      const item = mediaById.get(m.mediaId)
-      return (
-        item?.momentId === m.before ||
-        moves.some((move) => move.mediaId === m.mediaId)
-      )
-    })
+    const ownMoves = movedOf.get(extension.id) ?? []
+    const allBack = ownMoves.every(
+      (m) =>
+        mediaById.get(m.mediaId)?.momentId === m.before ||
+        moving.has(m.mediaId),
+    )
     let reason: RestoreSkipReason | null = null
     if (now === undefined) reason = 'missing'
+    // Title, text or cover changed since the run: the stop is the user's.
+    else if (contentKeyOf(now) !== extension.contentKey) reason = 'changed'
     else if (sameRange(now, extension.before)) reason = null
     else if (!sameRange(now, extension.after)) reason = 'changed'
     else if (!allBack) reason = 'changed'
@@ -486,21 +534,69 @@ export function planRestore(
     }
     deleteSegments.push(id)
   }
-  const recreateSegments = snapshot.deletedSegments.filter(
-    (segment) => !segmentById.has(segment.id),
+  // A replaced suggestion never comes back over a segment the user made or
+  // accepted since (same kind, overlapping in time).
+  const decided = current.segments.filter(
+    (segment) => segment.origin === 'manual' || segment.origin === 'accepted',
   )
-
-  const grouped = new Map<string | null, string[]>()
-  for (const move of applied) {
-    const list = grouped.get(move.before)
-    if (list === undefined) grouped.set(move.before, [move.mediaId])
-    else list.push(move.mediaId)
-  }
-  const moveMedia = [...grouped.entries()]
-    .sort(([a], [b]) =>
-      a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1,
+  const overlapsDecided = (segment: SnapshotSegment) =>
+    decided.some(
+      (other) =>
+        other.kind === segment.kind &&
+        Date.parse(other.startsAt) < Date.parse(segment.endsAt) &&
+        Date.parse(segment.startsAt) < Date.parse(other.endsAt),
     )
-    .map(([momentId, mediaIds]) => ({ mediaIds, momentId }))
+  const back: SnapshotSegment[] = []
+  for (const segment of snapshot.deletedSegments) {
+    if (segmentById.has(segment.id)) continue
+    if (overlapsDecided(segment)) {
+      skip('segment', segment.id, 'decided')
+      continue
+    }
+    back.push(segment)
+  }
+  const backIds = new Set(back.map((segment) => segment.id))
+  const recreateSegments = back
+    .map((segment) =>
+      segment.parentId !== null &&
+      !segmentById.has(segment.parentId) &&
+      !backIds.has(segment.parentId)
+        ? { ...segment, parentId: null }
+        : segment,
+    )
+    .sort(
+      (a, b) =>
+        (a.kind === b.kind ? 0 : a.kind === 'stage' ? -1 : 1) ||
+        Date.parse(a.startsAt) - Date.parse(b.startsAt) ||
+        (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    )
+
+  const grouped = new Map<
+    string,
+    { from: string; mediaIds: string[]; momentId: string | null }
+  >()
+  for (const move of applied) {
+    const key = `${move.before ?? ''}|${move.after}`
+    const group = grouped.get(key)
+    if (group === undefined) {
+      grouped.set(key, {
+        from: move.after,
+        mediaIds: [move.mediaId],
+        momentId: move.before,
+      })
+    } else group.mediaIds.push(move.mediaId)
+  }
+  const cmp = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0)
+  const moveMedia = [...grouped.values()].sort(
+    (a, b) =>
+      (a.momentId === b.momentId
+        ? 0
+        : a.momentId === null
+          ? 1
+          : b.momentId === null
+            ? -1
+            : cmp(a.momentId, b.momentId)) || cmp(a.from, b.from),
+  )
 
   const receiving = new Set(applied.map((move) => move.before))
   const recreateMoments = candidates.filter((moment) =>

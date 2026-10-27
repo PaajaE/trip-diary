@@ -1,7 +1,6 @@
 import {
-  assignMediaBatchToMoment,
-  detachMediaFromMoment,
   listJourneyMedia,
+  moveMediaIfUnchanged,
 } from '@/entities/media/api/media-library.repository'
 import {
   createMoments,
@@ -15,6 +14,7 @@ import {
   deleteSuggestedSegments,
   listJourneySegmentsIncludingRejected,
 } from '@/entities/segment/api/segment.repository'
+import { withJourneyLock } from '@/features/journey-organize/api/journey-lock'
 import {
   dexieSnapshotStore,
   type OrganizeSnapshotStore,
@@ -24,6 +24,7 @@ import {
   planRestore,
   type RestorePlan,
   type RestoreSkip,
+  type SnapshotSegment,
 } from '@/features/journey-organize/model/organize-snapshot'
 import { getCurrentUserId } from '@/shared/api/current-user'
 
@@ -58,19 +59,21 @@ export type UndoResult =
     }
 
 export interface UndoDeps {
-  assignMedia: typeof assignMediaBatchToMoment
   chunkSize: number
   createMoments: typeof createMoments
   createSegments: typeof createSegments
   deleteMoments: typeof deleteAutoMoments
   deleteSegments: typeof deleteSuggestedSegments
-  detachMedia: typeof detachMediaFromMoment
   /** Called once the run is fully undone (e.g. forget its "nová" markers). */
-  forgetRun?: (journeyId: string, runId: string) => void
+  forgetRun?: (userId: string, journeyId: string, runId: string) => void
   getUserId: typeof getCurrentUserId
   listMedia: typeof listJourneyMedia
   listMoments: typeof listJourneyMoments
   listSegments: typeof listJourneySegmentsIncludingRejected
+  /** Journey-wide mutex (shared with organize); in-process + Web Locks. */
+  lock: <T>(journeyId: string, task: () => Promise<T>) => Promise<T>
+  /** Conditional move: only photos still in the run's stop move back. */
+  moveIfUnchanged: typeof moveMediaIfUnchanged
   setPlace: typeof setMomentPlaceIfEmpty
   store: OrganizeSnapshotStore
   updateMoment: typeof updateMoment
@@ -78,17 +81,17 @@ export interface UndoDeps {
 
 function resolveUndoDeps(overrides: Partial<UndoDeps>): UndoDeps {
   return {
-    assignMedia: assignMediaBatchToMoment,
     chunkSize: 100,
     createMoments,
     createSegments,
     deleteMoments: deleteAutoMoments,
     deleteSegments: deleteSuggestedSegments,
-    detachMedia: detachMediaFromMoment,
     getUserId: getCurrentUserId,
     listMedia: listJourneyMedia,
     listMoments: listJourneyMoments,
     listSegments: listJourneySegmentsIncludingRejected,
+    lock: withJourneyLock,
+    moveIfUnchanged: moveMediaIfUnchanged,
     setPlace: setMomentPlaceIfEmpty,
     store: dexieSnapshotStore,
     updateMoment,
@@ -104,28 +107,30 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
   return out
 }
 
-/** Is there a usable snapshot of the last run? (Read only, no network.) */
-export async function hasOrganizeSnapshot(
-  journeyId: string,
-  store: OrganizeSnapshotStore = dexieSnapshotStore,
-): Promise<boolean> {
-  return (await store.get(journeyId)) !== null
-}
-
 /**
  * "Vrátit uspořádání": restores the structure of unlocked stops as it was
- * before the last automatic run (plan 4f, UX flow point 1). Order: re-create
- * deleted stops, move the media back, revert kept stops and the range of
- * grown confirmed stops, delete the run's now empty stops, then the
- * suggestions. Never touches trash, ★, titles, text, covers or stops the user
- * confirmed after the run (those are reported in `skipped`). The snapshot is
- * dropped once everything that could be restored is.
+ * before the last automatic run (plan 4f, UX flow point 1). Runs under the
+ * journey lock (never next to an organize run). Order: re-create deleted
+ * stops, move the media back (only those still where the run put them),
+ * revert kept stops and the range of grown confirmed stops, delete the
+ * run's now empty stops, then the suggestions (stages before trips; a
+ * suggestion that cannot come back is skipped, never retried forever).
+ * Never touches trash, ★, titles, text, covers or stops the user confirmed
+ * after the run (those are reported in `skipped`). The snapshot is dropped
+ * only while it still is the snapshot of the run that was undone.
  */
-export async function undoOrganization(
+export function undoOrganization(
   journeyId: string,
   overrides: Partial<UndoDeps> = {},
 ): Promise<UndoResult> {
   const deps = resolveUndoDeps(overrides)
+  return deps.lock(journeyId, () => undoLocked(journeyId, deps))
+}
+
+async function undoLocked(
+  journeyId: string,
+  deps: UndoDeps,
+): Promise<UndoResult> {
   const counts: UndoCounts = {
     mediaRestored: 0,
     momentsDeleted: 0,
@@ -137,23 +142,28 @@ export async function undoOrganization(
   let step: UndoStep = 'load'
   let plan: RestorePlan | null = null
   try {
-    const snapshot = await deps.store.get(journeyId)
+    const userId = await deps.getUserId()
+    const snapshot = await deps.store.get(userId, journeyId)
     if (snapshot === null) return { kind: 'nothing' }
+    const finish = async () => {
+      if (await deps.store.removeRun(userId, journeyId, snapshot.runId)) {
+        deps.forgetRun?.(userId, journeyId, snapshot.runId)
+      }
+    }
     const [media, moments, segments] = await Promise.all([
       deps.listMedia(journeyId),
       deps.listMoments(journeyId),
       deps.listSegments(journeyId),
     ])
     plan = planRestore(snapshot, { media, moments, segments })
+    const skipped = [...plan.skipped]
     if (isRestoreEmpty(plan)) {
-      await deps.store.remove(journeyId)
-      deps.forgetRun?.(journeyId, snapshot.runId)
-      return plan.skipped.length === 0
+      await finish()
+      return skipped.length === 0
         ? { kind: 'nothing' }
-        : { counts, kind: 'done', skipped: plan.skipped }
+        : { counts, kind: 'done', skipped }
     }
 
-    const userId = await deps.getUserId()
     step = 'recreateMoments'
     for (const part of chunks(plan.recreateMoments, deps.chunkSize)) {
       await deps.createMoments(
@@ -179,11 +189,16 @@ export async function undoOrganization(
     }
 
     step = 'moveMedia'
-    for (const { mediaIds, momentId } of plan.moveMedia) {
+    for (const { from, mediaIds, momentId } of plan.moveMedia) {
       for (const part of chunks(mediaIds, deps.chunkSize)) {
-        if (momentId === null) await deps.detachMedia(part)
-        else await deps.assignMedia(part, momentId)
-        counts.mediaRestored += part.length
+        const moved = new Set(await deps.moveIfUnchanged(part, momentId, from))
+        counts.mediaRestored += moved.size
+        // Moved by someone meanwhile: their move wins.
+        for (const id of part) {
+          if (!moved.has(id)) {
+            skipped.push({ id, reason: 'changed', target: 'media' })
+          }
+        }
       }
     }
 
@@ -199,7 +214,22 @@ export async function undoOrganization(
     }
 
     step = 'deleteMoments'
-    for (const part of chunks(plan.deleteMoments, deps.chunkSize)) {
+    // A photo that did not go back keeps its (created) stop alive.
+    const kept = new Set(
+      skipped.filter((s) => s.target === 'media').map((s) => s.id),
+    )
+    const stillHolding = new Set(
+      media
+        .filter((item) => kept.has(item.id) && item.momentId !== null)
+        .map((item) => item.momentId),
+    )
+    const deletable = plan.deleteMoments.filter((id) => !stillHolding.has(id))
+    for (const id of plan.deleteMoments) {
+      if (stillHolding.has(id)) {
+        skipped.push({ id, reason: 'notEmpty', target: 'moment' })
+      }
+    }
+    for (const part of chunks(deletable, deps.chunkSize)) {
       // The repository only deletes auto, unlocked rows.
       await deps.deleteMoments(part)
       counts.momentsDeleted += part.length
@@ -210,29 +240,52 @@ export async function undoOrganization(
       await deps.deleteSegments(part)
       counts.segmentsDeleted += part.length
     }
-    for (const part of chunks(plan.recreateSegments, deps.chunkSize)) {
-      await deps.createSegments(
-        part.map((segment) => ({
-          createdBy: userId,
-          endsAt: segment.endsAt,
-          id: segment.id,
-          journeyId,
-          kind: segment.kind,
-          origin: 'suggested',
-          parentId: segment.parentId,
-          position: segment.position,
-          startsAt: segment.startsAt,
-          title: segment.title,
-          tripType: segment.tripType,
-          tz: segment.tz,
-        })),
-      )
-      counts.segmentsRecreated += part.length
+    // Stages first (trips may point at them as parent). A suggestion that
+    // cannot be re-created is skipped: old suggestions are not worth a stuck
+    // undo (the next organize run proposes fresh ones).
+    const stages = plan.recreateSegments.filter((s) => s.kind === 'stage')
+    const trips = plan.recreateSegments.filter((s) => s.kind === 'trip')
+    const failedStages = new Set<string>()
+    const insert = async (list: readonly SnapshotSegment[]) => {
+      for (const part of chunks(list, deps.chunkSize)) {
+        try {
+          await deps.createSegments(
+            part.map((segment) => ({
+              createdBy: userId,
+              endsAt: segment.endsAt,
+              id: segment.id,
+              journeyId,
+              kind: segment.kind,
+              origin: 'suggested',
+              parentId:
+                segment.parentId !== null && failedStages.has(segment.parentId)
+                  ? null
+                  : segment.parentId,
+              position: segment.position,
+              startsAt: segment.startsAt,
+              title: segment.title,
+              tripType: segment.tripType,
+              tz: segment.tz,
+            })),
+          )
+          counts.segmentsRecreated += part.length
+        } catch {
+          for (const segment of part) {
+            if (segment.kind === 'stage') failedStages.add(segment.id)
+            skipped.push({
+              id: segment.id,
+              reason: 'missing',
+              target: 'segment',
+            })
+          }
+        }
+      }
     }
+    await insert(stages)
+    await insert(trips)
 
-    await deps.store.remove(journeyId)
-    deps.forgetRun?.(journeyId, snapshot.runId)
-    return { counts, kind: 'done', skipped: plan.skipped }
+    await finish()
+    return { counts, kind: 'done', skipped }
   } catch (error) {
     return {
       counts,

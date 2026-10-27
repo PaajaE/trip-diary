@@ -1,9 +1,16 @@
 /**
  * Scheduling of the automatic organisation after an upload (plan 4f, UX flow
  * point 1). Pure apart from the injected timer and run: requests are
- * debounced, one run per journey at a time (single-flight), a request that
+ * debounced, one task per journey at a time (single-flight), a request that
  * comes during a run starts one more run after it, and a request that brings
  * no media id not seen before does nothing.
+ *
+ * Exclusive tasks (the manual organize, "Vrátit uspořádání") share the
+ * single-flight slot: they wait for a running organize (asking it to stop its
+ * place lookup) and no debounced run starts while one is active.
+ *
+ * Media of a failed run, and media that were not ready yet, are not
+ * "handled": they join the next trigger again.
  */
 
 export interface AutoOrganizeCounts {
@@ -17,45 +24,61 @@ export interface AutoOrganizeCounts {
   tripsCreated: number
 }
 
+interface OutcomeExtras {
+  /** Requested media that were not ready (or not found): retried later. */
+  unreadyIds?: readonly string[]
+}
+
 export type AutoRunOutcome =
   /** The plan was empty: nothing was written (the undo snapshot is kept). */
-  | { kind: 'nothing' }
-  | { counts: AutoOrganizeCounts; createdMomentIds: string[]; kind: 'applied' }
+  | ({ kind: 'nothing' } & OutcomeExtras)
+  | ({
+      counts: AutoOrganizeCounts
+      createdMomentIds: string[]
+      kind: 'applied'
+    } & OutcomeExtras)
   /** `counts` = what was written before the failure; a rerun converges. */
-  | {
+  | ({
       counts: AutoOrganizeCounts
       createdMomentIds: string[]
       error: unknown
       kind: 'failed'
-    }
+    } & OutcomeExtras)
+
+interface StateFlags {
+  /** A manual organize or an undo holds the journey right now. */
+  exclusive: boolean
+  /** New media wait for the debounce (or for the running task). */
+  queued: boolean
+}
 
 export type AutoOrganizeState =
-  | { queued: boolean; status: 'idle' }
-  | { queued: boolean; status: 'running' }
-  | {
+  | ({ status: 'idle' } & StateFlags)
+  | ({ status: 'running' } & StateFlags)
+  | ({
       counts: AutoOrganizeCounts
       createdMomentIds: string[]
       /** Plan was empty: nothing changed. */
       nothingNew: boolean
-      queued: boolean
       /** Places of the new stops are still being looked up. */
       resolvingPlaces: boolean
       /** Increases with every finished run (lets the UI refresh once). */
       runSeq: number
       status: 'done'
-    }
-  | {
+    } & StateFlags)
+  | ({
       counts: AutoOrganizeCounts
       error: unknown
-      queued: boolean
+      /** Media that will be organised again with the next trigger. */
+      retryCount: number
       runSeq: number
       status: 'error'
-    }
+    } & StateFlags)
 
 export interface AutoRunContext {
   /** Call once the plan is written (before places are looked up). */
   onApplied: (outcome: AutoRunOutcome) => void
-  /** True when a newer request wants the journey: stop the place lookup. */
+  /** True when someone else wants the journey: stop the place lookup. */
   stopped: () => boolean
 }
 
@@ -71,18 +94,30 @@ export interface AutoOrganizerDeps {
 }
 
 export interface AutoOrganizer {
+  /**
+   * Runs `task` alone on the journey (manual organize, undo): waits for a
+   * running organize, and blocks debounced runs until it is over.
+   */
+  exclusive: <T>(journeyId: string, task: () => Promise<T>) => Promise<T>
   getState: (journeyId: string) => AutoOrganizeState
   /** New media of the journey arrived; ids seen before are ignored. */
   request: (journeyId: string, mediaIds: readonly string[]) => void
+  /**
+   * Test seam: resolves once no run or exclusive task of the journey is
+   * active. A pending debounce timer is NOT awaited.
+   */
+  settled: (journeyId: string) => Promise<void>
   subscribe: (listener: () => void) => () => void
-  /** Resolves when the journey has no timer and no run (tests). */
-  whenIdle: (journeyId: string) => Promise<void>
 }
 
 /** Default debounce: lets the last files of a batch finish first. */
 export const AUTO_ORGANIZE_DEBOUNCE_MS = 4_000
 
-export const IDLE_STATE: AutoOrganizeState = { queued: false, status: 'idle' }
+export const IDLE_STATE: AutoOrganizeState = {
+  exclusive: false,
+  queued: false,
+  status: 'idle',
+}
 
 const ZERO: AutoOrganizeCounts = {
   mediaReassigned: 0,
@@ -97,17 +132,16 @@ const ZERO: AutoOrganizeCounts = {
 
 interface Slot {
   cancelTimer: (() => void) | null
-  /** Ids handed to a run already (never trigger again). */
+  exclusive: number
+  /** Ids handed to a successful run (never trigger again). */
   handled: Set<string>
   pending: Set<string>
-  running: Promise<void> | null
+  /** Ids of failed runs / not ready yet: they join the next trigger. */
+  retry: Set<string>
+  running: Promise<unknown> | null
   runSeq: number
   state: AutoOrganizeState
   stopRequested: boolean
-}
-
-function withQueued(state: AutoOrganizeState, queued: boolean) {
-  return { ...state, queued }
 }
 
 export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
@@ -123,8 +157,10 @@ export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
     if (slot === undefined) {
       slot = {
         cancelTimer: null,
+        exclusive: 0,
         handled: new Set(),
         pending: new Set(),
+        retry: new Set(),
         running: null,
         runSeq: 0,
         state: IDLE_STATE,
@@ -134,9 +170,16 @@ export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
     }
     return slot
   }
+  const flags = (slot: Slot): StateFlags => ({
+    exclusive: slot.exclusive > 0,
+    queued: slot.pending.size > 0,
+  })
   const setState = (slot: Slot, state: AutoOrganizeState) => {
     slot.state = state
     emit()
+  }
+  const refresh = (slot: Slot) => {
+    setState(slot, { ...slot.state, ...flags(slot) })
   }
 
   function arm(journeyId: string, slot: Slot) {
@@ -147,46 +190,59 @@ export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
     }, debounceMs)
   }
 
+  const after = (journeyId: string, slot: Slot) => {
+    slot.running = null
+    if (slot.pending.size > 0) arm(journeyId, slot)
+    refresh(slot)
+  }
+
   function fire(journeyId: string, slot: Slot) {
     if (slot.pending.size === 0) return
     if (slot.running !== null) {
-      // Never two runs at once: ask the current one to stop its place
-      // lookup; this request runs right after it.
+      // Never two tasks at once: ask the current one to stop its place
+      // lookup; this request runs right after it (re-armed in `after`).
       slot.stopRequested = true
       return
     }
     const ids = [...slot.pending]
     slot.pending.clear()
-    for (const id of ids) slot.handled.add(id)
     slot.stopRequested = false
     slot.runSeq += 1
     const seq = slot.runSeq
-    setState(slot, { queued: false, status: 'running' })
+    setState(slot, { ...flags(slot), status: 'running' })
     let applied = false
+    const settle = (outcome: AutoRunOutcome) => {
+      const unready = new Set(outcome.unreadyIds ?? [])
+      for (const id of ids) {
+        if (outcome.kind === 'failed' || unready.has(id)) slot.retry.add(id)
+        else slot.handled.add(id)
+      }
+    }
     const finish = (outcome: AutoRunOutcome, resolvingPlaces: boolean) => {
-      const queued = slot.pending.size > 0
+      settle(outcome)
       if (outcome.kind === 'failed') {
         setState(slot, {
+          ...flags(slot),
           counts: outcome.counts,
           error: outcome.error,
-          queued,
+          retryCount: slot.retry.size,
           runSeq: seq,
           status: 'error',
         })
       } else {
         setState(slot, {
+          ...flags(slot),
           counts: outcome.kind === 'applied' ? outcome.counts : ZERO,
           createdMomentIds:
             outcome.kind === 'applied' ? outcome.createdMomentIds : [],
           nothingNew: outcome.kind === 'nothing',
-          queued,
           resolvingPlaces,
           runSeq: seq,
           status: 'done',
         })
       }
     }
-    const run = deps
+    slot.running = deps
       .run(journeyId, ids, {
         onApplied: (outcome) => {
           applied = true
@@ -207,13 +263,30 @@ export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
         },
       )
       .finally(() => {
-        slot.running = null
-        if (slot.pending.size > 0) arm(journeyId, slot)
+        after(journeyId, slot)
       })
-    slot.running = run
   }
 
   return {
+    async exclusive(journeyId, task) {
+      const slot = slotOf(journeyId)
+      slot.exclusive += 1
+      slot.stopRequested = true
+      slot.cancelTimer?.()
+      slot.cancelTimer = null
+      refresh(slot)
+      try {
+        while (slot.running !== null) {
+          await slot.running.catch(() => undefined)
+        }
+        const run = task()
+        slot.running = run
+        return await run
+      } finally {
+        slot.exclusive -= 1
+        after(journeyId, slot)
+      }
+    },
     getState: (journeyId) => slots.get(journeyId)?.state ?? IDLE_STATE,
     request(journeyId, mediaIds) {
       const slot = slotOf(journeyId)
@@ -221,22 +294,31 @@ export function createAutoOrganizer(deps: AutoOrganizerDeps): AutoOrganizer {
       for (const id of mediaIds) {
         if (slot.handled.has(id) || slot.pending.has(id)) continue
         slot.pending.add(id)
+        slot.retry.delete(id)
         added = true
       }
       if (!added) return
-      setState(slot, withQueued(slot.state, true))
-      if (slot.running !== null) slot.stopRequested = true
+      // Media of a failed run come along with the next trigger.
+      for (const id of slot.retry) slot.pending.add(id)
+      slot.retry.clear()
+      refresh(slot)
+      if (slot.running !== null) {
+        slot.stopRequested = true
+        return // re-armed when the running task is over
+      }
       arm(journeyId, slot)
+    },
+    async settled(journeyId) {
+      const slot = slots.get(journeyId)
+      while (slot !== undefined && slot.running !== null) {
+        await slot.running.catch(() => undefined)
+      }
     },
     subscribe(listener) {
       listeners.add(listener)
       return () => {
         listeners.delete(listener)
       }
-    },
-    async whenIdle(journeyId) {
-      const slot = slots.get(journeyId)
-      while (slot !== undefined && slot.running !== null) await slot.running
     },
   }
 }

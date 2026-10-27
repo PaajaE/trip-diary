@@ -1,4 +1,9 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import {
+  ensureFlowOwner,
+  FLOW_MARKERS_PREFIX,
+  onFlowStateCleared,
+} from '@/features/journey-flow/api/flow-owner'
 import {
   EMPTY_MARKERS,
   parseFlowMarkers,
@@ -6,13 +11,15 @@ import {
 } from '@/features/journey-flow/model/flow-markers'
 
 /**
- * localStorage-backed flow markers (one key per journey). A per-device
- * convenience: blocked storage keeps the markers in memory for the session,
- * invalid stored data reads as empty (Zod at the boundary).
+ * localStorage-backed flow markers, one key per user and journey. A
+ * per-device convenience: blocked storage keeps the markers in memory for
+ * the session, invalid stored data reads as empty (Zod at the boundary).
+ * Another user signing in (or a sign-out) wipes them (flow-owner).
  */
-export const FLOW_MARKERS_PREFIX = 'trip-diary:flow:'
+export { FLOW_MARKERS_PREFIX }
 
-const keyOf = (journeyId: string) => `${FLOW_MARKERS_PREFIX}${journeyId}`
+const keyOf = (userId: string, journeyId: string) =>
+  `${FLOW_MARKERS_PREFIX}${userId}:${journeyId}`
 
 const cache = new Map<string, FlowMarkers>()
 const listeners = new Set<() => void>()
@@ -21,9 +28,14 @@ function emit() {
   for (const listener of listeners) listener()
 }
 
-function readStored(journeyId: string): FlowMarkers {
+onFlowStateCleared(() => {
+  cache.clear()
+  emit()
+})
+
+function readStored(key: string): FlowMarkers {
   try {
-    const raw = window.localStorage.getItem(keyOf(journeyId))
+    const raw = window.localStorage.getItem(key)
     if (raw === null) return EMPTY_MARKERS
     return parseFlowMarkers(JSON.parse(raw) as unknown)
   } catch {
@@ -31,25 +43,29 @@ function readStored(journeyId: string): FlowMarkers {
   }
 }
 
-export function getFlowMarkers(journeyId: string): FlowMarkers {
-  const known = cache.get(journeyId)
+export function getFlowMarkers(userId: string, journeyId: string): FlowMarkers {
+  const key = keyOf(userId, journeyId)
+  const known = cache.get(key)
   if (known !== undefined) return known
-  const read = readStored(journeyId)
-  cache.set(journeyId, read)
+  const read = readStored(key)
+  cache.set(key, read)
   return read
 }
 
 /** Applies a pure transition and persists it. */
 export function updateFlowMarkers(
+  userId: string,
   journeyId: string,
   change: (markers: FlowMarkers) => FlowMarkers,
 ): FlowMarkers {
-  const current = getFlowMarkers(journeyId)
+  ensureFlowOwner(userId)
+  const key = keyOf(userId, journeyId)
+  const current = getFlowMarkers(userId, journeyId)
   const next = change(current)
   if (next === current) return current
-  cache.set(journeyId, next)
+  cache.set(key, next)
   try {
-    window.localStorage.setItem(keyOf(journeyId), JSON.stringify(next))
+    window.localStorage.setItem(key, JSON.stringify(next))
   } catch {
     // Storage may be blocked or full; the markers live on for this session.
   }
@@ -67,7 +83,7 @@ function subscribe(listener: () => void): () => void {
   listeners.add(listener)
   const onStorage = (event: StorageEvent) => {
     if (event.key?.startsWith(FLOW_MARKERS_PREFIX) === true) {
-      cache.delete(event.key.slice(FLOW_MARKERS_PREFIX.length))
+      cache.delete(event.key)
       listener()
     }
   }
@@ -78,8 +94,19 @@ function subscribe(listener: () => void): () => void {
   }
 }
 
-/** Markers of a journey, re-rendering when they change. */
-export function useFlowMarkers(journeyId: string): FlowMarkers {
-  const read = useCallback(() => getFlowMarkers(journeyId), [journeyId])
+/** Markers of a journey for the signed-in user (empty when signed out). */
+export function useFlowMarkers(
+  userId: string | null,
+  journeyId: string,
+): FlowMarkers {
+  // Keys are per user, so reading before the owner check is safe; the
+  // check (which may wipe a previous user's state) runs outside render.
+  useEffect(() => {
+    if (userId !== null) ensureFlowOwner(userId)
+  }, [userId])
+  const read = useCallback(
+    () => (userId === null ? EMPTY_MARKERS : getFlowMarkers(userId, journeyId)),
+    [journeyId, userId],
+  )
   return useSyncExternalStore(subscribe, read, read)
 }

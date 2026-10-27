@@ -6,6 +6,10 @@ import {
   FLOW_MARKERS_PREFIX,
 } from '@/features/journey-flow/api/flow-markers.store'
 import {
+  clearFlowState,
+  FLOW_OWNER_KEY,
+} from '@/features/journey-flow/api/flow-owner'
+import {
   acknowledgeArrivals,
   addRun,
   arrivedAfter,
@@ -20,6 +24,8 @@ import {
 import { med, mom, uuid } from '@/features/journey-workspace/test-fixtures'
 
 const J = uuid(999)
+const U = uuid(500)
+const OTHER = uuid(501)
 
 afterEach(() => {
   window.localStorage.clear()
@@ -83,15 +89,32 @@ describe('flow markers', () => {
 
   it('reads invalid stored data as empty', () => {
     expect(parseFlowMarkers({ version: 9 })).toEqual(EMPTY_MARKERS)
-    window.localStorage.setItem(`${FLOW_MARKERS_PREFIX}${J}`, '{not json')
-    expect(getFlowMarkers(J)).toEqual(EMPTY_MARKERS)
+    window.localStorage.setItem(`${FLOW_MARKERS_PREFIX}${U}:${J}`, '{not json')
+    expect(getFlowMarkers(U, J)).toEqual(EMPTY_MARKERS)
   })
 
   it('persists transitions in localStorage', () => {
-    updateFlowMarkers(J, (markers) => addRun(markers, 'r1', [uuid(5)]))
+    updateFlowMarkers(U, J, (markers) => addRun(markers, 'r1', [uuid(5)]))
     resetFlowMarkersCache()
-    expect(getFlowMarkers(J).runs).toEqual([
+    expect(getFlowMarkers(U, J).runs).toEqual([
       { momentIds: [uuid(5)], runId: 'r1' },
     ])
+  })
+
+  it('keeps markers per user and wipes them when another user signs in', () => {
+    updateFlowMarkers(U, J, (markers) => addRun(markers, 'r1', [uuid(5)]))
+    expect(getFlowMarkers(OTHER, J)).toEqual(EMPTY_MARKERS)
+    updateFlowMarkers(OTHER, J, (markers) => markStopOpened(markers, uuid(6)))
+    resetFlowMarkersCache()
+    // The first user's markers are gone from the device.
+    expect(getFlowMarkers(U, J)).toEqual(EMPTY_MARKERS)
+    expect(getFlowMarkers(OTHER, J).openedStopIds).toEqual([uuid(6)])
+  })
+
+  it('wipes every marker on sign-out', async () => {
+    updateFlowMarkers(U, J, (markers) => addRun(markers, 'r1', [uuid(5)]))
+    await clearFlowState()
+    expect(getFlowMarkers(U, J)).toEqual(EMPTY_MARKERS)
+    expect(window.localStorage.getItem(FLOW_OWNER_KEY)).toBeNull()
   })
 })

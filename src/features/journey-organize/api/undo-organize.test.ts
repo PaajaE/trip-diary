@@ -11,7 +11,7 @@ import type {
   MomentPatch,
   NewMoment,
 } from '@/entities/moment/model/moment'
-import type { Segment } from '@/entities/segment/model/segment'
+import type { NewSegment, Segment } from '@/entities/segment/model/segment'
 import { med, mom, seg, uuid } from '@/features/journey-workspace/test-fixtures'
 
 const J = uuid(999)
@@ -26,12 +26,15 @@ const D = mom(11, {
 })
 const C = uuid(20)
 
+interface State {
+  media: MediaItem[]
+  moments: Moment[]
+  segments: Segment[]
+}
+
 function setup(
-  mutate: (state: {
-    media: MediaItem[]
-    moments: Moment[]
-    segments: Segment[]
-  }) => void = () => undefined,
+  mutate: (state: State) => void = () => undefined,
+  extra: { deletedSegments?: Segment[] } = {},
 ) {
   const store = memorySnapshotStore()
   const before = {
@@ -41,7 +44,7 @@ function setup(
       med(3, { momentId: null }),
     ],
     moments: [A, D],
-    segments: [] as Segment[],
+    segments: extra.deletedSegments ?? ([] as Segment[]),
   }
   const snapshot = buildOrganizeSnapshot(
     J,
@@ -57,13 +60,13 @@ function setup(
       momentsToUpdate: [
         { endsAt: T('10:05'), id: A.id, kind: 'stay', startsAt: T('09:00') },
       ],
-      segmentsToDelete: [],
+      segmentsToDelete: (extra.deletedSegments ?? []).map((s) => s.id),
       stageSuggestions: [],
       tripSuggestions: [{ id: uuid(42) }],
     },
     { runId: 'run-7', takenAt: T('20:00') },
   )
-  void store.put(snapshot)
+  void store.put(USER, snapshot)
   const state = {
     media: [
       med(1, { momentId: A.id }),
@@ -78,11 +81,20 @@ function setup(
   }
   mutate(state)
   const calls: string[] = []
+  /** Photos a user moves while the undo runs (the conditional write misses). */
+  const movedMeanwhile = new Set<string>()
   const deps: Partial<UndoDeps> = {
-    assignMedia: vi.fn((ids: string[], momentId: string) => {
-      calls.push(`assign:${momentId}:${ids.join(',')}`)
-      return Promise.resolve()
-    }),
+    moveIfUnchanged: vi.fn(
+      (ids: readonly string[], to: string | null, from: string | null) => {
+        const moved = ids.filter(
+          (id) =>
+            !movedMeanwhile.has(id) &&
+            state.media.find((m) => m.id === id)?.momentId === from,
+        )
+        calls.push(`move:${to ?? 'none'}<-${from ?? 'none'}:${moved.join(',')}`)
+        return Promise.resolve(moved)
+      },
+    ),
     createMoments: vi.fn((rows: NewMoment[]) => {
       calls.push(
         `create:${rows.map((r) => `${r.id}/${r.origin ?? ''}/${String(r.locked)}`).join(',')}`,
@@ -96,10 +108,6 @@ function setup(
     }),
     deleteSegments: vi.fn((ids: string[]) => {
       calls.push(`deleteSegments:${ids.join(',')}`)
-      return Promise.resolve()
-    }),
-    detachMedia: vi.fn((ids: readonly string[]) => {
-      calls.push(`detach:${ids.join(',')}`)
       return Promise.resolve()
     }),
     forgetRun: vi.fn(),
@@ -117,7 +125,7 @@ function setup(
       return Promise.resolve(mom(10))
     }),
   }
-  return { calls, deps, store }
+  return { calls, deps, movedMeanwhile, state, store }
 }
 
 describe('undoOrganization', () => {
@@ -139,14 +147,14 @@ describe('undoOrganization', () => {
     expect(calls).toEqual([
       `create:${D.id}/auto/false`,
       `place:${D.id}:${uuid(301)}`,
-      `assign:${D.id}:${uuid(2)}`,
-      `detach:${uuid(3)}`,
+      `move:${D.id}<-${C}:${uuid(2)}`,
+      `move:none<-${C}:${uuid(3)}`,
       `update:${A.id}:endsAt|kind|latitude|longitude|startsAt`,
       `delete:${C}`,
       `deleteSegments:${uuid(42)}`,
     ])
     expect(store.rows.has(J)).toBe(false)
-    expect(deps.forgetRun).toHaveBeenCalledWith(J, 'run-7')
+    expect(deps.forgetRun).toHaveBeenCalledWith(USER, J, 'run-7')
   })
 
   it('never writes text, title, cover, lock, star or trash', async () => {
@@ -172,7 +180,7 @@ describe('undoOrganization', () => {
 
   it('stops at a failing step, keeps the snapshot and converges on rerun', async () => {
     const { calls, deps, store } = setup()
-    deps.detachMedia = vi.fn(() => Promise.reject(new Error('offline')))
+    deps.moveIfUnchanged = vi.fn(() => Promise.reject(new Error('offline')))
     const failed = await undoOrganization(J, deps)
     expect(failed.kind).toBe('failed')
     if (failed.kind === 'failed') {
@@ -226,5 +234,115 @@ describe('undoOrganization', () => {
     })
     expect(await undoOrganization(J, deps)).toEqual({ kind: 'nothing' })
     expect(store.rows.has(J)).toBe(false)
+  })
+
+  it('keeps the snapshot of a newer run written during the undo', async () => {
+    const { deps, store } = setup()
+    const list = deps.listMedia
+    deps.listMedia = async (journeyId) => {
+      const snapshot = await store.get(USER, J)
+      if (snapshot !== null) {
+        await store.put(USER, { ...snapshot, runId: 'run-8' })
+      }
+      return (list ?? (() => Promise.resolve([])))(journeyId)
+    }
+    await undoOrganization(J, deps)
+    expect((await store.get(USER, J))?.runId).toBe('run-8')
+    expect(deps.forgetRun).not.toHaveBeenCalled()
+  })
+
+  it('never overwrites a photo the user moves during the undo', async () => {
+    const { calls, deps, movedMeanwhile } = setup()
+    movedMeanwhile.add(uuid(3))
+    const result = await undoOrganization(J, deps)
+    expect(result.kind).toBe('done')
+    if (result.kind === 'done') {
+      expect(result.skipped).toEqual(
+        expect.arrayContaining([
+          { id: uuid(3), reason: 'changed', target: 'media' },
+          { id: C, reason: 'notEmpty', target: 'moment' },
+        ]),
+      )
+      expect(result.counts.mediaRestored).toBe(1)
+    }
+    // Its stop is not deleted while the photo may still be in it.
+    expect(calls).not.toContain(`delete:${C}`)
+  })
+
+  it('re-creates replaced suggestions with stages first, dropping a gone parent', async () => {
+    const stage = seg(43, { origin: 'suggested', startsAt: T('00:00') })
+    const trip = seg(44, {
+      kind: 'trip',
+      origin: 'suggested',
+      parentId: uuid(45), // a stage the user deleted after the run
+      tripType: 'walk',
+    })
+    const tripInStage = seg(46, {
+      kind: 'trip',
+      origin: 'suggested',
+      parentId: uuid(43),
+      tripType: 'day',
+    })
+    const { deps } = setup(() => undefined, {
+      deletedSegments: [trip, tripInStage, stage],
+    })
+    const created: { id: string; parentId: string | null | undefined }[][] = []
+    deps.createSegments = vi.fn((rows: NewSegment[]) => {
+      created.push(rows.map((r) => ({ id: r.id, parentId: r.parentId })))
+      return Promise.resolve()
+    })
+    const result = await undoOrganization(J, deps)
+    expect(result.kind).toBe('done')
+    expect(created).toEqual([
+      [{ id: uuid(43), parentId: null }],
+      [
+        { id: uuid(44), parentId: null },
+        { id: uuid(46), parentId: uuid(43) },
+      ],
+    ])
+  })
+
+  it('finishes (and drops the snapshot) when a suggestion cannot be re-created', async () => {
+    const stage = seg(43, { origin: 'suggested' })
+    const { deps, store } = setup(() => undefined, { deletedSegments: [stage] })
+    deps.createSegments = vi.fn(() => Promise.reject(new Error('fk')))
+    const result = await undoOrganization(J, deps)
+    expect(result.kind).toBe('done')
+    if (result.kind === 'done') {
+      expect(result.skipped).toContainEqual({
+        id: uuid(43),
+        reason: 'missing',
+        target: 'segment',
+      })
+    }
+    expect(store.rows.has(J)).toBe(false)
+  })
+
+  it('runs under the journey lock (two undos never interleave)', async () => {
+    const { deps } = setup()
+    const order: string[] = []
+    deps.lock = (() => {
+      let chain = Promise.resolve()
+      return <T>(_journey: string, task: () => Promise<T>) => {
+        const run = chain.then(async () => {
+          order.push('start')
+          const value = await task()
+          order.push('end')
+          return value
+        })
+        chain = run.then(
+          () => undefined,
+          () => undefined,
+        )
+        return run
+      }
+    })()
+    const [first, second] = await Promise.all([
+      undoOrganization(J, deps),
+      undoOrganization(J, deps),
+    ])
+    expect(order).toEqual(['start', 'end', 'start', 'end'])
+    expect(first.kind).toBe('done')
+    expect(second).toEqual({ kind: 'nothing' })
   })
 })

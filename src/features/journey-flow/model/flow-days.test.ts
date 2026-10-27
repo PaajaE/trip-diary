@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { buildFlowDays } from '@/features/journey-flow/model/flow-days'
+import {
+  applyFlowMarkers,
+  buildFlowBase,
+  buildFlowDays,
+} from '@/features/journey-flow/model/flow-days'
 import {
   acknowledgeArrivals,
   addRun,
@@ -41,7 +45,16 @@ describe('buildFlowDays', () => {
     const byId = new Map(day?.stops.map((s) => [s.id, s]))
     expect(byId.get(ID.viewpoint)?.isNew).toBe(true)
     expect(byId.get(ID.viewpoint)?.needsLook).toBe(true)
-    expect(byId.get(ID.viewpoint)?.confidence.reasons).toContain('singlePoint')
+    // A lone photo is a valid point: it needs a look only because it is new
+    // and its place is not known yet, not because of its count.
+    expect(byId.get(ID.viewpoint)?.confidence).toEqual({
+      level: 'high',
+      reasons: [],
+    })
+    const seen = flow(EMPTY_MARKERS).days[0]?.stops.find(
+      (stop) => stop.id === ID.viewpoint,
+    )
+    expect(seen?.needsLook).toBe(false)
     expect(byId.get(ID.hotel)?.needsLook).toBe(false)
     expect(byId.get(ID.ride)?.needsLook).toBe(false)
     expect(byId.get(ID.locked)?.needsLook).toBe(false)
@@ -65,5 +78,18 @@ describe('buildFlowDays', () => {
   it('is deterministic', () => {
     const markers = acknowledgeArrivals(EMPTY_MARKERS, null)
     expect(JSON.stringify(flow(markers))).toBe(JSON.stringify(flow(markers)))
+  })
+
+  it('re-applies markers without rebuilding the heavy part', () => {
+    const { placeNames, tree } = fixtureDay()
+    const base = buildFlowBase({ homeTz: 'UTC', placeNames, tree })
+    const a = applyFlowMarkers(base, EMPTY_MARKERS)
+    const b = applyFlowMarkers(base, addRun(EMPTY_MARKERS, 'r', [ID.viewpoint]))
+    // Same day objects underneath (no second copy detection or naming).
+    expect(a.days[0]?.stops[0]?.entry).toBe(b.days[0]?.stops[0]?.entry)
+    expect(a.days[0]?.stops[0]?.name).toBe(b.days[0]?.stops[0]?.name)
+    expect(b.days[0]?.stops.find((s) => s.id === ID.viewpoint)?.isNew).toBe(
+      true,
+    )
   })
 })

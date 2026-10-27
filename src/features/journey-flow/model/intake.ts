@@ -27,7 +27,9 @@ export interface IntakeDay {
    * entry when they are the same, none when no stop has a name yet.
    */
   places: StopName[]
-  /** Stops whose photos are all sorted ("Fotky: 3 z 12 zastávek hotovo"). */
+  /** Stops already confirmed by the user (neither "sure" nor "to look at"). */
+  confirmedCount: number
+  /** Of `stopCount`: stops whose photos are all sorted ("3 z 12 zastávek hotovo"). */
   sortedStops: number
   /** Stops of the day (collapsed rides "Cestou" do not count). */
   stopCount: number
@@ -41,13 +43,23 @@ export interface IntakeModel {
   days: IntakeDay[]
   /** The same days, least sure first (most stops to look at, then date). */
   byConfidence: string[]
-  /** Header facts: "3 dny, 412 fotek" and "32 vypadá jistě, 8 potřebuje oko". */
+  /**
+   * Header facts: "3 dny, 412 fotek" and "32 vypadá jistě, 8 potřebuje oko".
+   * `sureStops` are unconfirmed automatic stops that look right; confirmed
+   * ones are counted apart.
+   */
   totals: {
+    confirmedStops: number
     days: number
     lookStops: number
     newMedia: number
     sureStops: number
   }
+  /**
+   * Photos without a capture time have no day: they get their own bucket
+   * (shown so they are not marked seen unseen). Null when there are none.
+   */
+  unknownTime: { mediaCount: number; newMediaCount: number } | null
 }
 
 const isStop = (stop: FlowStop) => stop.kind !== 'en_route'
@@ -109,28 +121,45 @@ export function buildIntake(
   const out: IntakeDay[] = []
   let sure = 0
   let look = 0
+  let confirmedTotal = 0
   let newMedia = 0
+  let unknownTime: IntakeModel['unknownTime'] = null
+  const freshOf = (day: FlowDay) =>
+    markers.seenUpTo === null
+      ? day.media.filter(isUnreviewed).length
+      : day.media.filter((item) =>
+          arrivedAfter(item.createdAt, markers.seenUpTo),
+        ).length
   for (const day of days) {
-    if (day.key === UNKNOWN_DAY || !isNewDay(day, markers)) continue
+    if (day.key === UNKNOWN_DAY) {
+      if (day.media.length > 0) {
+        const fresh = freshOf(day)
+        unknownTime = { mediaCount: day.media.length, newMediaCount: fresh }
+        newMedia += fresh
+      }
+      continue
+    }
+    if (!isNewDay(day, markers)) continue
     const stops = day.stops.filter(isStop)
     const needsLook = stops.filter((stop) => stop.needsLook).length
-    const fresh =
-      markers.seenUpTo === null
-        ? day.media.filter(isUnreviewed).length
-        : day.media.filter((item) =>
-            arrivedAfter(item.createdAt, markers.seenUpTo),
-          ).length
-    sure += stops.length - needsLook
+    const confirmed = stops.filter(
+      (stop) => stop.locked && !stop.needsLook,
+    ).length
+    const fresh = freshOf(day)
+    sure += stops.length - needsLook - confirmed
     look += needsLook
+    confirmedTotal += confirmed
     newMedia += fresh
     out.push({
+      confirmedCount: confirmed,
       coverMediaId: coverOf(day),
       key: day.key,
       needsLookCount: needsLook,
       newMediaCount: fresh,
       photoCount: day.media.filter((item) => item.kind === 'photo').length,
       places: placesOf(day.stops),
-      sortedStops: day.stops.filter(
+      // Same population as stopCount (rides excluded).
+      sortedStops: stops.filter(
         (stop) => stop.media.length > 0 && !stop.media.some(isUnreviewed),
       ).length,
       stopCount: stops.length,
@@ -151,6 +180,13 @@ export function buildIntake(
   return {
     byConfidence,
     days: out,
-    totals: { days: out.length, lookStops: look, newMedia, sureStops: sure },
+    totals: {
+      confirmedStops: confirmedTotal,
+      days: out.length,
+      lookStops: look,
+      newMedia,
+      sureStops: sure,
+    },
+    unknownTime,
   }
 }

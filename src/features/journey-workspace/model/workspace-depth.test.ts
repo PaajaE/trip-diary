@@ -115,4 +115,24 @@ describe('workspace depth (ZS-6)', () => {
     expect(withoutStageLevel(flat)).toBe(flat)
     expect(workspaceDepth(tree, ['2026-06-01', 'unknown']).spanDays).toBe(1)
   })
+
+  it('counts photo days of photos not in a stop yet', () => {
+    // One stop on 1 June, unplaced photos on 30 June: a long trip, not a day.
+    const tree = buildWorkspaceTree(
+      [],
+      [mom(101, { endsAt: day(1), startsAt: day(1) })],
+      [
+        med(201, {
+          capturedAt: day(1),
+          capturedTz: 'UTC',
+          momentId: uuid(101),
+        }),
+        med(202, { capturedAt: day(30), capturedTz: 'UTC', momentId: null }),
+      ],
+      'UTC',
+    )
+    const overview = buildOverview(tree, () => undefined, 'UTC')
+    expect(overview.depth.spanDays).toBe(30)
+    expect(overview.depth.size).toBe('long')
+  })
 })

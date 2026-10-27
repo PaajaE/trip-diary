@@ -35,7 +35,13 @@ describe('flow actions', () => {
   it('confirms the stops of a day without marking any photo sorted', async () => {
     const { actions, deps } = fakes()
     await actions.confirmStops([ID.hotel, ID.lake])
-    await actions.daySits({ daySitsIds: [ID.viewpoint] })
+    expect(
+      await actions.daySits({ daySits: true, daySitsIds: [ID.viewpoint] }),
+    ).toBe(true)
+    // Not offered by the model: nothing is written.
+    expect(
+      await actions.daySits({ daySits: false, daySitsIds: [ID.lake] }),
+    ).toBe(false)
     expect(deps.confirmMoments).toHaveBeenNthCalledWith(1, [ID.hotel, ID.lake])
     expect(deps.confirmMoments).toHaveBeenNthCalledWith(2, [ID.viewpoint])
     expect(deps.markMediaReviewed).not.toHaveBeenCalled()

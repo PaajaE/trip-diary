@@ -50,8 +50,9 @@ describe('buildStopReview', () => {
     const model = buildStopReview(day(), markers)
     expect(shape(model.cards)).toEqual([
       'stop 1',
-      // A ride between the stops: the stretch was by vehicle.
-      'move vehicle 39.7 km',
+      // 40 km in almost 3 h: the mode is unclear, so the neutral "Přesun"
+      // (a ride is never assumed to be a car).
+      'move transit 39.7 km',
       'ride 3',
       {
         cards: ['stop 2', 'move walk 1.7 km', 'stop 3'],
@@ -140,5 +141,46 @@ describe('split preview', () => {
     expect(preview?.pauseMs).toBe(15 * 60_000)
     expect(splitPreview(lake, lake.media[0]?.id ?? '')).toBeNull()
     expect(suggestedSplitId(lake)).toBe(lake.media[3]?.id)
+  })
+
+  it('labels a ride by the mode of its stretch only', () => {
+    const model = buildStopReview(day(), markers)
+    const ride = model.cards.find((card) => card.kind === 'enRoute')
+    expect(ride?.kind === 'enRoute' && ride.mode).toBe('transit')
+  })
+
+  it('times a stop by the photos it still holds, not its stored range', () => {
+    const { placeNames, tree } = fixtureDay()
+    const lake = tree.roots[0]?.moments.find((m) => m.moment.id === ID.lake)
+    if (lake === undefined) throw new Error('no lake')
+    // The 12:40 photo went to the trash: the stored range still ends 12:40.
+    lake.media = lake.media.slice(0, 3)
+    const flowDay = buildFlowDays({
+      homeTz: 'UTC',
+      markers,
+      placeNames,
+      tree,
+    }).days[0]
+    if (flowDay === undefined) throw new Error('no day')
+    const card = buildStopReview(flowDay, markers, 'all')
+      .cards.flatMap((c) => (c.kind === 'trip' ? c.cards : [c]))
+      .find((c) => c.kind === 'stop' && c.stop.id === ID.lake)
+    expect(card?.kind === 'stop' && card.time).toEqual({
+      from: at('11:50'),
+      kind: 'range',
+      to: at('12:20'),
+      tz: 'UTC',
+    })
+  })
+
+  it('does not confirm a stop that no longer holds photos', () => {
+    const { placeNames, tree } = fixtureDay()
+    const hotel = tree.looseMoments.find((m) => m.moment.id === ID.hotel)
+    if (hotel === undefined) throw new Error('no hotel')
+    hotel.media = []
+    const flowDay = buildFlowDays({ homeTz: 'UTC', markers, placeNames, tree })
+      .days[0]
+    if (flowDay === undefined) throw new Error('no day')
+    expect(buildStopReview(flowDay, markers).confirmIds).not.toContain(ID.hotel)
   })
 })

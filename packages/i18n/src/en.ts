@@ -1756,10 +1756,15 @@ export const en = {
       confirmHint_other:
         'Confirms all {{count}} stops. They get locked and the next upload will not regroup them.',
       enRoute: 'On the way',
+      /** Only when the stretch is classified as a vehicle; else Neutral. */
       enRoutePhotos_one: '{{count}} photo from the car window',
       enRoutePhotos_few: '{{count}} photos from the car window',
       enRoutePhotos_many: '{{count}} photos from the car window',
       enRoutePhotos_other: '{{count}} photos from the car window',
+      enRoutePhotosNeutral_one: '{{count}} photo on the way',
+      enRoutePhotosNeutral_few: '{{count}} photos on the way',
+      enRoutePhotosNeutral_many: '{{count}} photos on the way',
+      enRoutePhotosNeutral_other: '{{count}} photos on the way',
       promote: 'Make it a stop',
       transit: {
         bike: 'By bike, {{km}} km',

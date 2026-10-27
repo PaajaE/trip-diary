@@ -54,7 +54,10 @@ export interface FlowActions {
   /** "Zastávky sedí, třídit fotky": locks every given stop; no photo is marked. */
   confirmStops: (stopIds: readonly string[]) => Promise<void>
   /** "Den sedí" on the sorting screen (structure only, like confirmStops). */
-  daySits: (model: Pick<DaySortModel, 'daySitsIds'>) => Promise<void>
+  /** Resolves false (and writes nothing) when the model does not offer it. */
+  daySits: (
+    model: Pick<DaySortModel, 'daySits' | 'daySitsIds'>,
+  ) => Promise<boolean>
   /**
    * After sorting photos of a stop: confirms (locks) it once all its photos
    * are sorted. Resolves with the confirmed stop id, null when not done yet.
@@ -89,6 +92,8 @@ export const MAX_TITLE_LENGTH = 160
 
 export function createFlowActions(
   overrides: Partial<FlowActionDeps> = {},
+  /** Signed-in user the client-side markers belong to (null: none kept). */
+  userId: string | null = null,
 ): FlowActions {
   const deps: FlowActionDeps = {
     confirmMoments,
@@ -100,7 +105,7 @@ export function createFlowActions(
     splitMoment,
     trashMedia,
     updateMarkers: (journeyId, change) => {
-      updateFlowMarkers(journeyId, change)
+      if (userId !== null) updateFlowMarkers(userId, journeyId, change)
     },
     updateMoment,
     ...overrides,
@@ -116,7 +121,11 @@ export function createFlowActions(
         ? Promise.resolve(0)
         : deps.moveMedia(mediaIds, stopId),
     confirmStops: (stopIds) => deps.confirmMoments([...stopIds]),
-    daySits: (model) => deps.confirmMoments([...model.daySitsIds]),
+    daySits: async (model) => {
+      if (!model.daySits || model.daySitsIds.length === 0) return false
+      await deps.confirmMoments([...model.daySitsIds])
+      return true
+    },
     finishStop: async (stop, sortedNow) => {
       const id = stopToConfirm(stop, sortedNow)
       if (id === null) return null

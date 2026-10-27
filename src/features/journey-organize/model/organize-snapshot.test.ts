@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildOrganizeSnapshot,
+  contentKeyOf,
   isRestoreEmpty,
   parseOrganizeSnapshot,
   planRestore,
@@ -115,6 +116,7 @@ describe('buildOrganizeSnapshot', () => {
       {
         after: { endsAt: T('13:30'), startsAt: T('12:00') },
         before: { endsAt: T('13:00'), startsAt: T('12:00') },
+        contentKey: contentKeyOf(L),
         id: L.id,
       },
     ])
@@ -152,8 +154,10 @@ describe('planRestore', () => {
     const restore = planRestore(snapshot(), afterRun())
     expect(restore.recreateMoments.map((m) => m.id)).toEqual([D.id])
     expect(restore.moveMedia).toEqual([
-      { mediaIds: [uuid(3)], momentId: D.id },
-      { mediaIds: [uuid(4), uuid(6)], momentId: null },
+      // Each group moves back only from the stop the run put it in.
+      { from: C, mediaIds: [uuid(3)], momentId: D.id },
+      { from: L.id, mediaIds: [uuid(6)], momentId: null },
+      { from: C, mediaIds: [uuid(4)], momentId: null },
     ])
     expect(restore.revertMoments).toEqual([
       {
@@ -192,7 +196,9 @@ describe('planRestore', () => {
     partial.media.push(med(3, { momentId: C }))
     const restore = planRestore(snapshot(), partial)
     expect(restore.recreateMoments).toEqual([]) // D still exists
-    expect(restore.moveMedia).toEqual([{ mediaIds: [uuid(3)], momentId: D.id }])
+    expect(restore.moveMedia).toEqual([
+      { from: C, mediaIds: [uuid(3)], momentId: D.id },
+    ])
     expect(restore.revertMoments).toEqual([])
     expect(restore.revertExtensions).toEqual([])
     expect(restore.deleteMoments).toEqual([C])
@@ -219,7 +225,9 @@ describe('planRestore', () => {
     expect(restore.recreateMoments).toEqual([])
     // The rest still goes back.
     expect(restore.revertMoments.map((r) => r.id)).toEqual([A.id])
-    expect(restore.moveMedia).toEqual([{ mediaIds: [uuid(6)], momentId: null }])
+    expect(restore.moveMedia).toEqual([
+      { from: L.id, mediaIds: [uuid(6)], momentId: null },
+    ])
   })
 
   it('skips a kept stop the user renamed after the run', () => {
@@ -254,7 +262,9 @@ describe('planRestore', () => {
         { id: A.id, reason: 'locked', target: 'moment' },
       ]),
     )
-    expect(restore.moveMedia).toEqual([{ mediaIds: [uuid(6)], momentId: null }])
+    expect(restore.moveMedia).toEqual([
+      { from: L.id, mediaIds: [uuid(6)], momentId: null },
+    ])
     expect(restore.recreateMoments).toEqual([])
   })
 
@@ -306,5 +316,92 @@ describe('planRestore', () => {
 
     const plain = planRestore(snapshot(), state)
     expect(plain.revertMoments[0]?.patch).not.toHaveProperty('placeId')
+  })
+
+  it('keeps the new photos of a confirmed stop whose content changed since', () => {
+    const state = afterRun()
+    state.moments = state.moments.map((m) =>
+      m.id === L.id ? { ...m, body: 'Krásný výhled' } : m,
+    )
+    const restore = planRestore(snapshot(), state)
+    expect(restore.revertExtensions).toEqual([])
+    expect(restore.skipped).toEqual(
+      expect.arrayContaining([
+        { id: L.id, reason: 'changed', target: 'moment' },
+        { id: uuid(6), reason: 'changed', target: 'media' },
+      ]),
+    )
+  })
+
+  it('never takes the cover photo out of its stop', () => {
+    const state = afterRun()
+    state.moments = state.moments.map((m) =>
+      m.id === L.id ? { ...m, coverMediaId: uuid(6) } : m,
+    )
+    const restore = planRestore(snapshot(), state)
+    expect(restore.skipped).toContainEqual({
+      id: uuid(6),
+      reason: 'cover',
+      target: 'media',
+    })
+    expect(restore.moveMedia.flatMap((g) => g.mediaIds)).not.toContain(uuid(6))
+  })
+
+  it('does not bring back a suggestion over one the user accepted', () => {
+    const state = afterRun()
+    state.segments = [
+      ...state.segments,
+      seg(47, {
+        endsAt: S1.endsAt,
+        kind: 'trip',
+        origin: 'accepted',
+        startsAt: S1.startsAt,
+      }),
+    ]
+    const restore = planRestore(snapshot(), state)
+    expect(restore.recreateSegments).toEqual([])
+    expect(restore.skipped).toContainEqual({
+      id: S1.id,
+      reason: 'decided',
+      target: 'segment',
+    })
+  })
+
+  it('scales: indexes moves instead of scanning them per extension', () => {
+    const n = 4000
+    const many = Array.from({ length: n }, (_, i) => med(10_000 + i))
+    const extensions = Array.from({ length: 200 }, (_, i) => mom(20_000 + i))
+    const snap = buildOrganizeSnapshot(
+      J,
+      { media: many, moments: extensions, segments: [] },
+      {
+        ...plan,
+        mediaReassignments: many.map((m, i) => ({
+          mediaId: m.id,
+          momentId: extensions[i % 200]?.id ?? '',
+        })),
+        momentsToCreate: [],
+        momentsToDelete: [],
+        momentsToExtend: extensions.map((m) => ({
+          endsAt: m.endsAt,
+          id: m.id,
+          startsAt: m.startsAt,
+        })),
+        momentsToUpdate: [],
+        segmentsToDelete: [],
+        tripSuggestions: [],
+      },
+      META,
+    )
+    const started = performance.now()
+    planRestore(snap, {
+      media: many.map((m, i) => ({
+        ...m,
+        momentId: extensions[i % 200]?.id ?? null,
+      })),
+      moments: extensions,
+      segments: [],
+    })
+    expect(performance.now() - started).toBeLessThan(1000)
   })
 })

@@ -9,6 +9,7 @@ import { getJourneyHomeTz } from '@/entities/journey/api/journey-home-tz.reposit
 import {
   assignMediaBatchToMoment,
   listJourneyMedia,
+  moveMediaIfUnchanged,
 } from '@/entities/media/api/media-library.repository'
 import {
   createMoments,
@@ -78,6 +79,8 @@ export type OrganizeResult =
 
 export interface OrganizeDeps {
   assignMedia: typeof assignMediaBatchToMoment
+  /** Conditional move used when the planned-on state is known. */
+  moveIfUnchanged: typeof moveMediaIfUnchanged
   chunkSize: number
   createMoments: typeof createMoments
   createSegments: typeof createSegments
@@ -108,6 +111,7 @@ export function resolveDeps(
 ): OrganizeDeps {
   return {
     assignMedia: assignMediaBatchToMoment,
+    moveIfUnchanged: moveMediaIfUnchanged,
     chunkSize: 100,
     createMoments,
     createSegments,
@@ -294,6 +298,12 @@ export async function applyOrganizationPlan(
   journeyId: string,
   plan: OrganizationPlan,
   overrides: Partial<OrganizeDeps> = {},
+  /**
+   * Where each media item was when the plan was made (from the planned-on
+   * state). When given, a photo moves only if it is still there, so a photo
+   * the user moved during the run is never overwritten.
+   */
+  plannedFrom?: ReadonlyMap<string, string | null>,
 ): Promise<OrganizeResult> {
   const deps = resolveDeps(overrides)
   const counts = emptyCounts()
@@ -335,16 +345,31 @@ export async function applyOrganizationPlan(
     }
 
     step = 'assignMedia'
-    const byMoment = new Map<string, string[]>()
+    // Grouped by target and, when known, by where the media were planned.
+    const groups = new Map<
+      string,
+      { from: string | null | undefined; ids: string[]; to: string }
+    >()
     for (const { mediaId, momentId } of plan.mediaReassignments) {
-      const list = byMoment.get(momentId)
-      if (list === undefined) byMoment.set(momentId, [mediaId])
-      else list.push(mediaId)
+      const from =
+        plannedFrom === undefined
+          ? undefined
+          : (plannedFrom.get(mediaId) ?? null)
+      const key = `${momentId}|${from === undefined ? '*' : (from ?? '-')}`
+      const group = groups.get(key)
+      if (group === undefined)
+        groups.set(key, { from, ids: [mediaId], to: momentId })
+      else group.ids.push(mediaId)
     }
-    for (const [momentId, mediaIds] of byMoment) {
-      for (const part of chunks(mediaIds, deps.chunkSize)) {
-        await deps.assignMedia(part, momentId)
-        counts.mediaReassigned += part.length
+    for (const { from, ids, to } of groups.values()) {
+      for (const part of chunks(ids, deps.chunkSize)) {
+        if (from === undefined) {
+          await deps.assignMedia(part, to)
+          counts.mediaReassigned += part.length
+        } else {
+          const moved = await deps.moveIfUnchanged(part, to, from)
+          counts.mediaReassigned += moved.length
+        }
         advance(step, part.length)
       }
     }

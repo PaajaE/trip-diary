@@ -57,6 +57,11 @@ export interface StopCard {
 export interface RideCard {
   kind: 'enRoute'
   mediaCount: number
+  /**
+   * Mode of the stretch the ride belongs to (classifyGap between the stops
+   * around it), null when unknown: only 'vehicle' may say "z okna auta".
+   */
+  mode: MovementMode | null
   /** The collapsed ride stops ("Cestou"), in time order. */
   stopIds: string[]
   time: TimeFact
@@ -186,6 +191,7 @@ export function buildStopReview(
         card: {
           kind: 'enRoute',
           mediaCount: stop.media.length,
+          mode: null,
           stopIds: [stop.id],
           time: timeFact(
             stop.startsAt,
@@ -229,12 +235,13 @@ export function buildStopReview(
   let pendingRide: Item[] = []
   const flushRide = (next: Item | null) => {
     if (previousStop !== null && next !== null) {
-      const plain = transitBetween(previousStop, next)
-      // Photos collapsed as a ride were taken from a vehicle (plan 4f, 4).
-      const hint =
-        plain?.kind === 'move' && pendingRide.length > 0
-          ? { ...plain, mode: 'vehicle' as const }
-          : plain
+      // The mode is what the stretch says (classifyGap); an unclear one
+      // stays the neutral "Přesun", a ride is never assumed to be a car.
+      const hint = transitBetween(previousStop, next)
+      const mode = hint?.kind === 'move' ? hint.mode : null
+      for (const ride of pendingRide) {
+        if (ride.card.kind === 'enRoute') ride.card.mode = mode
+      }
       if (hint !== null) {
         const tripId =
           previousStop.tripId !== null && previousStop.tripId === next.tripId
@@ -310,7 +317,10 @@ export function buildStopReview(
   const toCheck = stopCards.filter((card) => card.toCheck)
   return {
     cards: filter === 'toCheck' ? toCheck : cards,
-    confirmIds: day.stops.filter((stop) => !stop.locked).map((stop) => stop.id),
+    // Only stops that still hold photos (an emptied one is not confirmed).
+    confirmIds: day.stops
+      .filter((stop) => !stop.locked && stop.media.length > 0)
+      .map((stop) => stop.id),
     dayKey: day.key,
     filter,
     stopCount: stopCards.length,

@@ -98,4 +98,21 @@ describe('dayConfidence', () => {
     expect(result.get('c')).toEqual({ level: 'confirmed', reasons: [] })
     expect(confidenceRank('low')).toBeLessThan(confidenceRank('confirmed'))
   })
+
+  it('treats a lone photo as a valid point unless something else is odd', () => {
+    const result = dayConfidence([
+      stop('a', '09:00', '09:30', media(['09:00', '09:30'])),
+      stop('lone', '12:00', '12:00', media(['12:00'], B)),
+    ])
+    expect(result.get('lone')).toEqual({ level: 'high', reasons: [] })
+  })
+
+  it('does not call stops parallel when GPS is missing', () => {
+    const result = dayConfidence([
+      stop('mine', '10:00', '10:40', media(['10:00', '10:40'], null, 'me')),
+      stop('theirs', '10:10', '10:30', media(['10:10', '10:30'], B, 'you')),
+    ])
+    expect(result.get('mine')?.reasons).not.toContain('parallel')
+    expect(result.get('theirs')?.reasons).not.toContain('parallel')
+  })
 })

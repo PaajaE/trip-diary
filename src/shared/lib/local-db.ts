@@ -69,6 +69,8 @@ interface CachedProfileRecord {
 export interface OrganizeSnapshotRecord {
   data: unknown
   journeyId: string
+  /** Signed-in user the snapshot belongs to (absent in pre-scope rows). */
+  userId?: string
 }
 
 interface DeletedRecord {

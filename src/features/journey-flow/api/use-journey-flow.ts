@@ -8,9 +8,11 @@ import {
 } from '@/features/journey-flow/api/flow-actions'
 import { useFlowMarkers } from '@/features/journey-flow/api/flow-markers.store'
 import {
-  buildFlowDays,
+  applyFlowMarkers,
+  buildFlowBase,
   type FlowJourney,
 } from '@/features/journey-flow/model/flow-days'
+import { useSession } from '@/features/auth/session'
 import type { FlowMarkers } from '@/features/journey-flow/model/flow-markers'
 import { useJourneyWorkspace } from '@/features/journey-workspace/api/use-journey-workspace'
 import { browserZone } from '@/features/journey-workspace/lib/format-range'
@@ -33,7 +35,8 @@ export type JourneyFlowState =
  */
 export function useJourneyFlow(journeyId: string): JourneyFlowState {
   const workspace = useJourneyWorkspace(journeyId)
-  const markers = useFlowMarkers(journeyId)
+  const { user } = useSession()
+  const markers = useFlowMarkers(user?.id ?? null, journeyId)
   const tree = workspace.status === 'ready' ? workspace.tree : null
   const placeIds = useMemo(
     () =>
@@ -53,12 +56,18 @@ export function useJourneyFlow(journeyId: string): JourneyFlowState {
     () => new Map([...places].map(([id, place]) => [id, place.name])),
     [places],
   )
-  const flow = useMemo(
+  // The heavy part (copies, confidence, names) only reruns with the data;
+  // a marker change (opened stop, kept copy) just re-applies the markers.
+  const base = useMemo(
     () =>
       tree === null
         ? null
-        : buildFlowDays({ homeTz: browserZone(), markers, placeNames, tree }),
-    [markers, placeNames, tree],
+        : buildFlowBase({ homeTz: browserZone(), placeNames, tree }),
+    [placeNames, tree],
+  )
+  const flow = useMemo(
+    () => (base === null ? null : applyFlowMarkers(base, markers)),
+    [base, markers],
   )
   if (workspace.status === 'error') {
     return { retry: workspace.retry, status: 'error' }
@@ -74,8 +83,10 @@ export function useJourneyFlow(journeyId: string): JourneyFlowState {
  */
 export function useFlowActions(journeyId: string): FlowActions {
   const queryClient = useQueryClient()
+  const { user } = useSession()
+  const userId = user?.id ?? null
   return useMemo(() => {
-    const base = createFlowActions()
+    const base = createFlowActions({}, userId)
     const refresh = () =>
       invalidateJourneyTree(queryClient, journeyId).catch(() => undefined)
     const wrap =
@@ -102,5 +113,5 @@ export function useFlowActions(journeyId: string): FlowActions {
       splitStop: wrap(base.splitStop),
       trashCopy: wrap(base.trashCopy),
     }
-  }, [journeyId, queryClient])
+  }, [journeyId, queryClient, userId])
 }

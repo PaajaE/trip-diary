@@ -416,4 +416,49 @@ describe('organizeJourney', () => {
     expect(failing.ok).toBe(false)
     if (!failing.ok) expect(failing.error.step).toBe('createSegments')
   })
+
+  it('with the planned-on state, moves a photo only if it is still there', async () => {
+    const plan = {
+      mediaReassignments: [
+        { mediaId: uuid(1), momentId: uuid(701) },
+        { mediaId: uuid(2), momentId: uuid(701) },
+      ],
+      momentsToCreate: [],
+      momentsToDelete: [],
+      momentsToExtend: [],
+      momentsToUpdate: [],
+      segmentsToDelete: [],
+      stageSuggestions: [],
+      tripSuggestions: [],
+    }
+    const moveIfUnchanged = vi.fn(
+      (ids: readonly string[], _to: string | null, from: string | null) =>
+        // The user moved photo 2 meanwhile: only photo 1 is still at `from`.
+        Promise.resolve(
+          from === uuid(31) ? ids.filter((id) => id === uuid(1)) : [],
+        ),
+    )
+    const assignMedia = vi.fn(() => Promise.resolve())
+    const result = await applyOrganizationPlan(
+      J,
+      plan,
+      {
+        assignMedia,
+        chunkSize: 10,
+        getUserId: () => Promise.resolve(USER),
+        moveIfUnchanged,
+      },
+      new Map([
+        [uuid(1), uuid(31)],
+        [uuid(2), uuid(31)],
+      ]),
+    )
+    expect(assignMedia).not.toHaveBeenCalled()
+    expect(moveIfUnchanged).toHaveBeenCalledWith(
+      [uuid(1), uuid(2)],
+      uuid(701),
+      uuid(31),
+    )
+    expect(result.counts.mediaReassigned).toBe(1)
+  })
 })

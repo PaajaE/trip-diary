@@ -37,12 +37,17 @@ describe('buildIntake', () => {
       }),
     ])
     expect(day?.coverMediaId).not.toBeNull()
+    // The locked stop is confirmed, not "vypadá jistě"; the undated photo
+    // has its own bucket (and counts as new).
     expect(model.totals).toEqual({
+      confirmedStops: 1,
       days: 1,
       lookStops: 1,
-      newMedia: day?.newMediaCount,
-      sureStops: 3,
+      newMedia: (day?.newMediaCount ?? 0) + 1,
+      sureStops: 2,
     })
+    expect(day?.confirmedCount).toBe(1)
+    expect(model.unknownTime).toEqual({ mediaCount: 1, newMediaCount: 1 })
   })
 
   it('shows only days with arrivals after the seen marker', () => {
@@ -65,5 +70,26 @@ describe('buildIntake', () => {
     const markers = addRun(EMPTY_MARKERS, 'r', [ID.viewpoint])
     const model = buildIntake(days(markers), markers)
     expect(model.byConfidence).toEqual(['2026-06-05'])
+  })
+
+  it('counts sorted stops among the same stops as stopCount (rides excluded)', () => {
+    const { placeNames, tree } = fixtureDay()
+    for (const entry of tree.looseMoments) {
+      if (entry.moment.id !== ID.ride) continue
+      entry.media = entry.media.map((item) => ({
+        ...item,
+        reviewedAt: '2026-06-06T08:00:00+00:00',
+      }))
+    }
+    const markers = addRun(EMPTY_MARKERS, 'r', [ID.viewpoint])
+    const flowDays = buildFlowDays({
+      homeTz: 'UTC',
+      markers,
+      placeNames,
+      tree,
+    }).days
+    const day = buildIntake(flowDays, markers).days[0]
+    expect(day?.sortedStops).toBe(1) // the hotel; the sorted ride does not count
+    expect(day?.stopCount).toBe(4)
   })
 })

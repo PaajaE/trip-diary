@@ -67,9 +67,11 @@ function hintOf(
   sharpness: ReadonlyMap<string, number | null>,
   copies: ReadonlySet<string>,
 ): TrashHintReason | null {
+  // A ★ photo is the user's pick: never suggested for the trash.
+  if (item.starred) return null
   if (copies.has(item.id)) return 'duplicate'
   const quality = item.quality ?? null
-  if (item.starred || item.kind !== 'photo') return null
+  if (item.kind !== 'photo') return null
   if (series.length >= 2 && recommended !== null && recommended !== item.id) {
     if (quality?.eyesClosed === true) return 'eyesClosed'
     const relative = sharpness.get(item.id) ?? null
@@ -138,7 +140,9 @@ export function buildDaySort(day: FlowDay): DaySortModel {
     currentStopId: stops.find((stop) => !stop.done)?.stop.id ?? null,
     dayKey: day.key,
     daySits: day.stops.length > 0 && sure && day.unassigned.length === 0,
-    daySitsIds: day.stops.filter((stop) => !stop.locked).map((stop) => stop.id),
+    daySitsIds: day.stops
+      .filter((stop) => !stop.locked && stop.media.length > 0)
+      .map((stop) => stop.id),
     doneStops: stops.filter((stop) => stop.done).length,
     stops,
     totalStops: stops.length,

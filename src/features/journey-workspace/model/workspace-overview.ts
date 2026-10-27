@@ -229,10 +229,10 @@ export function buildOverview(
   const written = momentsUnderWrittenSegments(tree)
   const days = groupMomentsByDay(all, fallbackTz, photoDays)
   // An empty level is not shown: no stage level = suggested stages dissolve.
-  const depth = workspaceDepth(
-    tree,
-    days.map((day) => day.key),
-  )
+  // All photo days count (also days whose photos are not in a stop yet).
+  const depth = workspaceDepth(tree, [
+    ...new Set([...photoDays.dates, ...days.map((day) => day.key)]),
+  ])
   const shown = depth.stageMode === 'none' ? withoutStageLevel(tree) : tree
   const dayOfMoment = new Map<string, string>()
   for (const day of days)
