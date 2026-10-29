@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildJourneyModel } from '@/entities/public-journey/lib/journey-model'
+import {
+  buildJourneyModel,
+  effectiveJourneyStatus,
+} from '@/entities/public-journey/lib/journey-model'
 import {
   FIXTURE_IDS,
   publicJourneyFixture,
@@ -91,5 +94,53 @@ describe('day notes in the journey model', () => {
     ])
     expect(days.map((d) => d.number)).toEqual([1, 2, 3])
     expect(days.map((d) => d.note)).toEqual(['Den u jezera.', null, null])
+  })
+})
+
+describe('readable stage titles', () => {
+  it('names a bare "Etapa N" after its place and keeps real titles', () => {
+    const stage = publicJourneyFixture.segments.find(
+      (s) => s.id === FIXTURE_IDS.stage,
+    )
+    if (stage === undefined) throw new Error('fixture stage missing')
+    const bare = {
+      ...publicJourneyFixture,
+      segments: publicJourneyFixture.segments.map((s) =>
+        s.id === stage.id ? { ...s, title: 'Etapa 4' } : s,
+      ),
+    }
+    const named = buildJourneyModel(bare).data.segments.find(
+      (s) => s.id === stage.id,
+    )
+    expect(named?.title).not.toBe('Etapa 4')
+    expect(buildJourneyModel(publicJourneyFixture).data.segments).toEqual(
+      publicJourneyFixture.segments,
+    )
+  })
+})
+
+describe('effectiveJourneyStatus', () => {
+  const planned = {
+    ...publicJourneyFixture,
+    journey: { ...publicJourneyFixture.journey, status: 'planning' as const },
+  }
+  const lastShot = Math.max(
+    ...planned.media.flatMap((m) =>
+      m.capturedAt === null ? [] : [Date.parse(m.capturedAt)],
+    ),
+  )
+  it('does not call a journey with photos planned', () => {
+    expect(effectiveJourneyStatus(planned, lastShot + 86_400_000)).toBe(
+      'active',
+    )
+    expect(effectiveJourneyStatus(planned, lastShot + 30 * 86_400_000)).toBe(
+      'completed',
+    )
+  })
+  it('keeps a planned journey without photos and other statuses', () => {
+    expect(effectiveJourneyStatus({ ...planned, media: [] })).toBe('planning')
+    expect(effectiveJourneyStatus(publicJourneyFixture)).toBe(
+      publicJourneyFixture.journey.status,
+    )
   })
 })

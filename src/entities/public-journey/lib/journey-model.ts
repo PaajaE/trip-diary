@@ -71,7 +71,64 @@ function byStart(a: { startsAt: string }, b: { startsAt: string }) {
   return ms(a.startsAt) - ms(b.startsAt)
 }
 
-export function buildJourneyModel(data: PublicJourney): JourneyModel {
+/**
+ * "Planned" is a stored flag nobody flips when the photos arrive. A journey
+ * with photos taken is not planned: recent photos mean it is going on, older
+ * ones that it is done. Other statuses are taken as stored.
+ */
+export function effectiveJourneyStatus(
+  data: PublicJourney,
+  now: number = Date.now(),
+): PublicJourney['journey']['status'] {
+  const status = data.journey.status
+  if (status !== 'planning') return status
+  const taken = data.media.flatMap((item) =>
+    item.capturedAt === null ? [] : [ms(item.capturedAt)],
+  )
+  if (taken.length === 0) return status
+  return now - Math.max(...taken) <= 7 * 86_400_000 ? 'active' : 'completed'
+}
+
+const GENERIC_STAGE_TITLE = /^\s*(etapa|stage)\s*\d*\s*$/i
+
+/**
+ * A stage still called "Etapa 4" (or nothing) reads as the place it mostly
+ * took place in: the reader never sees a bare number as a name. Stages with a
+ * real title, or without any named place, stay as they are.
+ */
+export function withReadableStageTitles(data: PublicJourney): PublicJourney {
+  if (!data.segments.some((s) => GENERIC_STAGE_TITLE.test(s.title))) return data
+  const placeName = new Map(data.places.map((p) => [p.id, p.name]))
+  return {
+    ...data,
+    segments: data.segments.map((segment) => {
+      if (
+        segment.kind !== 'stage' ||
+        !GENERIC_STAGE_TITLE.test(segment.title)
+      ) {
+        return segment
+      }
+      const from = ms(segment.startsAt)
+      const to = ms(segment.endsAt)
+      const counts = new Map<string, number>()
+      for (const moment of data.moments) {
+        const at = ms(moment.startsAt)
+        const name =
+          moment.placeId === null ? undefined : placeName.get(moment.placeId)
+        if (name !== undefined && at >= from && at <= to) {
+          counts.set(name, (counts.get(name) ?? 0) + 1)
+        }
+      }
+      const best = [...counts].sort(
+        (a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1),
+      )[0]
+      return best === undefined ? segment : { ...segment, title: best[0] }
+    }),
+  }
+}
+
+export function buildJourneyModel(rawData: PublicJourney): JourneyModel {
+  const data = withReadableStageTitles(rawData)
   const segmentById = new Map(data.segments.map((s) => [s.id, s]))
   const mediaById = new Map(data.media.map((m) => [m.id, m]))
   const momentById = new Map(data.moments.map((m) => [m.id, m]))

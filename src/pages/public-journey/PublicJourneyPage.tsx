@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildJourneyModel,
+  effectiveJourneyStatus,
   pickCover,
 } from '@/entities/public-journey/lib/journey-model'
 import { readHeroMirror } from '@/entities/public-journey/lib/embedded-journey'
@@ -152,7 +153,7 @@ export function PublicJourneyPage({
     <main>
       <JourneyHero
         cover={cover}
-        eyebrow={`${t(`publicJourney.status${statusKey(journey.status)}`)} · ${journey.space.name}`}
+        eyebrow={`${t(`publicJourney.status${statusKey(effectiveJourneyStatus(data))}`)} · ${journey.space.name}`}
         mirror={heroMirror}
         period={formatJourneyPeriod(
           journey.startsAt,
