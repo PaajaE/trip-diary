@@ -102,6 +102,7 @@ export function useFlowActions(journeyId: string): FlowActions {
       ...base,
       assignToStop: wrap(base.assignToStop),
       confirmStops: wrap(base.confirmStops),
+      createStopFromPhotos: wrap(base.createStopFromPhotos),
       daySits: wrap(base.daySits),
       finishStop: wrap(base.finishStop),
       fixCopyTime: wrap(base.fixCopyTime),
@@ -109,9 +110,12 @@ export function useFlowActions(journeyId: string): FlowActions {
       movePhotos: wrap(base.movePhotos),
       promoteEnRoute: wrap(base.promoteEnRoute),
       renameStop: wrap(base.renameStop),
+      restorePhotos: wrap(base.restorePhotos),
       sortPhotos: wrap(base.sortPhotos),
       splitStop: wrap(base.splitStop),
+      starPhotos: wrap(base.starPhotos),
       trashCopy: wrap(base.trashCopy),
+      trashPhotos: wrap(base.trashPhotos),
     }
   }, [journeyId, queryClient, userId])
 }

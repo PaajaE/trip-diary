@@ -221,7 +221,7 @@ export function applyFlowMarkers(
       (pair) => !kept.has(pair.id),
     ),
     stops: day.stops.map((stop) => {
-      const isNew = isNewStop(stop.entry.moment, markers, fresh)
+      const isNew = isNewStop(stop.entry.moment, markers, day.key, fresh)
       return {
         ...stop,
         isNew,

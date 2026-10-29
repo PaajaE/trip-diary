@@ -87,10 +87,11 @@ export function FlowDayPage({
           lookup={lookup}
           markers={state.markers}
           moveStops={moveStops}
-          onContinue={() => {
-            navigate({ params: { journeyId }, to: SORTING_ROUTE }).catch(
-              () => undefined,
-            )
+          onContinue={(key) => {
+            navigate({
+              params: { dayKey: key, journeyId },
+              to: SORTING_ROUTE,
+            }).catch(() => undefined)
           }}
         />
       )}

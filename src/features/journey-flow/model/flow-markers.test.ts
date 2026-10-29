@@ -19,7 +19,9 @@ import {
   latestArrival,
   markStopOpened,
   MAX_REMEMBERED_RUNS,
+  MAX_SEEN_DAYS,
   parseFlowMarkers,
+  seenUpToOf,
 } from '@/features/journey-flow/model/flow-markers'
 import { med, mom, uuid } from '@/features/journey-workspace/test-fixtures'
 
@@ -32,28 +34,89 @@ afterEach(() => {
   resetFlowMarkersCache()
 })
 
+const DAY = '2026-01-01'
+const OTHER_DAY = '2026-01-02'
+
 describe('flow markers', () => {
-  it('marks stops of remembered runs as new until seen', () => {
+  it('marks stops of remembered runs as new until their day is seen', () => {
     const stop = mom(1)
-    let markers = addRun(EMPTY_MARKERS, 'r1', [stop.id])
-    expect(isNewStop(stop, markers)).toBe(true)
+    const other = mom(2)
+    let markers = addRun(EMPTY_MARKERS, 'r1', [stop.id, other.id])
+    expect(isNewStop(stop, markers, DAY)).toBe(true)
     // A stop the user confirmed is not new.
-    expect(isNewStop({ ...stop, locked: true }, markers)).toBe(false)
-    expect(isNewStop({ ...stop, origin: 'manual' }, markers)).toBe(false)
-    markers = acknowledgeArrivals(markers, '2026-01-01T00:00:00+00:00')
-    expect(isNewStop(stop, markers)).toBe(false)
+    expect(isNewStop({ ...stop, locked: true }, markers, DAY)).toBe(false)
+    expect(isNewStop({ ...stop, origin: 'manual' }, markers, DAY)).toBe(false)
+    markers = acknowledgeArrivals(markers, DAY, '2026-01-01T00:00:00+00:00', [
+      stop.id,
+    ])
+    expect(isNewStop(stop, markers, DAY)).toBe(false)
+    // The stop of another day keeps its "nová".
+    expect(isNewStop(other, markers, OTHER_DAY)).toBe(true)
+    expect(markers.runs).toEqual([{ momentIds: [other.id], runId: 'r1' }])
   })
 
-  it('treats stops newer than the seen marker as new (another device ran)', () => {
+  it('treats stops newer than their day marker as new (another device ran)', () => {
     const markers = acknowledgeArrivals(
       EMPTY_MARKERS,
+      DAY,
       '2026-01-01T00:00:00+00:00',
     )
+    const fresh = mom(1, { createdAt: '2026-01-02T00:00:00+00:00' })
+    expect(isNewStop(fresh, markers, DAY)).toBe(true)
+    // A day never seen: only remembered runs count (no "nová" everywhere).
+    expect(isNewStop(fresh, markers, OTHER_DAY)).toBe(false)
+    expect(isNewStop(mom(1), EMPTY_MARKERS, DAY)).toBe(false)
+  })
+
+  it('acknowledges one day without touching the others', () => {
+    let markers = acknowledgeArrivals(
+      EMPTY_MARKERS,
+      OTHER_DAY,
+      '2026-01-03T00:00:00+00:00',
+    )
+    markers = acknowledgeArrivals(markers, DAY, '2026-01-05T00:00:00+00:00')
+    expect(seenUpToOf(markers, DAY)).toBe('2026-01-05T00:00:00+00:00')
+    expect(seenUpToOf(markers, OTHER_DAY)).toBe('2026-01-03T00:00:00+00:00')
+    expect(seenUpToOf(markers, '2026-01-09')).toBeNull()
+    // A marker never moves back.
+    const again = acknowledgeArrivals(markers, DAY, '2026-01-04T00:00:00+00:00')
+    expect(seenUpToOf(again, DAY)).toBe('2026-01-05T00:00:00+00:00')
+    // Nothing arrived (null): only the stops leave the runs.
+    expect(acknowledgeArrivals(markers, DAY, null)).toBe(markers)
+  })
+
+  it('caps the remembered days, oldest first', () => {
+    let markers = EMPTY_MARKERS
+    for (let i = 0; i < MAX_SEEN_DAYS + 3; i += 1) {
+      markers = acknowledgeArrivals(
+        markers,
+        `d${String(i)}`,
+        '2026-01-01T00:00:00+00:00',
+      )
+    }
+    expect(Object.keys(markers.seenDays)).toHaveLength(MAX_SEEN_DAYS)
+    expect(seenUpToOf(markers, 'd0')).toBeNull()
+    expect(seenUpToOf(markers, `d${String(MAX_SEEN_DAYS + 2)}`)).not.toBeNull()
+  })
+
+  it('migrates version 1 and ignores its journey-wide watermark', () => {
+    const migrated = parseFlowMarkers({
+      keptCopyIds: [uuid(7)],
+      openedStopIds: [uuid(6)],
+      runs: [{ momentIds: [uuid(5)], runId: 'r1' }],
+      seenUpTo: '2026-01-01T00:00:00+00:00',
+      version: 1,
+    })
+    expect(migrated).toEqual({
+      keptCopyIds: [uuid(7)],
+      openedStopIds: [uuid(6)],
+      runs: [{ momentIds: [uuid(5)], runId: 'r1' }],
+      seenDays: {},
+      version: 2,
+    })
     expect(
-      isNewStop(mom(1, { createdAt: '2026-01-02T00:00:00+00:00' }), markers),
-    ).toBe(true)
-    // Never seen: only remembered runs count (no "nová" over a whole journey).
-    expect(isNewStop(mom(1), EMPTY_MARKERS)).toBe(false)
+      parseFlowMarkers({ ...EMPTY_MARKERS, seenDays: { [DAY]: 'yesterday' } }),
+    ).toEqual(EMPTY_MARKERS)
   })
 
   it('forgets an undone run and caps the remembered runs', () => {

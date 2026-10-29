@@ -10,19 +10,24 @@ import {
   type FlowMarkers,
 } from '@/features/journey-flow/model/flow-markers'
 import { fixtureDay, ID } from '@/features/journey-flow/test-fixtures'
-import { mom } from '@/features/journey-workspace/test-fixtures'
+import { med, mom } from '@/features/journey-workspace/test-fixtures'
 
 function fakes() {
   let markers: FlowMarkers = EMPTY_MARKERS
   const deps: FlowActionDeps = {
     confirmMoments: vi.fn(() => Promise.resolve()),
+    createMomentFromMedia: vi.fn((_ids: readonly string[], id?: string) =>
+      Promise.resolve(id ?? 'none'),
+    ),
     markMediaReviewed: vi.fn(() => Promise.resolve(1)),
     mergeMoments: vi.fn((target: string) => Promise.resolve(target)),
     moveMedia: vi.fn(() => Promise.resolve(2)),
     newId: () => 'new-id',
+    restoreMedia: vi.fn(() => Promise.resolve(1)),
     shiftMediaTime: vi.fn(() => Promise.resolve(1)),
     splitMoment: vi.fn(() => Promise.resolve('new-id')),
     trashMedia: vi.fn(() => Promise.resolve(1)),
+    updateMediaMeta: vi.fn(() => Promise.resolve(med(1))),
     updateMarkers: (_journey, change) => {
       markers = change(markers)
     },
@@ -108,11 +113,45 @@ describe('flow actions', () => {
     expect(deps.confirmMoments).toHaveBeenCalledWith([ID.lake])
   })
 
-  it('remembers opened stops and seen arrivals', () => {
+  it('remembers opened stops and the seen arrivals of one day', () => {
     const { actions, markers } = fakes()
     actions.markOpened('j', ID.viewpoint)
-    actions.acknowledgeArrivals('j', '2026-06-06T00:00:00+00:00')
+    actions.acknowledgeArrivals('j', {
+      dayKey: '2026-06-05',
+      seenUpTo: '2026-06-06T00:00:00+00:00',
+      stopIds: [ID.viewpoint],
+    })
     expect(markers().openedStopIds).toEqual([ID.viewpoint])
-    expect(markers().seenUpTo).toBe('2026-06-06T00:00:00+00:00')
+    expect(markers().seenDays).toEqual({
+      '2026-06-05': '2026-06-06T00:00:00+00:00',
+    })
+  })
+
+  it('creates a stop from photos through create_moment_from_media', async () => {
+    const { actions, deps } = fakes()
+    expect(await actions.createStopFromPhotos(['a', 'b'])).toBe('new-id')
+    expect(deps.createMomentFromMedia).toHaveBeenCalledWith(
+      ['a', 'b'],
+      'new-id',
+    )
+  })
+
+  it('sorting writes: trash, restore and star never mark anything sorted', async () => {
+    const { actions, deps } = fakes()
+    await actions.trashPhotos(['a'])
+    await actions.restorePhotos(['a'])
+    await actions.starPhotos(['a', 'b'], true)
+    expect(await actions.trashPhotos([])).toBe(0)
+    expect(await actions.restorePhotos([])).toBe(0)
+    expect(deps.trashMedia).toHaveBeenCalledTimes(1)
+    expect(deps.trashMedia).toHaveBeenCalledWith(['a'])
+    expect(deps.restoreMedia).toHaveBeenCalledWith(['a'])
+    expect(deps.updateMediaMeta).toHaveBeenNthCalledWith(1, 'a', {
+      starred: true,
+    })
+    expect(deps.updateMediaMeta).toHaveBeenNthCalledWith(2, 'b', {
+      starred: true,
+    })
+    expect(deps.markMediaReviewed).not.toHaveBeenCalled()
   })
 })

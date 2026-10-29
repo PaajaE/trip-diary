@@ -2,6 +2,8 @@ import type { MediaItem } from '@/entities/media/model/media-library'
 import type { Moment } from '@/entities/moment/model/moment'
 import type { Segment } from '@/entities/segment/model/segment'
 import { med, mom, seg, uuid } from '@/features/journey-workspace/test-fixtures'
+import { buildFlowDays } from '@/features/journey-flow/model/flow-days'
+import { EMPTY_MARKERS } from '@/features/journey-flow/model/flow-markers'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
 
 export const at = (hm: string, day = '05') => `2026-06-${day}T${hm}:00.000Z`
@@ -111,4 +113,34 @@ export function fixtureDay() {
   const tree = buildWorkspaceTree(segments, moments, media, 'UTC')
   const placeNames = new Map([[uuid(300), 'Hotel, Jasper']])
   return { media, moments, placeNames, segments, tree }
+}
+
+/** The flow days of the fixture, after an optional change of its media. */
+export function fixtureDays(
+  mutate?: (media: ReturnType<typeof fixtureDay>['media']) => void,
+) {
+  const { media, moments, placeNames, segments } = fixtureDay()
+  mutate?.(media)
+  const tree = buildWorkspaceTree(segments, moments, media, 'UTC')
+  return buildFlowDays({
+    homeTz: 'UTC',
+    markers: EMPTY_MARKERS,
+    placeNames,
+    tree,
+  }).days
+}
+
+/**
+ * Makes the lake photos a burst (30 s apart, same phash): photo 2 is the
+ * sharpest (recommended), photo 1 is blurry next to it.
+ */
+export function lakeSeries(media: ReturnType<typeof fixtureDay>['media']) {
+  const lake = media.filter((item) => item.momentId === ID.lake)
+  lake.forEach((item, index) => {
+    item.phash = 0
+    item.capturedAt = new Date(
+      Date.parse(at('11:50')) + index * 30_000,
+    ).toISOString()
+    item.quality = { sharp: [10, 100, 90, 80][index] ?? 80, v: 1 }
+  })
 }

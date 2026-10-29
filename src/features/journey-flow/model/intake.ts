@@ -5,9 +5,11 @@
  * deserve a look, the photo count, a cover and the place names.
  */
 import type { StopName } from '@trip-diary/core/automation'
+import type { MediaItem } from '@/entities/media/model/media-library'
 import type { FlowDay, FlowStop } from '@/features/journey-flow/model/flow-days'
 import {
   arrivedAfter,
+  seenUpToOf,
   type FlowMarkers,
 } from '@/features/journey-flow/model/flow-markers'
 import { isUnreviewed } from '@/features/journey-workspace/model/day-status'
@@ -80,7 +82,8 @@ function nameKey(name: StopName): string {
   }
 }
 
-function placesOf(stops: readonly FlowStop[]): StopName[] {
+/** First and last named stop of a day ("Calgary → Banff"), one when equal. */
+export function placesOf(stops: readonly FlowStop[]): StopName[] {
   const named = stops.filter(
     (stop) => isStop(stop) && nameKey(stop.name) !== '',
   )
@@ -103,15 +106,20 @@ function coverOf(day: FlowDay): string | null {
   return biggest?.coverMediaId ?? day.media[0]?.id ?? null
 }
 
+/** Media of the day that are new: arrived after its marker, else unsorted. */
+function freshMedia(day: FlowDay, markers: FlowMarkers): MediaItem[] {
+  const seen = seenUpToOf(markers, day.key)
+  return seen === null
+    ? day.media.filter(isUnreviewed)
+    : day.media.filter((item) => arrivedAfter(item.createdAt, seen))
+}
+
 /**
- * Is the day new? Some of its media arrived after the marker; before the
- * first acknowledgement (no marker) a day with unsorted photos counts.
+ * Is the day new? Some of its media arrived after the day's own marker;
+ * before the day was first acknowledged, a day with unsorted photos counts.
  */
 export function isNewDay(day: FlowDay, markers: FlowMarkers): boolean {
-  if (markers.seenUpTo === null) return day.media.some(isUnreviewed)
-  return day.media.some((item) =>
-    arrivedAfter(item.createdAt, markers.seenUpTo),
-  )
+  return freshMedia(day, markers).length > 0
 }
 
 export function buildIntake(
@@ -124,12 +132,7 @@ export function buildIntake(
   let confirmedTotal = 0
   let newMedia = 0
   let unknownTime: IntakeModel['unknownTime'] = null
-  const freshOf = (day: FlowDay) =>
-    markers.seenUpTo === null
-      ? day.media.filter(isUnreviewed).length
-      : day.media.filter((item) =>
-          arrivedAfter(item.createdAt, markers.seenUpTo),
-        ).length
+  const freshOf = (day: FlowDay) => freshMedia(day, markers).length
   for (const day of days) {
     if (day.key === UNKNOWN_DAY) {
       if (day.media.length > 0) {

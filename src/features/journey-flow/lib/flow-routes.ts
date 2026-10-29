@@ -1,6 +1,5 @@
-/**
- * Where the flow goes next. The sorting step (step 2 of 2) is built by the
- * following task; until then "Zastávky sedí, třídit fotky" leads to the
- * existing batch screen. Change this one constant to plug the new screen in.
- */
-export const SORTING_ROUTE = '/j/$journeyId/batch' as const
+/** Kontrola zastávek of one day (step 1 of 2). */
+export const REVIEW_ROUTE = '/j/$journeyId/flow/$dayKey' as const
+
+/** Třídění of one day (step 2 of 2): "Zastávky sedí, třídit fotky" goes here. */
+export const SORTING_ROUTE = '/j/$journeyId/flow/$dayKey/sort' as const

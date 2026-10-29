@@ -102,7 +102,8 @@ export interface StopReviewModel {
   unassigned: { copies: number; media: number }
 }
 
-function timeFact(
+/** "kolem 15:07" for one shot, a range otherwise. */
+export function timeFact(
   startsAt: string,
   endsAt: string,
   mediaCount: number,

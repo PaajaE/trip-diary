@@ -9,7 +9,10 @@ import {
   cycleZoom,
   FIT_VIEW,
   isZoomed,
+  zoomLevelOf,
+  zoomToLevel,
   type Size,
+  type ZoomLevel,
   type ZoomView,
 } from '@/features/media-batch/model/zoom'
 
@@ -37,6 +40,12 @@ export interface PhotoCompareApi {
   toggle: () => void
   /** Z: one step of the zoom cycle at the centre of the pane. */
   cycle: () => void
+  /** The preset the zoom sits on ("Celá", 100 %, 200 %), null in between. */
+  level: ZoomLevel | null
+  /** Makes `id` the partner (the candidate strip). */
+  pick: (id: string) => void
+  /** Jumps to a preset around the centre of the pane. */
+  zoomTo: (level: ZoomLevel) => void
   /**
    * Keys owned by compare and zoom: C, Z, [ ], Tab (swap) and Esc (leave zoom,
    * then compare). Returns true when the key was used.
@@ -77,9 +86,13 @@ function tabMaySwap(target: EventTarget | null): boolean {
 export function usePhotoCompare(
   main: MediaItem | undefined,
   pool: readonly MediaItem[],
+  /** The compare duel: always two photos, no on / off. */
+  options: { alwaysOn?: boolean } = {},
 ): PhotoCompareApi {
   const mainId = main?.id ?? ''
-  const [on, setOn] = useState(false)
+  const [toggled, setOn] = useState(false)
+  const on = options.alwaysOn === true || toggled
+  const [fitScale, setFitScale] = useState(1)
   // Everything that belongs to one main photo: reset when another one is main
   // (so going A -> B -> A does not bring A's zoom or partner back).
   const [store, setStore] = useState<MainState>(() => freshState(mainId))
@@ -132,6 +145,18 @@ export function usePhotoCompare(
   const toggle = () => {
     setOn((value) => (value ? false : canCompare))
   }
+  const zoomTo = (level: ZoomLevel) => {
+    const m = metrics.current
+    if (m === null) return
+    setZoom((view) => zoomToLevel(view, level, m.fit, m.pane, m.fitScale))
+  }
+  const pick = (id: string) => {
+    if (!candidates.some((item) => item.id === id)) return
+    setStore((prev) => ({
+      ...(prev.forId === mainId ? prev : freshState(mainId)),
+      partnerId: id,
+    }))
+  }
   const active = on && partner !== undefined
   const zoomed = isZoomed(zoom)
 
@@ -142,7 +167,7 @@ export function usePhotoCompare(
     switch (event.key) {
       case 'Escape':
         if (zoomed) setZoom(() => FIT_VIEW)
-        else if (on) setOn(false)
+        else if (toggled && options.alwaysOn !== true) setOn(false)
         else return false
         return true
       case 'c':
@@ -172,10 +197,13 @@ export function usePhotoCompare(
     canCompare,
     cycle,
     handleKey,
+    level: zoomLevelOf(zoom.k, fitScale),
     on,
     partner,
+    pick,
     reportMetrics: (next) => {
       metrics.current = next
+      setFitScale(next.fitScale)
     },
     setZoom,
     step,
@@ -185,6 +213,7 @@ export function usePhotoCompare(
     swapped,
     toggle,
     zoom,
+    zoomTo,
     zoomed,
   }
 }

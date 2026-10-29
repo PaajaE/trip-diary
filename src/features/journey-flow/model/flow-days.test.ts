@@ -76,7 +76,7 @@ describe('buildFlowDays', () => {
   })
 
   it('is deterministic', () => {
-    const markers = acknowledgeArrivals(EMPTY_MARKERS, null)
+    const markers = acknowledgeArrivals(EMPTY_MARKERS, '2026-06-05', null)
     expect(JSON.stringify(flow(markers))).toBe(JSON.stringify(flow(markers)))
   })
 

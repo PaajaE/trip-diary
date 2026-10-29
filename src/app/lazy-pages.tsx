@@ -132,6 +132,12 @@ export const LazyJourneyFlowDayRoutePage = lazy(() =>
   ),
 )
 
+export const LazyJourneyFlowSortRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyFlowSortRoutePage').then(
+    ({ JourneyFlowSortRoutePage }) => ({ default: JourneyFlowSortRoutePage }),
+  ),
+)
+
 export const LazyJourneyWorkspaceRoutePage = lazy(() =>
   import('@/pages/journey/JourneyWorkspaceRoutePage').then(
     ({ JourneyWorkspaceRoutePage }) => ({

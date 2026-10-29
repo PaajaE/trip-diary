@@ -45,6 +45,7 @@ export type ReviewActions = Pick<
   FlowActions,
   | 'acknowledgeArrivals'
   | 'confirmStops'
+  | 'createStopFromPhotos'
   | 'markOpened'
   | 'mergeWithPrevious'
   | 'movePhotos'
@@ -68,7 +69,7 @@ export interface ReviewScreenProps {
 
 type Overlay =
   | { kind: 'move'; stopId: string }
-  | { items: MediaItem[]; kind: 'moveTo'; sourceStopId: string | null }
+  | { items: MediaItem[]; kind: 'moveTo' }
   | { kind: 'rename'; stopId: string }
   | { kind: 'split'; stopId: string }
   | { kind: 'unassigned' }
@@ -182,13 +183,15 @@ export function ReviewScreen({
     run(async () => {
       if (all.confirmIds.length > 0) await actions.confirmStops(all.confirmIds)
       // Seen up to this day's newest arrival: "nová" ends with the review.
-      actions.acknowledgeArrivals(
-        journeyId,
-        latestArrival(
+      // Only this day: other new days stay in Příjem.
+      actions.acknowledgeArrivals(journeyId, {
+        dayKey: day.key,
+        seenUpTo: latestArrival(
           day.media,
           day.stops.map((stop) => stop.entry.moment),
         ),
-      )
+        stopIds: day.stops.map((stop) => stop.id),
+      })
       onContinue(day.key)
     }).catch(() => undefined)
   }
@@ -419,7 +422,6 @@ export function ReviewScreen({
             setOverlay({
               items: overlayStop.media.filter((item) => ids.includes(item.id)),
               kind: 'moveTo',
-              sourceStopId: overlayStop.id,
             })
           }}
         />
@@ -433,12 +435,10 @@ export function ReviewScreen({
             setOverlay(null)
           }}
           onNewStop={() => {
-            // A new stop out of a selection is a split of the source stop.
-            setOverlay(
-              overlay.sourceStopId === null
-                ? null
-                : { kind: 'split', stopId: overlay.sourceStopId },
-            )
+            // A stop of its own from exactly these photos (locked).
+            const ids = overlay.items.map((item) => item.id)
+            setOverlay(null)
+            run(() => actions.createStopFromPhotos(ids)).catch(() => undefined)
           }}
           onPick={(stopId) => {
             const ids = overlay.items.map((item) => item.id)
@@ -472,7 +472,7 @@ export function ReviewScreen({
             setOverlay(null)
           }}
           onElsewhere={(items) => {
-            setOverlay({ items, kind: 'moveTo', sourceStopId: null })
+            setOverlay({ items, kind: 'moveTo' })
           }}
         />
       ) : null}

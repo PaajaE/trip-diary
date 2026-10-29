@@ -149,3 +149,32 @@ export function translateOf(view: ZoomView, fit: Size): Point {
     y: -(view.cy - 0.5) * fit.h * view.k,
   }
 }
+
+/** Presets of the compare view: "Celá" (whole photo), 100 % and 200 %. */
+export type ZoomLevel = 'fit' | 1 | 2
+export const ZOOM_LEVELS: readonly ZoomLevel[] = ['fit', 1, 2]
+
+/** The preset the view sits on (real scale), null between presets (pinch). */
+export function zoomLevelOf(k: number, fitScale: number): ZoomLevel | null {
+  if (k <= 1 + EPS) return 'fit'
+  const real = realScale(k, fitScale)
+  for (const level of ZOOM_REAL_LEVELS) {
+    if (Math.abs(real - level) <= level * 0.01) return level === 1 ? 1 : 2
+  }
+  return null
+}
+
+/**
+ * Jumps to a preset around the point in the centre of the pane. A preset at
+ * or below the fitted scale (a small photo) shows the whole photo.
+ */
+export function zoomToLevel(
+  view: ZoomView,
+  level: ZoomLevel,
+  fit: Size,
+  pane: Size,
+  fitScale: number,
+): ZoomView {
+  if (level === 'fit') return FIT_VIEW
+  return zoomAt(view, level / fitScale, { x: 0, y: 0 }, fit, pane, fitScale)
+}

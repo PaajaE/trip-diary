@@ -75,6 +75,7 @@ function actionsMock() {
     acknowledgeArrivals: vi.fn(),
     assignToStop: vi.fn().mockResolvedValue(2),
     confirmStops: vi.fn().mockResolvedValue(undefined),
+    createStopFromPhotos: vi.fn().mockResolvedValue('created'),
     fixCopyTime: vi.fn().mockResolvedValue(1),
     keepBoth: vi.fn(),
     markOpened: vi.fn(),
@@ -274,6 +275,38 @@ describe('ReviewScreen (Kontrola zastávek)', () => {
     expect(stopId).toBe(ID.hotel)
   })
 
+  it('makes a new stop of picked photos from the MoveToSheet', async () => {
+    const { actions } = setup()
+    fireEvent.click(screen.getByRole('button', { name: /^Celý den/ }))
+    const lake = screen
+      .getAllByRole('article')
+      .find((a) => a.dataset.stopId === ID.lake)
+    if (lake === undefined) throw new Error('no lake')
+    fireEvent.click(
+      within(lake).getByRole('button', { name: /^Akce zastávky/ }),
+    )
+    fireEvent.click(
+      within(lake).getByRole('button', { name: 'Přesunout fotky' }),
+    )
+    const picker = screen.getByRole('dialog')
+    fireEvent.click(
+      within(picker).getByRole('button', { name: 'Fotka v 12:05' }),
+    )
+    fireEvent.click(
+      within(picker).getByRole('button', { name: 'Přesunout fotky' }),
+    )
+    fireEvent.click(
+      within(screen.getByRole('dialog')).getByRole('button', {
+        name: /^Nová zastávka z výběru/,
+      }),
+    )
+    await vi.waitFor(() => {
+      expect(actions.createStopFromPhotos).toHaveBeenCalledTimes(1)
+    })
+    expect(actions.createStopFromPhotos.mock.calls[0]?.[0]).toHaveLength(1)
+    expect(actions.splitStop).not.toHaveBeenCalled()
+  })
+
   it('marks a to-check stop opened and counts the unopened ones', () => {
     const { actions } = setup()
     const note = screen.getByText(/ke kontrole jsi ještě neotevřel/)
@@ -304,6 +337,10 @@ describe('ReviewScreen (Kontrola zastávek)', () => {
       [ID.hotel, ID.lake, ID.ride, ID.viewpoint].sort(),
     )
     expect(actions.acknowledgeArrivals).toHaveBeenCalledTimes(1)
+    // Only this day is acknowledged: other new days stay in Příjem.
+    expect(actions.acknowledgeArrivals.mock.calls[0]?.[1]).toMatchObject({
+      dayKey: '2026-06-05',
+    })
   })
 
   it('shows a failure and does not continue when confirming fails', async () => {
@@ -338,6 +375,27 @@ describe('ReviewScreen (Kontrola zastávek)', () => {
       const [ids, stopId] = actions.assignToStop.mock.calls[0] ?? []
       expect(ids).toHaveLength(1)
       expect(stopId).toBe(ID.lake)
+    })
+
+    it('"Jinam…" then "Nová zastávka" makes a stop of the unplaced photos', async () => {
+      const { actions } = setup()
+      fireEvent.click(screen.getByRole('button', { name: /^Nezařazené/ }))
+      const dialog = screen.getByRole('dialog', { name: 'Nezařazené' })
+      fireEvent.click(
+        within(dialog).getAllByRole('button', { name: 'Jinam…' })[0] ?? dialog,
+      )
+      fireEvent.click(
+        within(screen.getByRole('dialog', { name: /^Přesunout/ })).getByRole(
+          'button',
+          { name: /^Nová zastávka z výběru/ },
+        ),
+      )
+      await vi.waitFor(() => {
+        expect(actions.createStopFromPhotos).toHaveBeenCalledTimes(1)
+      })
+      expect(
+        actions.createStopFromPhotos.mock.calls[0]?.[0].length,
+      ).toBeGreaterThan(0)
     })
 
     it('offers the three ways out for a probable copy', async () => {
