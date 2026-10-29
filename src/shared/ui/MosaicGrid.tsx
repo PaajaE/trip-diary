@@ -9,6 +9,8 @@ interface MosaicGridProps {
   empty: ReactNode
   /** Badge ("+14") on the last visible cell. */
   more?: number
+  /** Replaces "+N" by a label such as "Všech 28" (the way to the whole set). */
+  moreLabel?: string | undefined
   testId?: string
 }
 
@@ -23,6 +25,7 @@ export function MosaicGrid({
   className,
   empty,
   more = 0,
+  moreLabel,
   testId,
 }: MosaicGridProps) {
   const [hero, second, third] = cells
@@ -41,8 +44,8 @@ export function MosaicGrid({
   }
   const badge =
     more > 0 ? (
-      <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-semibold text-white">
-        {`+${String(more)}`}
+      <span className="absolute right-1.5 bottom-1.5 rounded-full bg-black/70 px-2.5 py-1 text-xs font-semibold text-white">
+        {moreLabel ?? `+${String(more)}`}
       </span>
     ) : null
   const last = third === undefined ? (second === undefined ? 0 : 1) : 2

@@ -23,6 +23,7 @@ export {
   localDay,
   majorityZone,
   photoDayZones,
+  pickDay,
   pickLocalDay,
   type PhotoDayZones,
 } from './local-day.ts'
@@ -65,6 +66,7 @@ export {
   type SuggestStopStop,
 } from './suggest-stop.ts'
 export { findDuplicateGroups, type DuplicateOptions } from './duplicates.ts'
+export { findJunkCandidates, type JunkInput, type JunkReason } from './junk.ts'
 export {
   classifyGap,
   GAP_MIN_DISTANCE_M,
@@ -168,6 +170,21 @@ export {
   type SegmentTitleInput,
 } from './organize.ts'
 export {
+  assignNightDays,
+  createNightDayResolver,
+  type NightDayAssignment,
+  type NightDayOptions,
+  type NightDayResolution,
+  type NightDaySample,
+} from './night-days.ts'
+export {
+  pickBestOfDay,
+  type BestOfDayOptions,
+  type BestOfDayPick,
+  type BestOfDayReason,
+  type DayCandidate,
+} from './best-of-day.ts'
+export {
   dayPeriodOfHour,
   deriveStopNames,
   type DayPeriod,
@@ -196,3 +213,28 @@ export {
   type JourneySize,
   type StageMode,
 } from './hierarchy-depth.ts'
+export {
+  CONFIDENCE_AUTO_MIN,
+  CONFIDENCE_REVIEW_MIN,
+  combineConfidence,
+  confidenceBand,
+  confidenceFromMargin,
+  reviewQueue,
+  type ConfidenceBand,
+  type Decision,
+  type ReasonCode,
+} from './confidence.ts'
+export {
+  classifyDayType,
+  type DayType,
+  type DayTypeInput,
+  type DayTypeOptions,
+  type DayTypeResult,
+  type DayTypeStop,
+} from './day-type.ts'
+export {
+  suggestClockOffsets,
+  type ClockOffsetOptions,
+  type ClockOffsetSample,
+  type ClockOffsetSuggestion,
+} from './clock-offset.ts'

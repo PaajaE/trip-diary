@@ -609,6 +609,70 @@ první krok UX-31 je krátký spike na 300 fotkách); `phash` vyžaduje dekódov
 importu, což prodlouží import (měřit); tisk knihovny vyžaduje fotky v rozlišení, které se
 neukládá (originály zůstávají v knihovně) — kniha musí varovat u malých fotek.
 
+#### Fáze 4f-B — Chytřejší automatika a třídění v telefonu (navazuje na ZS níže) (2026-10-29, 📝 PROPOSED)
+
+Vychází z revize čtyř specifikací (algoritmus bez AI, čtenář, editace na webu, editace
+v aplikaci) a drátěných mockupů vůči stavu kódu. Mockupy jsou **jen inspirace, ne závazná
+předloha**: náš čtenář (Fáze 5b) je vizuálně dál. Specifikace ani mockupy nejsou v repozitáři.
+Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou výchozí návrh, ne dogma.
+
+##### Rozhodnutí (2026-10-29, uživatel)
+
+1. **Třídění před nahráváním jen v mobilní aplikaci (iOS).** Pořadí: metadata → malé
+   náhledy → plné varianty jen vybraných fotek. Tím se **ruší rozhodnutí 2026-10-22
+   „třídění až po nahrávání“ a limit 500 médií na dávku** (limit vznikl kvůli JS frontě).
+   Web a PC zůstávají u dnešního toku (nahrát, pak třídit). Třídicí obrazovky a logika jsou
+   jeden kód, takže web to může dostat později.
+2. **Hranice dne podle noci**, ne podle místní půlnoci. Datum dne zůstává štítkem
+   (datum probuzení), takže se nemění klíč `day_notes`, mění se jen to, kam spadnou fotky
+   po půlnoci.
+3. **Spodní lišta mobilu: Domů · Třídění (odznak „k roztřídění“) · ＋ · Cesta**, s ikonami.
+   Aktivita od čtenářů patří do Domů, Mapa je přepínač v Cestě, Zápis je krok („Další
+   krok“, ＋, detail dne), ne záložka. Správa (Členové, Koš, Sdílení, Nastavení) zůstává
+   v jedné nabídce (UX-15). Nahrazuje návrh lišty z vize 4e.
+4. **Bez push notifikací** (ani lokálních večerních) a **bez počasí** (žádný Open-Meteo).
+   Žádná nová závislost. Kanál novinek zůstává E-mail/Atom z D6. Fakta dne jen z dat,
+   která máme (km, hodiny venku, kde den začal a skončil); východ a západ slunce se může
+   spočítat offline z polohy a času.
+5. Android ze specifikací se **nedělá** (rozhodnutí 2026-10-09).
+
+##### Vlny práce
+
+| Vlna | Obsah                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | DB                                   | Poznámka                                                                            |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------- |
+| 1    | `pnpm algo:score`: metriky nad fixture z Kanady (přesnost přiřazení dne, F1 hranic etap ±1 den, falešný odpad, přesnost sloučení duplicit); za pravdu ruční a zamčené zastávky z produkce. Kontrola tónu v překladech (zakázané formulace typu „jsi pozadu“). Čtecí pozice „Pokračovat, kde jsi skončil“ a „Co je nového“ (jen lokálně). Sbalené dny bez textu do jedné řádky. Fronta „asi odpad“ z příznaků, které iOS plugin už vrací (`screenshot`, `burstId`), bez automatiky.                                    | ne                                   | Začít tady: bez skóre jsou všechny prahy odhad.                                     |
+| 2    | V `packages/core`: dny podle noční mezery (22:00–07:00, mezera > 4 h, záloha 04:00, den 23/25 h při přechodu pásem); jistota 0–1 a kód důvodu u každého rozhodnutí (z odstupu od prahu, kalibrace podle přijatých a vrácených návrhů); výběr 3–6 nejlepších fotek dne (relevance minus podobnost, max. 2 na zastávku, pokrytí dne); typ dne (přesun, výlet, pobyt, město) pro otázky při psaní; návrh opravy hodin z dvojic fotek různých zařízení (jen návrh ke schválení); poloměr zastávky podle rychlosti pohybu. | ne                                   | Čisté, deterministické funkce s testy.                                              |
+| 3    | **Posun hodin jako vlastnost zařízení**, ne přepis `captured_at` (jedno číslo, vrací se jedním klepnutím). **Záznam dávek automatiky** (id dávky u zastávek) pro hromadné „Vrátit“.                                                                                                                                                                                                                                                                                                                                   | ano: migrace, pgTAP, `pnpm db:types` | DB se dohodne před kódem (CLAUDE.md). Migraci navrhuje `db-specialist`.             |
+| 4    | Mobilní tok metadata → náhledy → vybrané; úvodní „wow“ (sestavená cesta bez nahrání jediné fotky); stav fotky (nalezena, ponechána, nejlepší, nahrána). Obrazovka Dnes s odhadem času z vlastního tempa autora.                                                                                                                                                                                                                                                                                                       | ne                                   | Závisí na ověření výpočtu `phash` a ostrosti ve WKWebView (výkon, paměť) na iPhonu. |
+| 5    | Čtenář: pruh „Právě jsme“ (D5), fáze etap pro dlouhé cesty, lepicí lišta „Pozdrav autorům / Sledovat novinky“ na mobilu, dlaždice „Všech N“, pohlednice dne (lehká statická stránka bez JS), režimy čtení „Rychle“ a „Příběh“, velikost písma.                                                                                                                                                                                                                                                                        | D5, D6 (už navrženo)                 | Mozaiku držet v pravidle poměrů stran z 5b (žádný nízký široký pruh).               |
+
+##### Úpravy obrazovek podle vizuální revize
+
+- **Třídění (web):** podobné snímky ukázat větší a vedle sebe s údajem o ostrosti, ne jako malé dlaždice.
+- **Třídění (mobil):** „Pryč“ pojmenovat tak, aby bylo jasné, jestli jde o koš; nápovědu gest nedávat malým světlým písmem.
+- **Návrhy etap:** „Přijmout vše nad 80 %“ je hlavní akce, ne drobný odkaz; štítek jistoty odlišit i barvou, ne jen slovem; u dlouhých seznamů nerozdělovat váhu mezi dvě stejná tlačítka na každé kartě.
+- **Psaní dne (mobil):** „Nadiktovat jednu větu“ je hlavní tlačítko nad „Uložit den“.
+- Kontrast malých popisků ověřit proti 4,5 : 1 při implementaci (zatím jen vizuální dojem, neměřeno).
+
+##### Stav 4f-B (2026-10-29, cloudová session)
+
+- **Sloučení s `main` (ZS-0 až ZS-7).** Větev 4f-B vznikla ze starého základu a mezitím `main` získala vlastní 4f („ZS“, výše) včetně produkční definice dne `v2_local_day` (SQL, hranice 04:00, pásmo podle převahy fotek). Rozhodnutí uživatele: **noc jako pravidlo**, implementované v `core`, nad modelem `main`. Provedeno: `photoDayZones` nese resolver noci a `pickDay` (nový, `local-day.ts`) jen mění hranici dne uvnitř výběru pásma z `main`; všechna místa, která brala `pickLocalDay` v UI (veřejný čtenář, osnova a přehled, hledání, plynutí, počet dnů v `public-journey.ts`), volají `pickDay`. Bez fotek v okolí noci platí 04:00. `organize.ts` a harness zůstávají na 04:00 (dny pro tvorbu zastávek); **rozdíl mezi nimi a zobrazením je známý a neověřený**. SQL (`pick_local_day` v `search_journey`, `get_public_journey`) je stále 04:00.
+- **D3 přečíslováno** na `20261028120000_v2_moment_local_day.sql` (kolize čísla s `v2_moment_kind`), `journey_progress` bere `moments.local_day`, jinak `pick_local_day` z `main`. 🧪 **TESTED lokálně:** `supabase db reset` a `supabase test db` (39 souborů / 774 testů) zelené v Dockeru. `database.types.ts` je stále ručně upravený: CLI připnuté v CI (2.75.0) jde spustit jen s obrazem, který cloud nestáhne; s CLI 2.122 vyšly změny D3 shodně s ručními (ostatní rozdíly jsou šum verze CLI). **Do produkce neaplikováno** (viz níže).
+- **Core (čisté, deterministické, testy):** `confidence.ts` (jistota z odstupu od prahu, pásma 0,85 / 0,50, kódy důvodu, fronta od nejméně jisté), jistota a kód u `createNightDayResolver` (DAY_BY_NIGHT_GAP / DAY_BY_FALLBACK_4AM), `classifyDayType` (přesun, výlet, pobyt, město), `suggestClockOffsets` (páry ≤120 s a ≤100 m, ≥5 párů, ≥80 %, medián >30 s; **jen návrh**, nic se neaplikuje). Poloměr zastávky podle rychlosti u `clusterMoments` se **nedělal**: `main` má `detectStops` s hustotou a poloměrem 150–300 m, `clusterMoments` je jen srovnání. Scorecard (`pnpm algo:score`) má scénáře funkcí (typ dne 5/5, posun hodin 5/5, automatické pásmo bez chyby 4/4), syntetické.
+- **Revize proti auditním specifikacím (2026-10-28, 5 dokumentů) vůči sloučenému stavu**, hotové opravy: čtenář „Zavřít“ místo „Ukončit čtení“, „Místa“ sbalená, výzva „Napiš autorům pozdrav“, dlaždice „Všech N“ (mozaika, aspect-ratio pravidlo 5b zachováno), nepojmenovaná etapa se čte jako své místo (chyba 3), štítek „Plánovaná cesta“ se řídí fotkami (chyba 4), tón editoru (žádné „chybí zápis“, „jsi ještě neotevřel“; test tónu je rozšířen). Ověřeno `pnpm check` a e2e čtenáře (18 testů ve 1400 i 390 px, `pnpm test:e2e:public`, mockované API).
+- **Otevřené po revizi (nic z toho není hotové):** karta „Další krok“ s odhadem času a přehled „Dnes“; „Přijmout vše nad 80 %“ (segment nemá uloženou jistotu); `pickBestOfDay` do Dne (potřebuje prohlížeč s reálnými daty, **nezapojeno**); lepicí lišta čtenáře „Sledovat novinky“ (není backend odběru); fáze etap pro dlouhé cesty; stav „Ještě před námi“; viditelnost, odložené zveřejnění a skrytí polohy (UI chybí, DB částečně); Wi‑Fi jako výchozí pro nahrávání (mění chování, čeká na souhlas); diktování v poznámce dne; gesto „nahoru = nejlepší“ místo koše; třídění před nahráváním v iOS (vlna 4) a vše, co potřebuje zařízení. Výchozí prahy algoritmu se od specifikace liší (hystereze základny, 25 km, 15 médií, 6 bitů duplicit, 3 h doplnění polohy); měnit až nad zlatou sadou.
+- **Produkce (2026-10-29, na výslovný pokyn uživatele):** migrace `20261028120000_v2_moment_local_day` aplikována přes Supabase MCP jako jedna transakce se zápisem do `supabase_migrations.schema_migrations` (verze i název jako v souboru, aby pozdější `db push` neběžel dvakrát). Předtím čtením ověřeno: seznam migrací končil `v2_local_day`, sloupec `local_day` neexistoval. Potom čtením ověřeno: sloupec existuje (0 uložených hodnot, NULL = záložní pravidlo 04:00), `journey_progress` nové znění, `set_moment_local_days` s EXECUTE jen pro `authenticated` (a `service_role`/`postgres`), přímý UPDATE sloupce pro `authenticated` ne. Funkční test s přihlášeným uživatelem na produkci neproběhl (kryje ho pgTAP).
+- **Nahrávání:** výchozí je jen Wi‑Fi (mobilní data po zapnutí v panelu synchronizace); platí pro nativní aplikaci, web beze změny. Odhad objemu a varování při roamingu zatím chybí.
+
+##### Stav 4f (2026-10-29, původní lokální session)
+
+- **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
+- **`pickBestOfDay`:** hotovo v `core`, nezapojeno do UI.
+
+##### Brána 4f
+
+`pnpm algo:score` existuje a běží v CI jako report (cíle ze specifikace: přiřazení dne > 98 %, F1 hranic etap > 0,9, sloučení duplicit > 99,5 %, falešný odpad < 0,5 %, vrácené auto-akce < 5 %; všechno **UNVERIFIED**, než se změří); fotka pořízená po půlnoci spadne do správného dne a `day_notes` se nezmění; posun hodin a vrácení dávky mají pgTAP; mobilní tok ze 4. vlny ověřen na iPhonu (dávka ~300 fotek bez nahrání před tříděním) a ve ~390 px; `pnpm check` a `pnpm db:test` zelené; žádné `new Date()` jako čas zážitku.
+
 #### Fáze 4f — Automatické zastávky a třídění (2026-10-26, 📝 PROPOSED)
 
 Vychází z rozboru algoritmu a toku třídění (2026-10-26) a z diskuse nad ním. Uživatel

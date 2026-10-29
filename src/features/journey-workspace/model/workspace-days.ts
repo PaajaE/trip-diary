@@ -1,7 +1,7 @@
 import {
   isKnownTimeZone,
   localDay,
-  pickLocalDay,
+  pickDay,
   photoDayZones,
   type PhotoDayZones,
 } from '@trip-diary/core/automation'
@@ -20,7 +20,7 @@ export const UNKNOWN_DAY = 'unknown'
 
 const zoneCache = new Map<string, string>()
 
-function safeZone(tz: string | null): string {
+export function safeZone(tz: string | null): string {
   if (tz !== null) {
     const cached = zoneCache.get(tz)
     if (cached !== undefined) return cached
@@ -94,7 +94,8 @@ export function buildTreePhotoDays(
   )
 }
 
-function dayOf(
+/** Day a moment belongs to (see groupMomentsByDay), null without a usable start. */
+export function dayOf(
   entry: WorkspaceMoment,
   fallbackTz: string | null,
   photoDays: PhotoDayZones | null,
@@ -104,7 +105,7 @@ function dayOf(
   }
   const time = Date.parse(entry.moment.startsAt)
   if (Number.isNaN(time)) return null
-  return pickLocalDay(time, fallbackTz, photoDays.dates, photoDays.zones)
+  return pickDay(time, fallbackTz, photoDays)
 }
 
 export interface MomentDay {

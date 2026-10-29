@@ -58,6 +58,7 @@ export function DayMosaic({
       className={className}
       empty={<ImageIcon aria-hidden="true" size={28} />}
       more={Math.max(0, total - shown.length)}
+      moreLabel={t('publicJourney.allPhotos', { count: total })}
       testId="public-day-mosaic"
     />
   )

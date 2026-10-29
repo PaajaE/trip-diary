@@ -5,6 +5,7 @@ import {
   type DatedMediaPoint,
   type MediaPoint,
 } from './media-point.ts'
+import { assignNightDays } from './night-days.ts'
 import {
   isKnownTimeZone,
   localDay,
@@ -117,8 +118,20 @@ function zoneAtPoint(point: GeoPoint): string | null {
 export function summarizeZonedDays(
   media: readonly MediaPoint[],
   homeTimeZone: string,
+  options: {
+    /**
+     * `fourAm` (default): the day starts at 04:00 local time (mirrors SQL).
+     * `night`: the day changes in the middle of the night's longest gap (see
+     * assignNightDays); without such a gap it still changes at 04:00.
+     */
+    dayBoundary?: 'fourAm' | 'night'
+  } = {},
 ): ZonedDaySummary[] {
   const home = zoneOrUtc(homeTimeZone)
+  const nightDays =
+    options.dayBoundary === 'night'
+      ? assignNightDays(media, homeTimeZone)
+      : null
   const { dated } = sortDated(media)
   let inherited = home
   const photos = dated.map((item) => {
@@ -134,8 +147,13 @@ export function summarizeZonedDays(
   })
   const { dates, zones } = photoDayZones(photos)
   const groups = new Map<string, DatedMediaPoint[]>()
-  for (const item of dated) {
-    const date = pickLocalDay(item.time, home, dates, zones)
+  const nightZones = new Map<string, string>()
+  for (const [index, item] of dated.entries()) {
+    const assigned = nightDays?.get(item.id)
+    const date = assigned?.date ?? pickLocalDay(item.time, home, dates, zones)
+    if (assigned !== undefined && !nightZones.has(date)) {
+      nightZones.set(date, photos[index]?.zone ?? assigned.timeZone)
+    }
     const list = groups.get(date)
     if (list === undefined) {
       groups.set(date, [item])
@@ -147,7 +165,7 @@ export function summarizeZonedDays(
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
     .map(([date, items]) => ({
       ...summarizeGroup(date, items),
-      timeZone: zones[dates.indexOf(date)] ?? home,
+      timeZone: nightZones.get(date) ?? zones[dates.indexOf(date)] ?? home,
     }))
 }
 

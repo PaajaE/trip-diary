@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { buildJourneyModel } from '@/entities/public-journey/lib/journey-model'
+import {
+  buildJourneyModel,
+  effectiveJourneyStatus,
+} from '@/entities/public-journey/lib/journey-model'
 import {
   FIXTURE_IDS,
   publicJourneyFixture,
@@ -44,6 +47,42 @@ describe('day notes in the journey model', () => {
     expect(model.dayKeyOf('2026-07-10T04:00:00+00:00')).toBe('2026-07-10')
   })
 
+  it('keeps a night shot after midnight with the evening it belongs to', () => {
+    // 01:00 on 3 June in Edmonton (07:00Z), then the next morning at 09:00.
+    const first = publicJourneyFixture.moments.find(
+      (m) => m.id === FIXTURE_IDS.momentA,
+    )
+    if (first === undefined) throw new Error('fixture moment missing')
+    const night = {
+      ...first,
+      id: 'night',
+      startsAt: '2026-06-03T07:00:00+00:00',
+    }
+    const morning = {
+      ...first,
+      id: 'morning',
+      startsAt: '2026-06-03T15:00:00+00:00',
+    }
+    const shot = publicJourneyFixture.media[0]
+    if (shot === undefined) throw new Error('fixture media missing')
+    const photo = (id: string, capturedAt: string) => ({
+      ...shot,
+      capturedAt,
+      capturedTz: 'America/Edmonton',
+      id,
+    })
+    const model = buildJourneyModel({
+      ...publicJourneyFixture,
+      media: [
+        photo('p-night', night.startsAt),
+        photo('p-morning', morning.startsAt),
+      ],
+      moments: [night, morning],
+    })
+    expect(model.dayOfMoment(night)).toBe('2026-06-02')
+    expect(model.dayOfMoment(morning)).toBe('2026-06-03')
+  })
+
   it('groups moments by day and numbers days from the first moment', () => {
     const model = buildJourneyModel(publicJourneyFixture)
     const days = model.daysOfStage(FIXTURE_IDS.stage)
@@ -55,5 +94,53 @@ describe('day notes in the journey model', () => {
     ])
     expect(days.map((d) => d.number)).toEqual([1, 2, 3])
     expect(days.map((d) => d.note)).toEqual(['Den u jezera.', null, null])
+  })
+})
+
+describe('readable stage titles', () => {
+  it('names a bare "Etapa N" after its place and keeps real titles', () => {
+    const stage = publicJourneyFixture.segments.find(
+      (s) => s.id === FIXTURE_IDS.stage,
+    )
+    if (stage === undefined) throw new Error('fixture stage missing')
+    const bare = {
+      ...publicJourneyFixture,
+      segments: publicJourneyFixture.segments.map((s) =>
+        s.id === stage.id ? { ...s, title: 'Etapa 4' } : s,
+      ),
+    }
+    const named = buildJourneyModel(bare).data.segments.find(
+      (s) => s.id === stage.id,
+    )
+    expect(named?.title).not.toBe('Etapa 4')
+    expect(buildJourneyModel(publicJourneyFixture).data.segments).toEqual(
+      publicJourneyFixture.segments,
+    )
+  })
+})
+
+describe('effectiveJourneyStatus', () => {
+  const planned = {
+    ...publicJourneyFixture,
+    journey: { ...publicJourneyFixture.journey, status: 'planning' as const },
+  }
+  const lastShot = Math.max(
+    ...planned.media.flatMap((m) =>
+      m.capturedAt === null ? [] : [Date.parse(m.capturedAt)],
+    ),
+  )
+  it('does not call a journey with photos planned', () => {
+    expect(effectiveJourneyStatus(planned, lastShot + 86_400_000)).toBe(
+      'active',
+    )
+    expect(effectiveJourneyStatus(planned, lastShot + 30 * 86_400_000)).toBe(
+      'completed',
+    )
+  })
+  it('keeps a planned journey without photos and other statuses', () => {
+    expect(effectiveJourneyStatus({ ...planned, media: [] })).toBe('planning')
+    expect(effectiveJourneyStatus(publicJourneyFixture)).toBe(
+      publicJourneyFixture.journey.status,
+    )
   })
 })

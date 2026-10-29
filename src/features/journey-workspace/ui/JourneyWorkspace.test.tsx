@@ -214,9 +214,7 @@ describe('JourneyWorkspace overview', () => {
   it('opens the first day without text from its chip', () => {
     loadJourney()
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(
-      screen.getByRole('button', { name: /Days without a few words/ }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Days to describe/ }))
     expect(navigate).toHaveBeenCalledWith({
       params: { date: '2026-01-03', journeyId: 'j' },
       search: {},
@@ -332,11 +330,11 @@ describe('JourneyWorkspace overview', () => {
     expect(card.getByText('Day 1')).toBeTruthy()
     expect(card.getByText('2 photos')).toBeTruthy()
     expect(card.getByText('1 left')).toBeTruthy()
-    expect(card.getByText('No note')).toBeTruthy()
+    expect(card.getByText('Write one sentence')).toBeTruthy()
     expect(card.queryByText('Sorted')).toBeNull()
     const second = within(cards[1] as HTMLElement)
     expect(second.getByText('Sorted')).toBeTruthy()
-    expect(second.getByText('No note')).toBeTruthy()
+    expect(second.getByText('Write one sentence')).toBeTruthy()
     // Overview shows no moment cards and no inline photo rows any more.
     expect(screen.queryByTestId('moment-rail')).toBeNull()
     expect(within(alpha).queryByTestId('editable-media-tile')).toBeNull()

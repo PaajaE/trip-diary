@@ -1009,6 +1009,7 @@ export type Database = {
           journey_id: string
           kind: string
           latitude: number | null
+          local_day: string | null
           locked: boolean
           longitude: number | null
           origin: Database['public']['Enums']['content_origin']
@@ -1028,6 +1029,7 @@ export type Database = {
           journey_id: string
           kind?: string
           latitude?: number | null
+          local_day?: string | null
           locked?: boolean
           longitude?: number | null
           origin?: Database['public']['Enums']['content_origin']
@@ -1047,6 +1049,7 @@ export type Database = {
           journey_id?: string
           kind?: string
           latitude?: number | null
+          local_day?: string | null
           locked?: boolean
           longitude?: number | null
           origin?: Database['public']['Enums']['content_origin']
@@ -2149,6 +2152,10 @@ export type Database = {
       }
       set_media_location: {
         Args: { p_latitude: number; p_longitude: number; p_media_ids: string[] }
+        Returns: number
+      }
+      set_moment_local_days: {
+        Args: { p_days: string[]; p_journey_id: string; p_moment_ids: string[] }
         Returns: number
       }
       shift_media_time: {

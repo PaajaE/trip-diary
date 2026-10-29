@@ -90,7 +90,7 @@ describe('ContinueTripHero', () => {
       'href',
       '/j/$journeyId',
     )
-    expect(screen.getByText(/2 dnům ještě chybí zápis/)).toBeTruthy()
+    expect(screen.getByText(/Napsat jednu větu ke 2 dnům/)).toBeTruthy()
   })
 
   it('falls back to "continue" when all is done or progress is unavailable', () => {

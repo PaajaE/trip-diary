@@ -2,7 +2,7 @@ import { z } from 'zod'
 import {
   isKnownTimeZone,
   photoDayZones,
-  pickLocalDay,
+  pickDay,
 } from './automation/local-day.ts'
 
 /**
@@ -323,12 +323,12 @@ export function buildJourneyStats(tree: PublicJourney): JourneyStats {
         })
       }
     }
-    const { dates, zones } = photoDayZones(photos)
+    const photoDays = photoDayZones(photos)
     days = new Set(
       tree.moments
         .map((m) => Date.parse(m.startsAt))
         .filter((instant) => !Number.isNaN(instant))
-        .map((instant) => pickLocalDay(instant, zone, dates, zones)),
+        .map((instant) => pickDay(instant, zone, photoDays)),
     ).size
   }
   const meters = tree.tracks.reduce((sum, t) => sum + (t.distanceM ?? 0), 0)

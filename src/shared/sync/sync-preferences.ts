@@ -1,13 +1,14 @@
 const cellularSyncKey = 'trip-diary:sync-on-cellular'
 
+/** Wi-Fi only by default; mobile data needs the author's explicit opt-in. */
 export function isCellularSyncEnabled(): boolean {
   if (typeof localStorage === 'undefined') {
-    return true
+    return false
   }
 
   const preference = localStorage.getItem(cellularSyncKey)
   if (preference === null) {
-    return true
+    return false
   }
 
   return preference === '1'

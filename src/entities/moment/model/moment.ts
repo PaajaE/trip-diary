@@ -22,6 +22,12 @@ export const momentSchema = z.object({
   journeyId: z.uuid(),
   kind: momentKindSchema,
   latitude: z.number().min(-90).max(90).nullable(),
+  /**
+   * Day of the moment by the author's night, on the clock of where it was
+   * shot (stored by the client, see createNightDayResolver); null/absent
+   * until stored.
+   */
+  localDay: z.iso.date().nullable().optional(),
   locked: z.boolean(),
   longitude: z.number().min(-180).max(180).nullable(),
   origin: momentOriginSchema,

@@ -191,7 +191,7 @@ describe('photo days (SQL pick_local_day rule)', () => {
       [photo('2026-06-02T18:00:00Z', 'America/Edmonton')],
       'Europe/Prague',
     )
-    expect(photoDays).toEqual({
+    expect({ dates: photoDays.dates, zones: photoDays.zones }).toEqual({
       dates: ['2026-06-02'],
       zones: ['America/Edmonton'],
     })
@@ -226,6 +226,9 @@ describe('photo days (SQL pick_local_day rule)', () => {
       ],
       'Europe/Prague',
     )
-    expect(days).toEqual({ dates: ['2026-06-02'], zones: ['Europe/Prague'] })
+    expect({ dates: days.dates, zones: days.zones }).toEqual({
+      dates: ['2026-06-02'],
+      zones: ['Europe/Prague'],
+    })
   })
 })

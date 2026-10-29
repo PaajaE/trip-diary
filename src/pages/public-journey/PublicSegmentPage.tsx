@@ -45,6 +45,8 @@ import { StageBadge } from '@/features/public-journey/ui/StageBadge'
 import { StageStrip } from '@/features/public-journey/ui/StageStrip'
 import { StatRow } from '@/features/public-journey/ui/StatRow'
 import { PublicRouteNotFound } from '@/pages/public-space/PublicRouteMessage'
+import { readingKey } from '@/features/public-journey/lib/reading-position'
+import { useRecordReadingPosition } from '@/features/public-journey/lib/use-reading-position'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 
 interface Props {
@@ -188,6 +190,10 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
       tripCard(trip),
     ])
   }
+  // Fold the days without words only when the stage has some: a stage with no
+  // text at all stays an open gallery instead of a list of closed rows.
+  const hasNote = (day: JourneyDay) => (day.note ?? '').trim() !== ''
+  const anyNotes = days.some(hasNote)
   const dayView = (day: JourneyDay, index: number) => {
     const all = day.moments.flatMap((m) => model.mediaByMoment.get(m.id) ?? [])
     const media = pickMosaicMedia(all, null, all.length)
@@ -228,6 +234,11 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
         id={`day-${day.key}`}
         journeySlug={journeySlug}
         active={activeDay === day.key}
+        collapsed={
+          anyNotes &&
+          !hasNote(day) &&
+          (tripsByDay.get(day.key) ?? []).length === 0
+        }
         key={day.key}
         lazy={index > 1}
         onActive={(on) => {
@@ -323,6 +334,11 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
         })
       }}
     />
+  )
+  useRecordReadingPosition(
+    readingKey(spaceHandle, journeySlug),
+    segment.id,
+    days.map((day) => `day-${day.key}`),
   )
   const railItems = days.map((day) => ({
     id: `day-${day.key}`,

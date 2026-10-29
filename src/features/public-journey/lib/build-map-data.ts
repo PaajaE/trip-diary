@@ -34,7 +34,7 @@ export function buildMapData(
     const stageOfMoment = model.stageOf(owner)
     points.push({
       color: model.stageColor(owner),
-      dayKey: model.dayKeyOf(moment.startsAt, stageOfMoment),
+      dayKey: model.dayOfMoment(moment),
       id: moment.id,
       label: moment.title ?? '',
       latitude: moment.latitude,

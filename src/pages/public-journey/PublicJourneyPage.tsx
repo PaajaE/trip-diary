@@ -9,6 +9,7 @@ import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   buildJourneyModel,
+  effectiveJourneyStatus,
   pickCover,
 } from '@/entities/public-journey/lib/journey-model'
 import { readHeroMirror } from '@/entities/public-journey/lib/embedded-journey'
@@ -29,6 +30,8 @@ import {
   StageStrip,
   type StageStripItem,
 } from '@/features/public-journey/ui/StageStrip'
+import { readingKey } from '@/features/public-journey/lib/reading-position'
+import { useSavedReadingPosition } from '@/features/public-journey/lib/use-reading-position'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
@@ -91,6 +94,17 @@ export function PublicJourneyPage({
     [model],
   )
   const firstStage = model.stages[0]
+  const saved = useSavedReadingPosition(readingKey(spaceHandle, journeySlug))
+  // Only a bookmark that still points at a stage and is past the very start.
+  const resume = (() => {
+    if (saved === null) return null
+    const days = model.daysOfStage(saved.stageId)
+    if (days.length === 0) return null
+    const atStart =
+      saved.stageId === firstStage?.id &&
+      saved.dayId === `day-${days[0]?.key ?? ''}`
+    return atStart ? null : { ...saved, journeySlug, spaceHandle }
+  })()
   const hasPlaces = data.places.length > 0
   const hasRoute = map.points.length > 0 || map.lines.length > 0
   const hasRouteSection = hasRoute || stageInfo.length > 0
@@ -139,13 +153,16 @@ export function PublicJourneyPage({
     <main>
       <JourneyHero
         cover={cover}
-        eyebrow={`${t(`publicJourney.status${statusKey(journey.status)}`)} · ${journey.space.name}`}
+        eyebrow={`${t(`publicJourney.status${statusKey(effectiveJourneyStatus(data))}`)} · ${journey.space.name}`}
         mirror={heroMirror}
         period={formatJourneyPeriod(
           journey.startsAt,
           journey.endsAt,
           i18n.language,
         )}
+        resume={
+          resume === null ? null : { ...resume, segmentId: resume.stageId }
+        }
         start={
           firstStage === undefined
             ? null
@@ -271,17 +288,22 @@ export function PublicJourneyPage({
                 {t('publicJourney.placesIntro')}
               </p>
             </div>
-            <ul className="flex flex-wrap gap-2 text-sm">
-              {data.places.map((place) => (
-                <li
-                  className="rounded-full border border-border bg-surface px-3 py-1"
-                  key={place.id}
-                >
-                  {place.name}
-                  {place.region !== null ? `, ${place.region}` : ''}
-                </li>
-              ))}
-            </ul>
+            <details className="group">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-accent-strong underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden group-open:hidden">
+                {t('publicJourney.placesShow', { count: data.places.length })}
+              </summary>
+              <ul className="flex flex-wrap gap-2 text-sm">
+                {data.places.map((place) => (
+                  <li
+                    className="rounded-full border border-border bg-surface px-3 py-1"
+                    key={place.id}
+                  >
+                    {place.name}
+                    {place.region !== null ? `, ${place.region}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </details>
             <PlaceAttribution />
           </section>
         ) : null}

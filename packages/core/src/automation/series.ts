@@ -88,7 +88,7 @@ export const EXPOSURE_DEAD_ZONE = 0.2
  * Exposure penalty: 0 inside [0.3, 0.7]; grows linearly to
  * EXPOSURE_MAX_PENALTY at luminance 0 or 1.
  */
-function exposurePenalty(exposure: number | undefined): number {
+export function exposurePenalty(exposure: number | undefined): number {
   if (exposure === undefined) {
     return 0
   }

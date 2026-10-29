@@ -1,5 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { PublicMedia } from '@trip-diary/core/public-journey'
+import { ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { DayMosaic } from '@/features/public-journey/ui/DayMosaic'
 import { StopRow } from '@/features/public-journey/ui/StopRow'
@@ -41,11 +42,18 @@ interface DaySectionProps {
   trips: readonly DayTripCard[]
   /** Below the fold: painted lazily (`content-visibility`). */
   lazy: boolean
+  /**
+   * A day without the author's words folds into one line (date, counts) that
+   * opens on tap. Native `<details>`, so it works without JavaScript and
+   * closed photos are not fetched.
+   */
+  collapsed?: boolean
 }
 
 /** One day of a stage: the unit of reading. */
 export function DaySection({
   active,
+  collapsed = false,
   onActive,
   color,
   heading,
@@ -69,56 +77,46 @@ export function DaySection({
           .split(/\n{2,}/)
           .map((p) => p.trim())
           .filter((p) => p !== '')
-  return (
-    <section
-      aria-labelledby={`${id}-title`}
-      className={cn(
-        'scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
-        lazy && '[contain-intrinsic-size:auto_52rem] [content-visibility:auto]',
-      )}
-      data-day={id}
-      id={id}
-      onBlur={() => {
-        onActive(false)
-      }}
-      onFocus={() => {
-        onActive(true)
-      }}
-      onPointerEnter={() => {
-        onActive(true)
-      }}
-      onPointerLeave={() => {
-        onActive(false)
-      }}
+  const pointerHandlers = {
+    onBlur: () => {
+      onActive(false)
+    },
+    onFocus: () => {
+      onActive(true)
+    },
+    onPointerEnter: () => {
+      onActive(true)
+    },
+    onPointerLeave: () => {
+      onActive(false)
+    },
+  }
+  const headingNode = (
+    <h2
+      className="reader-display text-2xl"
+      id={`${id}-title`}
+      style={active ? { color: stageTextColor(color) } : undefined}
     >
-      <header className="space-y-1">
-        <div className="flex items-baseline justify-between gap-3">
-          <h2
-            className="reader-display text-2xl"
-            id={`${id}-title`}
-            style={active ? { color: stageTextColor(color) } : undefined}
-          >
-            {heading}
-          </h2>
-          <span className="text-xs tabular-nums text-faint">
-            {t('workspace.dayNumber', { n: number })}
+      {heading}
+    </h2>
+  )
+  const placesNode =
+    places.length > 0 ? (
+      <p className="flex flex-wrap gap-x-3 text-sm text-muted">
+        {places.map((place) => (
+          <span className="inline-flex items-center gap-1.5" key={place}>
+            <span
+              aria-hidden="true"
+              className="size-1.5 rounded-full"
+              style={{ backgroundColor: color }}
+            />
+            {place}
           </span>
-        </div>
-        {places.length > 0 ? (
-          <p className="flex flex-wrap gap-x-3 text-sm text-muted">
-            {places.map((place) => (
-              <span className="inline-flex items-center gap-1.5" key={place}>
-                <span
-                  aria-hidden="true"
-                  className="size-1.5 rounded-full"
-                  style={{ backgroundColor: color }}
-                />
-                {place}
-              </span>
-            ))}
-          </p>
-        ) : null}
-      </header>
+        ))}
+      </p>
+    ) : null
+  const content = (
+    <>
       {media.length > 0 ? (
         <DayMosaic
           className="aspect-[4/3] rounded-xl sm:aspect-[16/10]"
@@ -177,6 +175,74 @@ export function DaySection({
           ))}
         </ul>
       ) : null}
+    </>
+  )
+
+  if (collapsed) {
+    const counts = [
+      media.length > 0
+        ? t('publicJourney.mediaCount', { count: media.length })
+        : null,
+      stops.length > 0
+        ? t('publicJourney.stopsCount', { count: stops.length })
+        : null,
+    ]
+      .filter((part) => part !== null)
+      .join(' · ')
+    return (
+      <details
+        className="group scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] border-t border-border pt-2 first:border-t-0 first:pt-0"
+        data-day={id}
+        id={id}
+        {...pointerHandlers}
+      >
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 py-1 [&::-webkit-details-marker]:hidden">
+          <span className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+            <span className="flex items-baseline gap-3">
+              {headingNode}
+              <span className="text-xs tabular-nums text-faint">
+                {t('workspace.dayNumber', { n: number })}
+              </span>
+            </span>
+            <span className="text-sm text-muted">
+              {counts}
+              <span className="sr-only"> · {t('publicJourney.dayExpand')}</span>
+            </span>
+          </span>
+          <ChevronDown
+            aria-hidden="true"
+            className="size-4 shrink-0 text-muted transition-transform group-open:rotate-180 motion-reduce:transition-none"
+          />
+        </summary>
+        <div className="space-y-4 pt-3">
+          {placesNode}
+          {content}
+        </div>
+      </details>
+    )
+  }
+
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className={cn(
+        'scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4 border-t border-border pt-6 first:border-t-0 first:pt-0',
+        lazy && '[contain-intrinsic-size:auto_52rem] [content-visibility:auto]',
+      )}
+      data-day={id}
+      id={id}
+      {...pointerHandlers}
+    >
+      <header className="space-y-1">
+        <div className="flex items-baseline justify-between gap-3">
+          {headingNode}
+          <span className="text-xs tabular-nums text-faint">
+            {t('workspace.dayNumber', { n: number })}
+          </span>
+        </div>
+        {placesNode}
+      </header>
+      {content}
     </section>
   )
 }
