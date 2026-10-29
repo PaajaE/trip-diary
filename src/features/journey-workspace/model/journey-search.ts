@@ -5,7 +5,8 @@
  * huge journeys; production does not have it yet, so it is not used here.
  */
 import type { MediaItem } from '@/entities/media/model/media-library'
-import { localDayKey } from '@/features/journey-workspace/model/workspace-days'
+import { createNightDayResolver } from '@trip-diary/core/automation'
+import { safeZone } from '@/features/journey-workspace/model/workspace-days'
 
 export const MIN_QUERY_LENGTH = 2
 export const DEFAULT_SEARCH_LIMIT = 50
@@ -114,8 +115,25 @@ function snippetAround(
   return `${from > 0 ? '…' : ''}${slice}${to < text.length ? '…' : ''}`
 }
 
-function dateOfMoment(moment: SearchMoment): string | null {
-  return localDayKey(moment.startsAt, moment.tz ?? null)
+type DayOf = (iso: string | null, tz: string | null) => string | null
+
+/**
+ * Day of an instant by the author's night, the same rule as the outline and
+ * the day pages, so a search hit opens the day the item is shown under.
+ */
+function dayResolver(data: SearchData): DayOf {
+  const samples = [
+    ...data.moments.map((m) => ({ iso: m.startsAt, tz: m.tz ?? null })),
+    ...data.media.map((m) => ({ iso: m.capturedAt, tz: m.capturedTz })),
+  ].flatMap(({ iso, tz }) => {
+    const time = iso === null ? Number.NaN : Date.parse(iso)
+    return Number.isNaN(time) ? [] : [{ time, zone: safeZone(tz) }]
+  })
+  const resolve = createNightDayResolver(samples)
+  return (iso, tz) => {
+    const time = iso === null ? Number.NaN : Date.parse(iso)
+    return Number.isNaN(time) ? null : resolve(time, safeZone(tz)).date
+  }
 }
 
 interface Candidate {
@@ -191,9 +209,10 @@ export function searchJourney(
   }
   if (!textOn && !filtersOn) return empty
 
+  const dayOf = dayResolver(data)
   const momentDate = new Map<string, string | null>()
   for (const moment of data.moments) {
-    momentDate.set(moment.id, dateOfMoment(moment))
+    momentDate.set(moment.id, dayOf(moment.startsAt, moment.tz ?? null))
   }
 
   const matches: { kind: SearchResultKind; candidate: Candidate }[] = []
@@ -255,7 +274,7 @@ export function searchJourney(
     if (!passesMediaFilters(item, filters)) continue
     const fields = [field(item.caption)]
     if (textOn && !matchesTerms(fields)) continue
-    const own = localDayKey(item.capturedAt, item.capturedTz)
+    const own = dayOf(item.capturedAt, item.capturedTz)
     matches.push({
       candidate: {
         fields,

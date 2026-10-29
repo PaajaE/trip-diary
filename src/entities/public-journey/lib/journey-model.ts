@@ -6,6 +6,7 @@ import type {
   PublicSegment,
   PublicTrack,
 } from '@trip-diary/core/public-journey'
+import { createNightDayResolver } from '@trip-diary/core/automation'
 import { stagePaletteColor } from '@/shared/lib/stage-palette'
 
 /** One calendar day of a stage: its moments plus the author's day note. */
@@ -24,6 +25,12 @@ export interface JourneyModel {
   dayNoteByDate: Map<string, string>
   /** Local day key of an instant, in the zone of the segment (else home zone, else UTC). */
   dayKeyOf: (iso: string, segment: PublicSegment | null) => string
+  /**
+   * Day a moment belongs to: read on the clock of where it was shot (zone of
+   * its first photo, else its stage, else the home zone); the day changes in
+   * the middle of the night, not at midnight.
+   */
+  dayOfMoment: (moment: PublicMoment) => string
   /** Days of a stage with moments (nested trips included), chronological. */
   daysOfStage: (stageId: string) => JourneyDay[]
   mediaById: Map<string, PublicMedia>
@@ -187,8 +194,38 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
 
   const zoneFor = (segment: PublicSegment | null) =>
     segment?.tz ?? data.journey.homeTz ?? 'UTC'
+  const zoneOfMomentCache = new Map<string, string>()
+  const zoneOfMoment = (m: PublicMoment): string => {
+    const known = zoneOfMomentCache.get(m.id)
+    if (known !== undefined) return known
+    const own = (mediaByMoment.get(m.id) ?? []).find(
+      (item) => item.capturedTz !== null,
+    )?.capturedTz
+    const owner = segmentOfInstant(m.startsAt)
+    const zone =
+      own ?? zoneFor(owner === null ? null : (stageOf(owner.id) ?? owner))
+    zoneOfMomentCache.set(m.id, zone)
+    return zone
+  }
+  // One resolver for the whole journey, so every screen agrees on every day.
+  const resolveDay = createNightDayResolver([
+    ...moments.map((m) => ({ time: ms(m.startsAt), zone: zoneOfMoment(m) })),
+    ...data.media.flatMap((item) => {
+      if (item.capturedAt === null) return []
+      const moment =
+        item.momentId === null ? undefined : momentById.get(item.momentId)
+      const zone =
+        item.capturedTz ??
+        (moment === undefined
+          ? (data.journey.homeTz ?? 'UTC')
+          : zoneOfMoment(moment))
+      return [{ time: ms(item.capturedAt), zone }]
+    }),
+  ])
   const dayKeyOf = (iso: string, segment: PublicSegment | null): string =>
-    localDayKey(iso, zoneFor(segment))
+    resolveDay(ms(iso), zoneFor(segment)).date
+  const dayOfMoment = (m: PublicMoment): string =>
+    resolveDay(ms(m.startsAt), zoneOfMoment(m)).date
 
   const dayNoteByDate = new Map(data.dayNotes.map((n) => [n.date, n.body]))
 
@@ -197,11 +234,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   const firstDayKey = (): string | null => {
     if (firstDayKeyCache !== undefined) return firstDayKeyCache
     firstDayKeyCache = moments.reduce<string | null>((first, m) => {
-      const owner = segmentOfInstant(m.startsAt)
-      const key = dayKeyOf(
-        m.startsAt,
-        owner === null ? null : stageOf(owner.id),
-      )
+      const key = dayOfMoment(m)
       return first === null || key < first ? key : first
     }, null)
     return firstDayKeyCache
@@ -216,7 +249,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
     const first = firstDayKey()
     const byKey = new Map<string, PublicMoment[]>()
     for (const m of momentsInSpan(stageId)) {
-      const key = dayKeyOf(m.startsAt, stage)
+      const key = dayOfMoment(m)
       const list = byKey.get(key) ?? []
       list.push(m)
       byKey.set(key, list)
@@ -243,6 +276,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
   return {
     dayKeyOf,
     dayNoteByDate,
+    dayOfMoment,
     daysOfStage,
     childrenOf: (id) => childrenByParent.get(id) ?? [],
     data,

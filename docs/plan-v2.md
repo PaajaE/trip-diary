@@ -654,6 +654,13 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 - **Psaní dne (mobil):** „Nadiktovat jednu větu“ je hlavní tlačítko nad „Uložit den“.
 - Kontrast malých popisků ověřit proti 4,5 : 1 při implementaci (zatím jen vizuální dojem, neměřeno).
 
+##### Stav 4f (2026-10-29)
+
+- **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
+- **Vlna 2, dny podle noci:** `createNightDayResolver` v `packages/core`; každý okamžik se čte na hodinách zóny, kde vznikl (`captured_tz`, jinak zóna zastávky či etapy, jinak domovská), nikdy v zóně prohlížeče ani čtenáře. Přepnuté: osnova a přehled editoru, mapa, hledání, dávka, veřejný čtenář. 🧪 TESTED v testech, v prohlížeči s reálnými daty **UNVERIFIED**.
+- **Známá mezera:** SQL `journey_progress` (D3) počítá dny z půlnoci v `home_tz` a neřídí se ani `captured_tz`, ani nocí. Čísla „dní“ na Domů se tedy mohou lišit od osnovy. Řeší vlna 3 (DB kontrakt se dohodne před kódem).
+- **Vlna 2, `pickBestOfDay`:** hotovo v `core`, zatím nezapojeno do UI.
+
 ##### Brána 4f
 
 `pnpm algo:score` existuje a běží v CI jako report (cíle ze specifikace: přiřazení dne > 98 %, F1 hranic etap > 0,9, sloučení duplicit > 99,5 %, falešný odpad < 0,5 %, vrácené auto-akce < 5 %; všechno **UNVERIFIED**, než se změří); fotka pořízená po půlnoci spadne do správného dne a `day_notes` se nezmění; posun hodin a vrácení dávky mají pgTAP; mobilní tok ze 4. vlny ověřen na iPhonu (dávka ~300 fotek bez nahrání před tříděním) a ve ~390 px; `pnpm check` a `pnpm db:test` zelené; žádné `new Date()` jako čas zážitku.

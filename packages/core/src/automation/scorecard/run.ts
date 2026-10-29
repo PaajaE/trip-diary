@@ -32,7 +32,9 @@ export interface SetScore {
 }
 
 export function scoreGoldenSet(set: GoldenSet): SetScore {
-  const days = summarizeZonedDays(set.media, set.homeTimeZone)
+  const days = summarizeZonedDays(set.media, set.homeTimeZone, {
+    dayBoundary: 'night',
+  })
 
   const { truth } = set
   let dayAssignment: Ratio | null = null

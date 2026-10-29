@@ -86,7 +86,9 @@ describe('searchJourney text', () => {
       tz: 'Europe/Prague',
     })
     const out = searchJourney({ ...EMPTY, moments: [late] }, 'noční')
-    expect(out.results[0]?.localDate).toBe('2026-01-03')
+    // 00:30 in Prague on the 3rd is still the evening of the 2nd (the day
+    // changes in the middle of the night, not at midnight).
+    expect(out.results[0]?.localDate).toBe('2026-01-02')
     const ny = sm('ny', {
       body: 'noční',
       startsAt: '2026-01-03T02:00:00+00:00',

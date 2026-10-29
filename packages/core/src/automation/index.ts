@@ -131,3 +131,18 @@ export {
   type PlannedSegment,
   type SegmentTitleInput,
 } from './organize.ts'
+export {
+  assignNightDays,
+  createNightDayResolver,
+  type NightDayAssignment,
+  type NightDayOptions,
+  type NightDayResolution,
+  type NightDaySample,
+} from './night-days.ts'
+export {
+  pickBestOfDay,
+  type BestOfDayOptions,
+  type BestOfDayPick,
+  type BestOfDayReason,
+  type DayCandidate,
+} from './best-of-day.ts'

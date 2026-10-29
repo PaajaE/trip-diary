@@ -147,7 +147,11 @@ export function JourneyWorkspace({
     () =>
       tree === null
         ? null
-        : buildMapModel(tree, (entry) => pinLabel(entry, placeNames, locale)),
+        : buildMapModel(
+            tree,
+            (entry) => pinLabel(entry, placeNames, locale),
+            browserZone(),
+          ),
     [tree, placeNames, locale],
   )
   const freshBubbles = useMemo(

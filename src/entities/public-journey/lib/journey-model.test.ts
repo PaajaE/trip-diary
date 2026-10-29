@@ -36,6 +36,31 @@ describe('day notes in the journey model', () => {
     ])
   })
 
+  it('keeps a night shot after midnight with the evening it belongs to', () => {
+    // 01:00 on 3 June in Edmonton (07:00Z), then the next morning at 09:00.
+    const first = publicJourneyFixture.moments.find(
+      (m) => m.id === FIXTURE_IDS.momentA,
+    )
+    if (first === undefined) throw new Error('fixture moment missing')
+    const night = {
+      ...first,
+      id: 'night',
+      startsAt: '2026-06-03T07:00:00+00:00',
+    }
+    const morning = {
+      ...first,
+      id: 'morning',
+      startsAt: '2026-06-03T15:00:00+00:00',
+    }
+    const model = buildJourneyModel({
+      ...publicJourneyFixture,
+      media: [],
+      moments: [night, morning],
+    })
+    expect(model.dayOfMoment(night)).toBe('2026-06-02')
+    expect(model.dayOfMoment(morning)).toBe('2026-06-03')
+  })
+
   it('groups moments by day and numbers days from the first moment', () => {
     const model = buildJourneyModel(publicJourneyFixture)
     const days = model.daysOfStage(FIXTURE_IDS.stage)

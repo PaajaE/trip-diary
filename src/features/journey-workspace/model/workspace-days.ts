@@ -1,5 +1,36 @@
+import { createNightDayResolver } from '@trip-diary/core/automation'
 import { browserZone } from '@/features/journey-workspace/lib/format-range'
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
+
+/** Day key of a moment (the day it belongs to), or null without a usable start. */
+export type MomentDayKeyOf = (entry: WorkspaceMoment) => string | null
+
+/**
+ * Day of each moment by the author's night, not by midnight: the day changes
+ * in the middle of the longest sleep gap (see createNightDayResolver). Built
+ * from ALL moments of the journey so every screen agrees; each moment is read
+ * on the clock of its own zone (where it was shot), then the fallback zone,
+ * then the device zone.
+ */
+export function createMomentDayKeys(
+  all: readonly WorkspaceMoment[],
+  fallbackTz: string | null = null,
+): MomentDayKeyOf {
+  const zoneOf = (entry: WorkspaceMoment): string =>
+    safeZone(entry.tz ?? fallbackTz)
+  const samples = all.flatMap((entry) => {
+    const zone = zoneOf(entry)
+    return [entry.moment.startsAt, entry.moment.endsAt].flatMap((iso) => {
+      const time = Date.parse(iso)
+      return Number.isNaN(time) ? [] : [{ time, zone }]
+    })
+  })
+  const resolve = createNightDayResolver(samples)
+  return (entry) => {
+    const time = Date.parse(entry.moment.startsAt)
+    return Number.isNaN(time) ? null : resolve(time, zoneOf(entry)).date
+  }
+}
 
 /** Scope id of the day groups of moments that belong to no segment. */
 export const LOOSE_SCOPE = 'loose'
@@ -10,7 +41,7 @@ export const UNKNOWN_DAY = 'unknown'
 const zoneCache = new Map<string, string>()
 const dayFormatters = new Map<string, Intl.DateTimeFormat>()
 
-function safeZone(tz: string | null): string {
+export function safeZone(tz: string | null): string {
   if (tz !== null) {
     const cached = zoneCache.get(tz)
     if (cached !== undefined) return cached
@@ -73,12 +104,15 @@ export interface MomentDay {
 export function groupMomentsByDay(
   entries: readonly WorkspaceMoment[],
   fallbackTz: string | null = null,
+  keyOf?: MomentDayKeyOf,
 ): MomentDay[] {
   const days = new Map<string, MomentDay>()
   const counts = new Map<string, Map<string, number>>()
   for (const entry of entries) {
     const key =
-      localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz) ?? UNKNOWN_DAY
+      (keyOf === undefined
+        ? localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
+        : keyOf(entry)) ?? UNKNOWN_DAY
     let day = days.get(key)
     if (day === undefined) {
       day = { key, moments: [], photoCount: 0, placeIds: [] }
@@ -138,10 +172,14 @@ export function dayPlaceNames(
 export function firstDayKey(
   entries: readonly WorkspaceMoment[],
   fallbackTz: string | null = null,
+  keyOf?: MomentDayKeyOf,
 ): string | null {
   let first: string | null = null
   for (const entry of entries) {
-    const key = localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
+    const key =
+      keyOf === undefined
+        ? localDayKey(entry.moment.startsAt, entry.tz ?? fallbackTz)
+        : keyOf(entry)
     if (key !== null && (first === null || key < first)) first = key
   }
   return first

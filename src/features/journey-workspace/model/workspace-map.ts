@@ -5,13 +5,15 @@ import {
 } from '@/features/journey-workspace/lib/outline-ids'
 import {
   dayElementId,
+  createMomentDayKeys,
   groupMomentsByDay,
   LOOSE_SCOPE,
 } from '@/features/journey-workspace/model/workspace-days'
-import type {
-  WorkspaceMoment,
-  WorkspaceSegment,
-  WorkspaceTree,
+import {
+  collectMoments,
+  type WorkspaceMoment,
+  type WorkspaceSegment,
+  type WorkspaceTree,
 } from '@/features/journey-workspace/model/workspace-tree'
 
 export const MAX_FIT_ZOOM = 13
@@ -153,7 +155,10 @@ export interface WorkspaceMapModel {
 export function buildMapModel(
   tree: WorkspaceTree,
   labelOf: (entry: WorkspaceMoment) => string,
+  /** Same fallback zone as buildOverview, so both agree on every day key. */
+  fallbackTz: string | null = null,
 ): WorkspaceMapModel {
+  const dayKeys = createMomentDayKeys(collectMoments(tree), fallbackTz)
   const scopes = new Map<string, string[]>()
   const expandFor = new Map<string, string[]>()
   const days = new Map<string, MapDay>()
@@ -162,7 +167,7 @@ export function buildMapModel(
   const entries = new Map<string, WorkspaceMoment>()
 
   const addDays = (scope: string, moments: WorkspaceMoment[]) => {
-    for (const day of groupMomentsByDay(moments)) {
+    for (const day of groupMomentsByDay(moments, fallbackTz, dayKeys)) {
       const id = dayElementId(scope, day.key)
       const momentIds = day.moments.map((m) => m.moment.id)
       scopes.set(id, momentIds)

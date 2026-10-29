@@ -5,6 +5,7 @@ import {
   type DatedMediaPoint,
   type MediaPoint,
 } from './media-point.ts'
+import { assignNightDays } from './night-days.ts'
 import { timeZoneAt } from './time-zone.ts'
 
 export interface DaySummary {
@@ -112,7 +113,19 @@ function zoneAtPoint(point: GeoPoint): string | null {
 export function summarizeZonedDays(
   media: readonly MediaPoint[],
   homeTimeZone: string,
+  options: {
+    /**
+     * `midnight` (default, what the app uses today): the local calendar date.
+     * `night`: the day changes in the middle of the night's longest gap (see
+     * assignNightDays). The app is switched over separately.
+     */
+    dayBoundary?: 'midnight' | 'night'
+  } = {},
 ): ZonedDaySummary[] {
+  const nightDays =
+    options.dayBoundary === 'night'
+      ? assignNightDays(media, homeTimeZone)
+      : null
   const formatters = new Map<string, Intl.DateTimeFormat>()
   const formatterFor = (zone: string): Intl.DateTimeFormat => {
     let formatter = formatters.get(zone)
@@ -133,7 +146,9 @@ export function summarizeZonedDays(
     if (point !== null) {
       zone = zoneAtPoint(point) ?? zone
     }
-    const date = formatterFor(zone).format(new Date(item.time))
+    const assigned = nightDays?.get(item.id)
+    const date =
+      assigned?.date ?? formatterFor(zone).format(new Date(item.time))
     const group = groups.get(date)
     if (group === undefined) {
       groups.set(date, { items: [item], timeZone: zone })

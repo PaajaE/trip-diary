@@ -14,6 +14,7 @@ import {
 import {
   dayNumber,
   firstDayKey,
+  createMomentDayKeys,
   groupMomentsByDay,
   type MomentDay,
   UNKNOWN_DAY,
@@ -212,9 +213,10 @@ export function buildOverview(
   noteDays: ReadonlySet<string> = new Set(),
 ): WorkspaceOverview {
   const all = collectMoments(tree)
-  const firstDay = firstDayKey(all, fallbackTz)
+  const dayKeys = createMomentDayKeys(all, fallbackTz)
+  const firstDay = firstDayKey(all, fallbackTz, dayKeys)
   const written = momentsUnderWrittenSegments(tree)
-  const days = groupMomentsByDay(all, fallbackTz)
+  const days = groupMomentsByDay(all, fallbackTz, dayKeys)
   const dayOfMoment = new Map<string, string>()
   for (const day of days)
     for (const entry of day.moments) dayOfMoment.set(entry.moment.id, day.key)
@@ -241,7 +243,7 @@ export function buildOverview(
     const loose = entry.kind === 'loose'
     const moments = loose ? entry.moments : flattenMoments(entry.node)
     const cover = loose ? (moments[0]?.cover ?? null) : entry.node.cover
-    const cards = groupMomentsByDay(moments, fallbackTz).map((day) =>
+    const cards = groupMomentsByDay(moments, fallbackTz, dayKeys).map((day) =>
       cardOf(day, cover?.id ?? null),
     )
     const progress = chapterProgress(cards)

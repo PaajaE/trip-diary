@@ -1,7 +1,8 @@
+import { createNightDayResolver } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { mediaDisplayZone } from '@/features/journey-workspace/lib/format-range'
 import {
-  localDayKey,
+  safeZone,
   UNKNOWN_DAY,
 } from '@/features/journey-workspace/model/workspace-days'
 
@@ -28,9 +29,21 @@ function time(item: MediaItem): number {
  */
 export function groupBatchByDay(items: readonly MediaItem[]): BatchDay[] {
   const days = new Map<string, BatchDay>()
+  // The day changes in the middle of the night, each photo on its own clock.
+  const resolve = createNightDayResolver(
+    items.flatMap((item) => {
+      const at =
+        item.capturedAt === null ? Number.NaN : Date.parse(item.capturedAt)
+      return Number.isNaN(at)
+        ? []
+        : [{ time: at, zone: safeZone(mediaDisplayZone(item, null)) }]
+    }),
+  )
   for (const item of items) {
     const tz = mediaDisplayZone(item, null)
-    const key = localDayKey(item.capturedAt, tz) ?? UNKNOWN_DAY
+    const at =
+      item.capturedAt === null ? Number.NaN : Date.parse(item.capturedAt)
+    const key = Number.isNaN(at) ? UNKNOWN_DAY : resolve(at, safeZone(tz)).date
     let day = days.get(key)
     if (day === undefined) {
       day = {
