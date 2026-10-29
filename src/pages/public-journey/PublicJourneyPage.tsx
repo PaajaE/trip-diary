@@ -29,6 +29,8 @@ import {
   StageStrip,
   type StageStripItem,
 } from '@/features/public-journey/ui/StageStrip'
+import { readingKey } from '@/features/public-journey/lib/reading-position'
+import { useSavedReadingPosition } from '@/features/public-journey/lib/use-reading-position'
 import { useDocumentMeta } from '@/shared/lib/use-document-meta'
 import { PlaceAttribution } from '@/shared/ui/PlaceAttribution'
 
@@ -91,6 +93,17 @@ export function PublicJourneyPage({
     [model],
   )
   const firstStage = model.stages[0]
+  const saved = useSavedReadingPosition(readingKey(spaceHandle, journeySlug))
+  // Only a bookmark that still points at a stage and is past the very start.
+  const resume = (() => {
+    if (saved === null) return null
+    const days = model.daysOfStage(saved.stageId)
+    if (days.length === 0) return null
+    const atStart =
+      saved.stageId === firstStage?.id &&
+      saved.dayId === `day-${days[0]?.key ?? ''}`
+    return atStart ? null : { ...saved, journeySlug, spaceHandle }
+  })()
   const hasPlaces = data.places.length > 0
   const hasRoute = map.points.length > 0 || map.lines.length > 0
   const hasRouteSection = hasRoute || stageInfo.length > 0
@@ -146,6 +159,9 @@ export function PublicJourneyPage({
           journey.endsAt,
           i18n.language,
         )}
+        resume={
+          resume === null ? null : { ...resume, segmentId: resume.stageId }
+        }
         start={
           firstStage === undefined
             ? null

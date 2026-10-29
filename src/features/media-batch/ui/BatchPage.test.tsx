@@ -17,6 +17,9 @@ import { BatchPage } from '@/features/media-batch/ui/BatchPage'
 import { med, mom } from '@/features/journey-workspace/test-fixtures'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
 
+/** Camera-sized, so the "likely junk" rule (tiny, no GPS) stays out of these tests. */
+const FULL_SIZE = { height: 3000, width: 4000 }
+
 const state = vi.hoisted(() => ({
   canEdit: true,
   uploaders: {
@@ -119,11 +122,15 @@ vi.mock('@/features/media-corrections/ui/FixTimeLocationSheet', () => ({
 }))
 
 // Two days (Prague, UTC+1 in January) and one undated item.
-const a1 = med(1, { capturedAt: '2026-01-02T09:00:00+00:00' })
-const a2 = med(2, { capturedAt: '2026-01-02T10:00:00+00:00', starred: true })
-const a3 = med(3, { capturedAt: '2026-01-02T11:00:00+00:00' })
-const b1 = med(4, { capturedAt: '2026-01-03T09:00:00+00:00' })
-const u1 = med(5, { capturedAt: null, capturedTz: null })
+const a1 = med(1, { ...FULL_SIZE, capturedAt: '2026-01-02T09:00:00+00:00' })
+const a2 = med(2, {
+  ...FULL_SIZE,
+  capturedAt: '2026-01-02T10:00:00+00:00',
+  starred: true,
+})
+const a3 = med(3, { ...FULL_SIZE, capturedAt: '2026-01-02T11:00:00+00:00' })
+const b1 = med(4, { ...FULL_SIZE, capturedAt: '2026-01-03T09:00:00+00:00' })
+const u1 = med(5, { ...FULL_SIZE, capturedAt: null, capturedTz: null })
 const ALL = [a1, a2, a3, b1, u1]
 
 function tiles() {
@@ -415,10 +422,12 @@ describe('BatchPage', () => {
     const ME = '00000000-0000-4000-8000-000000000997'
     const JIRINA = '00000000-0000-4000-8000-000000000998'
     const mine = med(21, {
+      ...FULL_SIZE,
       capturedAt: '2026-01-02T09:00:00+00:00',
       ownerId: ME,
     })
     const hers = med(22, {
+      ...FULL_SIZE,
       capturedAt: '2026-01-02T09:05:00+00:00',
       ownerId: JIRINA,
     })
@@ -473,21 +482,27 @@ describe('BatchPage', () => {
   describe('filters', () => {
     const geo = { latitude: 50, longitude: 14 }
     const s1 = med(11, {
+      ...FULL_SIZE,
       ...geo,
       capturedAt: '2026-01-02T09:00:00+00:00',
       phash: 7,
     })
     const s2 = med(12, {
+      ...FULL_SIZE,
       ...geo,
       capturedAt: '2026-01-02T09:00:05+00:00',
       phash: 7,
     })
     const clip = med(13, {
+      ...FULL_SIZE,
       ...geo,
       capturedAt: '2026-01-03T09:00:00+00:00',
       kind: 'video',
     })
-    const bare = med(14, { capturedAt: '2026-01-03T10:00:00+00:00' })
+    const bare = med(14, {
+      ...FULL_SIZE,
+      capturedAt: '2026-01-03T10:00:00+00:00',
+    })
 
     it('shows chips with counts, hiding empty ones except "All"', () => {
       render(<BatchPage journeyId="j" />)
@@ -667,10 +682,18 @@ describe('BatchPage', () => {
 
     it('keeps an earlier selection and respects an active filter', () => {
       state.query.data = [
-        med(21, { capturedAt: '2026-01-02T09:00:00+00:00' }),
-        med(22, { capturedAt: '2026-01-02T10:00:00+00:00', kind: 'video' }),
-        med(23, { capturedAt: '2026-01-02T11:00:00+00:00' }),
-        med(24, { capturedAt: '2026-01-02T12:00:00+00:00', kind: 'video' }),
+        med(21, { ...FULL_SIZE, capturedAt: '2026-01-02T09:00:00+00:00' }),
+        med(22, {
+          ...FULL_SIZE,
+          capturedAt: '2026-01-02T10:00:00+00:00',
+          kind: 'video',
+        }),
+        med(23, { ...FULL_SIZE, capturedAt: '2026-01-02T11:00:00+00:00' }),
+        med(24, {
+          ...FULL_SIZE,
+          capturedAt: '2026-01-02T12:00:00+00:00',
+          kind: 'video',
+        }),
       ]
       render(<BatchPage journeyId="j" />)
       fireEvent.click(screen.getByRole('button', { name: /Videos/ }))

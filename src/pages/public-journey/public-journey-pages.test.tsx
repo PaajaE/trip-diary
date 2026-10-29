@@ -121,9 +121,20 @@ describe('public journey pages', () => {
     ).toBeTruthy()
     // The trek is a card on the day it starts; days are the reading unit.
     expect(screen.getByRole('link', { name: /Assiniboine trek/ })).toBeTruthy()
-    expect(
-      screen.getAllByRole('region').map((r) => r.getAttribute('data-day')),
-    ).toEqual(['day-2026-06-02', 'day-2026-06-03', 'day-2026-06-04'])
+    const days = [...document.querySelectorAll('[data-day]')]
+    expect(days.map((d) => d.getAttribute('data-day'))).toEqual([
+      'day-2026-06-02',
+      'day-2026-06-03',
+      'day-2026-06-04',
+    ])
+    // The day with the author's words (and the trip card) stays an open
+    // section; days with neither fold into closed one-line <details>.
+    expect(days.map((d) => d.tagName)).toEqual([
+      'SECTION',
+      'DETAILS',
+      'DETAILS',
+    ])
+    expect((days[1] as HTMLDetailsElement).open).toBe(false)
     expect(screen.getByText('Den u jezera.')).toBeTruthy()
     expect(screen.getByText('Další etapa')).toBeTruthy()
   })

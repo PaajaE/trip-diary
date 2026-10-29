@@ -10,16 +10,31 @@ import {
   visibleFilters,
 } from './batch-filters'
 
+/** Camera-sized, so the "likely junk" rule (tiny, no GPS) stays out of these tests. */
+const FULL_SIZE = { height: 3000, width: 4000 }
+
 const geo = { latitude: 50, longitude: 14 }
 // Two near-identical shots seconds apart form a series; the third is far away.
-const s1 = med(1, { ...geo, capturedAt: '2026-01-02T09:00:00+00:00', phash: 5 })
-const s2 = med(2, { ...geo, capturedAt: '2026-01-02T09:00:10+00:00', phash: 5 })
+const s1 = med(1, {
+  ...FULL_SIZE,
+  ...geo,
+  capturedAt: '2026-01-02T09:00:00+00:00',
+  phash: 5,
+})
+const s2 = med(2, {
+  ...FULL_SIZE,
+  ...geo,
+  capturedAt: '2026-01-02T09:00:10+00:00',
+  phash: 5,
+})
 const lone = med(3, {
+  ...FULL_SIZE,
   capturedAt: '2026-01-03T09:00:00+00:00',
   latitude: null,
   longitude: null,
 })
 const clip = med(4, {
+  ...FULL_SIZE,
   ...geo,
   capturedAt: '2026-01-03T10:00:00+00:00',
   kind: 'video',
@@ -28,7 +43,13 @@ const clip = med(4, {
 describe('batch filters', () => {
   it('counts every chip', () => {
     const model = buildFilterModel([s1, s2, lone, clip])
-    expect(model.counts).toEqual({ all: 4, noLocation: 1, series: 2, video: 1 })
+    expect(model.counts).toEqual({
+      all: 4,
+      junk: 0,
+      noLocation: 1,
+      series: 2,
+      video: 1,
+    })
     expect(model.seriesIds.has(s1.id)).toBe(true)
     expect(model.seriesIds.has(lone.id)).toBe(false)
   })
@@ -68,8 +89,8 @@ describe('batch filters', () => {
 describe('uploader filters', () => {
   const ME = '00000000-0000-4000-8000-000000000997'
   const OTHER = '00000000-0000-4000-8000-000000000998'
-  const mine = med(31, { ownerId: ME })
-  const theirs = med(32, { ownerId: OTHER })
+  const mine = med(31, { ...FULL_SIZE, ownerId: ME })
+  const theirs = med(32, { ...FULL_SIZE, ownerId: OTHER })
   const shared = {
     currentUserId: ME,
     multi: true,

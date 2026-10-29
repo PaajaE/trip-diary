@@ -13,6 +13,13 @@ interface JourneyHeroProps {
   period: string | null
   /** First chapter the "Start reading" button opens, if any. */
   start: { journeySlug: string; segmentId: string; spaceHandle: string } | null
+  /** Where this reader stopped last time (after mount only); replaces `start`. */
+  resume?: {
+    dayId: string
+    journeySlug: string
+    segmentId: string
+    spaceHandle: string
+  } | null
   stats: readonly Stat[]
   title: string
 }
@@ -30,6 +37,7 @@ export function JourneyHero({
   eyebrow,
   mirror,
   period,
+  resume = null,
   start,
   stats,
   title,
@@ -73,7 +81,21 @@ export function JourneyHero({
         )}
         <StatRow stats={stats} tone="light" />
         <div className="flex flex-wrap gap-2 pt-1">
-          {start === null ? null : (
+          {resume === null ? null : (
+            <Link
+              className={cn(BUTTON, 'bg-primary text-primary-foreground')}
+              hash={resume.dayId}
+              params={{
+                journeySlug: resume.journeySlug,
+                segmentId: resume.segmentId,
+                spaceHandle: resume.spaceHandle,
+              }}
+              to="/$spaceHandle/$journeySlug/e/$segmentId"
+            >
+              {t('publicJourney.continueReading')}
+            </Link>
+          )}
+          {start === null || resume !== null ? null : (
             <Link
               className={cn(BUTTON, 'bg-primary text-primary-foreground')}
               params={start}

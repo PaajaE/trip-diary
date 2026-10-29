@@ -126,6 +126,27 @@ describe('i18n vocabulary', () => {
     expect(offenders).toEqual([])
   })
 
+  it('never shames or guilt-trips the author (no "behind", streak or deficit wording)', () => {
+    // Prompts offer a finished next step; they never count what is missing.
+    const GUILT = [
+      /(jsi|jste|ses|zůstáváš|zůstal[ao]?\s+jsi)\s+pozadu/i,
+      /zaostáv/i,
+      /nestíh/i,
+      /zmeškal/i,
+      /ztratíš\s+(sérii|řadu)/i,
+      /série\s+dní/i,
+      /(you(?:'re|\s+are)|falling|fallen)\s+behind/i,
+      /overdue/i,
+      /falling\s+behind/i,
+      /lose\s+your\s+streak/i,
+      /streak/i,
+    ]
+    const offenders = [...csLeaves, ...enLeaves].filter(([, value]) =>
+      GUILT.some((pattern) => pattern.test(visible(value))),
+    )
+    expect(offenders).toEqual([])
+  })
+
   it('has no arrow glyphs in the day navigation labels', () => {
     const arrows = /[←→]/
     for (const bundle of [cs, en]) {

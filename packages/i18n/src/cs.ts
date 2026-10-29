@@ -529,6 +529,7 @@ export const cs: TranslationResources = {
     filter: {
       label: 'Filtr dávky',
       all: 'Vše',
+      junk: 'Asi odpad',
       noLocation: 'Bez polohy',
       series: 'Série',
       video: 'Videa',
@@ -1447,6 +1448,8 @@ export const cs: TranslationResources = {
     stopsCount_other: '{{count}} zastávek',
     ascentUp: '{{m}} m nahoru',
     backToStage: 'Zpět na etapu',
+    continueReading: 'Pokračovat tam, kde jsi skončil',
+    dayExpand: 'Rozbalit den',
     dayStops: 'Zastávky dne',
     daysNav: 'Dny etapy',
     emptyStage: 'Tato etapa zatím nemá zastávky ani fotky.',

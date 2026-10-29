@@ -39,6 +39,7 @@ export {
   type SuggestStopStop,
 } from './suggest-stop.ts'
 export { findDuplicateGroups, type DuplicateOptions } from './duplicates.ts'
+export { findJunkCandidates, type JunkInput, type JunkReason } from './junk.ts'
 export {
   DEFAULT_STAGE_SHIFT_KM,
   suggestStageBoundaries,

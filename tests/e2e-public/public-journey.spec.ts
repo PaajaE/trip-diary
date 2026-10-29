@@ -82,3 +82,45 @@ test('lightbox swipes between photos', async ({ page }) => {
   await page.mouse.up()
   await expect(dialog.getByRole('status')).toHaveText(/^2 \/ \d+$/)
 })
+
+test("a day without the author's words folds into one line and opens on tap", async ({
+  page,
+}) => {
+  await mockPublicBackend(page)
+  await page.goto(atlasUrl)
+  await page.getByRole('link', { name: 'Začít číst' }).click()
+  const folded = page.locator('details[data-day]')
+  await expect(folded).toHaveCount(1)
+  await expect(folded).not.toHaveAttribute('open', '')
+  await expect(folded.locator('summary')).toContainText('zastávky')
+  // Closed: the day's photos are not on screen; open: they are.
+  await expect(folded.getByRole('list', { name: 'Zastávky dne' })).toBeHidden()
+  await folded.locator('summary').click()
+  await expect(folded.getByRole('list', { name: 'Zastávky dne' })).toBeVisible()
+})
+
+test('the journey page offers to continue where this reader stopped', async ({
+  page,
+}) => {
+  await mockPublicBackend(page)
+  await page.goto(atlasUrl)
+  await expect(page.getByRole('link', { name: 'Začít číst' })).toBeVisible()
+  await page.getByRole('link', { name: 'Začít číst' }).click()
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Přílet a první kroky' }),
+  ).toBeVisible()
+  await page.locator('[data-day]').nth(1).waitFor()
+  await page.evaluate(
+    "document.querySelectorAll('[data-day]')[1]?.scrollIntoView({ block: 'start' })",
+  )
+  // The position is saved once the reader settles on a day.
+  await page.waitForTimeout(1500)
+  await page.goBack()
+  const resume = page.getByRole('link', {
+    name: 'Pokračovat tam, kde jsi skončil',
+  })
+  await expect(resume).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Začít číst' })).toHaveCount(0)
+  await resume.click()
+  await expect(page).toHaveURL(/\/e\/[^/#]+#day-\d{4}-\d{2}-\d{2}$/)
+})

@@ -530,6 +530,7 @@ export const en = {
     filter: {
       label: 'Batch filter',
       all: 'All',
+      junk: 'Likely junk',
       noLocation: 'No location',
       series: 'Series',
       video: 'Videos',
@@ -1452,6 +1453,8 @@ export const en = {
     stopsCount_other: '{{count}} stops',
     ascentUp: '{{m}} m up',
     backToStage: 'Back to the stage',
+    continueReading: 'Continue where you left off',
+    dayExpand: 'Expand day',
     dayStops: 'Stops of the day',
     daysNav: 'Days of the stage',
     emptyStage: 'This stage has no stops or photos yet.',
