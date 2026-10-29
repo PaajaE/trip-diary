@@ -5,7 +5,7 @@
  * huge journeys; production does not have it yet, so it is not used here.
  */
 import type { MediaItem } from '@/entities/media/model/media-library'
-import { pickLocalDay, type PhotoDayZones } from '@trip-diary/core/automation'
+import { pickDay, type PhotoDayZones } from '@trip-diary/core/automation'
 import { buildPhotoDays } from '@/features/journey-workspace/model/workspace-days'
 
 export const MIN_QUERY_LENGTH = 2
@@ -126,7 +126,7 @@ function dayOf(
   if (iso === null) return null
   const time = Date.parse(iso)
   if (Number.isNaN(time)) return null
-  return pickLocalDay(time, homeTz, photoDays.dates, photoDays.zones)
+  return pickDay(time, homeTz, photoDays)
 }
 
 interface Candidate {

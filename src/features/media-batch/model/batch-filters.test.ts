@@ -30,6 +30,7 @@ describe('batch filters', () => {
     const model = buildFilterModel([s1, s2, lone, clip])
     expect(model.counts).toEqual({
       all: 4,
+      junk: 1,
       noLocation: 1,
       series: 2,
       starred: 0,
@@ -44,6 +45,7 @@ describe('batch filters', () => {
       'all',
       'noLocation',
       'series',
+      'junk',
       'video',
     ])
     expect(visibleFilters(buildFilterModel([s1]))).toEqual(['all'])
@@ -101,6 +103,7 @@ describe('uploader filters', () => {
     expect(visibleFilters(model)).toEqual([
       'all',
       'noLocation',
+      'junk',
       uploaderFilter(OTHER),
     ])
     expect(filterCount(model, uploaderFilter(OTHER))).toBe(1)

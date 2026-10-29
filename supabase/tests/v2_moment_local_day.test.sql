@@ -47,11 +47,11 @@ select is(
 select is((select local_day from public.moments where id = 'ea200000-0000-4000-8000-000000000002'), null,
   'a moment without a stored day stays NULL');
 
--- progress: stored day (06-05), zone fallback (Vancouver 06-07), stored (06-10)
+-- progress: stored day (06-05), 04:00 rule fallback (Vancouver 06-07), stored (06-10)
 select is((select days_total from public.journey_progress(array['ea000000-0000-4000-8000-000000000001']::uuid[])), 3,
-  'three days: stored, captured_tz fallback, stored');
+  'three days: stored, 04:00 rule fallback, stored');
 select is((select days_with_note from public.journey_progress(array['ea000000-0000-4000-8000-000000000001']::uuid[])), 2,
-  'notes match the stored day and the captured_tz day, not home_tz midnight');
+  'notes match the stored day and the 04:00-rule day');
 
 -- bad arguments
 select throws_ok($$ select public.set_moment_local_days('ea000000-0000-4000-8000-000000000001',

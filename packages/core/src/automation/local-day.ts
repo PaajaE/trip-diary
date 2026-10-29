@@ -1,3 +1,8 @@
+import {
+  createNightDayResolver,
+  type NightDayResolution,
+} from './night-days.ts'
+
 /**
  * The one definition of "which day does an instant belong to" (mirrors the SQL
  * functions local_day, journey_day_zones and pick_local_day in
@@ -167,6 +172,12 @@ export function majorityZone(zones: readonly string[]): string | null {
 export interface PhotoDayZones {
   /** Photo days (YYYY-MM-DD), ascending. */
   dates: string[]
+  /**
+   * The author's night over all photos (see createNightDayResolver). `pickDay`
+   * uses it to place an instant: the day changes in the middle of the longest
+   * sleep gap, else at 04:00.
+   */
+  night: (time: number, zone: string) => NightDayResolution
   /** Majority zone of each day in `dates`. */
   zones: string[]
 }
@@ -192,5 +203,34 @@ export function photoDayZones(
   const zones = dates.map(
     (date) => majorityZone(byDay.get(date) ?? []) ?? 'UTC',
   )
-  return { dates, zones }
+  const night = createNightDayResolver(
+    photos.flatMap((photo) =>
+      isKnownTimeZone(photo.zone)
+        ? [{ time: photo.instant, zone: photo.zone }]
+        : [],
+    ),
+  )
+  return { dates, night, zones }
+}
+
+/**
+ * Day of an instant by the author's night: the zone is the one pickLocalDay
+ * finds (zone of the photo day, else home), the boundary is the middle of the
+ * longest sleep gap of that night, else 04:00. The one function every screen
+ * and the stored `moments.local_day` use.
+ */
+export function pickDay(
+  instant: number | Date,
+  homeZone: string | null | undefined,
+  photoDays: PhotoDayZones,
+): string {
+  const base = pickLocalDay(instant, homeZone, photoDays.dates, photoDays.zones)
+  const known = photoDays.zones[photoDays.dates.indexOf(base)]
+  const home =
+    homeZone !== undefined && homeZone !== null && isKnownTimeZone(homeZone)
+      ? homeZone
+      : 'UTC'
+  const zone = known !== undefined && isKnownTimeZone(known) ? known : home
+  const time = typeof instant === 'number' ? instant : instant.getTime()
+  return photoDays.night(time, zone).date
 }

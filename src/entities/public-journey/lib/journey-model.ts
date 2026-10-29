@@ -10,7 +10,7 @@ import {
   isKnownTimeZone,
   localDay,
   photoDayZones,
-  pickLocalDay,
+  pickDay,
 } from '@trip-diary/core/automation'
 import { stagePaletteColor } from '@/shared/lib/stage-palette'
 
@@ -34,6 +34,8 @@ export interface JourneyModel {
    * is accepted for call-site compatibility; its zone does not matter.
    */
   dayKeyOf: (iso: string, segment?: PublicSegment | null) => string
+  /** Day a moment belongs to (same rule as `dayKeyOf`, by the start of the moment). */
+  dayOfMoment: (moment: PublicMoment) => string
   /** Days of a stage with moments (nested trips included), chronological. */
   daysOfStage: (stageId: string) => JourneyDay[]
   mediaById: Map<string, PublicMedia>
@@ -215,7 +217,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
     }),
   )
   const dayKeyOf = (iso: string): string =>
-    pickLocalDay(Date.parse(iso), homeZone, photoDays.dates, photoDays.zones)
+    pickDay(Date.parse(iso), homeZone, photoDays)
 
   const dayNoteByDate = new Map(data.dayNotes.map((n) => [n.date, n.body]))
 
@@ -265,6 +267,7 @@ export function buildJourneyModel(data: PublicJourney): JourneyModel {
 
   return {
     dayKeyOf,
+    dayOfMoment: (m) => dayKeyOf(m.startsAt),
     dayNoteByDate,
     daysOfStage,
     childrenOf: (id) => childrenByParent.get(id) ?? [],

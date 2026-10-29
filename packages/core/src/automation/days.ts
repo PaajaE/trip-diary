@@ -150,8 +150,7 @@ export function summarizeZonedDays(
   const nightZones = new Map<string, string>()
   for (const [index, item] of dated.entries()) {
     const assigned = nightDays?.get(item.id)
-    const date =
-      assigned?.date ?? pickLocalDay(item.time, home, dates, zones)
+    const date = assigned?.date ?? pickLocalDay(item.time, home, dates, zones)
     if (assigned !== undefined && !nightZones.has(date)) {
       nightZones.set(date, photos[index]?.zone ?? assigned.timeZone)
     }

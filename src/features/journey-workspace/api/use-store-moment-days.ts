@@ -4,7 +4,10 @@ import { momentQueryKeys } from '@/entities/moment/api/moment-query-keys'
 import { storeMomentLocalDays } from '@/entities/moment/api/moment.repository'
 import { browserZone } from '@/features/journey-workspace/lib/format-range'
 import { useCanEditJourney } from '@/features/journey-workspace/api/use-can-edit-journey'
-import { createMomentDayKeys } from '@/features/journey-workspace/model/workspace-days'
+import {
+  buildTreePhotoDays,
+  dayOf,
+} from '@/features/journey-workspace/model/workspace-days'
 import {
   collectMoments,
   type WorkspaceTree,
@@ -16,9 +19,9 @@ export function momentDaysToStore(
   fallbackTz: string | null,
 ): { day: string; id: string }[] {
   const all = collectMoments(tree)
-  const dayOf = createMomentDayKeys(all, fallbackTz)
+  const photoDays = buildTreePhotoDays(tree, fallbackTz)
   return all.flatMap((entry) => {
-    const day = dayOf(entry)
+    const day = dayOf(entry, fallbackTz, photoDays)
     return day === null || entry.moment.localDay === day
       ? []
       : [{ day, id: entry.moment.id }]

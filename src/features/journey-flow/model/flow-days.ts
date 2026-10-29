@@ -10,7 +10,7 @@
 import {
   centroid,
   deriveStopNames,
-  pickLocalDay,
+  pickDay,
   prepareMedia,
   type GeoPoint,
   type ProbableDuplicate,
@@ -245,7 +245,7 @@ export function buildFlowBase(input: FlowBaseInput): FlowBase {
     if (iso === null) return UNKNOWN_DAY
     const time = Date.parse(iso)
     if (Number.isNaN(time)) return UNKNOWN_DAY
-    return pickLocalDay(time, homeTz, photoDays.dates, photoDays.zones)
+    return pickDay(time, homeTz, photoDays)
   }
   const entries = collectMoments(tree)
   const grouped = groupMomentsByDay(entries, homeTz, photoDays)

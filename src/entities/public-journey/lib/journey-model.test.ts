@@ -60,9 +60,20 @@ describe('day notes in the journey model', () => {
       id: 'morning',
       startsAt: '2026-06-03T15:00:00+00:00',
     }
+    const shot = publicJourneyFixture.media[0]
+    if (shot === undefined) throw new Error('fixture media missing')
+    const photo = (id: string, capturedAt: string) => ({
+      ...shot,
+      capturedAt,
+      capturedTz: 'America/Edmonton',
+      id,
+    })
     const model = buildJourneyModel({
       ...publicJourneyFixture,
-      media: [],
+      media: [
+        photo('p-night', night.startsAt),
+        photo('p-morning', morning.startsAt),
+      ],
       moments: [night, morning],
     })
     expect(model.dayOfMoment(night)).toBe('2026-06-02')

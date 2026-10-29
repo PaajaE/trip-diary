@@ -23,6 +23,7 @@ export {
   localDay,
   majorityZone,
   photoDayZones,
+  pickDay,
   pickLocalDay,
   type PhotoDayZones,
 } from './local-day.ts'

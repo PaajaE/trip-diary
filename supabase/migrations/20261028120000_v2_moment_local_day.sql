@@ -7,14 +7,12 @@
 -- stores it here, so SQL only counts. No second implementation to drift.
 --
 -- * moments.local_day is NULL until the client has stored it. Readers that
---   need a day fall back to the calendar date of starts_at in the zone of the
---   moment's first photo (media.captured_tz), then the journey home_tz, then
---   UTC. Never the viewer's zone.
+--   need a day fall back to the shared 04:00 rule of 20261027120300_v2_local_day
+--   (pick_local_day over the photo days and their zones). Never the viewer's zone.
 -- * No UPDATE grant on the column: it is written only through
 --   set_moment_local_days (editors), which cannot touch any other column.
 --   Direct moment inserts leave it NULL.
--- * journey_progress (D3 of phase 4e) now counts days from local_day with that
---   fallback instead of home_tz midnight. day_notes.local_date keeps being the
+-- * journey_progress now counts days from local_day with that fallback. day_notes.local_date keeps being the
 --   label of the day (the date of waking up).
 -- * Errors as the other editing RPCs: P0002 (journey not found / not a
 --   member), 42501 (not an editor), 22023 (bad argument).
@@ -90,18 +88,10 @@ as $$
     select distinct mo.journey_id,
            coalesce(
              mo.local_day,
-             (mo.starts_at at time zone coalesce(
-               (select md.captured_tz
-                  from public.media md
-                 where md.moment_id = mo.id
-                   and md.captured_tz is not null
-                   and md.deleted_at is null
-                 order by md.captured_at nulls last, md.id
-                 limit 1),
-               m.tz
-             ))::date
+             public.pick_local_day(mo.starts_at, m.tz, z.dates, z.tzs)
            ) as local_date
       from mine m
+      cross join lateral public.journey_day_zones(m.id) z
       join public.moments mo on mo.journey_id = m.id
   ),
   day_counts as (

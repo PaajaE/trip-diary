@@ -22,6 +22,8 @@ export interface NightDayAssignment {
 }
 
 const HOUR_MS = 3_600_000
+/** Samples this close to a night window count as the author being active. */
+const ACTIVITY_MARGIN_MS = 12 * HOUR_MS
 
 const formatters = new Map<string, Intl.DateTimeFormat>()
 function localDate(ms: number, zone: string): string {
@@ -107,7 +109,17 @@ export function createNightDayResolver(
       date,
       reason: 'fallback',
     }
-    if (windowStart !== null && windowEnd !== null) {
+    // A sleep gap needs an author who was active around the night; without
+    // any sample nearby there is nothing to read a gap from.
+    const active =
+      windowStart !== null &&
+      windowEnd !== null &&
+      times.some(
+        (time) =>
+          time > windowStart - ACTIVITY_MARGIN_MS &&
+          time < windowEnd + ACTIVITY_MARGIN_MS,
+      )
+    if (windowStart !== null && windowEnd !== null && active) {
       const edges = [windowStart]
       for (const time of times) {
         if (time > windowStart && time < windowEnd) edges.push(time)
