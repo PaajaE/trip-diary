@@ -156,6 +156,20 @@ describe('summary', () => {
     expect(summarize(popAction(history))).toMatchObject({ toStops: 1 })
   })
 
+  it('"★ Nejlepší" (best) counts as sorted and starred', () => {
+    const history: SortHistory = [
+      act(1, 'best', [a.id], { starred: true }),
+      act(2, 'done', [b.id]),
+    ]
+    expect(handledMap(history).get(a.id)).toBe('done')
+    expect(summarize(history)).toEqual({
+      done: 2,
+      starred: 1,
+      toStops: 0,
+      trashed: 0,
+    })
+  })
+
   it('knows the last sorted day, the next day and whether the day is done', () => {
     const session = buildSession([a, b, c, d])
     const history: SortHistory = [

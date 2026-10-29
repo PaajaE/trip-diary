@@ -148,6 +148,34 @@ export async function assignMediaBatchToMoment(
   }
 }
 
+/**
+ * Moves media into `momentId` (null = no stop) ONLY where they still are in
+ * `expectedFrom` (null = no stop), so a photo the user moved meanwhile is
+ * never overwritten by automation or its undo. Trashed rows are left alone.
+ * Resolves with the ids that actually moved.
+ */
+export async function moveMediaIfUnchanged(
+  mediaIds: readonly string[],
+  momentId: string | null,
+  expectedFrom: string | null,
+): Promise<string[]> {
+  if (mediaIds.length === 0) return []
+  const base = getSupabaseClient()
+    .from('media')
+    .update({ moment_id: momentId })
+    .in('id', [...mediaIds])
+    .is('deleted_at', null)
+  const filtered =
+    expectedFrom === null
+      ? base.is('moment_id', null)
+      : base.eq('moment_id', expectedFrom)
+  const { data, error } = await filtered.select('id')
+  if (error !== null) {
+    throw new MediaLibraryError('update_failed', error.message, error)
+  }
+  return data.map((row) => row.id)
+}
+
 /** Detaches many media from their moments (Undo of a move from "no moment"). */
 export async function detachMediaFromMoment(
   mediaIds: readonly string[],

@@ -62,6 +62,7 @@ describe('JourneyTabs', () => {
       .map((item) => item.textContent.trim())
     expect(names).toEqual([
       'Journey',
+      'New days',
       'Sorting',
       'Add',
       'Note',

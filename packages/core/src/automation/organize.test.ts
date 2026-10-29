@@ -78,10 +78,33 @@ function applyPlan(
     endsAt: m.endsAt,
     id: m.id,
     kind: m.kind,
+    latitude: m.latitude,
     locked: false,
+    longitude: m.longitude,
     origin: 'auto',
     startsAt: m.startsAt,
   }))
+  const updated = new Map(plan.momentsToUpdate.map((m) => [m.id, m]))
+  const extended = new Map(plan.momentsToExtend.map((m) => [m.id, m]))
+  const kept = input.moments
+    .filter((m) => !dropped.has(m.id))
+    .map((m): OrganizeMoment => {
+      const update = updated.get(m.id)
+      if (update !== undefined) {
+        return {
+          ...m,
+          endsAt: update.endsAt,
+          kind: update.kind,
+          latitude: update.latitude,
+          longitude: update.longitude,
+          startsAt: update.startsAt,
+        }
+      }
+      const extension = extended.get(m.id)
+      return extension === undefined
+        ? m
+        : { ...m, endsAt: extension.endsAt, startsAt: extension.startsAt }
+    })
   const droppedSegments = new Set(plan.segmentsToDelete)
   const segments: OrganizeSegment[] = [
     ...input.segments.filter((s) => !droppedSegments.has(s.id)),
@@ -101,7 +124,7 @@ function applyPlan(
       ...item,
       momentId: assigned.get(item.id) ?? item.momentId,
     })),
-    moments: [...input.moments.filter((m) => !dropped.has(m.id)), ...created],
+    moments: [...kept, ...created],
     segments,
   }
 }
@@ -242,8 +265,13 @@ describe('planOrganization', () => {
       },
       options(),
     )
-    expect(plan.momentsToDelete.sort()).toEqual(['empty-auto', 'old-auto'])
-    expect(plan.momentsToCreate).toHaveLength(2)
+    // Stable id: x1 is still the oldest photo of old-auto's stop, so the
+    // moment is kept (updated); x3 (next day) gets a stop of its own.
+    expect(plan.momentsToDelete).toEqual(['empty-auto'])
+    expect(plan.momentsToUpdate.map((m) => [m.id, m.mediaIds])).toEqual([
+      ['old-auto', ['x1', 'x2']],
+    ])
+    expect(plan.momentsToCreate.map((m) => m.mediaIds)).toEqual([['x3']])
   })
 
   it('leaves media without capture time untouched and keeps their moment', () => {
@@ -289,9 +317,14 @@ describe('planOrganization', () => {
       },
       options(),
     )
-    // The moment still holds undated u1, so it is kept; u1/u2 never move.
+    // d1 is still the oldest photo: the moment keeps its id and takes d2 in;
+    // u1/u2 never move.
     expect(moved.momentsToDelete).toEqual([])
-    expect(moved.mediaReassignments.map((r) => r.mediaId)).toEqual(['d1', 'd2'])
+    expect(moved.momentsToCreate).toEqual([])
+    expect(moved.momentsToUpdate.map((m) => m.id)).toEqual(['auto-u'])
+    expect(moved.mediaReassignments).toEqual([
+      { mediaId: 'd2', momentId: 'auto-u' },
+    ])
   })
 
   it('is idempotent: planning on its own result gives an empty plan', () => {
@@ -756,7 +789,7 @@ describe('planOrganization ZS-4', () => {
     expect(isPlanEmpty(again)).toBe(true)
   })
 
-  it('recreates an auto moment whose stored kind no longer fits', () => {
+  it('updates the kind of an auto moment whose stored kind no longer fits (stable id)', () => {
     const input = empty(trekMedia())
     const plan = planOrganization(input, options())
     const next = applyPlan(input, plan)
@@ -765,8 +798,22 @@ describe('planOrganization ZS-4', () => {
       moments: next.moments.map((moment) => ({ ...moment, kind: 'stay' })),
     }
     const again = planOrganization(stale, options(counterIds('again')))
-    expect(again.momentsToCreate).toHaveLength(1)
-    expect(again.momentsToDelete).toEqual(next.moments.map((m) => m.id))
+    expect(again.momentsToCreate).toEqual([])
+    expect(again.momentsToDelete).toEqual([])
+    expect(again.momentsToUpdate.length).toBeGreaterThan(0)
+    expect(again.momentsToUpdate.map((m) => [m.id, m.kind])).toEqual(
+      next.moments
+        .filter((m) => plan.momentsToCreate.some((p) => p.id === m.id))
+        .map((m) => [
+          m.id,
+          plan.momentsToCreate.find((p) => p.id === m.id)?.kind,
+        ])
+        .filter(([, kind]) => kind !== 'stay'),
+    )
+    const settled = applyPlan(stale, again)
+    expect(
+      isPlanEmpty(planOrganization(settled, options(counterIds('third')))),
+    ).toBe(true)
   })
 
   it('does not suggest an in-day trip again over a rejected one', () => {
@@ -857,7 +904,7 @@ describe('planOrganization ZS-4', () => {
         },
         options(),
       )
-      return plan.momentsToCreate.map(
+      return [...plan.momentsToCreate, ...plan.momentsToUpdate].map(
         (m) => `${m.kind}:${String(m.mediaIds.length)}`,
       )
     }
@@ -938,7 +985,11 @@ describe('planOrganization ZS-4', () => {
       },
       options(),
     )
-    expect(plain.momentsToDelete).toEqual(['plain'])
+    // stable id: it is updated (kind), not recreated
+    expect(plain.momentsToDelete).toEqual([])
+    expect(plain.momentsToUpdate.map((m) => [m.id, m.kind])).toEqual([
+      ['plain', 'en_route'],
+    ])
   })
 
   it('does not merge in-day trips of different types or chain overlaps', () => {

@@ -1,99 +1,115 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { momentQueryKeys } from '@/entities/moment/api/moment-query-keys'
-import { setMomentPlaceIfEmpty } from '@/entities/moment/api/moment.repository'
 import type { Moment } from '@/entities/moment/model/moment'
 import { putPlaceInCache } from '@/entities/place/api/use-journey-places'
-import { resolvePlace } from '@/entities/place/api/place.repository'
+import type { Place } from '@/entities/place/model/place'
+import {
+  needsPlace,
+  resolveMissingPlaces,
+} from '@/features/journey-workspace/api/resolve-places'
+
+interface Session {
+  attempted: Set<string>
+  cancelled: boolean
+  running: boolean
+}
 
 export interface PlaceResolveProgress {
   done: number
   total: number
 }
 
-/** Stop the job after this many failures in a row (offline, quota, ...). */
-const MAX_CONSECUTIVE_FAILURES = 3
-
-function needsPlace(moment: Moment): boolean {
-  return (
-    moment.placeId === null &&
-    moment.latitude !== null &&
-    moment.longitude !== null
-  )
-}
-
 /**
  * Background job: gives moments that have coordinates but no place a place
- * name. Strictly sequential (the server allows one geocoder request per
- * second), skips a moment after a failure instead of retrying, never
- * overrides an existing place, and stops when the component unmounts. Runs
- * once per mount when `enabled` turns true.
+ * name (`resolveMissingPlaces`: one lookup per ~110 m cell (the server cache key), visible day first, paced,
+ * sequential, never overriding a place). It runs again whenever new stops
+ * without a place appear (e.g. right after "Organize automatically"), skips
+ * stops it already tried in this session (no retry loop), and stops when
+ * the component unmounts.
  */
 export function useResolveMissingPlaces(
   journeyId: string,
   moments: readonly Moment[] | undefined,
   enabled: boolean,
+  focusDayKey: string | null = null,
 ): PlaceResolveProgress | null {
   const client = useQueryClient()
   const [progress, setProgress] = useState<PlaceResolveProgress | null>(null)
-  const latest = useRef(moments)
+  // Re-checks for new waiting stops after a run (e.g. organize added some).
+  const [round, setRound] = useState(0)
+  const cache = useRef(new Map<string, Place | null>())
+  const focus = useRef(focusDayKey)
   useEffect(() => {
-    latest.current = moments
-  }, [moments])
-  const ready = enabled && moments !== undefined
+    focus.current = focusDayKey
+  }, [focusDayKey])
+  /**
+   * One session per journey while enabled: its own cancel flag, attempted
+   * set and running flag. Switching the journey or disabling cancels the old
+   * session's run; a moments update (a place just saved) does not.
+   */
+  const session = useRef<Session | null>(null)
+  useEffect(() => {
+    if (!enabled) return
+    const current: Session = {
+      attempted: new Set(),
+      cancelled: false,
+      running: false,
+    }
+    session.current = current
+    return () => {
+      current.cancelled = true
+      if (session.current === current) session.current = null
+    }
+  }, [client, enabled, journeyId])
 
   useEffect(() => {
-    if (!ready) return
-    let cancelled = false
-    const stopped = () => cancelled
-    const attempted = new Set<string>()
+    const current = session.current
+    if (!enabled || moments === undefined || current === null) return
+    if (current.running || current.cancelled) return
+    const todo = moments.filter(
+      (m) => needsPlace(m) && !current.attempted.has(m.id),
+    )
+    if (todo.length === 0) return
+    for (const m of todo) current.attempted.add(m.id)
+    current.running = true
+    const stopped = () => current.cancelled
     const run = async () => {
-      const total = (latest.current ?? []).filter(needsPlace).length
-      if (total === 0) return
-      let done = 0
-      let failures = 0
-      setProgress({ done, total })
-      for (;;) {
-        const next = (latest.current ?? []).find(
-          (m) => needsPlace(m) && !attempted.has(m.id),
-        )
-        if (next === undefined || stopped()) break
-        attempted.add(next.id)
-        try {
-          if (next.latitude === null || next.longitude === null) continue
-          const place = await resolvePlace(next.latitude, next.longitude)
-          if (stopped()) break
-          failures = 0
-          if (place !== null) {
-            putPlaceInCache(client, journeyId, place)
-            const saved = await setMomentPlaceIfEmpty(next.id, place.id)
-            if (stopped()) break
-            if (saved) {
+      setProgress({ done: 0, total: todo.length })
+      try {
+        await resolveMissingPlaces(
+          todo,
+          {
+            cache: cache.current,
+            onPlace: (momentId, place) => {
+              putPlaceInCache(client, journeyId, place)
               client.setQueryData<Moment[]>(
                 momentQueryKeys.journey(journeyId),
                 (old) =>
                   old?.map((m) =>
-                    m.id === next.id && m.placeId === null
+                    m.id === momentId && m.placeId === null
                       ? { ...m, placeId: place.id }
                       : m,
                   ),
               )
-            }
-          }
-        } catch {
-          failures += 1
-          if (failures >= MAX_CONSECUTIVE_FAILURES) break
-        }
-        done += 1
-        if (!stopped()) setProgress({ done, total: Math.max(total, done) })
+            },
+            onProgress: (done, total) => {
+              if (!stopped()) setProgress({ done, total })
+            },
+            stopped,
+          },
+          { focusDayKey: focus.current },
+        )
+      } finally {
+        current.running = false
+        // A cancelled run leaves the progress to a session that follows;
+        // without one (disabled) the progress is cleared.
+        if (!stopped() || session.current === null) setProgress(null)
+        if (!stopped()) setRound((value) => value + 1)
       }
-      if (!stopped()) setProgress(null)
     }
     void run()
-    return () => {
-      cancelled = true
-    }
-  }, [client, journeyId, ready])
+  }, [client, enabled, journeyId, moments, round])
 
   return progress
 }

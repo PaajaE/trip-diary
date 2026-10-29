@@ -38,6 +38,7 @@ export interface MomentPatch {
   body?: string
   coverMediaId?: string | null
   endsAt?: string
+  kind?: MomentKind
   latitude?: number | null
   locked?: boolean
   longitude?: number | null

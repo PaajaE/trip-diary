@@ -12,6 +12,9 @@ import {
   LazyCreateJourneyPage,
   LazyDashboardPage,
   LazyJourneyBatchRoutePage,
+  LazyJourneyFlowDayRoutePage,
+  LazyJourneyFlowRoutePage,
+  LazyJourneyFlowSortRoutePage,
   LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
@@ -166,6 +169,27 @@ const journeyBatchRoute = createRoute({
   component: LazyJourneyBatchRoutePage,
 })
 
+const journeyFlowRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow',
+  component: LazyJourneyFlowRoutePage,
+})
+
+const journeyFlowDayRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow/$dayKey',
+  component: LazyJourneyFlowDayRoutePage,
+})
+
+const journeyFlowSortRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow/$dayKey/sort',
+  component: LazyJourneyFlowSortRoutePage,
+})
+
 const tipsRoute = createRoute({
   beforeLoad: requireAuth,
   getParentRoute: () => rootRoute,
@@ -272,6 +296,9 @@ const routeTree = rootRoute.addChildren([
   journeyTrashRoute,
   journeyImportRoute,
   journeyBatchRoute,
+  journeyFlowRoute,
+  journeyFlowDayRoute,
+  journeyFlowSortRoute,
   journeyQuickNoteRoute,
   spacesRoute,
   tipsRoute,

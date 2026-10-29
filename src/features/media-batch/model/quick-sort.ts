@@ -15,6 +15,8 @@ export type SortActionType =
   | 'moveTo'
   | 'newStop'
   | 'done'
+  /** "★ Nejlepší" of the day sorting: kept (sorted) and starred in one step. */
+  | 'best'
   | 'star'
   | 'unstar'
 
@@ -31,6 +33,8 @@ export interface SortAction {
   createdMomentId?: string | null
   /** Still being saved: Undo waits for it. */
   pending?: boolean
+  /** best: the step turned ★ on (Undo turns it off again). */
+  starred?: boolean
 }
 
 export type SortHistory = readonly SortAction[]
@@ -103,6 +107,7 @@ export function outcomeOf(type: SortActionType): SortOutcome | null {
     case 'newStop':
       return 'stop'
     case 'done':
+    case 'best':
       return 'done'
     case 'star':
     case 'unstar':
@@ -253,7 +258,7 @@ export function summarize(history: SortHistory): QuickSortSummary {
   const starred = new Set<string>()
   for (const action of history) {
     for (const id of action.ids) {
-      if (action.type === 'star') starred.add(id)
+      if (action.type === 'star' || action.type === 'best') starred.add(id)
       if (action.type === 'unstar') starred.delete(id)
     }
   }

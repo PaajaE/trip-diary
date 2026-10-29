@@ -137,7 +137,7 @@ describe('buildMoveStops', () => {
     ],
   )
 
-  it('uses the place name, a lookup placeholder, then "Stop N"; never a made-up time title', async () => {
+  it('uses the place name, a lookup placeholder, then the time of day; never a made-up time title', async () => {
     await i18n.changeLanguage('cs')
     const t = i18n.t.bind(i18n)
     const unknown = buildMoveStops(tree, t, 'cs')
@@ -151,7 +151,8 @@ describe('buildMoveStops', () => {
     expect(named.map((s) => [s.title, s.pending])).toEqual([
       ['Banff', false],
       ['Manual', false],
-      ['Zastávka 3', false],
+      // 2026-01-03 12:00 UTC is a Saturday afternoon (no place, no GPS)
+      ['sobota odpoledne', false],
     ])
     expect(named[0]?.placeName).toBe('Banff')
     expect(named[1]?.placeName).toBeNull()

@@ -12,7 +12,13 @@ export function WorkspaceDialog({
   children,
   onClose,
   title,
-}: PropsWithChildren<{ onClose: () => void; title: string }>) {
+  wide = false,
+}: PropsWithChildren<{
+  onClose: () => void
+  title: string
+  /** Roomier panel for sheets with lists (flow screens). */
+  wide?: boolean
+}>) {
   const titleId = useId()
   const ref = useRef<HTMLDivElement>(null)
   const onCloseRef = useRef(onClose)
@@ -57,7 +63,7 @@ export function WorkspaceDialog({
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-background px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-xl"
+        className={`max-h-[85dvh] w-full ${wide ? 'max-w-2xl' : 'max-w-md'} overflow-y-auto rounded-t-2xl bg-background px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl sm:rounded-xl`}
         ref={ref}
         role="dialog"
       >

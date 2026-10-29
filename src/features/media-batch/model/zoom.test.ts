@@ -11,6 +11,8 @@ import {
   translateOf,
   viewForPane,
   zoomAt,
+  zoomLevelOf,
+  zoomToLevel,
 } from '@/features/media-batch/model/zoom'
 
 const pane = { h: 600, w: 800 }
@@ -104,5 +106,23 @@ describe('pan and clamp', () => {
       0.5 / 1.2,
     )
     expect(clampView({ cx: 0.9, cy: 0.9, k: 1 }, fit, pane)).toEqual(FIT_VIEW)
+  })
+})
+
+describe('zoom presets (Celá · 100 % · 200 %)', () => {
+  it('jumps to a preset in real scale and reads it back', () => {
+    const at100 = zoomToLevel(FIT_VIEW, 1, fit, pane, fs)
+    expect(at100.k * fs).toBeCloseTo(1)
+    expect(zoomLevelOf(at100.k, fs)).toBe(1)
+    const at200 = zoomToLevel(at100, 2, fit, pane, fs)
+    expect(zoomLevelOf(at200.k, fs)).toBe(2)
+    expect(zoomToLevel(at200, 'fit', fit, pane, fs)).toEqual(FIT_VIEW)
+    expect(zoomLevelOf(1, fs)).toBe('fit')
+  })
+
+  it('is between presets after a pinch, and fit for a small photo', () => {
+    expect(zoomLevelOf(1.5 / fs, fs)).toBeNull()
+    // Fitted above 100 %: the 100 % preset shows the whole photo.
+    expect(zoomToLevel(FIT_VIEW, 1, fit, pane, 1.5)).toEqual(FIT_VIEW)
   })
 })

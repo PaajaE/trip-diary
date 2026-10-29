@@ -61,6 +61,18 @@ interface CachedProfileRecord {
   userId: string
 }
 
+/**
+ * Last automatic organisation of a journey ("Vrátit uspořádání"). `data` is
+ * validated with Zod on every read (features/journey-organize); one row per
+ * journey, the newest run replaces the older one.
+ */
+export interface OrganizeSnapshotRecord {
+  data: unknown
+  journeyId: string
+  /** Signed-in user the snapshot belongs to (absent in pre-scope rows). */
+  userId?: string
+}
+
 interface DeletedRecord {
   creatorId: string
   deletedAt: string
@@ -85,6 +97,7 @@ class TripDiaryDatabase extends Dexie {
   localNatureObservations!: EntityTable<LocalNatureObservation, 'id'>
   natureGuideCache!: EntityTable<NatureGuideCacheRecord, 'id'>
   localPhotoTagAssignments!: EntityTable<LocalPhotoTagAssignment, 'key'>
+  organizeSnapshots!: EntityTable<OrganizeSnapshotRecord, 'journeyId'>
   photos!: EntityTable<LocalPhoto, 'id'>
   photoVariants!: EntityTable<LocalPhotoVariant, 'id'>
   syncOperations!: EntityTable<SyncOperation, 'id'>
@@ -298,6 +311,31 @@ class TripDiaryDatabase extends Dexie {
       localNatureObservations:
         'id, journeyId, creatorId, syncStatus, createdAt',
       natureGuideCache: 'id, journeyId, fetchedAt',
+      localPhotoTagAssignments:
+        'key, photoId, journeyId, creatorId, tagId, syncStatus',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+      uploadJobs: 'id, journeyId, ownerId, state, updatedAt',
+    })
+    this.version(18).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      deletedRecords: 'id, kind, creatorId, deletedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localChecklistItems: 'id, journeyId, creatorId, syncStatus, position',
+      importCursors: 'key, journeyId',
+      localJourneyGuides: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStages: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStops: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      localNatureObservations:
+        'id, journeyId, creatorId, syncStatus, createdAt',
+      natureGuideCache: 'id, journeyId, fetchedAt',
+      organizeSnapshots: 'journeyId',
       localPhotoTagAssignments:
         'key, photoId, journeyId, creatorId, tagId, syncStatus',
       photos: 'id, entryId, creatorId, syncStatus, createdAt',

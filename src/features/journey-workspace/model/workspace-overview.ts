@@ -1,3 +1,4 @@
+import type { HierarchyDepth } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { Segment } from '@/entities/segment/model/segment'
 import { pickThumbVariant } from '@/features/journey-workspace/lib/media-thumb'
@@ -26,6 +27,10 @@ import {
   momentsUnderWrittenSegments,
   type WorkspaceTasks,
 } from '@/features/journey-workspace/model/workspace-tasks'
+import {
+  withoutStageLevel,
+  workspaceDepth,
+} from '@/features/journey-workspace/model/workspace-depth'
 import {
   buildTimeline,
   collectMoments,
@@ -99,6 +104,11 @@ export interface WorkspaceOverview {
   days: MomentDay[]
   /** Day key of every moment. */
   dayOfMoment: ReadonlyMap<string, string>
+  /**
+   * Levels shown for the size of the journey (ZS-6). Without a stage level
+   * the chapters hold no suggested stages (they are dissolved).
+   */
+  depth: HierarchyDepth
   firstDay: string | null
   strip: StripDay[]
   tasks: WorkspaceTasks
@@ -218,6 +228,12 @@ export function buildOverview(
   const firstDay = firstDayKey(all, fallbackTz, photoDays)
   const written = momentsUnderWrittenSegments(tree)
   const days = groupMomentsByDay(all, fallbackTz, photoDays)
+  // An empty level is not shown: no stage level = suggested stages dissolve.
+  // All photo days count (also days whose photos are not in a stop yet).
+  const depth = workspaceDepth(tree, [
+    ...new Set([...photoDays.dates, ...days.map((day) => day.key)]),
+  ])
+  const shown = depth.stageMode === 'none' ? withoutStageLevel(tree) : tree
   const dayOfMoment = new Map<string, string>()
   for (const day of days)
     for (const entry of day.moments) dayOfMoment.set(entry.moment.id, day.key)
@@ -240,7 +256,7 @@ export function buildOverview(
 
   const chapters: OverviewChapter[] = []
   let colored = 0
-  for (const entry of buildTimeline(tree)) {
+  for (const entry of buildTimeline(shown)) {
     const loose = entry.kind === 'loose'
     const moments = loose ? entry.moments : flattenMoments(entry.node)
     const cover = loose ? (moments[0]?.cover ?? null) : entry.node.cover
@@ -297,8 +313,10 @@ export function buildOverview(
     chapters,
     dayOfMoment,
     days,
+    depth,
     firstDay,
     strip,
-    tasks: computeTasks(tree, days, noteDays),
+    // Text counts on the full tree; hidden suggestions are not offered.
+    tasks: computeTasks(tree, days, noteDays, shown),
   }
 }

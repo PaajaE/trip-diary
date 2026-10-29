@@ -9,11 +9,13 @@ import { getJourneyHomeTz } from '@/entities/journey/api/journey-home-tz.reposit
 import {
   assignMediaBatchToMoment,
   listJourneyMedia,
+  moveMediaIfUnchanged,
 } from '@/entities/media/api/media-library.repository'
 import {
   createMoments,
   deleteAutoMoments,
   listJourneyMoments,
+  updateMoment,
 } from '@/entities/moment/api/moment.repository'
 import { listPlacesByIds } from '@/entities/place/api/place.repository'
 import { derivePlace } from '@/features/journey-organize/lib/place-kind'
@@ -22,6 +24,10 @@ import {
   deleteSuggestedSegments,
   listJourneySegmentsIncludingRejected,
 } from '@/entities/segment/api/segment.repository'
+import type { MediaItem } from '@/entities/media/model/media-library'
+import type { Moment } from '@/entities/moment/model/moment'
+import type { Place } from '@/entities/place/model/place'
+import type { Segment } from '@/entities/segment/model/segment'
 import { getCurrentUserId } from '@/shared/api/current-user'
 
 export type OrganizeStep =
@@ -31,6 +37,7 @@ export type OrganizeStep =
   | 'deleteMoments'
   | 'deleteSegments'
   | 'load'
+  | 'updateMoments'
 
 /** Typed failure naming the step that stopped the run. */
 export class OrganizeError extends Error {
@@ -50,6 +57,10 @@ export interface OrganizeCounts {
   mediaReassigned: number
   momentsCreated: number
   momentsDeleted: number
+  /** Confirmed stops that grew to take in new photos. */
+  momentsExtended: number
+  /** Auto stops that kept their id but changed (range, kind, members). */
+  momentsUpdated: number
   segmentsDeleted: number
   stagesCreated: number
   tripsCreated: number
@@ -68,6 +79,8 @@ export type OrganizeResult =
 
 export interface OrganizeDeps {
   assignMedia: typeof assignMediaBatchToMoment
+  /** Conditional move used when the planned-on state is known. */
+  moveIfUnchanged: typeof moveMediaIfUnchanged
   chunkSize: number
   createMoments: typeof createMoments
   createSegments: typeof createSegments
@@ -84,6 +97,7 @@ export interface OrganizeDeps {
   newId: () => string
   onProgress?: (progress: OrganizeProgress) => void
   segmentTitle: (input: SegmentTitleInput) => string
+  updateMoment: typeof updateMoment
 }
 
 export function defaultSegmentTitle(input: SegmentTitleInput): string {
@@ -97,6 +111,7 @@ export function resolveDeps(
 ): OrganizeDeps {
   return {
     assignMedia: assignMediaBatchToMoment,
+    moveIfUnchanged: moveMediaIfUnchanged,
     chunkSize: 100,
     createMoments,
     createSegments,
@@ -110,6 +125,7 @@ export function resolveDeps(
     listSegments: listJourneySegmentsIncludingRejected,
     newId: () => crypto.randomUUID(),
     segmentTitle: defaultSegmentTitle,
+    updateMoment,
     ...overrides,
   }
 }
@@ -122,15 +138,21 @@ function chunks<T>(items: readonly T[], size: number): T[][] {
   return out
 }
 
-/**
- * Dry run: loads the journey and plans, without writing anything. Hand-made
- * data (locked/manual moments, manual/accepted/rejected segments) is passed
- * to the planner, which never changes it.
- */
-export async function previewOrganization(
+/** What the planner reads: the stored journey as it is right now. */
+export interface OrganizeState {
+  homeTz: string | null
+  media: MediaItem[]
+  moments: Moment[]
+  places: ReadonlyMap<string, Place>
+  /** All segments, rejected suggestions included. */
+  segments: Segment[]
+}
+
+/** Loads everything the planner (and the undo snapshot) needs. */
+export async function loadOrganizeState(
   journeyId: string,
   overrides: Partial<OrganizeDeps> = {},
-): Promise<OrganizationPlan> {
+): Promise<OrganizeState> {
   const deps = resolveDeps(overrides)
   try {
     const [media, moments, segments, homeTz] = await Promise.all([
@@ -149,6 +171,33 @@ export async function previewOrganization(
         : await deps.listPlaces(placeIds).catch(() => [])
       ).map((place) => [place.id, place]),
     )
+    return { homeTz, media, moments, places, segments }
+  } catch (error) {
+    throw new OrganizeError('load', error)
+  }
+}
+
+/**
+ * Dry run: loads the journey and plans, without writing anything. Hand-made
+ * data (locked/manual moments, manual/accepted/rejected segments) is passed
+ * to the planner, which never changes it.
+ */
+export async function previewOrganization(
+  journeyId: string,
+  overrides: Partial<OrganizeDeps> = {},
+): Promise<OrganizationPlan> {
+  const state = await loadOrganizeState(journeyId, overrides)
+  return planFromState(state, overrides)
+}
+
+/** Plans from an already loaded state (pure apart from `newId`). */
+export function planFromState(
+  state: OrganizeState,
+  overrides: Partial<OrganizeDeps> = {},
+): OrganizationPlan {
+  const deps = resolveDeps(overrides)
+  const { homeTz, media, moments, places, segments } = state
+  try {
     return planOrganization(
       {
         media: media
@@ -183,7 +232,9 @@ export async function previewOrganization(
             endsAt: moment.endsAt,
             id: moment.id,
             kind: moment.kind,
+            latitude: moment.latitude,
             locked: moment.locked,
+            longitude: moment.longitude,
             origin: moment.origin,
             ...(derived === undefined
               ? {}
@@ -219,29 +270,47 @@ export async function previewOrganization(
   }
 }
 
+function emptyCounts(): OrganizeCounts {
+  return {
+    mediaReassigned: 0,
+    momentsCreated: 0,
+    momentsDeleted: 0,
+    momentsExtended: 0,
+    momentsUpdated: 0,
+    segmentsDeleted: 0,
+    stagesCreated: 0,
+    tripsCreated: 0,
+  }
+}
+
 /**
  * Applies a plan through repositories. Order (each step is safe to rerun
  * after a failure because a rerun re-plans from the stored state):
- * create moments, move media, delete orphaned auto moments, delete old
- * suggested segments, insert fresh suggested segments. Stops at the first
- * failing step.
+ * create moments, move media, then update kept auto moments and grow
+ * confirmed ones (range only, never text, cover or lock; written after the
+ * media so a range never grows without its photos), delete orphaned auto
+ * moments, delete old suggested segments, insert fresh suggested segments.
+ * Stops at the first failing step. The automation writes no title: names
+ * come from the place (see stop-names in core), resolved afterwards by the
+ * workspace job (useResolveMissingPlaces).
  */
 export async function applyOrganizationPlan(
   journeyId: string,
   plan: OrganizationPlan,
   overrides: Partial<OrganizeDeps> = {},
+  /**
+   * Where each media item was when the plan was made (from the planned-on
+   * state). When given, a photo moves only if it is still there, so a photo
+   * the user moved during the run is never overwritten.
+   */
+  plannedFrom?: ReadonlyMap<string, string | null>,
 ): Promise<OrganizeResult> {
   const deps = resolveDeps(overrides)
-  const counts: OrganizeCounts = {
-    mediaReassigned: 0,
-    momentsCreated: 0,
-    momentsDeleted: 0,
-    segmentsDeleted: 0,
-    stagesCreated: 0,
-    tripsCreated: 0,
-  }
+  const counts = emptyCounts()
   const total =
     plan.momentsToCreate.length +
+    plan.momentsToUpdate.length +
+    plan.momentsToExtend.length +
     plan.mediaReassignments.length +
     plan.momentsToDelete.length +
     plan.segmentsToDelete.length +
@@ -276,18 +345,59 @@ export async function applyOrganizationPlan(
     }
 
     step = 'assignMedia'
-    const byMoment = new Map<string, string[]>()
+    // Grouped by target and, when known, by where the media were planned.
+    const groups = new Map<
+      string,
+      { from: string | null | undefined; ids: string[]; to: string }
+    >()
     for (const { mediaId, momentId } of plan.mediaReassignments) {
-      const list = byMoment.get(momentId)
-      if (list === undefined) byMoment.set(momentId, [mediaId])
-      else list.push(mediaId)
+      const from =
+        plannedFrom === undefined
+          ? undefined
+          : (plannedFrom.get(mediaId) ?? null)
+      const key = `${momentId}|${from === undefined ? '*' : (from ?? '-')}`
+      const group = groups.get(key)
+      if (group === undefined)
+        groups.set(key, { from, ids: [mediaId], to: momentId })
+      else group.ids.push(mediaId)
     }
-    for (const [momentId, mediaIds] of byMoment) {
-      for (const part of chunks(mediaIds, deps.chunkSize)) {
-        await deps.assignMedia(part, momentId)
-        counts.mediaReassigned += part.length
+    for (const { from, ids, to } of groups.values()) {
+      for (const part of chunks(ids, deps.chunkSize)) {
+        if (from === undefined) {
+          await deps.assignMedia(part, to)
+          counts.mediaReassigned += part.length
+        } else {
+          const moved = await deps.moveIfUnchanged(part, to, from)
+          counts.mediaReassigned += moved.length
+        }
         advance(step, part.length)
       }
+    }
+
+    step = 'updateMoments'
+    // After the media moved: a range never grows without its photos, so an
+    // interrupted run cannot let the next one chain the intake window.
+    for (const moment of plan.momentsToUpdate) {
+      await deps.updateMoment(moment.id, {
+        endsAt: moment.endsAt,
+        kind: moment.kind,
+        latitude: moment.latitude,
+        longitude: moment.longitude,
+        // Moved far: the old place is wrong; the place job looks it up again.
+        ...(moment.clearPlace === true ? { placeId: null } : {}),
+        startsAt: moment.startsAt,
+      })
+      counts.momentsUpdated += 1
+      advance(step, 1)
+    }
+    for (const extension of plan.momentsToExtend) {
+      // Range only: a pure range patch does not touch text, cover or lock.
+      await deps.updateMoment(extension.id, {
+        endsAt: extension.endsAt,
+        startsAt: extension.startsAt,
+      })
+      counts.momentsExtended += 1
+      advance(step, 1)
     }
 
     step = 'deleteMoments'
@@ -340,14 +450,7 @@ export async function organizeJourney(
   journeyId: string,
   deps: Partial<OrganizeDeps> = {},
 ): Promise<OrganizeResult> {
-  const empty: OrganizeCounts = {
-    mediaReassigned: 0,
-    momentsCreated: 0,
-    momentsDeleted: 0,
-    segmentsDeleted: 0,
-    stagesCreated: 0,
-    tripsCreated: 0,
-  }
+  const empty = emptyCounts()
   let plan: OrganizationPlan
   try {
     plan = await previewOrganization(journeyId, deps)

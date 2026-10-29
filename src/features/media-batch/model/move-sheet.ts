@@ -3,7 +3,11 @@
  * shows about each, the stop nearest in time to the selection (for the
  * previous / next buttons), the suggested stop and where a new stop would be.
  */
-import { distanceKm, suggestStop } from '@trip-diary/core/automation'
+import {
+  deriveStopNames,
+  distanceKm,
+  suggestStop,
+} from '@trip-diary/core/automation'
 import type { TFunction } from 'i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import {
@@ -39,7 +43,7 @@ export interface MoveSheetStop {
   /** Name of the stop's place when it has a known one (not a manual title). */
   placeName: string | null
   startsAt: string
-  /** Title, else place name, else "Looking up the place…" / "Stop N". */
+  /** Title, else derived name (place, "near city", "Thursday afternoon"), or "Looking up the place…". */
   title: string
   /** Clock time in the stop's zone: one time for a single shot, else a range. */
   when: string
@@ -80,9 +84,38 @@ export function buildMoveStops(
   ))
     for (const entry of day.moments) dayOf.set(entry.moment.id, day.key)
 
+  // Names without a stored title come from the place, else the time of day;
+  // equal names of one day are told apart (plan 4f, point 9).
+  const names = deriveStopNames(
+    entries.map((entry) => {
+      const { latitude, longitude, placeId } = entry.moment
+      const placeName =
+        placeId === null ? '' : (placeNames.get(placeId)?.trim() ?? '')
+      const dayKey = dayOf.get(entry.moment.id)
+      return {
+        ...(dayKey === undefined ? {} : { dayKey }),
+        id: entry.moment.id,
+        place: placeName === '' ? null : { name: placeName },
+        placePending:
+          placeName === '' &&
+          (placeId !== null || (latitude !== null && longitude !== null)),
+        startsAt: entry.moment.startsAt,
+        timeZone: entry.tz ?? homeTz,
+        title: entry.moment.title,
+      }
+    }),
+  )
+
   return entries.map((entry, index) => {
     const { moment } = entry
-    const label = stopLabel(entry, placeNames, t, index + 1)
+    const name = names.get(moment.id)
+    const label = stopLabel(
+      entry,
+      placeNames,
+      t,
+      index + 1,
+      name === undefined ? undefined : { locale, name },
+    )
     const place =
       moment.placeId === null ? '' : (placeNames.get(moment.placeId) ?? '')
     return {
