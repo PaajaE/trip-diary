@@ -32,6 +32,7 @@ import {
   buildOverview,
   type OverviewDay,
 } from '@/features/journey-workspace/model/workspace-overview'
+import { useStoreMomentDays } from '@/features/journey-workspace/api/use-store-moment-days'
 import { isWorkspaceEmpty } from '@/features/journey-workspace/model/workspace-tree'
 import { targetTitles } from '@/features/journey-workspace/model/target-titles'
 import { BoundaryControl } from '@/features/journey-workspace/ui/BoundaryControl'
@@ -109,6 +110,7 @@ export function JourneyWorkspace({
   const navigate = useNavigate()
   const session = useWorkspaceSession(journeyId)
   const { editing, locale, placeNames, placeProgress, state, tree } = session
+  useStoreMomentDays(journeyId, tree)
   const isDesktop = useMediaQuery('(min-width: 1100px)')
   const hasRail = useMediaQuery('(min-width: 760px)')
   const [mapOpen, setMapOpen] = useState(false)

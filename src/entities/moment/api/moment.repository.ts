@@ -23,6 +23,8 @@ function toMoment(row: MomentRow): Moment {
     id: row.id,
     journeyId: row.journey_id,
     latitude: row.latitude,
+    // Only when stored; most rows (and old test data) have none yet.
+    ...(row.local_day ? { localDay: row.local_day } : {}),
     locked: row.locked,
     longitude: row.longitude,
     origin: row.origin,
@@ -238,4 +240,33 @@ export async function deleteAutoMoments(momentIds: string[]): Promise<void> {
   if (error !== null) {
     throw new MomentError('delete_failed', error.message, error)
   }
+}
+
+const LOCAL_DAY_CHUNK = 500
+
+/**
+ * Stores the computed local day of moments (set_moment_local_days, 500 per
+ * call). Editors only; resolves with the number of rows that changed.
+ */
+export async function storeMomentLocalDays(
+  journeyId: string,
+  entries: readonly { day: string; id: string }[],
+): Promise<number> {
+  let changed = 0
+  for (let at = 0; at < entries.length; at += LOCAL_DAY_CHUNK) {
+    const part = entries.slice(at, at + LOCAL_DAY_CHUNK)
+    const { data, error } = await getSupabaseClient().rpc(
+      'set_moment_local_days',
+      {
+        p_days: part.map((entry) => entry.day),
+        p_journey_id: journeyId,
+        p_moment_ids: part.map((entry) => entry.id),
+      },
+    )
+    if (error !== null) {
+      throw new MomentError('update_failed', error.message, error)
+    }
+    changed += typeof data === 'number' ? data : 0
+  }
+  return changed
 }

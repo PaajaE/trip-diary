@@ -658,7 +658,7 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 
 - **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
 - **Vlna 2, dny podle noci:** `createNightDayResolver` v `packages/core`; každý okamžik se čte na hodinách zóny, kde vznikl (`captured_tz`, jinak zóna zastávky či etapy, jinak domovská), nikdy v zóně prohlížeče ani čtenáře. Přepnuté: osnova a přehled editoru, mapa, hledání, dávka, veřejný čtenář. 🧪 TESTED v testech, v prohlížeči s reálnými daty **UNVERIFIED**.
-- **Známá mezera:** SQL `journey_progress` (D3) počítá dny z půlnoci v `home_tz` a neřídí se ani `captured_tz`, ani nocí. Čísla „dní“ na Domů se tedy mohou lišit od osnovy. Řeší vlna 3 (DB kontrakt se dohodne před kódem).
+- **D3 (varianta C, 2026-10-29):** `moments.local_day` (date) plní klient z TS resolveru přes RPC `set_moment_local_days` (jen editor, bez přímého UPDATE grantu); `journey_progress` z něj počítá dny, záložně z `captured_tz` první fotky zastávky, pak `home_tz`. Migrace `20261027120000_v2_moment_local_day.sql` a pgTAP `v2_moment_local_day.test.sql` jsou jen lokálně a **UNVERIFIED** (bez Dockeru nešlo spustit `db:test` ani `db:types`; typy upraveny ručně, přegenerovat). Do produkce až po schválení.
 - **Vlna 2, `pickBestOfDay`:** hotovo v `core`, zatím nezapojeno do UI.
 
 ##### Brána 4f
