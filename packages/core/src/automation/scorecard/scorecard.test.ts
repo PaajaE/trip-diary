@@ -6,6 +6,7 @@ import {
   junkScore,
 } from './metrics.ts'
 import { formatScorecard, scoreGoldenSet } from './run.ts'
+import { scoreFunctions } from './functions.ts'
 import { goldenSetSchema } from './golden.ts'
 import { syntheticGoldenSets } from './synthetic.ts'
 
@@ -79,5 +80,14 @@ describe('scorecard on synthetic sets', () => {
   it('formats one row per set', () => {
     const text = formatScorecard(sets.map(scoreGoldenSet))
     expect(text.split('\n')).toHaveLength(sets.length + 1)
+  })
+})
+
+describe('function scenarios (wave 2)', () => {
+  it('pass completely', () => {
+    for (const score of scoreFunctions()) {
+      expect(score.passed, score.name).toBe(score.total)
+      expect(score.total, score.name).toBeGreaterThan(0)
+    }
   })
 })

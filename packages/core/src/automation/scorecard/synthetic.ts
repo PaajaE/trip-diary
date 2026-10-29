@@ -29,7 +29,7 @@ function shot(
 }
 
 /** Day boundary: the author's "day" ends when they sleep, not at midnight. */
-function afterMidnight(): GoldenSet {
+export function afterMidnightSet(): GoldenSet {
   const place = [51.18, -115.57] as const
   const times: [string, string, string][] = [
     ['a1', '2026-06-10', '19:30'],
@@ -226,7 +226,7 @@ function junkQueue(): GoldenSet {
 
 export function syntheticGoldenSets(): GoldenSet[] {
   return [
-    afterMidnight(),
+    afterMidnightSet(),
     zoneChange(),
     threeStays(),
     duplicates(),

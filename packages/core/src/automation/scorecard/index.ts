@@ -15,3 +15,8 @@ export {
   type SetScore,
 } from './run.ts'
 export { syntheticGoldenSets } from './synthetic.ts'
+export {
+  formatFunctionScores,
+  scoreFunctions,
+  type FunctionScore,
+} from './functions.ts'

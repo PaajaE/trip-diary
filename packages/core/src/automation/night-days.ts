@@ -1,3 +1,8 @@
+import {
+  combineConfidence,
+  confidenceFromMargin,
+  type ReasonCode,
+} from './confidence.ts'
 import { pointOf, sortDated, type MediaPoint } from './media-point.ts'
 import { timeZoneAt, wallClockToInstant } from './time-zone.ts'
 
@@ -70,6 +75,10 @@ export interface NightDaySample {
 }
 
 export interface NightDayResolution {
+  /** 0-1: sure of the sleep gap and far from the boundary (see confidence.ts). */
+  confidence: number
+  /** DAY_BY_NIGHT_GAP, or DAY_BY_FALLBACK_4AM without a usable sleep gap. */
+  code: Extract<ReasonCode, 'DAY_BY_FALLBACK_4AM' | 'DAY_BY_NIGHT_GAP'>
   date: string
   reason: 'fallback' | 'night-gap'
 }
@@ -96,7 +105,11 @@ export function createNightDayResolver(
   const fallbackHour = options.fallbackHour ?? 4
   const times = samples.map((sample) => sample.time).sort((a, b) => a - b)
 
-  const boundaries = new Map<string, NightDayResolution & { at: number }>()
+  type Boundary = Pick<NightDayResolution, 'date' | 'reason'> & {
+    at: number
+    gapMs: number
+  }
+  const boundaries = new Map<string, Boundary>()
   const boundaryFor = (date: string, zone: string) => {
     const key = `${zone}|${date}`
     const known = boundaries.get(key)
@@ -104,9 +117,10 @@ export function createNightDayResolver(
     const windowStart = at(shiftDate(date, -1), startHour, zone)
     const windowEnd = at(date, endHour, zone)
     const fallback = at(date, fallbackHour, zone)
-    let result: NightDayResolution & { at: number } = {
+    let result: Boundary = {
       at: fallback ?? Number.NEGATIVE_INFINITY,
       date,
+      gapMs: 0,
       reason: 'fallback',
     }
     // A sleep gap needs an author who was active around the night; without
@@ -135,7 +149,7 @@ export function createNightDayResolver(
         }
       }
       if (bestGap > minGapMs) {
-        result = { at: bestMid, date, reason: 'night-gap' }
+        result = { at: bestMid, date, gapMs: bestGap, reason: 'night-gap' }
       }
     }
     boundaries.set(key, result)
@@ -148,6 +162,22 @@ export function createNightDayResolver(
     return {
       date: time < boundary.at ? shiftDate(local, -1) : local,
       reason: boundary.reason,
+      ...(boundary.reason === 'night-gap'
+        ? {
+            code: 'DAY_BY_NIGHT_GAP' as const,
+            confidence: combineConfidence(
+              confidenceFromMargin(boundary.gapMs, minGapMs, 2 * HOUR_MS),
+              confidenceFromMargin(time, boundary.at, 30 * 60_000),
+            ),
+          }
+        : {
+            code: 'DAY_BY_FALLBACK_4AM' as const,
+            // A guess at 04:00: never sure enough to apply without a look.
+            confidence: Math.min(
+              0.8,
+              confidenceFromMargin(time, boundary.at, 60 * 60_000),
+            ),
+          }),
     }
   }
 }

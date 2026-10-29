@@ -8,9 +8,11 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import {
+  formatFunctionScores,
   formatScorecard,
   goldenSetSchema,
   meetsTargets,
+  scoreFunctions,
   scoreGoldenSet,
   syntheticGoldenSets,
 } from '../packages/core/src/automation/scorecard/index.ts'
@@ -32,6 +34,10 @@ if (dir) {
 
 const scores = sets.map(scoreGoldenSet)
 console.log(formatScorecard(scores))
-const ok = meetsTargets(scores)
+const functionScores = scoreFunctions()
+console.log(`\n${formatFunctionScores(functionScores)}`)
+const ok =
+  meetsTargets(scores) &&
+  functionScores.every((score) => score.passed === score.total)
 console.log(ok ? '\nVšechny cíle splněny.' : '\nNěkteré cíle nesplněny (MISS).')
 if (process.argv.includes('--strict') && !ok) process.exit(1)

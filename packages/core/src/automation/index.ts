@@ -213,3 +213,28 @@ export {
   type JourneySize,
   type StageMode,
 } from './hierarchy-depth.ts'
+export {
+  CONFIDENCE_AUTO_MIN,
+  CONFIDENCE_REVIEW_MIN,
+  combineConfidence,
+  confidenceBand,
+  confidenceFromMargin,
+  reviewQueue,
+  type ConfidenceBand,
+  type Decision,
+  type ReasonCode,
+} from './confidence.ts'
+export {
+  classifyDayType,
+  type DayType,
+  type DayTypeInput,
+  type DayTypeOptions,
+  type DayTypeResult,
+  type DayTypeStop,
+} from './day-type.ts'
+export {
+  suggestClockOffsets,
+  type ClockOffsetOptions,
+  type ClockOffsetSample,
+  type ClockOffsetSuggestion,
+} from './clock-offset.ts'
