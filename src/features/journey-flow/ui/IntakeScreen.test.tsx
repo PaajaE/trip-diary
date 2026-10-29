@@ -72,6 +72,14 @@ describe('IntakeScreen (Příjem)', () => {
   })
   afterEach(cleanup)
 
+  it('renders no empty status box when there is nothing to say', () => {
+    renderIntake({ undo: undoHandle({ available: false }) })
+    expect(
+      screen.queryByRole('region', { name: 'Stav automatického uspořádání' }),
+    ).toBeNull()
+    expect(document.querySelector('aside section')).toBeNull()
+  })
+
   it('lists the new day with plain facts and a link to review it', () => {
     renderIntake()
     const day = screen.getByRole('article', { name: /5\. června/ })

@@ -29,6 +29,7 @@ export function actionsMock() {
     splitStop: vi.fn().mockResolvedValue('new'),
     starPhotos: vi.fn().mockResolvedValue(undefined),
     trashPhotos: vi.fn().mockResolvedValue(1),
+    unconfirmStop: vi.fn().mockResolvedValue(undefined),
   } satisfies SortScreenActions
 }
 
@@ -81,7 +82,7 @@ export const openStop = async (number: number) => {
   await act(() => {
     fireEvent.click(
       within(panel).getByRole('button', {
-        name: new RegExp(`^${String(number)} · `),
+        name: new RegExp(`^Otevřít zastávku ${String(number)} `),
       }),
     )
     return Promise.resolve()

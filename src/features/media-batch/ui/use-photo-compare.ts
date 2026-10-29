@@ -142,6 +142,10 @@ export function usePhotoCompare(
         : cycleZoom(view, { x: 0, y: 0 }, m.fit, m.pane, m.fitScale),
     )
   }
+  const reportMetrics = useCallback((next: PaneMetrics) => {
+    metrics.current = next
+    setFitScale(next.fitScale)
+  }, [])
   const toggle = () => {
     setOn((value) => (value ? false : canCompare))
   }
@@ -201,10 +205,7 @@ export function usePhotoCompare(
     on,
     partner,
     pick,
-    reportMetrics: (next) => {
-      metrics.current = next
-      setFitScale(next.fitScale)
-    },
+    reportMetrics,
     setZoom,
     step,
     swap: () => {

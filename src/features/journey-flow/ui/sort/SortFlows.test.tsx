@@ -54,7 +54,7 @@ describe('Série', () => {
   it('pre-selects the recommended, then keeps it and trashes the rest in one go', async () => {
     const { actions, idsOf } = setup({ mutate: lakeSeries })
     const lake = idsOf(ID.lake)
-    await openStop(4)
+    await openStop(3)
     await click('Podobné: 4')
     const dialog = screen.getByRole('dialog', { name: 'Podobné fotky · 4' })
     const toggles = within(dialog).getAllByTestId('series-toggle')
@@ -85,7 +85,7 @@ describe('Série', () => {
   it('says how many it keeps after a flip: "Nechávám 2 ze 4, zbylé 2 půjdou do koše"', async () => {
     const { actions, idsOf } = setup({ mutate: lakeSeries })
     const lake = idsOf(ID.lake)
-    await openStop(4)
+    await openStop(3)
     await click('Podobné: 4')
     const dialog = screen.getByRole('dialog', { name: 'Podobné fotky · 4' })
     fireEvent.click(within(dialog).getAllByTestId('series-toggle')[3] ?? dialog)
@@ -101,7 +101,7 @@ describe('Série', () => {
 
   it('Esc leaves the series without writing anything', async () => {
     const { actions } = setup({ mutate: lakeSeries })
-    await openStop(4)
+    await openStop(3)
     await click('Podobné: 4')
     await key('Escape')
     expect(screen.queryByRole('dialog', { name: /Podobné fotky/ })).toBeNull()
@@ -110,18 +110,15 @@ describe('Série', () => {
 })
 
 describe('Porovnání', () => {
-  it('the kept photo stays; challengers by swipe, swipe up trashes that one; no swap button', async () => {
+  it('the kept photo stays; challengers by swipe, swipe up trashes that one', async () => {
     const { actions, idsOf } = setup({ mutate: lakeSeries })
     const lake = idsOf(ID.lake)
-    await openStop(4)
+    await openStop(3)
     await click(/^Porovnat/)
     const duel = screen.getByRole('dialog', { name: 'Porovnání' })
     expect(
       within(duel).getByText('Ponechaná zůstává, vyzyvatel 1 z 3'),
     ).toBeInTheDocument()
-    expect(
-      within(duel).queryByRole('button', { name: /Prohodit|Swap/ }),
-    ).toBeNull()
     const panes = () => within(duel).getAllByTestId('duel-pane')
     expect(panes().map((p) => p.dataset.role)).toEqual(['winner', 'challenger'])
     // Swipe sideways: the next challenger, the kept one stays.
@@ -139,7 +136,7 @@ describe('Porovnání', () => {
   it('"Nechat tuhle" under the challenger keeps it and makes it the one that stays', async () => {
     const { actions, idsOf } = setup({ mutate: lakeSeries })
     const lake = idsOf(ID.lake)
-    await openStop(4)
+    await openStop(3)
     await click(/^Porovnat/)
     const duel = screen.getByRole('dialog', { name: 'Porovnání' })
     await act(async () => {
@@ -159,7 +156,7 @@ describe('Porovnání', () => {
 
   it('zooms both photos together with Celá · 100 % · 200 %, Esc leaves zoom first', async () => {
     setup({ mutate: lakeSeries })
-    await openStop(4)
+    await openStop(3)
     await click(/^Porovnat/)
     const duel = screen.getByRole('dialog', { name: 'Porovnání' })
     const zoom = within(duel).getByRole('group', { name: 'Přiblížení' })
@@ -181,7 +178,7 @@ describe('Porovnání', () => {
     vi.useFakeTimers()
     try {
       setup({ mutate: lakeSeries })
-      await openStop(4)
+      await openStop(3)
       await click(/^Porovnat/)
       const duel = screen.getByRole('dialog', { name: 'Porovnání' })
       await act(async () => {
@@ -221,16 +218,38 @@ describe('Konec dne', () => {
     if (first !== undefined) first.starred = true
   }
 
+  it('says the stops are done but not the day while photos have no stop', async () => {
+    const { onOpenReview } = setup({ mutate: allSorted })
+    const end = screen.getByTestId('day-end')
+    expect(
+      within(end).getByRole('heading', { name: 'Zastávky dne jsou hotové' }),
+    ).toBeInTheDocument()
+    expect(
+      within(end).getByText('Ještě 2 fotky nemají zastávku.'),
+    ).toBeInTheDocument()
+    fireEvent.click(within(end).getByRole('button', { name: 'Nevím kam · 2' }))
+    expect(onOpenReview).toHaveBeenCalledTimes(1)
+  })
+
   it('sums up the day with links to the note, back to sorting and Příjem', async () => {
-    setup({ mutate: allSorted })
+    setup({
+      mutate: (media) => {
+        allSorted(media)
+        // Place the two photos without a stop: nothing is left over.
+        for (const item of media) {
+          if (item.momentId === null && item.capturedAt !== null)
+            item.momentId = ID.lake
+        }
+      },
+    })
     const end = screen.getByTestId('day-end')
     expect(
       within(end).getByRole('heading', { name: 'Den je hotový' }),
     ).toBeInTheDocument()
     expect(
-      within(end).getByText(/· zastávky 5 z 5 hotovo$/),
+      within(end).getByText(/· zastávky 4 z 4 hotovo$/),
     ).toBeInTheDocument()
-    expect(within(end).getByText('Zastávky 5 z 5 hotovo')).toBeInTheDocument()
+    expect(within(end).getByText('Zastávky 4 z 4 hotovo')).toBeInTheDocument()
     expect(within(end).getByText('1 ★')).toBeInTheDocument()
     expect(within(end).getByText('0 koš')).toBeInTheDocument()
     expect(

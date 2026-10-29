@@ -16,7 +16,6 @@ import {
 } from '@/features/journey-flow/model/stop-review'
 import { DayMap, type DayMapPin } from '@/features/journey-flow/ui/DayMap'
 import { dayHeading, joinFacts } from '@/features/journey-flow/ui/flow-format'
-import { PhotoPickSheet } from '@/features/journey-flow/ui/PhotoPickSheet'
 import {
   RideCardView,
   TransitRow,
@@ -26,18 +25,13 @@ import {
   StopCardView,
   type StopMenuAction,
 } from '@/features/journey-flow/ui/StopCardView'
+import { ReviewOverlays } from '@/features/journey-flow/ui/ReviewOverlays'
+import type { UnassignedActions } from '@/features/journey-flow/ui/UnassignedSheet'
 import {
-  UnassignedSheet,
-  type UnassignedActions,
-} from '@/features/journey-flow/ui/UnassignedSheet'
-import { RenameDialog } from '@/features/journey-flow/ui/RenameDialog'
-import {
-  BASE_URL,
   countsText,
   stopNameText,
 } from '@/features/journey-workspace/lib/moment-labels'
 import type { MoveSheetStop } from '@/features/media-batch/model/move-sheet'
-import { MoveToSheet } from '@/features/media-batch/ui/MoveToSheet'
 import { cn } from '@/shared/lib/cn'
 import { buttonVariants } from '@/shared/ui/button-variants'
 
@@ -67,7 +61,7 @@ export interface ReviewScreenProps {
   onContinue: (dayKey: string) => void
 }
 
-type Overlay =
+export type ReviewOverlay =
   | { kind: 'move'; stopId: string }
   | { items: MediaItem[]; kind: 'moveTo' }
   | { kind: 'rename'; stopId: string }
@@ -106,7 +100,7 @@ export function ReviewScreen({
   )
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
-  const [overlay, setOverlay] = useState<Overlay | null>(null)
+  const [overlay, setOverlay] = useState<ReviewOverlay | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -396,86 +390,19 @@ export function ReviewScreen({
         </p>
       </footer>
 
-      {overlay?.kind === 'split' && overlayStop !== undefined ? (
-        <PhotoPickSheet
-          mode="cut"
-          stop={overlayStop}
-          onClose={() => {
-            setOverlay(null)
-          }}
-          onConfirm={(at) => {
-            setOverlay(null)
-            run(() => actions.splitStop(overlayStop.id, at)).catch(
-              () => undefined,
-            )
-          }}
-        />
-      ) : null}
-      {overlay?.kind === 'move' && overlayStop !== undefined ? (
-        <PhotoPickSheet
-          mode="select"
-          stop={overlayStop}
-          onClose={() => {
-            setOverlay(null)
-          }}
-          onConfirm={(ids) => {
-            setOverlay({
-              items: overlayStop.media.filter((item) => ids.includes(item.id)),
-              kind: 'moveTo',
-            })
-          }}
-        />
-      ) : null}
-      {overlay?.kind === 'moveTo' ? (
-        <MoveToSheet
-          baseUrl={BASE_URL}
-          items={overlay.items}
-          stops={moveStops}
-          onClose={() => {
-            setOverlay(null)
-          }}
-          onNewStop={() => {
-            // A stop of its own from exactly these photos (locked).
-            const ids = overlay.items.map((item) => item.id)
-            setOverlay(null)
-            run(() => actions.createStopFromPhotos(ids)).catch(() => undefined)
-          }}
-          onPick={(stopId) => {
-            const ids = overlay.items.map((item) => item.id)
-            setOverlay(null)
-            run(() => actions.movePhotos(ids, stopId)).catch(() => undefined)
-          }}
-        />
-      ) : null}
-      {overlay?.kind === 'rename' && overlayStop !== undefined ? (
-        <RenameDialog
-          initial={overlayStop.entry.moment.title ?? ''}
-          onClose={() => {
-            setOverlay(null)
-          }}
-          onSave={(title) => {
-            setOverlay(null)
-            run(() => actions.renameStop(overlayStop.id, title)).catch(
-              () => undefined,
-            )
-          }}
-        />
-      ) : null}
-      {overlay?.kind === 'unassigned' ? (
-        <UnassignedSheet
+      {overlay === null ? null : (
+        <ReviewOverlays
           actions={actions}
           day={day}
           journeyId={journeyId}
           lookup={lookup}
+          moveStops={moveStops}
+          overlay={overlay}
           run={run}
-          onClose={() => {
-            setOverlay(null)
-          }}
-          onElsewhere={(items) => {
-            setOverlay({ items, kind: 'moveTo' })
-          }}
+          setOverlay={setOverlay}
+          stop={overlayStop}
         />
-      ) : null}
+      )}
     </div>
   )
 }

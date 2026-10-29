@@ -57,7 +57,6 @@ export function SortOverlays({
     return (
       <SeriesPickView
         baseUrl={baseUrl}
-        canUndo={sort.canUndo}
         photos={overlay.photos}
         starred={sort.starred}
         subtitle={subtitle}
@@ -67,7 +66,6 @@ export function SortOverlays({
           sort.settleSeries(keepIds, trashIds)
         }}
         onStar={sort.toggleStar}
-        onUndo={sort.undo}
       />
     )
   }

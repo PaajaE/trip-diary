@@ -1900,6 +1900,7 @@ export const cs: TranslationResources = {
       done: 'Hotovo, zpět na zastávky',
     },
     sort: {
+      livePosition: 'fotka {{index}} z {{total}}',
       step: 'Krok 2 ze 2 · Třídění fotek',
       backToReview: 'Zpět na kontrolu zastávek',
       reviewLink: 'Kontrola zastávek',
@@ -1908,7 +1909,7 @@ export const cs: TranslationResources = {
       error: 'Změna se nepovedla. Zkus to znovu.',
       stopsLabel: 'Zastávky dne',
       stopsToggle:
-        'Zastávka {{number}} {{name}}, {{done}} z {{total}} hotovo, zastávky dne',
+        '{{name}}, zastávky {{done}} z {{total}} hotovo, zastávky dne',
       stopChip: '{{number}} · {{name}}',
       stopChipDone: '{{number}} · hotovo',
       stopOpen: 'Otevřít zastávku {{number}} {{name}}',
@@ -1983,6 +1984,8 @@ export const cs: TranslationResources = {
       },
     },
     seriesPick: {
+      starKept: '★ fotka zůstává',
+      undo: 'Zpět',
       title: 'Podobné fotky · {{count}}',
       subtitle: '{{number}} · {{name}} · {{range}}',
       intro:
@@ -2013,6 +2016,7 @@ export const cs: TranslationResources = {
       keepAll: 'Nechat všech {{count}}',
     },
     duel: {
+      swap: 'Prohodit strany',
       title: 'Porovnání',
       subtitle: 'Ponechaná zůstává, vyzyvatel {{index}} z {{total}}',
       noChallenger: 'Žádná další fotka k porovnání.',
@@ -2041,6 +2045,11 @@ export const cs: TranslationResources = {
       fullscreenKeys: 'Pohni myší pro ovládání',
     },
     dayEnd: {
+      stopsAllDone: 'Zastávky dne jsou hotové',
+      unassignedLeft_one: 'Ještě {{count}} fotka nemá zastávku.',
+      unassignedLeft_few: 'Ještě {{count}} fotky nemají zastávku.',
+      unassignedLeft_many: 'Ještě {{count}} fotek nemá zastávku.',
+      unassignedLeft_other: 'Ještě {{count}} fotek nemá zastávku.',
       stopsDone: 'Zastávky {{done}} z {{total}} hotovo',
       nextDayFacts: '{{day}} · {{photos}}',
       lastDay: 'Poslední den cesty',

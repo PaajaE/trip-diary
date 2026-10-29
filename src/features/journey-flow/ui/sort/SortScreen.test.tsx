@@ -50,9 +50,10 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
     expect(
       screen.getByRole('dialog', { name: /Krok 2 ze 2 · Třídění fotek/ }),
     ).toBeInTheDocument()
-    // The hotel is sorted already: the ride (stop 2) is the first open one.
+    // The hotel is sorted already: the ride is the first open group. It is
+    // "Cestou" without a number, like in Kontrola (4 numbered stops).
     expect(screen.getByTestId('sort-stop-toggle')).toHaveAccessibleName(
-      /^Zastávka 2 .*1 z 5 hotovo/,
+      /^Cestou, zastávky 1 z 4 hotovo/,
     )
     expect(position()).toMatch(/· 1 z 3$/)
     for (const name of ['Koš', 'Nechat', '★ Nejlepší']) {
@@ -80,9 +81,14 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
     await click(/^★ Nejlepší/)
     expect(actions.starPhotos).toHaveBeenCalledWith([ride[2]], true)
     expect(actions.sortPhotos).toHaveBeenLastCalledWith([ride[2]])
-    // The ride is done: on to stop 3 and the stop is confirmed (locked).
-    expect(screen.getByRole('status')).toHaveTextContent('Zastávka 2 hotová')
+    // The ride is done: on to stop 2 (a ride has no number to announce).
+    expect(screen.getByTestId('sort-live')).not.toHaveTextContent('hotová')
     expect(position()).toMatch(/· 1 z 1$/)
+    await click(/^Nechat/)
+    // The live region was there before and now says the stop is done.
+    expect(screen.getByTestId('sort-live')).toHaveTextContent(
+      /^Zastávka 2 hotová · 3 · .* · fotka 1 z 4$/,
+    )
     await vi.waitFor(() => {
       expect(actions.finishStop).toHaveBeenCalled()
     })
@@ -120,7 +126,7 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
 
   it('shows a suggested-trash photo faded with its reason, never deleting it', async () => {
     const { actions } = setup({ mutate: lakeSeries })
-    await openStop(4)
+    await openStop(3)
     expect(position()).toMatch(/· 1 z 4$/)
     expect(screen.getByTestId('sort-trash-hint')).toHaveTextContent(
       'Návrh do koše: Rozmazaná proti ostatním ze série',
@@ -243,7 +249,7 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
 
   it('cuts before the photo and merges with the previous stop from the stop panel', async () => {
     const { actions, day } = setup()
-    await openStop(4)
+    await openStop(3)
     fireEvent.click(screen.getByTestId('sort-stop-toggle'))
     const panel = () => screen.getByTestId('sort-stop-panel')
     // The first photo cannot start a new stop.

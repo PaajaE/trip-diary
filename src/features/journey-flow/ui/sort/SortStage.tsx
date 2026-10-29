@@ -1,11 +1,18 @@
 import { Check, Layers } from 'lucide-react'
+import { useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { SessionPhoto } from '@/features/journey-flow/model/sort-session'
 import {
   formatLocalTime,
   mediaDisplayZone,
 } from '@/features/journey-workspace/lib/format-range'
+import {
+  pickViewerImageVariant,
+  pickZoomImageVariant,
+} from '@/features/journey-workspace/lib/media-thumb'
+import { fitSize } from '@/features/media-batch/model/zoom'
 import { PhotoCompare } from '@/features/media-batch/ui/PhotoCompare'
+import { usePaneSize } from '@/features/media-batch/ui/use-pane-size'
 import type { PhotoCompareApi } from '@/features/media-batch/ui/use-photo-compare'
 import {
   useSwipe,
@@ -67,11 +74,28 @@ export function SortStage({
       : t(`flow.sort.trashHint.${photo.trashHint}`)
   const badge =
     'rounded-full bg-black/75 px-3 py-1 text-xs font-semibold text-white'
+  // The badges sit on the photo itself, not in the empty sides of the stage.
+  const stageRef = useRef<HTMLDivElement>(null)
+  const stage = usePaneSize(stageRef)
+  const variant = pickZoomImageVariant(item) ?? pickViewerImageVariant(item)
+  const w = variant?.width ?? item.width ?? 0
+  const h = variant?.height ?? item.height ?? 0
+  const fit = fitSize(stage, h > 0 ? w / h : 0)
+  const box =
+    compare.zoomed || fit.w <= 0
+      ? { height: '100%', left: 0, top: 0, width: '100%' }
+      : {
+          height: fit.h,
+          left: (stage.w - fit.w) / 2,
+          top: (stage.h - fit.h) / 2,
+          width: fit.w,
+        }
 
   return (
     <div
       className="relative flex min-h-0 flex-1 flex-col"
       data-testid="sort-stage"
+      ref={stageRef}
       {...swipe}
     >
       <PhotoCompare
@@ -83,49 +107,66 @@ export function SortStage({
         testId="sort-photo"
         toolbar={false}
       >
-        {hint === null ? null : (
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-black/40"
-            data-testid="sort-trash-fade"
-          />
-        )}
-        {fullscreen || seriesCount < 2 ? null : (
-          <button
-            className="absolute left-3 top-3 flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-black shadow-soft"
-            type="button"
-            onClick={onSeries}
-          >
-            <Layers aria-hidden="true" size={16} />
-            {t('flow.sort.similar', { count: seriesCount })}
-          </button>
-        )}
-        {stopDone === null ? null : (
+        <div
+          className="pointer-events-none absolute"
+          data-testid="sort-photo-box"
+          style={box}
+        >
+          {hint === null ? null : (
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 bg-black/40"
+              data-testid="sort-trash-fade"
+            />
+          )}
+          {fullscreen || seriesCount < 2 ? null : (
+            <button
+              className="pointer-events-auto absolute left-3 top-3 flex min-h-11 items-center gap-1.5 rounded-full bg-white px-4 text-sm font-semibold text-black shadow-soft"
+              type="button"
+              onClick={onSeries}
+            >
+              <Layers aria-hidden="true" size={16} />
+              {t('flow.sort.similar', { count: seriesCount })}
+            </button>
+          )}
+          {stopDone === null ? null : (
+            <span
+              className={cn(
+                badge,
+                'absolute right-3 top-5 flex items-center gap-1',
+              )}
+              data-testid="sort-stop-done"
+            >
+              <Check
+                aria-hidden="true"
+                className="text-action-keep"
+                size={14}
+              />
+              {t('flow.sort.stopDone', { number: stopDone })}
+            </span>
+          )}
+          {hint === null ? null : (
+            <span
+              className={cn(badge, 'absolute right-3 bottom-12 max-w-[70%]')}
+              data-testid="sort-trash-hint"
+            >
+              {t('flow.sort.suggestedTrash', { reason: hint })}
+            </span>
+          )}
           <span
             className={cn(
               badge,
-              'absolute right-3 top-5 flex items-center gap-1',
+              // Full screen: on top, clear of the bottom controls.
+              'absolute left-3 rounded-lg',
+              fullscreen
+                ? 'top-[max(0.75rem,env(safe-area-inset-top))]'
+                : 'bottom-3',
             )}
-            role="status"
+            data-testid="sort-position"
           >
-            <Check aria-hidden="true" className="text-action-keep" size={14} />
-            {t('flow.sort.stopDone', { number: stopDone })}
+            {t('flow.sort.position', { index: index + 1, time, total })}
           </span>
-        )}
-        {hint === null ? null : (
-          <span
-            className={cn(badge, 'absolute right-3 bottom-12 max-w-[70%]')}
-            data-testid="sort-trash-hint"
-          >
-            {t('flow.sort.suggestedTrash', { reason: hint })}
-          </span>
-        )}
-        <span
-          className={cn(badge, 'absolute bottom-3 left-3 rounded-lg')}
-          data-testid="sort-position"
-        >
-          {t('flow.sort.position', { index: index + 1, time, total })}
-        </span>
+        </div>
       </PhotoCompare>
     </div>
   )

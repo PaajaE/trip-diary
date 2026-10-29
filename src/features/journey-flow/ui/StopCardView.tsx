@@ -145,13 +145,14 @@ export function StopCardView({
       {visible.length > 0 ? (
         <ul
           aria-label={t('flow.screen.review.photoStrip')}
-          className="mt-2 flex gap-1 overflow-hidden"
+          // Fluid tiles (at most 56 px): the "+N" chip always fits the card.
+          className="mt-2 grid grid-cols-[repeat(6,minmax(0,3.5rem))] gap-1"
         >
           {visible.map((item) => {
             const url = getThumbUrl(item, BASE_URL)
             return (
               <li
-                className="size-14 shrink-0 overflow-hidden rounded-md bg-sunk"
+                className="aspect-square min-w-0 overflow-hidden rounded-md bg-sunk"
                 key={item.id}
               >
                 {url === null ? null : (
@@ -166,7 +167,7 @@ export function StopCardView({
             )
           })}
           {more > 0 ? (
-            <li className="grid size-14 shrink-0 place-items-center rounded-md bg-sunk text-sm font-semibold text-muted">
+            <li className="grid aspect-square min-w-0 place-items-center rounded-md bg-sunk text-sm font-semibold text-muted">
               {t('flow.screen.review.moreCount', { count: more })}
             </li>
           ) : null}

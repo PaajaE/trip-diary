@@ -11,10 +11,10 @@ import { useTranslation } from 'react-i18next'
 import type { PhotoState } from '@/features/journey-flow/model/sort-session'
 import { cn } from '@/shared/lib/cn'
 
-/** Keyboard key next to an action; only on devices with a fine pointer. */
+/** Keyboard key next to an action; only with a fine pointer and room for it. */
 export function Kbd({ children }: { children: ReactNode }) {
   return (
-    <kbd className="hidden rounded border border-current/30 px-1 font-sans text-[11px] font-semibold opacity-70 [@media(hover:hover)_and_(pointer:fine)]:inline">
+    <kbd className="hidden rounded border border-current/30 px-1 font-sans text-[11px] font-semibold opacity-70 sm:[@media(hover:hover)_and_(pointer:fine)]:inline">
       {children}
     </kbd>
   )
@@ -64,7 +64,7 @@ export function SortTools({
         type="button"
         onClick={onClick}
       >
-        <Icon aria-hidden="true" size={16} />
+        <Icon aria-hidden="true" className="shrink-0" size={16} />
         {label}
         <Kbd>{key}</Kbd>
       </button>

@@ -111,6 +111,12 @@ export interface FlowActions {
   starPhotos: (mediaIds: readonly string[], starred: boolean) => Promise<void>
   /** Sorting "Koš": restorable from the trash, never deleted. */
   trashPhotos: (mediaIds: readonly string[]) => Promise<number>
+  /**
+   * Undo of the last decision of a stop the sorting session confirmed: the
+   * stop was unlocked before, so it is unlocked again (the reverse of
+   * confirmStops, nothing else changes).
+   */
+  unconfirmStop: (stopId: string) => Promise<void>
   /** "Rozdělit": photos at or after `at` form a new stop; both get locked. */
   splitStop: (stopId: string, at: string) => Promise<string>
   /** "Je to kopie, do koše": restorable from the trash. */
@@ -198,6 +204,9 @@ export function createFlowActions(
       for (const id of mediaIds) await deps.updateMediaMeta(id, { starred })
     },
     trashCopy: (copyId) => deps.trashMedia([copyId]),
+    unconfirmStop: async (stopId) => {
+      await deps.updateMoment(stopId, { locked: false })
+    },
     trashPhotos: (mediaIds) =>
       mediaIds.length === 0 ? Promise.resolve(0) : deps.trashMedia(mediaIds),
   }

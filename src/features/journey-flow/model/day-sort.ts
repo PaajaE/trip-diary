@@ -205,20 +205,28 @@ export interface DayEndSummary {
   total: number
   totalStops: number
   trash: number
+  /** Photos of the day still without a stop ("Nevím kam"). */
+  unassigned: number
 }
 
 /**
  * Konec dne (M-Konec, W-Konec). Trashed photos are no longer in the tree,
- * so the caller passes how many of the day it trashed (the sorting session
- * knows, see quick-sort `summarize`).
+ * so the caller passes what it trashed: a count, or the ids of the session
+ * (a photo still in the tree before the refresh is counted once, as trash).
  */
 export function buildDayEnd(
   day: FlowDay,
   days: readonly FlowDay[],
-  trashed: number,
+  trashed: number | ReadonlySet<string>,
 ): DayEndSummary {
   const sort = buildDaySort(day)
-  const photos = day.media.filter((item) => item.kind === 'photo')
+  const gone = typeof trashed === 'number' ? new Set<string>() : trashed
+  const photos = day.media.filter(
+    (item) => item.kind === 'photo' && !gone.has(item.id),
+  )
+  const trashCount = typeof trashed === 'number' ? trashed : trashed.size
+  // Counted like Kontrola: rides ("Cestou") are not stops.
+  const counted = sort.stops.filter((stop) => stop.stop.kind !== 'en_route')
   const starred = photos.filter((item) => item.starred)
   const cover = recommendBest(
     starred.map((item) => ({
@@ -236,7 +244,7 @@ export function buildDayEnd(
     backToStopId: sort.currentStopId,
     coverMediaId: cover?.id ?? null,
     dayKey: day.key,
-    doneStops: sort.doneStops,
+    doneStops: counted.filter((stop) => stop.done).length,
     keep: photos.length,
     nextDay:
       next === undefined
@@ -247,8 +255,9 @@ export function buildDayEnd(
               .length,
           },
     star: starred.length,
-    total: photos.length + trashed,
-    totalStops: sort.totalStops,
-    trash: trashed,
+    total: photos.length + trashCount,
+    totalStops: counted.length,
+    trash: trashCount,
+    unassigned: day.unassigned.length,
   }
 }

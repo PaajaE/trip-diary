@@ -88,8 +88,10 @@ export function FlowDayPage({
           markers={state.markers}
           moveStops={moveStops}
           onContinue={(key) => {
+            // Replace: Back from sorting does not ping-pong via Kontrola.
             navigate({
               params: { dayKey: key, journeyId },
+              replace: true,
               to: SORTING_ROUTE,
             }).catch(() => undefined)
           }}

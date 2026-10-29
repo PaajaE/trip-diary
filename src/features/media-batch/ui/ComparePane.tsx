@@ -1,12 +1,5 @@
 import { Check, Star, Trash2 } from 'lucide-react'
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import {
@@ -25,8 +18,8 @@ import {
   fitSize,
   translateOf,
   viewForPane,
-  type Size,
 } from '@/features/media-batch/model/zoom'
+import { usePaneSize } from '@/features/media-batch/ui/use-pane-size'
 import { usePaneGestures } from '@/features/media-batch/ui/use-pane-gestures'
 import type { PhotoCompareApi } from '@/features/media-batch/ui/use-photo-compare'
 import type { SwipeHandlers } from '@/features/media-batch/ui/use-swipe'
@@ -50,30 +43,6 @@ export const ICON_BTN = `${ICON_BASE} bg-white/10 text-white hover:bg-white/20`
 const ICON_KEEP = `${ICON_BASE} bg-action-keep text-action-keep-foreground hover:bg-action-keep-hover`
 const ICON_TRASH = `${ICON_BASE} bg-action-trash text-action-trash-foreground hover:bg-action-trash-hover`
 const ICON_STAR = `${ICON_BASE} bg-action-star text-action-star-foreground hover:bg-action-star-hover`
-
-function usePaneSize(ref: RefObject<HTMLElement | null>): Size {
-  const [size, setSize] = useState<Size>({ h: 0, w: 0 })
-  useLayoutEffect(() => {
-    const node = ref.current
-    if (node === null) return
-    const read = () => {
-      const rect = node.getBoundingClientRect()
-      setSize((prev) =>
-        prev.w === rect.width && prev.h === rect.height
-          ? prev
-          : { h: rect.height, w: rect.width },
-      )
-    }
-    read()
-    if (typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(read)
-    observer.observe(node)
-    return () => {
-      observer.disconnect()
-    }
-  }, [ref])
-  return size
-}
 
 export interface PaneProps {
   actions: PhotoCompareActions | undefined
@@ -131,7 +100,8 @@ export function ComparePane({
   const pixelWidth = shown?.width ?? item.width ?? 0
   const pixelHeight = shown?.height ?? item.height ?? 0
   const aspect = pixelHeight > 0 ? pixelWidth / pixelHeight : 0
-  const fit = fitSize(size, aspect)
+  // Stable while the pane and photo keep their size (no metrics per render).
+  const fit = useMemo(() => fitSize(size, aspect), [size, aspect])
   const fitScale = fitScaleOf(fit, pixelWidth)
   const view = viewForPane(api.zoom, fit, size)
   const offset = translateOf(view, fit)

@@ -58,7 +58,7 @@ export function ShortcutsHint({
     <ul
       aria-label={t('flow.sort.shortcutsLabel')}
       className={cn(
-        'hidden flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/70 [@media(hover:hover)_and_(pointer:fine)]:flex',
+        'hidden flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-white/70 sm:[@media(hover:hover)_and_(pointer:fine)]:flex',
         className,
       )}
       data-testid="sort-shortcuts"

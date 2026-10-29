@@ -26,8 +26,11 @@ export interface SessionPhoto extends SortPhoto {
 
 export interface SessionStop {
   done: boolean
-  /** 1-based position among the day's sortable stops ("5 · Mistaya"). */
-  number: number
+  /**
+   * 1-based number among the day's stops, the same as in Kontrola (rides
+   * "Cestou" are not counted and have none).
+   */
+  number: number | null
   photos: SessionPhoto[]
   /** Kept or trashed so far. */
   sorted: number
@@ -36,6 +39,9 @@ export interface SessionStop {
 }
 
 export interface SessionView {
+  /** Every photo of every group (rides too) is decided. */
+  allDone: boolean
+  /** Of `totalStops` (rides not counted, as in Kontrola). */
   doneStops: number
   stops: SessionStop[]
   totalStops: number
@@ -62,20 +68,44 @@ export function photoState(
   return 'open'
 }
 
+function timeOf(item: MediaItem): number | null {
+  if (item.capturedAt === null) return null
+  const at = Date.parse(item.capturedAt)
+  return Number.isNaN(at) ? null : at
+}
+
+/**
+ * The stop a photo trashed in this session belongs to now. Its old stop
+ * may be gone (split, merged): then the stop whose time range holds it,
+ * else the stop nearest in time.
+ */
+export function homeOf(
+  entry: TrashedPhoto,
+  stops: readonly SortStop[],
+): string | null {
+  if (stops.some((stop) => stop.stop.id === entry.stopId)) return entry.stopId
+  const at = timeOf(entry.item)
+  if (at === null) return null
+  let best: { gap: number; id: string } | null = null
+  for (const { stop } of stops) {
+    const from = Date.parse(stop.startsAt)
+    const to = Date.parse(stop.endsAt)
+    if (at >= from && at <= to) return stop.id
+    const gap = Math.min(Math.abs(at - from), Math.abs(at - to))
+    if (best === null || gap < best.gap) best = { gap, id: stop.id }
+  }
+  return best?.id ?? null
+}
+
 function sessionStop(
   stop: SortStop,
-  number: number,
+  number: number | null,
   handled: ReadonlyMap<string, SortOutcome>,
-  trashed: readonly TrashedPhoto[],
+  gone: readonly TrashedPhoto[],
 ): SessionStop {
   const live = new Set(stop.photos.map((photo) => photo.item.id))
-  const gone: SortPhoto[] = trashed
-    .filter(
-      (entry) =>
-        entry.stopId === stop.stop.id &&
-        !live.has(entry.item.id) &&
-        handled.get(entry.item.id) === 'trash',
-    )
+  const extra: SortPhoto[] = gone
+    .filter((entry) => !live.has(entry.item.id))
     .map((entry) => ({
       item: entry.item,
       recommended: false,
@@ -83,7 +113,7 @@ function sessionStop(
       seriesIds: [],
       trashHint: null,
     }))
-  const photos = [...stop.photos, ...gone]
+  const photos = [...stop.photos, ...extra]
     .sort((a, b) => byCapture(a.item, b.item))
     .map((photo) => ({ ...photo, state: photoState(photo, handled) }))
   const sorted = photos.filter((photo) => photo.state !== 'open').length
@@ -103,13 +133,38 @@ export function buildSessionView(
   handled: ReadonlyMap<string, SortOutcome>,
   trashed: readonly TrashedPhoto[] = [],
 ): SessionView {
-  const stops = model.stops.map((stop, index) =>
-    sessionStop(stop, index + 1, handled, trashed),
+  const live = new Set(
+    model.stops.flatMap((stop) => stop.photos.map((photo) => photo.item.id)),
   )
+  const byStop = new Map<string, TrashedPhoto[]>()
+  const seen = new Set<string>()
+  // Only photos still trashed and gone from the tree, each once (the
+  // latest snapshot wins).
+  for (const entry of [...trashed].reverse()) {
+    const id = entry.item.id
+    if (handled.get(id) !== 'trash' || seen.has(id) || live.has(id)) continue
+    seen.add(id)
+    const home = homeOf(entry, model.stops)
+    if (home === null) continue
+    const list = byStop.get(home)
+    if (list === undefined) byStop.set(home, [entry])
+    else list.push(entry)
+  }
+  let counted = 0
+  const stops = model.stops.map((stop) =>
+    sessionStop(
+      stop,
+      stop.stop.kind === 'en_route' ? null : (counted += 1),
+      handled,
+      byStop.get(stop.stop.id) ?? [],
+    ),
+  )
+  const numbered = stops.filter((stop) => stop.number !== null)
   return {
-    doneStops: stops.filter((stop) => stop.done).length,
+    allDone: stops.length > 0 && stops.every((stop) => stop.done),
+    doneStops: numbered.filter((stop) => stop.done).length,
     stops,
-    totalStops: stops.length,
+    totalStops: numbered.length,
   }
 }
 

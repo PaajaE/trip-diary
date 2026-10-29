@@ -1,16 +1,10 @@
-import { ChevronLeft, Maximize, X } from 'lucide-react'
 import { useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
-import type { FlowActions } from '@/features/journey-flow/api/flow-actions'
 import { buildDayEnd } from '@/features/journey-flow/model/day-sort'
 import type { FlowDay } from '@/features/journey-flow/model/flow-days'
 import { seriesOf } from '@/features/journey-flow/model/sort-session'
-import {
-  previousStopId,
-  splitPreview,
-  timeFact,
-} from '@/features/journey-flow/model/stop-review'
+import { timeFact } from '@/features/journey-flow/model/stop-review'
 import {
   dayHeading,
   joinFacts,
@@ -18,39 +12,30 @@ import {
 } from '@/features/journey-flow/ui/flow-format'
 import { DayEndView } from '@/features/journey-flow/ui/sort/DayEndView'
 import { ShortcutsHint } from '@/features/journey-flow/ui/sort/ShortcutsHint'
+import { stopTitle } from '@/features/journey-flow/ui/sort/sort-labels'
+import type { SortScreenActions } from '@/features/journey-flow/ui/sort/sort-screen-types'
 import {
   SortDecisions,
   SortTools,
 } from '@/features/journey-flow/ui/sort/SortControls'
 import { SortFilmstrip } from '@/features/journey-flow/ui/sort/SortFilmstrip'
+import { SortFullscreenBar } from '@/features/journey-flow/ui/sort/SortFullscreenBar'
+import { SortHeader } from '@/features/journey-flow/ui/sort/SortHeader'
 import {
   SortOverlays,
   type SortOverlay,
 } from '@/features/journey-flow/ui/sort/SortOverlays'
 import { SortStage } from '@/features/journey-flow/ui/sort/SortStage'
-import { SortStopStrip } from '@/features/journey-flow/ui/sort/SortStopStrip'
 import { useChrome } from '@/features/journey-flow/ui/sort/use-chrome'
 import { useSortScreenKeys } from '@/features/journey-flow/ui/sort/use-sort-screen-keys'
-import {
-  useDaySort,
-  type DaySortActions,
-} from '@/features/journey-flow/ui/use-day-sort'
-import { stopNameText } from '@/features/journey-workspace/lib/moment-labels'
+import { useDaySort } from '@/features/journey-flow/ui/use-day-sort'
 import type { MoveSheetStop } from '@/features/media-batch/model/move-sheet'
 import { FIT_VIEW } from '@/features/media-batch/model/zoom'
 import { useDialogFocus } from '@/features/media-batch/ui/use-dialog-focus'
 import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
 import { cn } from '@/shared/lib/cn'
 
-export type SortScreenActions = DaySortActions &
-  Pick<
-    FlowActions,
-    | 'createStopFromPhotos'
-    | 'daySits'
-    | 'mergeWithPrevious'
-    | 'movePhotos'
-    | 'splitStop'
-  >
+export type { SortScreenActions }
 
 export interface SortScreenProps {
   actions: SortScreenActions
@@ -64,14 +49,12 @@ export interface SortScreenProps {
   onOpenReview: () => void
 }
 
-const HEAD_BTN =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl hover:bg-white/10'
-
 /**
  * Třídění po dnech, step 2 of 2 (M-Trideni, W-Trideni, M-TrideniCela,
  * W-BezRuseni): one big photo of the current stop, the stops of the day in
  * one line, Koš · Nechat · ★ Nejlepší with automatic advance and Undo, and
  * the filmstrip of the stop. Every action is a button; keys are an extra.
+ * Swipe sideways like the compare view: left = next photo, right = back.
  */
 export function SortScreen({
   actions,
@@ -95,18 +78,25 @@ export function SortScreen({
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
-  const [ending, setEnding] = useState(sort.dayDone)
-  const [wasDone, setWasDone] = useState(sort.dayDone)
-  if (wasDone !== sort.dayDone) {
-    setWasDone(sort.dayDone)
-    if (sort.dayDone) setEnding(true)
+  const [ending, setEnding] = useState(sort.stopsDone)
+  const [wasDone, setWasDone] = useState(sort.stopsDone)
+  if (wasDone !== sort.stopsDone) {
+    setWasDone(sort.stopsDone)
+    if (sort.stopsDone) setEnding(true)
   }
   const compare = usePhotoCompare(current?.photo.item, [])
   useDialogFocus(rootRef)
 
+  const { trashedIds } = sort
+  const trashKey = [...trashedIds].sort().join(',')
   const summary = useMemo(
-    () => buildDayEnd(day, days, sort.trashedCount),
-    [day, days, sort.trashedCount],
+    () =>
+      buildDayEnd(
+        day,
+        days,
+        new Set(trashKey === '' ? [] : trashKey.split(',')),
+      ),
+    [day, days, trashKey],
   )
 
   const run = (action: () => Promise<unknown>, done?: string) => {
@@ -127,15 +117,14 @@ export function SortScreen({
   const photo = current?.photo
   const stop = current?.stop
   const series = photo === undefined ? [] : seriesOf(view, photo.item.id)
+  const comparePool =
+    series.length >= 2
+      ? series
+      : (stop?.photos.filter((p) => p.state !== 'trash') ?? [])
   const openCompare = () => {
-    if (photo === undefined || stop === undefined) return
-    const pool =
-      series.length >= 2
-        ? series
-        : stop.photos.filter((p) => p.state !== 'trash')
-    if (pool.length < 2) return
+    if (photo === undefined || comparePool.length < 2) return
     setOverlay({
-      ids: pool.map((p) => p.item.id),
+      ids: comparePool.map((p) => p.item.id),
       kind: 'compare',
       winnerId: photo.item.id,
     })
@@ -145,11 +134,6 @@ export function SortScreen({
   }
   const openMove = () => {
     if (photo !== undefined) setOverlay({ item: photo.item, kind: 'move' })
-  }
-  const swipe = (direction: string) => {
-    if (direction === 'up') sort.trash()
-    else if (direction === 'left') sort.skip(1)
-    else if (direction === 'right') sort.skip(-1)
   }
 
   useSortScreenKeys({
@@ -181,8 +165,6 @@ export function SortScreen({
   })
 
   const heading = dayHeading(day.key, locale)
-  const nameOf = (s: NonNullable<typeof stop>) =>
-    stopNameText(s.stop.name, t, locale).text
   const range =
     stop === undefined
       ? ''
@@ -196,10 +178,20 @@ export function SortScreen({
             stop.stop.tz,
           ),
         )
-  const progress = t('flow.sort.progress', {
-    done: view.doneStops,
-    total: view.totalStops,
-  })
+  // Announced politely after every step (the region itself is always there).
+  const live =
+    current === null || stop === undefined
+      ? ''
+      : joinFacts([
+          sort.stopDone === null
+            ? null
+            : t('flow.sort.stopDone', { number: sort.stopDone }),
+          stopTitle(stop, t, locale),
+          t('flow.sort.livePosition', {
+            index: current.index + 1,
+            total: stop.total,
+          }),
+        ])
   const decisions =
     photo === undefined ? null : (
       <SortDecisions
@@ -217,6 +209,7 @@ export function SortScreen({
         }}
       />
     )
+  const showError = sort.error || failed
 
   return createPortal(
     <div
@@ -227,11 +220,19 @@ export function SortScreen({
       ref={rootRef}
       role="dialog"
       tabIndex={-1}
-      onMouseMove={chrome.poke}
+      onPointerMove={chrome.onPointerMove}
     >
       <h2 className="sr-only" id={titleId}>
         {joinFacts([heading, t('flow.sort.step')])}
       </h2>
+      <p
+        aria-live="polite"
+        className="sr-only"
+        data-testid="sort-live"
+        role="status"
+      >
+        {ending ? '' : live}
+      </p>
       {ending ? (
         <DayEndView
           baseUrl={baseUrl}
@@ -241,6 +242,7 @@ export function SortScreen({
           onBackToSorting={() => {
             setEnding(false)
           }}
+          onOpenReview={onOpenReview}
         />
       ) : current === null || photo === undefined || stop === undefined ? (
         <div className="m-auto max-w-sm space-y-3 p-6 text-center">
@@ -254,102 +256,40 @@ export function SortScreen({
           </button>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col" inert={overlay !== null}>
+        <div
+          className="isolate flex min-h-0 flex-1 flex-col"
+          inert={overlay !== null}
+        >
           {fullscreen ? null : (
-            <header className="shrink-0 space-y-1 px-1 pt-[max(0.375rem,env(safe-area-inset-top))] lg:px-4">
-              <div className="hidden items-center gap-3 text-sm lg:flex">
-                <button
-                  className="min-h-11 font-semibold text-white/85 hover:underline"
-                  type="button"
-                  onClick={onOpenReview}
-                >
-                  {t('flow.sort.reviewLink')}
-                </button>
-                <span className="text-white/70">
-                  {joinFacts([heading, t('flow.sort.step')])}
-                </span>
-                <span className="flex-1" />
-                <span className="font-semibold" data-testid="sort-progress">
-                  {progress}
-                </span>
-              </div>
-              <div className="flex items-start gap-0.5">
-                <button
-                  aria-label={t('flow.sort.backToReview')}
-                  className={cn(HEAD_BTN, 'lg:hidden')}
-                  type="button"
-                  onClick={onOpenReview}
-                >
-                  <ChevronLeft aria-hidden="true" />
-                </button>
-                <SortStopStrip
-                  busy={busy}
-                  canCut={splitPreview(stop.stop, photo.item.id) !== null}
-                  canMerge={previousStopId(day, stop.stop.id) !== null}
-                  current={stop}
-                  daySits={
-                    sort.model.daySits && sort.model.daySitsIds.length > 0
-                  }
-                  expanded={expanded}
-                  unassignedCount={sort.model.unassignedCount}
-                  view={view}
-                  onCut={() => {
-                    const preview = splitPreview(stop.stop, photo.item.id)
-                    if (preview !== null)
-                      run(() => actions.splitStop(stop.stop.id, preview.at))
-                  }}
-                  onDaySits={() => {
-                    run(
-                      () => actions.daySits(sort.model),
-                      t('flow.sort.daySitsDone'),
-                    )
-                  }}
-                  onDontKnow={onOpenReview}
-                  onExpanded={setExpanded}
-                  onMerge={() => {
-                    const previous = previousStopId(day, stop.stop.id)
-                    if (previous !== null)
-                      run(() =>
-                        actions.mergeWithPrevious(previous, stop.stop.id),
-                      )
-                  }}
-                  onPick={(stopId) => {
-                    const target = view.stops.find((s) => s.stop.id === stopId)
-                    const first =
-                      target?.photos.find((p) => p.state === 'open') ??
-                      target?.photos[0]
-                    if (first !== undefined) sort.go(first.item.id)
-                    setExpanded(false)
-                  }}
-                />
-                <button
-                  aria-label={t('flow.sort.fullscreen')}
-                  className={cn(HEAD_BTN, 'lg:hidden')}
-                  type="button"
-                  onClick={() => {
-                    setFullscreen(true)
-                  }}
-                >
-                  <Maximize aria-hidden="true" size={20} />
-                </button>
-              </div>
-            </header>
+            <SortHeader
+              actions={actions}
+              busy={busy}
+              day={day}
+              expanded={expanded}
+              photo={photo}
+              run={run}
+              sort={sort}
+              stop={stop}
+              onExpanded={setExpanded}
+              onFullscreen={() => {
+                setFullscreen(true)
+              }}
+              onOpenReview={onOpenReview}
+            />
           )}
-
-          {sort.error || failed || notice !== null ? (
+          {showError || notice !== null ? (
             <p
               className={cn(
                 'mx-3 mt-1 shrink-0 rounded-xl px-3 py-2 text-sm',
-                sort.error || failed
+                showError
                   ? 'bg-action-trash text-action-trash-foreground'
                   : 'bg-white/10',
               )}
-              role={sort.error || failed ? 'alert' : 'status'}
+              role={showError ? 'alert' : undefined}
             >
-              {sort.error || failed ? t('flow.sort.error') : notice}
+              {showError ? t('flow.sort.error') : notice}
             </p>
           ) : null}
-
           <div
             className={cn(
               'flex min-h-0 flex-1 flex-col',
@@ -357,19 +297,17 @@ export function SortScreen({
             )}
           >
             {fullscreen ? null : (
-              <div className="hidden shrink-0 items-end gap-3 pb-2 lg:flex">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-lg font-semibold">
-                    {stop.number} · {nameOf(stop)}
-                  </p>
-                  <p className="text-sm text-white/70">
-                    {t('flow.sort.stopRange', {
-                      index: current.index + 1,
-                      range,
-                      total: stop.total,
-                    })}
-                  </p>
-                </div>
+              <div className="hidden shrink-0 pb-2 lg:block">
+                <p className="truncate text-lg font-semibold">
+                  {stopTitle(stop, t, locale)}
+                </p>
+                <p className="text-sm text-white/70">
+                  {t('flow.sort.stopRange', {
+                    index: current.index + 1,
+                    range,
+                    total: stop.total,
+                  })}
+                </p>
               </div>
             )}
             <SortStage
@@ -382,49 +320,26 @@ export function SortScreen({
               stopDone={sort.stopDone}
               total={stop.total}
               onSeries={openSeries}
-              onSwipe={swipe}
+              onSwipe={(direction) => {
+                if (direction === 'up') sort.trash()
+                else if (direction === 'left') sort.skip(1)
+                else if (direction === 'right') sort.skip(-1)
+              }}
               {...(fullscreen ? { onTap: chrome.toggle } : {})}
             />
             {fullscreen ? (
-              chrome.visible ? (
-                <div className="absolute inset-x-0 bottom-0 space-y-2 bg-black/60 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
-                  <p className="text-center text-xs text-white/80">
-                    {t('flow.sort.fullscreenHint')}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label={t('flow.sort.fullscreenExit')}
-                      className={cn(HEAD_BTN, 'bg-white/10')}
-                      type="button"
-                      onClick={() => {
-                        setFullscreen(false)
-                      }}
-                    >
-                      <X aria-hidden="true" size={20} />
-                    </button>
-                    <div className="flex-1">{decisions}</div>
-                  </div>
-                  <ShortcutsHint
-                    keys={['trash', 'keep', 'star', 'fullscreen', 'close']}
-                  />
-                </div>
-              ) : (
-                <button
-                  aria-label={t('flow.sort.showControls')}
-                  className="sr-only focus:not-sr-only"
-                  type="button"
-                  onClick={chrome.toggle}
-                >
-                  {t('flow.sort.showControls')}
-                </button>
-              )
+              <SortFullscreenBar
+                decisions={decisions}
+                visible={chrome.visible}
+                onClose={() => {
+                  setFullscreen(false)
+                }}
+                onShow={chrome.show}
+              />
             ) : (
               <>
                 <SortTools
-                  canCompare={
-                    series.length >= 2 ||
-                    stop.photos.filter((p) => p.state !== 'trash').length >= 2
-                  }
+                  canCompare={comparePool.length >= 2}
                   canUndo={sort.canUndo}
                   zoomed={compare.zoomed}
                   onCompare={openCompare}
@@ -442,7 +357,7 @@ export function SortScreen({
                     {t('flow.sort.afterDecision')}
                   </span>
                 </p>
-                {sort.dayDone ? (
+                {sort.stopsDone ? (
                   <button
                     className="mx-4 mt-2 min-h-11 shrink-0 rounded-xl bg-white/10 font-semibold"
                     type="button"
@@ -471,10 +386,7 @@ export function SortScreen({
           moveStops={moveStops}
           overlay={overlay}
           sort={sort}
-          subtitle={joinFacts([
-            `${String(stop.number)} · ${nameOf(stop)}`,
-            range,
-          ])}
+          subtitle={joinFacts([stopTitle(stop, t, locale), range])}
           onClose={() => {
             setOverlay(null)
           }}

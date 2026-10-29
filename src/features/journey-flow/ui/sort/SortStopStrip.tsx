@@ -5,6 +5,7 @@ import type {
   SessionStop,
   SessionView,
 } from '@/features/journey-flow/model/sort-session'
+import { stopTitle } from '@/features/journey-flow/ui/sort/sort-labels'
 import { stopNameText } from '@/features/journey-workspace/lib/moment-labels'
 import { cn } from '@/shared/lib/cn'
 
@@ -55,6 +56,12 @@ export function SortStopStrip({
   const panelId = useId()
   const nameOf = (stop: SessionStop) =>
     stopNameText(stop.stop.name, t, i18n.language).text
+  const titleOf = (stop: SessionStop) => stopTitle(stop, t, i18n.language)
+  /** "Otevřít zastávku 5 Mistaya Canyon", or "Cestou" for a ride. */
+  const openLabel = (stop: SessionStop) =>
+    stop.number === null
+      ? t('flow.review.enRoute')
+      : t('flow.sort.stopOpen', { name: nameOf(stop), number: stop.number })
   const progress = t('flow.sort.progress', {
     done: view.doneStops,
     total: view.totalStops,
@@ -67,8 +74,7 @@ export function SortStopStrip({
         aria-expanded={expanded}
         aria-label={t('flow.sort.stopsToggle', {
           done: view.doneStops,
-          name: nameOf(current),
-          number: current.number,
+          name: titleOf(current),
           total: view.totalStops,
         })}
         className="flex min-h-11 w-full min-w-0 flex-col gap-1.5 rounded-xl px-1.5 py-1 text-left lg:hidden"
@@ -80,7 +86,7 @@ export function SortStopStrip({
       >
         <span className="flex w-full min-w-0 items-center gap-1.5">
           <span className="truncate text-[15px] font-semibold">
-            {current.number} · {nameOf(current)}
+            {titleOf(current)}
           </span>
           <ChevronDown
             aria-hidden="true"
@@ -123,10 +129,7 @@ export function SortStopStrip({
             <li className="shrink-0" key={stop.stop.id}>
               <button
                 aria-current={isCurrent ? 'true' : undefined}
-                aria-label={t('flow.sort.stopOpen', {
-                  name: nameOf(stop),
-                  number: stop.number,
-                })}
+                aria-label={openLabel(stop)}
                 className={cn(
                   'flex min-h-11 items-center gap-1.5 rounded-full border px-3 text-sm font-semibold',
                   isCurrent
@@ -145,12 +148,9 @@ export function SortStopStrip({
                     stop.done ? 'bg-action-keep' : 'bg-current opacity-40',
                   )}
                 />
-                {stop.done && !isCurrent
+                {stop.done && !isCurrent && stop.number !== null
                   ? t('flow.sort.stopChipDone', { number: stop.number })
-                  : t('flow.sort.stopChip', {
-                      name: nameOf(stop),
-                      number: stop.number,
-                    })}
+                  : titleOf(stop)}
               </button>
             </li>
           )
@@ -177,7 +177,8 @@ export function SortStopStrip({
 
       {expanded ? (
         <div
-          className="mt-1 space-y-2 rounded-2xl bg-white/10 p-2"
+          // Over the photo (its badges must not show through), scrolls.
+          className="absolute inset-x-2 top-full z-30 mt-1 max-h-[70dvh] space-y-2 overflow-y-auto rounded-2xl bg-neutral-900 p-2 shadow-soft ring-1 ring-white/10"
           data-testid="sort-stop-panel"
           id={panelId}
         >
@@ -191,28 +192,20 @@ export function SortStopStrip({
                   aria-current={
                     stop.stop.id === current.stop.id ? 'true' : undefined
                   }
+                  aria-label={openLabel(stop)}
                   className={ROW}
                   type="button"
                   onClick={() => {
                     onPick(stop.stop.id)
                   }}
                 >
-                  {stop.done ? (
-                    <Check
-                      aria-hidden="true"
-                      className="text-action-keep"
-                      size={16}
-                    />
-                  ) : (
-                    <span
-                      aria-hidden="true"
-                      className="w-4 text-center text-white/60"
-                    >
-                      {stop.number}
-                    </span>
-                  )}
+                  <span aria-hidden="true" className="w-4 shrink-0">
+                    {stop.done ? (
+                      <Check className="text-action-keep" size={16} />
+                    ) : null}
+                  </span>
                   <span className="min-w-0 flex-1 truncate">
-                    {stop.number} · {nameOf(stop)}
+                    {titleOf(stop)}
                   </span>
                   <span className="shrink-0 text-xs text-white/70">
                     {stop.sorted}/{stop.total}

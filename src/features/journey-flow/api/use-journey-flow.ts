@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { invalidateJourneyTree } from '@/entities/journey/api/invalidate-journey-tree'
 import { useJourneyPlaces } from '@/entities/place/api/use-journey-places'
 import {
@@ -7,6 +7,7 @@ import {
   type FlowActions,
 } from '@/features/journey-flow/api/flow-actions'
 import { useFlowMarkers } from '@/features/journey-flow/api/flow-markers.store'
+import { createRefreshScheduler } from '@/features/journey-flow/api/refresh-scheduler'
 import {
   applyFlowMarkers,
   buildFlowBase,
@@ -79,26 +80,48 @@ export function useJourneyFlow(journeyId: string): JourneyFlowState {
 /**
  * Flow actions that refresh the journey tree after every write (also a
  * failed one: a partial change is still a change). Errors are re-thrown for
- * the screen's own toast.
+ * the screen's own toast. Sorting writes (Nechat, Koš, ★, their Undo)
+ * resolve as soon as they are saved: the sorting session shows them
+ * itself, and one refresh follows after a quiet moment, never per tap and
+ * never over a write in flight. Structural writes refresh at once.
  */
-export function useFlowActions(journeyId: string): FlowActions {
+export function useFlowActions(
+  journeyId: string,
+): FlowActions & { flushRefresh: () => void } {
   const queryClient = useQueryClient()
   const { user } = useSession()
   const userId = user?.id ?? null
-  return useMemo(() => {
+  const actions = useMemo(() => {
     const base = createFlowActions({}, userId)
-    const refresh = () =>
-      invalidateJourneyTree(queryClient, journeyId).catch(() => undefined)
+    const scheduler = createRefreshScheduler(() =>
+      // Never cancel a refetch that is already running.
+      invalidateJourneyTree(queryClient, journeyId, { cancelRefetch: false }),
+    )
     const wrap =
       <A extends unknown[], R>(action: (...args: A) => Promise<R>) =>
       async (...args: A): Promise<R> => {
         try {
           return await action(...args)
         } finally {
-          await refresh()
+          await scheduler.refreshNow()
+        }
+      }
+    const sorting =
+      <A extends unknown[], R>(action: (...args: A) => Promise<R>) =>
+      async (...args: A): Promise<R> => {
+        scheduler.begin()
+        try {
+          return await action(...args)
+        } catch (error) {
+          // The session rolls back; the tree shows the truth soon.
+          scheduler.flush()
+          throw error
+        } finally {
+          scheduler.end()
         }
       }
     return {
+      flushRefresh: scheduler.flush,
       ...base,
       assignToStop: wrap(base.assignToStop),
       confirmStops: wrap(base.confirmStops),
@@ -110,12 +133,17 @@ export function useFlowActions(journeyId: string): FlowActions {
       movePhotos: wrap(base.movePhotos),
       promoteEnRoute: wrap(base.promoteEnRoute),
       renameStop: wrap(base.renameStop),
-      restorePhotos: wrap(base.restorePhotos),
-      sortPhotos: wrap(base.sortPhotos),
+      restorePhotos: sorting(base.restorePhotos),
+      sortPhotos: sorting(base.sortPhotos),
       splitStop: wrap(base.splitStop),
-      starPhotos: wrap(base.starPhotos),
+      starPhotos: sorting(base.starPhotos),
       trashCopy: wrap(base.trashCopy),
-      trashPhotos: wrap(base.trashPhotos),
+      trashPhotos: sorting(base.trashPhotos),
+      unconfirmStop: wrap(base.unconfirmStop),
     }
   }, [journeyId, queryClient, userId])
+  const { flushRefresh } = actions
+  // Leaving the screen: the pending refresh happens now.
+  useEffect(() => flushRefresh, [flushRefresh])
+  return actions
 }

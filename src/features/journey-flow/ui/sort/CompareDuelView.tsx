@@ -1,10 +1,8 @@
-import { ChevronLeft, Maximize, Undo2, X } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   afterKeep,
   afterTrash,
-  candidateStatus,
   challengerPosition,
   startDuel,
   stepChallenger,
@@ -14,17 +12,24 @@ import type {
   PhotoState,
   SessionPhoto,
 } from '@/features/journey-flow/model/sort-session'
-import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
-import { FIT_VIEW, ZOOM_LEVELS } from '@/features/media-batch/model/zoom'
-import { relativeSharpness } from '@/features/media-batch/model/series'
-import { ignoredKey } from '@/features/media-batch/ui/sort-keys'
-import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
+import { DuelCandidates } from '@/features/journey-flow/ui/sort/DuelCandidates'
+import {
+  DuelHeader,
+  DuelZoom,
+} from '@/features/journey-flow/ui/sort/DuelHeader'
 import {
   DuelPane,
   type DuelRole,
 } from '@/features/journey-flow/ui/sort/DuelPane'
 import { ShortcutsHint } from '@/features/journey-flow/ui/sort/ShortcutsHint'
+import { ShowControlsButton } from '@/features/journey-flow/ui/sort/ShowControlsButton'
 import { useChrome } from '@/features/journey-flow/ui/sort/use-chrome'
+import {
+  useDuelKeys,
+  useLayerFocus,
+} from '@/features/journey-flow/ui/sort/use-duel-keys'
+import { relativeSharpness } from '@/features/media-batch/model/series'
+import { usePhotoCompare } from '@/features/media-batch/ui/use-photo-compare'
 import { cn } from '@/shared/lib/cn'
 
 export interface CompareDuelProps {
@@ -40,19 +45,19 @@ export interface CompareDuelProps {
   onUndo: () => void
   /** Candidates in capture order. */
   photos: readonly SessionPhoto[]
+  /** Opens straight in full screen (F in the series). */
+  startFullscreen?: boolean
   starred: (id: string) => boolean
   states: ReadonlyMap<string, PhotoState>
   winnerId: string
 }
 
-const HEAD_BTN =
-  'flex size-11 shrink-0 items-center justify-center rounded-xl hover:bg-white/10 disabled:opacity-40'
-
 /**
  * Porovnání (M-Porovnani, W-Serie, M-PorovnaniCela): the kept photo stays,
- * challengers come by swiping sideways or with [ ], a swipe up trashes the
- * photo it is on, "Nechat tuhle" under each. Synchronous zoom Celá · 100 %
- * · 200 %. No swap button: Tab swaps the sides on a keyboard.
+ * challengers come by swiping or with [ ]; a swipe up trashes the photo it
+ * is on; "Nechat tuhle" under each. Swipe left = next challenger, right =
+ * the previous one (like the sorting screen). Synchronous zoom Celá ·
+ * 100 % · 200 %. Tab or the swap button swaps the sides.
  */
 export function CompareDuelView({
   backLabel,
@@ -65,6 +70,7 @@ export function CompareDuelView({
   onTrash,
   onUndo,
   photos,
+  startFullscreen = false,
   starred,
   states,
   winnerId,
@@ -72,12 +78,13 @@ export function CompareDuelView({
   const { t } = useTranslation()
   const titleId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
+  useLayerFocus(rootRef)
   const order = useMemo(() => photos.map((p) => p.item.id), [photos])
   const [duel, setDuel] = useState<Duel>(() =>
     startDuel(order, winnerId, states, challengerId),
   )
   const [hovered, setHovered] = useState<DuelRole | null>(null)
-  const [fullscreen, setFullscreen] = useState(false)
+  const [fullscreen, setFullscreen] = useState(startFullscreen)
   const chrome = useChrome(fullscreen)
   const byId = new Map(photos.map((p) => [p.item.id, p]))
   const winner = byId.get(duel.winnerId)
@@ -90,7 +97,6 @@ export function CompareDuelView({
     () => relativeSharpness(photos.map((p) => p.item)),
     [photos],
   )
-  const position = challengerPosition(order, duel)
 
   const idOf = (role: DuelRole) =>
     role === 'winner' ? duel.winnerId : duel.challengerId
@@ -114,112 +120,20 @@ export function CompareDuelView({
     const next = stepChallenger(order, duel, states, delta)
     if (next !== null) setDuel({ ...duel, challengerId: next })
   }
-  const pick = (id: string) => {
-    if (id === duel.winnerId || states.get(id) === 'trash') return
-    setDuel({ ...duel, challengerId: id })
-  }
-  const swipeOn = (role: DuelRole) => (direction: string) => {
-    if (direction === 'up') trash(role)
-    else if (direction === 'left') step(1)
-    else if (direction === 'right') step(-1)
-  }
-
-  const latest = useRef({
-    chrome,
+  useDuelKeys({
     compare,
     fullscreen,
+    hovered,
     keep,
     onClose,
     onUndo,
+    setFullscreen,
     star,
     step,
     trash,
-    hovered,
   })
-  useEffect(() => {
-    latest.current = {
-      chrome,
-      compare,
-      fullscreen,
-      hovered,
-      keep,
-      onClose,
-      onUndo,
-      star,
-      step,
-      trash,
-    }
-  })
-  useEffect(() => {
-    rootRef.current?.focus({ preventScroll: true })
-    function onKeyDown(event: KeyboardEvent) {
-      if (ignoredKey(event)) return
-      const now = latest.current
-      const under = now.hovered ?? 'challenger'
-      const run = (fn: () => void) => {
-        event.preventDefault()
-        if (!event.repeat) fn()
-      }
-      switch (event.key) {
-        case '[':
-        case ']':
-          run(() => {
-            now.step(event.key === ']' ? 1 : -1)
-          })
-          return
-        case '+':
-        case '=':
-          run(now.compare.cycle)
-          return
-        case 'n':
-        case 'N':
-          run(() => {
-            now.keep(under)
-          })
-          return
-        case 'k':
-        case 'K':
-          run(() => {
-            now.trash(under)
-          })
-          return
-        case 's':
-        case 'S':
-          run(() => {
-            now.star(now.hovered ?? 'winner')
-          })
-          return
-        case 'z':
-        case 'Z':
-          run(now.onUndo)
-          return
-        case 'f':
-        case 'F':
-          run(() => {
-            setFullscreen((value) => !value)
-          })
-          return
-        case 'Tab':
-          if (now.compare.handleKey(event)) event.preventDefault()
-          return
-        case 'Escape':
-          event.preventDefault()
-          if (now.compare.zoomed) now.compare.setZoom(() => FIT_VIEW)
-          else if (now.fullscreen) setFullscreen(false)
-          else now.onClose()
-          return
-        default:
-          return
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-    }
-  }, [])
 
   if (winner === undefined) return null
-  const showChrome = !fullscreen || chrome.visible
   const panes: { photo: SessionPhoto; role: DuelRole }[] = [
     { photo: winner, role: 'winner' },
     ...(challenger === undefined
@@ -237,97 +151,33 @@ export function CompareDuelView({
       ref={rootRef}
       role="dialog"
       tabIndex={-1}
-      onMouseMove={chrome.poke}
+      onPointerMove={chrome.onPointerMove}
     >
-      {showChrome ? (
-        <div
-          className={cn(
-            'flex shrink-0 items-center gap-1 px-1 pt-[max(0.375rem,env(safe-area-inset-top))]',
-            fullscreen && 'absolute inset-x-0 top-0 z-10 bg-black/70',
-          )}
-        >
-          <button
-            aria-label={backLabel}
-            className={HEAD_BTN}
-            type="button"
-            onClick={onClose}
-          >
-            <ChevronLeft aria-hidden="true" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-[15px] font-semibold" id={titleId}>
-              {t('flow.duel.title')}
-            </h2>
-            <p className="truncate text-xs text-white/70">
-              {challenger === undefined
-                ? t('flow.duel.noChallenger')
-                : t('flow.duel.subtitle', position)}
-            </p>
-          </div>
-          <button
-            aria-label={t('flow.sort.back')}
-            className={HEAD_BTN}
-            disabled={!canUndo}
-            type="button"
-            onClick={onUndo}
-          >
-            <Undo2 aria-hidden="true" size={20} />
-          </button>
-          <button
-            aria-label={
-              fullscreen
-                ? t('flow.sort.fullscreenExit')
-                : t('flow.sort.fullscreen')
-            }
-            aria-pressed={fullscreen}
-            className={HEAD_BTN}
-            type="button"
-            onClick={() => {
-              setFullscreen((value) => !value)
-            }}
-          >
-            {fullscreen ? (
-              <X aria-hidden="true" size={20} />
-            ) : (
-              <Maximize aria-hidden="true" size={20} />
-            )}
-          </button>
-        </div>
-      ) : null}
-
-      {fullscreen ? null : (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 px-3 py-1.5">
-          <div
-            aria-label={t('flow.duel.zoomLabel')}
-            className="flex rounded-xl bg-white/10 p-0.5"
-            role="group"
-          >
-            {ZOOM_LEVELS.map((level) => (
-              <button
-                aria-pressed={compare.level === level}
-                className={cn(
-                  'min-h-11 min-w-14 rounded-lg px-2 text-sm font-semibold',
-                  compare.level === level
-                    ? 'bg-white text-black'
-                    : 'text-white',
-                )}
-                key={String(level)}
-                type="button"
-                onClick={() => {
-                  compare.zoomTo(level)
-                }}
-              >
-                {level === 'fit'
-                  ? t('flow.duel.zoomFit')
-                  : `${String(level * 100)} %`}
-              </button>
-            ))}
-          </div>
-          <span className="text-xs text-white/70">
-            {t('flow.duel.zoomHint')}
-          </span>
-        </div>
+      {chrome.visible ? (
+        <DuelHeader
+          backLabel={backLabel}
+          canSwap={challenger !== undefined}
+          canUndo={canUndo}
+          compare={compare}
+          fullscreen={fullscreen}
+          subtitle={
+            challenger === undefined
+              ? t('flow.duel.noChallenger')
+              : t('flow.duel.subtitle', challengerPosition(order, duel))
+          }
+          titleId={titleId}
+          onClose={onClose}
+          onFullscreen={() => {
+            setFullscreen((value) => !value)
+          }}
+          onUndo={onUndo}
+        />
+      ) : (
+        <h2 className="sr-only" id={titleId}>
+          {t('flow.duel.title')}
+        </h2>
       )}
+      {fullscreen ? null : <DuelZoom compare={compare} />}
 
       <div
         className={cn(
@@ -350,8 +200,8 @@ export function CompareDuelView({
             role={role}
             sharpness={sharpness}
             starred={starred(photo.item.id)}
-            onHover={() => {
-              setHovered(role)
+            onHover={(inside) => {
+              setHovered(inside ? role : null)
             }}
             onKeep={() => {
               keep(role)
@@ -359,7 +209,11 @@ export function CompareDuelView({
             onStar={() => {
               star(role)
             }}
-            onSwipe={swipeOn(role)}
+            onSwipe={(direction) => {
+              if (direction === 'up') trash(role)
+              else if (direction === 'left') step(1)
+              else if (direction === 'right') step(-1)
+            }}
             {...(fullscreen ? { onTap: chrome.toggle } : {})}
             onTrash={() => {
               trash(role)
@@ -368,7 +222,10 @@ export function CompareDuelView({
         ))}
       </div>
 
-      {showChrome ? (
+      {fullscreen && !chrome.visible ? (
+        <ShowControlsButton onShow={chrome.show} />
+      ) : null}
+      {chrome.visible ? (
         <div
           className={cn(
             'shrink-0 space-y-1.5 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-1.5',
@@ -381,51 +238,17 @@ export function CompareDuelView({
             </p>
           ) : (
             <>
-              <ul
-                aria-label={t('flow.duel.candidates')}
-                className="no-scrollbar flex items-center gap-1 overflow-x-auto"
-              >
-                <li
-                  aria-hidden="true"
-                  className="shrink-0 pr-1 text-xs text-white/70"
-                >
-                  {t('flow.duel.candidates')}
-                </li>
-                {[
-                  duel.winnerId,
-                  ...order.filter((id) => id !== duel.winnerId),
-                ].map((id, index) => {
-                  const photo = byId.get(id)
-                  if (photo === undefined) return null
-                  const status = candidateStatus(id, duel, states)
-                  return (
-                    <li className="shrink-0" key={id}>
-                      <button
-                        aria-current={status === 'current' ? 'true' : undefined}
-                        aria-label={t(`flow.duel.candidate.${status}`, {
-                          n: index,
-                        })}
-                        className={cn(
-                          'relative flex size-11 items-center justify-center rounded-md',
-                          (status === 'current' || status === 'winner') &&
-                            'outline outline-2 outline-white',
-                          status === 'trash' && 'opacity-40',
-                        )}
-                        type="button"
-                        onClick={() => {
-                          pick(id)
-                        }}
-                      >
-                        <MediaThumb
-                          baseUrl={baseUrl}
-                          className="size-9"
-                          item={photo.item}
-                        />
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+              <DuelCandidates
+                baseUrl={baseUrl}
+                duel={duel}
+                order={order}
+                photos={byId}
+                states={states}
+                onPick={(id) => {
+                  if (id === duel.winnerId || states.get(id) === 'trash') return
+                  setDuel({ ...duel, challengerId: id })
+                }}
+              />
               <p className="text-xs text-white/70 [@media(hover:hover)_and_(pointer:fine)]:hidden">
                 {t('flow.duel.hint')}
               </p>

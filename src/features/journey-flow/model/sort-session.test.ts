@@ -3,6 +3,7 @@ import { buildDaySort } from '@/features/journey-flow/model/day-sort'
 import {
   buildSessionView,
   firstOpen,
+  homeOf,
   locate,
   nextOpen,
   photoState,
@@ -31,9 +32,11 @@ describe('sort session', () => {
   it('counts a photo as decided only when reviewed or decided now', () => {
     const m = model()
     const view = buildSessionView(m, new Map())
-    expect(view.totalStops).toBe(5)
+    // Numbered as in Kontrola: the ride ("Cestou") has no number.
+    expect(view.totalStops).toBe(4)
     expect(view.doneStops).toBe(1) // the hotel was reviewed before
-    expect(view.stops.map((s) => s.number)).toEqual([1, 2, 3, 4, 5])
+    expect(view.stops.map((s) => s.number)).toEqual([1, null, 2, 3, 4])
+    expect(view.allDone).toBe(false)
     expect(firstOpen(view)).toEqual({
       photoId: idsOf(m, ID.ride)[0],
       stopId: ID.ride,
@@ -112,5 +115,36 @@ describe('sort session', () => {
     )
     expect(seriesOf(less, lake[1] ?? '')).toHaveLength(3)
     expect(seriesOf(view, idsOf(m, ID.ride)[0] ?? '')).toEqual([])
+  })
+
+  it('keeps a trashed photo in the stop that holds it after a split or merge', () => {
+    const m = model()
+    const lake = m.stops.find((stop) => stop.stop.id === ID.lake)
+    const item = lake?.photos[1]?.item
+    if (lake === undefined || item === undefined) throw new Error('no lake')
+    // Its stop is gone: the stop whose time range holds the photo.
+    expect(homeOf({ item, stopId: 'gone' }, m.stops)).toBe(ID.lake)
+    expect(homeOf({ item, stopId: ID.hotel }, m.stops)).toBe(ID.hotel)
+    const live = {
+      ...m,
+      stops: m.stops.map((stop) =>
+        stop.stop.id === ID.lake
+          ? {
+              ...stop,
+              photos: stop.photos.filter((p) => p.item.id !== item.id),
+            }
+          : stop,
+      ),
+    }
+    const view = buildSessionView(
+      live,
+      new Map([[item.id, 'trash' as const]]),
+      [
+        { item, stopId: 'gone' },
+        { item, stopId: 'gone' },
+      ],
+    )
+    const stop = view.stops.find((s) => s.stop.id === ID.lake)
+    expect(stop?.photos.filter((p) => p.item.id === item.id)).toHaveLength(1)
   })
 })

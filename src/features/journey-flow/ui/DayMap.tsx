@@ -43,6 +43,9 @@ function highlight(
  * line along the way (rides and moves between the stops). Reuses the app's
  * map style; the pins are 44 px touch targets.
  */
+/** Room around the pins when the map frames the day. */
+const FIT_PADDING = { bottom: 56, left: 36, right: 36, top: 36 }
+
 export function DayMap({
   className,
   onSelect,
@@ -104,7 +107,13 @@ export function DayMap({
     if (coordinates.length > 1) {
       const bounds = new maplibregl.LngLatBounds(coordinates[0], coordinates[0])
       for (const c of coordinates) bounds.extend(c)
-      map.fitBounds(bounds, { animate: false, maxZoom: 14, padding: 40 })
+      // Pins (about 28 px) stay off the edges; more room at the bottom for
+      // the attribution.
+      map.fitBounds(bounds, {
+        animate: false,
+        maxZoom: 14,
+        padding: FIT_PADDING,
+      })
     }
     map.on('load', () => {
       map.addSource(LINE_SOURCE, {

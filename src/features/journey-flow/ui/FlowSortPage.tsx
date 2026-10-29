@@ -1,4 +1,4 @@
-import { useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -60,7 +60,18 @@ export function FlowSortPage({
   const day = state.flow.days.find((entry) => entry.key === dayKey)
   if (day === undefined) {
     return (
-      <p className="text-sm text-muted">{t('flow.screen.review.dayMissing')}</p>
+      <div className="space-y-3">
+        <p className="text-sm text-muted">
+          {t('flow.screen.review.dayMissing')}
+        </p>
+        <Link
+          className={buttonVariants({ variant: 'secondary' })}
+          params={{ journeyId }}
+          to="/j/$journeyId/flow"
+        >
+          {t('flow.screen.review.back')}
+        </Link>
+      </div>
     )
   }
   return (
@@ -74,9 +85,11 @@ export function FlowSortPage({
       journeyId={journeyId}
       moveStops={moveStops}
       onOpenReview={() => {
-        navigate({ params: { dayKey, journeyId }, to: REVIEW_ROUTE }).catch(
-          () => undefined,
-        )
+        navigate({
+          params: { dayKey, journeyId },
+          replace: true,
+          to: REVIEW_ROUTE,
+        }).catch(() => undefined)
       }}
     />
   )

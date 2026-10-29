@@ -43,7 +43,8 @@ export function DuelPane({
   hint: TrashHintReason | null
   item: MediaItem
   kept: boolean
-  onHover: () => void
+  /** The mouse entered (true) or left (false) this photo. */
+  onHover: (inside: boolean) => void
   onKeep: () => void
   onStar: () => void
   onSwipe: (direction: SwipeDirection) => void
@@ -122,7 +123,12 @@ export function DuelPane({
       className="grid min-h-0 min-w-0 grid-rows-[minmax(0,1fr)]"
       data-role={role}
       data-testid="duel-pane"
-      onMouseEnter={onHover}
+      onMouseEnter={() => {
+        onHover(true)
+      }}
+      onMouseLeave={() => {
+        onHover(false)
+      }}
     >
       <ComparePane
         actions={undefined}

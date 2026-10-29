@@ -40,6 +40,15 @@ export function UndoBanner({
   const result = resultText(t, undo.result)
   const failed = undo.result?.kind === 'failed'
   const running = auto.status === 'running' || auto.exclusive
+  const empty =
+    !running &&
+    auto.status !== 'error' &&
+    !(auto.status === 'done' && auto.resolvingPlaces) &&
+    undo.available !== true &&
+    result === null &&
+    !confirming
+  // Nothing to say: no empty box next to the day cards.
+  if (empty) return null
 
   return (
     <section

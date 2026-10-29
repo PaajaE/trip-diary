@@ -23,6 +23,8 @@ export interface DayEndViewProps {
   day: FlowDay
   journeyId: string
   onBackToSorting: () => void
+  /** "Nevím kam": the photos still without a stop are placed in Kontrola. */
+  onOpenReview: () => void
   summary: DayEndSummary
 }
 
@@ -38,6 +40,7 @@ export function DayEndView({
   day,
   journeyId,
   onBackToSorting,
+  onOpenReview,
   summary,
 }: DayEndViewProps) {
   const { i18n, t } = useTranslation()
@@ -90,7 +93,9 @@ export function DayEndView({
             <span className="flex size-8 items-center justify-center rounded-full bg-action-keep text-action-keep-foreground">
               <Check aria-hidden="true" size={18} />
             </span>
-            {t('flow.dayEnd.done')}
+            {summary.unassigned > 0
+              ? t('flow.dayEnd.stopsAllDone')
+              : t('flow.dayEnd.done')}
           </h2>
           <p className="mt-1 text-sm text-muted">
             {route === null
@@ -200,6 +205,20 @@ export function DayEndView({
               {stopsDone}
             </p>
           </div>
+          {summary.unassigned > 0 ? (
+            <div className={cn(CARD, 'space-y-2')}>
+              <p className="text-sm">
+                {t('flow.dayEnd.unassignedLeft', { count: summary.unassigned })}
+              </p>
+              <button
+                className={buttonVariants({ variant: 'secondary' })}
+                type="button"
+                onClick={onOpenReview}
+              >
+                {t('flow.sort.dontKnowCount', { count: summary.unassigned })}
+              </button>
+            </div>
+          ) : null}
           {noteLater ? null : (
             <div className={cn(CARD, 'space-y-3')}>
               <div>

@@ -1910,6 +1910,7 @@ export const en = {
       done: 'Done, back to the stops',
     },
     sort: {
+      livePosition: 'photo {{index}} of {{total}}',
       step: 'Step 2 of 2 · Sorting the photos',
       backToReview: 'Back to checking the stops',
       reviewLink: 'Checking the stops',
@@ -1918,7 +1919,7 @@ export const en = {
       error: 'The change did not work. Try again.',
       stopsLabel: 'Stops of the day',
       stopsToggle:
-        'Stop {{number}} {{name}}, {{done}} of {{total}} done, stops of the day',
+        '{{name}}, stops {{done}} of {{total}} done, stops of the day',
       stopChip: '{{number}} · {{name}}',
       stopChipDone: '{{number}} · done',
       stopOpen: 'Open stop {{number}} {{name}}',
@@ -1994,6 +1995,8 @@ export const en = {
       },
     },
     seriesPick: {
+      starKept: '★ photo stays',
+      undo: 'Undo',
       title: 'Similar photos · {{count}}',
       subtitle: '{{number}} · {{name}} · {{range}}',
       intro:
@@ -2026,6 +2029,7 @@ export const en = {
       keepAll: 'Keep all {{count}}',
     },
     duel: {
+      swap: 'Swap the sides',
       title: 'Compare',
       subtitle: 'The kept one stays, challenger {{index}} of {{total}}',
       noChallenger: 'No other photo to compare.',
@@ -2054,6 +2058,11 @@ export const en = {
       fullscreenKeys: 'Move the mouse for the controls',
     },
     dayEnd: {
+      stopsAllDone: 'The stops of the day are done',
+      unassignedLeft_one: '{{count}} photo still has no stop.',
+      unassignedLeft_few: '{{count}} photos still have no stop.',
+      unassignedLeft_many: '{{count}} photos still have no stop.',
+      unassignedLeft_other: '{{count}} photos still have no stop.',
       stopsDone: 'Stops {{done}} of {{total}} done',
       nextDayFacts: '{{day}} · {{photos}}',
       lastDay: 'Last day of the journey',

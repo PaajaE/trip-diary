@@ -73,4 +73,15 @@ describe('series pick', () => {
     const states = seriesStates(series, initialKeep(series))
     expect([...states.values()]).toEqual(['open', 'keep', 'open', 'open'])
   })
+
+  it('pre-keeps photos already kept and ★ ones, also a ★ still saving', () => {
+    const series = lake().map((photo, index) =>
+      index === 2 ? { ...photo, state: 'keep' as const } : photo,
+    )
+    const pendingStar = series[3]?.item.id ?? ''
+    const keep = initialKeep(series, (id) => id === pendingStar)
+    expect([...keep].sort()).toEqual(
+      [series[1]?.item.id, series[2]?.item.id, pendingStar].sort(),
+    )
+  })
 })

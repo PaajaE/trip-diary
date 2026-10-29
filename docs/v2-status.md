@@ -527,7 +527,7 @@ Průběh 2026-10-24 (větev `claude/affectionate-knuth-8abj8b`, PR #46): impleme
 
 ## Fáze 4f — Automatické zastávky a třídění (2026-10-26, 📝 PROPOSED)
 
-Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Balík A (základy) je sloučený, balík B (algoritmus ZS-3, ZS-4) čeká na review; balík C (tok ZS-5 až ZS-7) není začatý.
+Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Balík A (základy) je sloučený, balík B (algoritmus ZS-3, ZS-4) je sloučený; balík C (tok ZS-5 až ZS-7) je v PR a čeká na ověření na zařízení.
 
 **Balík A — Základy (2026-10-26, větev `claude/kind-hawking-wuv63g`, 🟡 IMPLEMENTED):**
 
@@ -546,6 +546,13 @@ Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře,
 - **Výkon:** `planOrganization` 5 000 fotek 381 ms (hustá data); dlouhý pobyt/stejné časy/bez GPS 20 000 fotek 0,1–2 s. **Mimo cíl:** 1 fotka na den přes 5 000 dní trvá 5–7 s (stávající vrstva dnů `stages.ts`, ne nový kód); reálná cesta tohle nemá.
 - **Kanada v1** (hrubá pravda, 5 skupin; jen orientačně): clusterMoments F1 0,482 / 42,9 úprav na 100; ZS-3 0,365; ZS-4 0,355. Jemnější seskupení hrubá pravda trestá, zlepšení se na ní nepozná.
 - **UNVERIFIED:** chování na hlučných reálných GPS (prahy jsou ladění pro syntetická data, ZS-8), běh `planOrganization` nad skutečnou Kanadou, pgTAP pro výlet uvnitř dne (`segments` bez nové migrace, RLS čtením), iOS WKWebView (Intl), `device` z iOS a videa. Falešná shoda posunu hodin u kamery bez GPS je možná při zapnuté volbě `applyProposedClockShifts` (výchozí vypnuto).
+
+**Balík C — Tok (2026-10-29, 🟡 IMPLEMENTED, PR čeká):**
+
+- **ZS-5/ZS-6:** příjem nových fotek do stávajících zastávek (potvrzená se jen rozšíří, okno ±2 h, nikdy přes hranici dne 4:00), stabilní ID zastávky, zámek při vědomém zásahu (`confirmMoments`), názvy odvozené v UI bez `title` (skeleton „Hledám místo…“), fronta geokódování po buňkách ~110 m, nejdřív aktuální den; model hloubky hierarchie podle velikosti cesty, napojený do pracovní plochy.
+- **ZS-7:** auto-uspořádání po nahrání (debounce, jeden běh na cestu, zámek mezi kartami), Vrátit uspořádání (jen nezamčené zastávky, koš/★/ruční zásahy se nedotkne), Příjem nových dnů, Kontrola zastávek (mapa, karty, Cestou, výlet, Nezařazené), Třídění po dnech, Série a Porovnání, Konec dne; mobil i web.
+- **Ověřeno:** jednotkové a komponentové testy, `format:check`, `lint`, `typecheck`, `test`, `test:packages`, `build`; nezávislé review (3 průchody) a vizuální smoke test v Chromiu na zasetých datech.
+- **UNVERIFIED:** iPhone/WKWebView (dotyk, celá obrazovka, Web Locks, Dexie v18), reálná data Kanady, brána ZS-7 „celý tok na reálných datech“. Otevřené v DB: obnovení obálky po Zpět u koše, serverové omezení geokódování.
 
 | Zjištění (VERIFIED čtením kódu, syntetické scénáře)                                                   | Úkol       |
 | ----------------------------------------------------------------------------------------------------- | ---------- |

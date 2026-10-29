@@ -49,7 +49,9 @@ export function JourneyTabs({
   return (
     <nav
       aria-label={t('owner.tabsLabel')}
-      className="-mx-5 mb-6 overflow-x-auto px-5 sm:mx-0 sm:mb-8 sm:border-b sm:border-border sm:px-0"
+      // relative: the sr-only labels (absolute) stay inside the scroller
+      // instead of widening the page on a phone.
+      className="relative -mx-5 mb-6 overflow-x-auto px-5 sm:mx-0 sm:mb-8 sm:border-b sm:border-border sm:px-0"
     >
       <ul className="flex w-max min-w-full items-center gap-1 pb-1 sm:pb-0">
         <li>

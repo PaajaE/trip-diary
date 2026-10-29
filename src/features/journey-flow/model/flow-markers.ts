@@ -49,14 +49,20 @@ export const flowMarkersSchema = z.object({
   seenDays: z
     .record(dayKeySchema, instantSchema)
     .refine((days) => Object.keys(days).length <= MAX_SEEN_DAYS),
+  /**
+   * The journey-wide marker of version 1, kept on upgrade: a day without
+   * its own entry counts as seen up to it (an upgrade does not bring every
+   * old day back). Null when there was none.
+   */
+  legacySeenUpTo: instantSchema.nullable().default(null),
   version: z.literal(2),
 })
 export type FlowMarkers = z.infer<typeof flowMarkersSchema>
 
 /**
- * Version 1 kept one journey-wide `seenUpTo` watermark. Confirming one day
- * moved it past other days' arrivals and hid them from Příjem, so it is not
- * carried over: those days count as never seen (shown again, never hidden).
+ * Version 1 kept one journey-wide `seenUpTo` watermark. It becomes the
+ * fallback of days without their own marker (`legacySeenUpTo`); new
+ * acknowledgements are per day.
  */
 const flowMarkersV1Schema = z.object({
   ...commonShape,
@@ -66,6 +72,7 @@ const flowMarkersV1Schema = z.object({
 
 export const EMPTY_MARKERS: FlowMarkers = {
   keptCopyIds: [],
+  legacySeenUpTo: null,
   openedStopIds: [],
   runs: [],
   seenDays: {},
@@ -80,6 +87,7 @@ export function parseFlowMarkers(value: unknown): FlowMarkers {
   if (!old.success) return EMPTY_MARKERS
   return {
     keptCopyIds: old.data.keptCopyIds,
+    legacySeenUpTo: old.data.seenUpTo,
     openedStopIds: old.data.openedStopIds,
     runs: old.data.runs,
     seenDays: {},
@@ -112,9 +120,10 @@ export function seenUpToOf(
   markers: FlowMarkers,
   dayKey: string,
 ): string | null {
+  // A day without its own marker: the version 1 marker (if any).
   return Object.hasOwn(markers.seenDays, dayKey)
     ? (markers.seenDays[dayKey] ?? null)
-    : null
+    : markers.legacySeenUpTo
 }
 
 /**

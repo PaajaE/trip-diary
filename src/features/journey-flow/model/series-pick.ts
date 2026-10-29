@@ -14,11 +14,22 @@ export const LESS_SHARP_MAX = 0.8
 
 export type SeriesNote = TrashHintReason | 'lessSharp' | 'recommended'
 
-/** Pre-selection: the recommended shot and the user's own ★ photos. */
-export function initialKeep(series: readonly SessionPhoto[]): Set<string> {
+/**
+ * Pre-selection: the recommended shot, photos already kept and the user's
+ * ★ photos (`starred` includes a ★ still being saved). The bulk action may
+ * trash only what is not pre-selected unless the user flips it.
+ */
+export function initialKeep(
+  series: readonly SessionPhoto[],
+  starred: (id: string) => boolean = (id) =>
+    series.some((photo) => photo.item.id === id && photo.item.starred),
+): Set<string> {
   const keep = new Set(
     series
-      .filter((photo) => photo.recommended || photo.item.starred)
+      .filter(
+        (photo) =>
+          photo.recommended || photo.state === 'keep' || starred(photo.item.id),
+      )
       .map((photo) => photo.item.id),
   )
   const first = series[0]

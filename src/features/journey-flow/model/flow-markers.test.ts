@@ -99,7 +99,7 @@ describe('flow markers', () => {
     expect(seenUpToOf(markers, `d${String(MAX_SEEN_DAYS + 2)}`)).not.toBeNull()
   })
 
-  it('migrates version 1 and ignores its journey-wide watermark', () => {
+  it('migrates version 1 and keeps its watermark for days without their own', () => {
     const migrated = parseFlowMarkers({
       keptCopyIds: [uuid(7)],
       openedStopIds: [uuid(6)],
@@ -110,10 +110,24 @@ describe('flow markers', () => {
     expect(migrated).toEqual({
       keptCopyIds: [uuid(7)],
       openedStopIds: [uuid(6)],
+      legacySeenUpTo: '2026-01-01T00:00:00+00:00',
       runs: [{ momentIds: [uuid(5)], runId: 'r1' }],
       seenDays: {},
       version: 2,
     })
+    // An old day stays seen after the upgrade; a later arrival is new.
+    expect(seenUpToOf(migrated, DAY)).toBe('2026-01-01T00:00:00+00:00')
+    expect(
+      isNewStop(
+        mom(1, { createdAt: '2026-01-02T00:00:00+00:00' }),
+        migrated,
+        OTHER_DAY,
+      ),
+    ).toBe(true)
+    expect(isNewStop(mom(1), migrated, OTHER_DAY)).toBe(false)
+    // Its own marker wins over the old one.
+    const own = acknowledgeArrivals(migrated, DAY, '2026-01-05T00:00:00+00:00')
+    expect(seenUpToOf(own, DAY)).toBe('2026-01-05T00:00:00+00:00')
     expect(
       parseFlowMarkers({ ...EMPTY_MARKERS, seenDays: { [DAY]: 'yesterday' } }),
     ).toEqual(EMPTY_MARKERS)
