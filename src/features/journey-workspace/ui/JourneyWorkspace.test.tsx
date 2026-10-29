@@ -214,9 +214,7 @@ describe('JourneyWorkspace overview', () => {
   it('opens the first day without text from its chip', () => {
     loadJourney()
     render(<JourneyWorkspace journeyId="j" />)
-    fireEvent.click(
-      screen.getByRole('button', { name: /Days to describe/ }),
-    )
+    fireEvent.click(screen.getByRole('button', { name: /Days to describe/ }))
     expect(navigate).toHaveBeenCalledWith({
       params: { date: '2026-01-03', journeyId: 'j' },
       search: {},

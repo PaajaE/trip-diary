@@ -62,7 +62,7 @@ describe('DayMosaic', () => {
   it('shows at most three tiles and an "all N" tile for the rest', () => {
     render(<DayMosaic media={photos} sizes="100vw" total={17} />)
     expect(screen.getAllByRole('img')).toHaveLength(photos.length)
-    expect(screen.getByText('All 17')).toBeInTheDocument()
+    expect(screen.getByText('publicJourney.allPhotos')).toBeInTheDocument()
   })
 
   it('opens the lightbox at the tapped photo', async () => {
