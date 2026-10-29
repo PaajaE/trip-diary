@@ -49,6 +49,6 @@ describe('ReaderBar', () => {
     render(<ReaderBar signedIn />)
     expect(hrefs()).toEqual(['/ada/alaska', '/dashboard'])
     expect(screen.getByText('Back to trip')).toBeTruthy()
-    expect(screen.getByText('Exit reading')).toBeTruthy()
+    expect(screen.getByText('Close')).toBeTruthy()
   })
 })

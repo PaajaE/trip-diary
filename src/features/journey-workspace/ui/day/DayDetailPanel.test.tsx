@@ -191,7 +191,7 @@ describe('DayDetailPanel status chips', () => {
     const status = screen.getByTestId('day-status')
     const link = within(status).getByRole('link', { name: '1 left to sort' })
     expect(link.getAttribute('href')).toBe(`/j/${uuid(999)}/batch`)
-    expect(within(status).getByText('Day note missing')).toBeTruthy()
+    expect(within(status).getByText('Write one sentence')).toBeTruthy()
     expect(within(status).queryByText('Photos sorted')).toBeNull()
   })
 
@@ -206,7 +206,7 @@ describe('DayDetailPanel status chips', () => {
     expect(within(status).getByText('Photos sorted')).toBeTruthy()
     expect(within(status).getByText('Note')).toBeTruthy()
     expect(within(status).queryByRole('link')).toBeNull()
-    expect(within(status).queryByText('Day note missing')).toBeNull()
+    expect(within(status).queryByText('Write one sentence')).toBeNull()
   })
 
   it('treats media without reviewedAt as sorted', () => {

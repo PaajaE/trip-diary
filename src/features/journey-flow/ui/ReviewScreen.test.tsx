@@ -309,7 +309,7 @@ describe('ReviewScreen (Kontrola zastávek)', () => {
 
   it('marks a to-check stop opened and counts the unopened ones', () => {
     const { actions } = setup()
-    const note = screen.getByText(/ke kontrole jsi ještě neotevřel/)
+    const note = screen.getByText(/čeká na tvůj pohled/)
     expect(note.textContent).toMatch(/^\d+ zastáv/)
     fireEvent.click(screen.getByText('Hledám místo…'))
     expect(actions.markOpened).toHaveBeenCalledWith('j1', ID.viewpoint)

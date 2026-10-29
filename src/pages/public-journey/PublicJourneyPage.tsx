@@ -287,17 +287,22 @@ export function PublicJourneyPage({
                 {t('publicJourney.placesIntro')}
               </p>
             </div>
-            <ul className="flex flex-wrap gap-2 text-sm">
-              {data.places.map((place) => (
-                <li
-                  className="rounded-full border border-border bg-surface px-3 py-1"
-                  key={place.id}
-                >
-                  {place.name}
-                  {place.region !== null ? `, ${place.region}` : ''}
-                </li>
-              ))}
-            </ul>
+            <details className="group">
+              <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-accent-strong underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden group-open:hidden">
+                {t('publicJourney.placesShow', { count: data.places.length })}
+              </summary>
+              <ul className="flex flex-wrap gap-2 text-sm">
+                {data.places.map((place) => (
+                  <li
+                    className="rounded-full border border-border bg-surface px-3 py-1"
+                    key={place.id}
+                  >
+                    {place.name}
+                    {place.region !== null ? `, ${place.region}` : ''}
+                  </li>
+                ))}
+              </ul>
+            </details>
             <PlaceAttribution />
           </section>
         ) : null}
