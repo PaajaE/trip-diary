@@ -1,4 +1,9 @@
 import { z } from 'zod'
+import {
+  isKnownTimeZone,
+  photoDayZones,
+  pickLocalDay,
+} from './automation/local-day.ts'
 
 /**
  * v2 public read model returned by the `get_public_journey` RPC
@@ -12,7 +17,13 @@ const latitude = z.number().min(-90).max(90)
 const longitude = z.number().min(-180).max(180)
 
 export const segmentKindSchema = z.enum(['stage', 'trip'])
-export const tripTypeSchema = z.enum(['trek', 'day', 'transfer', 'stay'])
+export const tripTypeSchema = z.enum([
+  'trek',
+  'day',
+  'transfer',
+  'stay',
+  'walk',
+])
 export const mediaKindSchema = z.enum(['photo', 'video'])
 export const mediaVariantKindSchema = z.enum([
   'thumb',
@@ -288,15 +299,6 @@ export interface JourneyStats {
 
 const DAY_MS = 86_400_000
 
-function dayKey(iso: string, timeZone: string): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone,
-    year: 'numeric',
-  }).format(new Date(iso))
-}
-
 /** The numbers shown under the journey title; also used by the prerender shell. */
 export function buildJourneyStats(tree: PublicJourney): JourneyStats {
   const { endsAt, homeTz, startsAt } = tree.journey
@@ -306,11 +308,27 @@ export function buildJourneyStats(tree: PublicJourney): JourneyStats {
       Date.parse(`${endsAt}T00:00:00Z`) - Date.parse(`${startsAt}T00:00:00Z`)
     days = Math.max(1, Math.round(span / DAY_MS) + 1)
   } else {
-    const zone = homeTz ?? 'UTC'
+    // Same rule as SQL pick_local_day: 04:00 day start, zone of a day =
+    // majority zone of its photos, home zone (UTC when unset) otherwise.
+    const zone = homeTz !== null && isKnownTimeZone(homeTz) ? homeTz : 'UTC'
+    const photos: { instant: number; zone: string }[] = []
+    for (const item of tree.media) {
+      const instant =
+        item.capturedAt === null ? Number.NaN : Date.parse(item.capturedAt)
+      if (!Number.isNaN(instant)) {
+        const own = item.capturedTz
+        photos.push({
+          instant,
+          zone: own !== null && isKnownTimeZone(own) ? own : zone,
+        })
+      }
+    }
+    const { dates, zones } = photoDayZones(photos)
     days = new Set(
       tree.moments
-        .filter((m) => !Number.isNaN(Date.parse(m.startsAt)))
-        .map((m) => dayKey(m.startsAt, zone)),
+        .map((m) => Date.parse(m.startsAt))
+        .filter((instant) => !Number.isNaN(instant))
+        .map((instant) => pickLocalDay(instant, zone, dates, zones)),
     ).size
   }
   const meters = tree.tracks.reduce((sum, t) => sum + (t.distanceM ?? 0), 0)

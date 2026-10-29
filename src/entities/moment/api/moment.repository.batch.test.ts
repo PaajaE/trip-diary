@@ -43,6 +43,7 @@ describe('moment batch repository', () => {
         ends_at: input.endsAt,
         id: M,
         journey_id: J,
+        kind: 'stay',
         latitude: 51.1,
         locked: false,
         longitude: -115.3,
@@ -50,6 +51,16 @@ describe('moment batch repository', () => {
         starts_at: input.startsAt,
       },
     ])
+  })
+
+  it('writes the kind of the moment (en route, point)', async () => {
+    await createMoments([{ ...input, kind: 'en_route' }])
+    expect(chain.insert).toHaveBeenCalledWith([
+      expect.objectContaining({ kind: 'en_route' }),
+    ])
+    await expect(
+      createMoments([{ ...input, kind: 'trip' as 'stay' }]),
+    ).rejects.toMatchObject({ code: 'invalid_input' })
   })
 
   it('rejects invalid input before any request and maps insert errors', async () => {

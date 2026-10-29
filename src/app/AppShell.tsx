@@ -11,7 +11,9 @@ import {
 } from 'react'
 import { useTranslation } from 'react-i18next'
 import { LanguageSwitcher } from '@/app/LanguageSwitcher'
+import { ReaderBar } from '@/app/ReaderBar'
 import { useSession } from '@/features/auth/session'
+import { usePersonalSpaceHandle } from '@/features/spaces/model/use-personal-space-handle'
 import { isPublicSharePath } from '@/features/sharing/lib/is-public-share-path'
 import { isImmersiveReaderShellPath } from '@/features/sharing/lib/is-public-reader-path'
 import { Avatar } from '@/shared/ui/Avatar'
@@ -38,6 +40,7 @@ export function AppShell({ children }: PropsWithChildren) {
 
   return (
     <>
+      {immersiveReaderShell ? <ReaderBar signedIn={user !== null} /> : null}
       {immersiveReaderShell ? null : (
         <header className="sticky top-0 z-20 border-b border-border/60 bg-background/90 pt-[env(safe-area-inset-top)] pr-[max(1.25rem,env(safe-area-inset-right))] pl-[max(1.25rem,env(safe-area-inset-left))] backdrop-blur sm:pr-[max(2rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))]">
           <div className="mx-auto flex min-h-16 max-w-[96rem] items-center justify-between gap-4">
@@ -90,6 +93,7 @@ export function AppShell({ children }: PropsWithChildren) {
                   <AccountMenu
                     identity={identity}
                     profile={profile}
+                    userId={user.id}
                     signOut={() =>
                       void signOut().then(() => navigate({ to: '/' }))
                     }
@@ -115,12 +119,15 @@ function AccountMenu({
   identity,
   profile,
   signOut,
+  userId,
 }: {
   identity: string
   profile: ReturnType<typeof useSession>['profile']
+  userId: string | undefined
   signOut: () => void
 }) {
   const { t } = useTranslation()
+  const personalHandle = usePersonalSpaceHandle(userId)
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -217,13 +224,13 @@ function AccountMenu({
           >
             {t('navigation.dashboard')}
           </Link>
-          {profile === null ? null : (
+          {personalHandle === null ? null : (
             <Link
               className={MENU_ITEM_CLASS}
               onClick={closeMenu}
-              params={{ username: profile.username }}
+              params={{ spaceHandle: personalHandle }}
               role="menuitem"
-              to="/u/$username"
+              to="/$spaceHandle"
             >
               {t('navigation.profile')}
             </Link>

@@ -6,7 +6,13 @@ const instantSchema = z.iso.datetime({ offset: true })
 export const segmentKindSchema = z.enum(['stage', 'trip'])
 export type SegmentKind = z.infer<typeof segmentKindSchema>
 
-export const tripTypeSchema = z.enum(['trek', 'day', 'transfer', 'stay'])
+export const tripTypeSchema = z.enum([
+  'trek',
+  'day',
+  'transfer',
+  'stay',
+  'walk',
+])
 export type TripType = z.infer<typeof tripTypeSchema>
 
 export const segmentOriginSchema = z.enum([

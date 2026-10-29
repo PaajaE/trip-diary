@@ -2,6 +2,13 @@ import { z } from 'zod'
 
 const instantSchema = z.iso.datetime({ offset: true })
 
+/**
+ * What a moment is: a place stayed at, a single-photo point, or photos
+ * collapsed while travelling ("en route", one tap promotes a photo to a stop).
+ */
+export const momentKindSchema = z.enum(['stay', 'point', 'en_route'])
+export type MomentKind = z.infer<typeof momentKindSchema>
+
 export const momentOriginSchema = z.enum(['auto', 'manual'])
 export type MomentOrigin = z.infer<typeof momentOriginSchema>
 
@@ -13,6 +20,7 @@ export const momentSchema = z.object({
   endsAt: instantSchema,
   id: z.uuid(),
   journeyId: z.uuid(),
+  kind: momentKindSchema,
   latitude: z.number().min(-90).max(90).nullable(),
   /**
    * Day of the moment by the author's night, on the clock of where it was
@@ -36,6 +44,7 @@ export interface MomentPatch {
   body?: string
   coverMediaId?: string | null
   endsAt?: string
+  kind?: MomentKind
   latitude?: number | null
   locked?: boolean
   longitude?: number | null
@@ -53,6 +62,8 @@ export interface NewMoment {
   endsAt: string
   id: string
   journeyId: string
+  /** Defaults to 'stay' in the database. */
+  kind?: MomentKind
   latitude: number | null
   locked?: boolean
   longitude: number | null
@@ -68,6 +79,7 @@ export const newMomentSchema = z
     endsAt: instantSchema,
     id: z.uuid(),
     journeyId: z.uuid(),
+    kind: momentKindSchema.optional(),
     latitude: z.number().min(-90).max(90).nullable(),
     locked: z.boolean().optional(),
     longitude: z.number().min(-180).max(180).nullable(),

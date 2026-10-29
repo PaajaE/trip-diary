@@ -81,17 +81,15 @@ function render(ui: ReactElement) {
 const MOMENTS = 120
 const PER_MOMENT = 10
 
-/**
- * One stage, 120 moments with coordinates and 10 photos each (1 200 media),
- * 04:00-23:50 of one day (the day changes at night, see createNightDayResolver).
- */
+/** One stage, 120 moments with coordinates and 10 photos each (1 200 media). */
 function bigJourney() {
   const stage = seg(1)
   const moments = Array.from({ length: MOMENTS }, (_, i) =>
     mom(1000 + i, {
       latitude: 45 + i / 100,
       longitude: 8 + i / 100,
-      startsAt: `2026-01-02T${String(Math.floor(i / 6) + 4).padStart(2, '0')}:${String((i % 6) * 10).padStart(2, '0')}:00+00:00`,
+      // From 04:00 so every moment stays on one day (day starts at 04:00).
+      startsAt: new Date(Date.UTC(2026, 0, 2, 4) + i * 600_000).toISOString(),
     }),
   )
   const media = moments.flatMap((m, i) =>

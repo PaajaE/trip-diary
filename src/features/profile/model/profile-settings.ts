@@ -1,24 +1,19 @@
 import { z } from 'zod'
 
+/** Messages are i18n keys (`profile.settings.errors.*`); the form translates them. */
 export const preferredLocaleSchema = z.enum(['cs', 'en'])
 
 export const profileSettingsSchema = z.object({
-  bio: z.string().trim().max(500, 'Bio může mít nejvýše 500 znaků.'),
-  displayName: z
-    .string()
-    .trim()
-    .max(80, 'Zobrazované jméno může mít nejvýše 80 znaků.'),
+  bio: z.string().trim().max(500, 'profile.settings.errors.bio'),
+  displayName: z.string().trim().max(80, 'profile.settings.errors.displayName'),
   preferredLocale: preferredLocaleSchema,
   username: z
     .string()
     .trim()
     .toLowerCase()
-    .min(3, 'Uživatelské jméno musí mít alespoň 3 znaky.')
-    .max(30, 'Uživatelské jméno může mít nejvýše 30 znaků.')
-    .regex(
-      /^[a-z0-9_]+$/,
-      'Použijte pouze malá písmena bez diakritiky, čísla a podtržítka.',
-    ),
+    .min(3, 'profile.settings.errors.usernameMin')
+    .max(30, 'profile.settings.errors.usernameMax')
+    .regex(/^[a-z0-9_]+$/, 'profile.settings.errors.usernamePattern'),
 })
 
 export type PreferredLocale = z.infer<typeof preferredLocaleSchema>

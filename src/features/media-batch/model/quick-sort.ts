@@ -15,6 +15,8 @@ export type SortActionType =
   | 'moveTo'
   | 'newStop'
   | 'done'
+  /** "★ Nejlepší" of the day sorting: kept (sorted) and starred in one step. */
+  | 'best'
   | 'star'
   | 'unstar'
 
@@ -31,6 +33,8 @@ export interface SortAction {
   createdMomentId?: string | null
   /** Still being saved: Undo waits for it. */
   pending?: boolean
+  /** best: the step turned ★ on (Undo turns it off again). */
+  starred?: boolean
 }
 
 export type SortHistory = readonly SortAction[]
@@ -103,6 +107,7 @@ export function outcomeOf(type: SortActionType): SortOutcome | null {
     case 'newStop':
       return 'stop'
     case 'done':
+    case 'best':
       return 'done'
     case 'star':
     case 'unstar':
@@ -217,6 +222,29 @@ export function openSeries(
   return group === undefined ? [] : group.filter((m) => !handled.has(m))
 }
 
+/** Neighbours taken from the day when a photo has no series. */
+const COMPARE_NEIGHBOURS = 6
+
+/**
+ * Photos the compare view may pair with `id`: its series, else the nearest
+ * neighbours of the same day; never itself and never a trashed photo.
+ */
+export function comparePool(
+  session: QuickSortSession,
+  id: string,
+  handled: ReadonlyMap<string, SortOutcome>,
+): string[] {
+  const usable = (own: string) => own !== id && handled.get(own) !== 'trash'
+  const group = session.seriesOf.get(id)
+  if (group !== undefined && group.length >= 2) return group.filter(usable)
+  const day = session.days.find((entry) => entry.key === session.dayOf.get(id))
+  const at = day === undefined ? -1 : day.ids.indexOf(id)
+  if (day === undefined || at === -1) return []
+  return day.ids
+    .slice(Math.max(0, at - COMPARE_NEIGHBOURS), at + COMPARE_NEIGHBOURS + 1)
+    .filter(usable)
+}
+
 export interface QuickSortSummary {
   starred: number
   trashed: number
@@ -230,7 +258,7 @@ export function summarize(history: SortHistory): QuickSortSummary {
   const starred = new Set<string>()
   for (const action of history) {
     for (const id of action.ids) {
-      if (action.type === 'star') starred.add(id)
+      if (action.type === 'star' || action.type === 'best') starred.add(id)
       if (action.type === 'unstar') starred.delete(id)
     }
   }

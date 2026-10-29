@@ -30,8 +30,8 @@ export function DayRail({ items, variant }: DayRailProps) {
       aria-label={t('publicJourney.daysNav')}
       className={
         chips
-          ? 'sticky top-0 z-20 -mx-5 border-b border-border bg-background/90 px-5 py-2 backdrop-blur min-[1000px]:hidden'
-          : 'sticky top-6 hidden max-h-[calc(100svh-3rem)] self-start overflow-y-auto min-[1000px]:block'
+          ? 'sticky top-[var(--reader-bar-h)] z-20 -mx-5 border-b border-border bg-background/90 px-5 py-2 backdrop-blur min-[1000px]:hidden'
+          : 'sticky top-[calc(var(--reader-bar-h)+1.5rem)] hidden max-h-[calc(100svh-var(--reader-bar-h)-3rem)] self-start overflow-y-auto min-[1000px]:block'
       }
     >
       <ul

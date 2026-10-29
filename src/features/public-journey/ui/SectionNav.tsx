@@ -18,7 +18,7 @@ export function SectionNav({ items }: { items: readonly SectionNavItem[] }) {
   return (
     <nav
       aria-label={t('publicJourney.sectionNav')}
-      className="sticky top-0 z-20 border-b border-border bg-background/90 backdrop-blur"
+      className="sticky top-[var(--reader-bar-h)] z-20 border-b border-border bg-background/90 backdrop-blur"
     >
       <ul className="no-scrollbar mx-auto flex max-w-6xl gap-1 overflow-x-auto px-5 py-2">
         {items.map((item) => (

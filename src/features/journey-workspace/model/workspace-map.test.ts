@@ -82,6 +82,40 @@ describe('formatDayCaption', () => {
   })
 })
 
+describe('buildMapModel day rule', () => {
+  it('groups by the photo day zones, like the overview', () => {
+    const stop = mom(30, {
+      latitude: 1,
+      longitude: 1,
+      startsAt: '2026-01-04T16:00:00+00:00',
+      endsAt: '2026-01-04T16:30:00+00:00',
+    })
+    const other = mom(31, {
+      startsAt: '2026-01-04T17:00:00+00:00',
+      endsAt: '2026-01-04T18:00:00+00:00',
+    })
+    const tree = buildWorkspaceTree(
+      [],
+      [stop, other],
+      [
+        med(32, {
+          capturedAt: '2026-01-04T17:00:00+00:00',
+          capturedTz: 'Pacific/Auckland',
+          momentId: other.id,
+        }),
+      ],
+    )
+    const model = buildMapModel(
+      tree,
+      (entry) => entry.moment.id,
+      'Europe/Prague',
+    )
+    expect(model.dayOfMoment.get(stop.id)).toBe(
+      dayElementId('loose', '2026-01-05'),
+    )
+  })
+})
+
 describe('buildMapModel', () => {
   const stage1 = seg(1, { startsAt: '2026-01-01T00:00:00Z' })
   const trip = seg(2, { kind: 'trip', parentId: stage1.id })

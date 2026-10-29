@@ -1,5 +1,31 @@
 export { centroid, distanceKm, type GeoPoint } from './geo.ts'
 export { type MediaPoint } from './media-point.ts'
+export { localMedianGapMs, sparsity, timeThresholdMs } from './density.ts'
+export {
+  prepareMedia,
+  type ClockShiftProposal,
+  type LocationSource,
+  type PreparedPoint,
+  type PrepareOptions,
+  type PrepareResult,
+  type ProbableDuplicate,
+} from './prepare.ts'
+export {
+  detectStops,
+  type DetectedStop,
+  type DetectStopsOptions,
+  type DetectStopsResult,
+  type StopKind,
+} from './stays.ts'
+export {
+  DAY_START_HOUR,
+  isKnownTimeZone,
+  localDay,
+  majorityZone,
+  photoDayZones,
+  pickLocalDay,
+  type PhotoDayZones,
+} from './local-day.ts'
 export {
   clusterMoments,
   MOMENT_DWELL_GAP_MINUTES,
@@ -40,6 +66,13 @@ export {
 } from './suggest-stop.ts'
 export { findDuplicateGroups, type DuplicateOptions } from './duplicates.ts'
 export { findJunkCandidates, type JunkInput, type JunkReason } from './junk.ts'
+export {
+  classifyGap,
+  GAP_MIN_DISTANCE_M,
+  type GapClass,
+  type GapFeatures,
+  type MovementMode,
+} from './gaps.ts'
 export {
   DEFAULT_STAGE_SHIFT_KM,
   suggestStageBoundaries,
@@ -116,11 +149,15 @@ export {
   type ReverseQuery,
 } from './places.ts'
 export {
+  DEFAULT_INTAKE_RADIUS_M,
+  DEFAULT_INTAKE_WINDOW_MS,
   DEFAULT_REJECTED_BOUNDARY_TOLERANCE_MS,
   isPlanEmpty,
+  isProtected,
   planOrganization,
   tripTypeOf,
   type MediaReassignment,
+  type MomentExtension,
   type OrganizationPlan,
   type OrganizeInput,
   type OrganizeMedia,
@@ -146,3 +183,32 @@ export {
   type BestOfDayReason,
   type DayCandidate,
 } from './best-of-day.ts'
+export {
+  dayPeriodOfHour,
+  deriveStopNames,
+  type DayPeriod,
+  type StopName,
+  type StopNameBase,
+  type StopNameInput,
+  type StopNamePlace,
+} from './stop-names.ts'
+export {
+  DEFAULT_PLACE_BATCH_SIZE,
+  placeCellKey,
+  planPlaceLookups,
+  runLimited,
+  type PlaceLookupCell,
+  type PlaceLookupOptions,
+  type PlaceLookupStop,
+} from './place-queue.ts'
+export {
+  hierarchyDepth,
+  isClearStage,
+  type DepthStage,
+  type HierarchyDepth,
+  type HierarchyDepthInput,
+  type HierarchyDepthOptions,
+  type HierarchyLevel,
+  type JourneySize,
+  type StageMode,
+} from './hierarchy-depth.ts'

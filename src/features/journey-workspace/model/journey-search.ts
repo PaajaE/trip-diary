@@ -5,8 +5,8 @@
  * huge journeys; production does not have it yet, so it is not used here.
  */
 import type { MediaItem } from '@/entities/media/model/media-library'
-import { createNightDayResolver } from '@trip-diary/core/automation'
-import { safeZone } from '@/features/journey-workspace/model/workspace-days'
+import { pickLocalDay, type PhotoDayZones } from '@trip-diary/core/automation'
+import { buildPhotoDays } from '@/features/journey-workspace/model/workspace-days'
 
 export const MIN_QUERY_LENGTH = 2
 export const DEFAULT_SEARCH_LIMIT = 50
@@ -19,7 +19,7 @@ export interface SearchMoment {
   placeLabel: string | null
   startsAt: string
   title: string | null
-  /** IANA zone of the experience; null = device zone. */
+  /** Unused for the day (SQL uses the journey home zone); kept for callers. */
   tz?: string | null
 }
 
@@ -32,6 +32,8 @@ export interface SearchDayNote {
 export interface SearchData {
   dayNotes: readonly SearchDayNote[]
   media: readonly MediaItem[]
+  /** Journey home zone (UTC when null or omitted), like SQL search_journey. */
+  homeTz?: string | null
   moments: readonly SearchMoment[]
 }
 
@@ -115,25 +117,16 @@ function snippetAround(
   return `${from > 0 ? '…' : ''}${slice}${to < text.length ? '…' : ''}`
 }
 
-type DayOf = (iso: string | null, tz: string | null) => string | null
-
-/**
- * Day of an instant by the author's night, the same rule as the outline and
- * the day pages, so a search hit opens the day the item is shown under.
- */
-function dayResolver(data: SearchData): DayOf {
-  const samples = [
-    ...data.moments.map((m) => ({ iso: m.startsAt, tz: m.tz ?? null })),
-    ...data.media.map((m) => ({ iso: m.capturedAt, tz: m.capturedTz })),
-  ].flatMap(({ iso, tz }) => {
-    const time = iso === null ? Number.NaN : Date.parse(iso)
-    return Number.isNaN(time) ? [] : [{ time, zone: safeZone(tz) }]
-  })
-  const resolve = createNightDayResolver(samples)
-  return (iso, tz) => {
-    const time = iso === null ? Number.NaN : Date.parse(iso)
-    return Number.isNaN(time) ? null : resolve(time, safeZone(tz)).date
-  }
+/** Day of an instant: SQL pick_local_day over the journey's photo days. */
+function dayOf(
+  iso: string | null,
+  homeTz: string | null,
+  photoDays: PhotoDayZones,
+): string | null {
+  if (iso === null) return null
+  const time = Date.parse(iso)
+  if (Number.isNaN(time)) return null
+  return pickLocalDay(time, homeTz, photoDays.dates, photoDays.zones)
 }
 
 interface Candidate {
@@ -209,10 +202,19 @@ export function searchJourney(
   }
   if (!textOn && !filtersOn) return empty
 
-  const dayOf = dayResolver(data)
+  // Once per search: ready, dated media vote for the zone of each photo day.
+  const homeTz = data.homeTz ?? null
+  const photoDays = buildPhotoDays(
+    data.media.map((item) => ({
+      capturedAt: item.capturedAt,
+      capturedTz: item.capturedTz,
+      status: item.status,
+    })),
+    homeTz,
+  )
   const momentDate = new Map<string, string | null>()
   for (const moment of data.moments) {
-    momentDate.set(moment.id, dayOf(moment.startsAt, moment.tz ?? null))
+    momentDate.set(moment.id, dayOf(moment.startsAt, homeTz, photoDays))
   }
 
   const matches: { kind: SearchResultKind; candidate: Candidate }[] = []
@@ -274,7 +276,7 @@ export function searchJourney(
     if (!passesMediaFilters(item, filters)) continue
     const fields = [field(item.caption)]
     if (textOn && !matchesTerms(fields)) continue
-    const own = dayOf(item.capturedAt, item.capturedTz)
+    const own = dayOf(item.capturedAt, homeTz, photoDays)
     matches.push({
       candidate: {
         fields,

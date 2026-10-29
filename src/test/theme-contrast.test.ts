@@ -69,6 +69,12 @@ const TEXT_PAIRS: [string, string][] = [
   ['destructive', 'surface'],
   ['warn', 'warn-soft'],
   ['primary', 'primary-soft'],
+  ['action-keep-foreground', 'action-keep'],
+  ['action-keep-foreground', 'action-keep-hover'],
+  ['action-trash-foreground', 'action-trash'],
+  ['action-trash-foreground', 'action-trash-hover'],
+  ['action-star-foreground', 'action-star'],
+  ['action-star-foreground', 'action-star-hover'],
 ]
 // Non-text pairs. `border` is a deliberately soft decorative hairline and the
 // light `faint` is a placeholder tint, so both are known gaps in the original
@@ -82,7 +88,7 @@ const NON_TEXT_PAIRS: [string, string, number, number][] = [
 
 describe('theme tokens', () => {
   it('defines every colour token in both themes', () => {
-    expect(Object.keys(light).length).toBeGreaterThanOrEqual(16)
+    expect(Object.keys(light).length).toBeGreaterThanOrEqual(25)
     expect(Object.keys(dark).sort()).toEqual(Object.keys(light).sort())
     expect(darkAuto).toEqual(dark)
   })

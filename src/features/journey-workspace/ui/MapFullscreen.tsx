@@ -31,7 +31,11 @@ export function MapFullscreen({
   const { t } = useTranslation()
   const stages = chapters.filter((c) => c.kind === 'stage')
   const chipList: { color: string; id: string | null; name: string }[] = [
-    { color: '#1f231e', id: null, name: t('workspace.layout.wholeJourney') },
+    {
+      color: 'var(--color-foreground)',
+      id: null,
+      name: t('workspace.layout.wholeJourney'),
+    },
     ...stages.map((c) => ({
       color: STRIP_PALETTE[c.colorIndex % STRIP_PALETTE.length] ?? '#9bb59f',
       id: c.id,
@@ -107,7 +111,7 @@ export function MapFullscreen({
       className="absolute inset-0 z-10 bg-background"
       role="dialog"
     >
-      <div className="sticky top-20 flex h-[calc(100svh-6rem)] flex-col">
+      <div className="sticky top-[calc(5rem+env(safe-area-inset-top))] flex h-[calc(100svh-6rem-env(safe-area-inset-top))] flex-col">
         <div className="flex shrink-0 items-center gap-3 border-b border-border px-3.5 py-2.5">
           <h2 className="shrink-0 reader-display text-xl">
             {t('workspace.layout.mapTitle')}

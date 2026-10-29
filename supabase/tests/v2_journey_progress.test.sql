@@ -24,7 +24,7 @@ insert into public.moments (id, journey_id, starts_at, ends_at, published, creat
 ('b3200000-0000-4000-8000-000000000001','b3000000-0000-4000-8000-000000000001','2026-06-03T10:00:00Z','2026-06-03T11:00:00Z', true, auth.uid()),
 ('b3200000-0000-4000-8000-000000000002','b3000000-0000-4000-8000-000000000001','2026-06-03T15:00:00Z','2026-06-03T16:00:00Z', true, auth.uid()),
 ('b3200000-0000-4000-8000-000000000003','b3000000-0000-4000-8000-000000000001','2026-06-04T10:00:00Z','2026-06-04T11:00:00Z', false, auth.uid()),
--- 22:30Z on 06-05 is 00:30 on 06-06 in Prague
+-- 22:30Z on 06-05 is 00:30 on 06-06 in Prague, which is still day 06-05 (day starts at 04:00)
 ('b3200000-0000-4000-8000-000000000004','b3000000-0000-4000-8000-000000000001','2026-06-05T22:30:00Z','2026-06-05T23:00:00Z', true, auth.uid());
 insert into public.day_notes (journey_id, local_date, body) values
 ('b3000000-0000-4000-8000-000000000001','2026-06-03','a'), ('b3000000-0000-4000-8000-000000000001','2026-06-04','b'), ('b3000000-0000-4000-8000-000000000001','2026-06-05','c');
@@ -45,7 +45,7 @@ insert into public.media (id, owner_id, journey_id, kind, status, captured_at)
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000a01","role":"authenticated"}',true);
 
 select is((select days_total from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 3, 'days_total: distinct local days in home_tz (unpublished moment counts)');
-select is((select days_with_note from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 2, 'days_with_note: only notes on days with a moment (Prague)');
+select is((select days_with_note from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 3, 'days_with_note: notes on days with a moment (Prague, 04:00 day boundary)');
 select is((select media_total from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 3, 'media_total: ready and not trashed only');
 select is((select media_unreviewed from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 2, 'media_unreviewed excludes reviewed');
 select is((select starred from public.journey_progress(array['b3000000-0000-4000-8000-000000000001']::uuid[])), 1, 'starred ignores trashed and not-ready media');

@@ -1,3 +1,4 @@
+import '@/app/i18n'
 import {
   cleanup,
   fireEvent,
@@ -80,7 +81,7 @@ describe('ProfileSettingsForm', () => {
 
     expect(
       await screen.findByText(
-        'Použijte pouze malá písmena bez diakritiky, čísla a podtržítka.',
+        'Použij pouze malá písmena bez diakritiky, čísla a podtržítka.',
       ),
     ).toBeVisible()
     expect(onSave).not.toHaveBeenCalled()
@@ -105,7 +106,7 @@ describe('ProfileSettingsForm', () => {
     rejectSave?.(new Error('save failed'))
     expect(
       await screen.findByText(
-        'Profil se nepodařilo uložit. Zkuste to prosím znovu.',
+        'Profil se nepodařilo uložit. Zkus to prosím znovu.',
       ),
     ).toBeVisible()
   })

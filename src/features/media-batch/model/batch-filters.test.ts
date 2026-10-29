@@ -10,31 +10,16 @@ import {
   visibleFilters,
 } from './batch-filters'
 
-/** Camera-sized, so the "likely junk" rule (tiny, no GPS) stays out of these tests. */
-const FULL_SIZE = { height: 3000, width: 4000 }
-
 const geo = { latitude: 50, longitude: 14 }
 // Two near-identical shots seconds apart form a series; the third is far away.
-const s1 = med(1, {
-  ...FULL_SIZE,
-  ...geo,
-  capturedAt: '2026-01-02T09:00:00+00:00',
-  phash: 5,
-})
-const s2 = med(2, {
-  ...FULL_SIZE,
-  ...geo,
-  capturedAt: '2026-01-02T09:00:10+00:00',
-  phash: 5,
-})
+const s1 = med(1, { ...geo, capturedAt: '2026-01-02T09:00:00+00:00', phash: 5 })
+const s2 = med(2, { ...geo, capturedAt: '2026-01-02T09:00:10+00:00', phash: 5 })
 const lone = med(3, {
-  ...FULL_SIZE,
   capturedAt: '2026-01-03T09:00:00+00:00',
   latitude: null,
   longitude: null,
 })
 const clip = med(4, {
-  ...FULL_SIZE,
   ...geo,
   capturedAt: '2026-01-03T10:00:00+00:00',
   kind: 'video',
@@ -45,9 +30,9 @@ describe('batch filters', () => {
     const model = buildFilterModel([s1, s2, lone, clip])
     expect(model.counts).toEqual({
       all: 4,
-      junk: 0,
       noLocation: 1,
       series: 2,
+      starred: 0,
       video: 1,
     })
     expect(model.seriesIds.has(s1.id)).toBe(true)
@@ -63,6 +48,17 @@ describe('batch filters', () => {
     ])
     expect(visibleFilters(buildFilterModel([s1]))).toEqual(['all'])
     expect(visibleFilters(buildFilterModel([]))).toEqual(['all'])
+  })
+
+  it('has a ★ chip that matches starred photos and shows only when there are some', () => {
+    const star = { ...s1, starred: true }
+    const items = [star, s2, lone, clip]
+    const model = buildFilterModel(items)
+    expect(model.counts.starred).toBe(1)
+    expect(visibleFilters(model)).toContain('starred')
+    expect(visibleFilters(buildFilterModel([s1, s2]))).not.toContain('starred')
+    expect(matchesFilter(star, 'starred', model)).toBe(true)
+    expect(matchesFilter(s2, 'starred', model)).toBe(false)
   })
 
   it('matches by predicate', () => {
@@ -89,8 +85,8 @@ describe('batch filters', () => {
 describe('uploader filters', () => {
   const ME = '00000000-0000-4000-8000-000000000997'
   const OTHER = '00000000-0000-4000-8000-000000000998'
-  const mine = med(31, { ...FULL_SIZE, ownerId: ME })
-  const theirs = med(32, { ...FULL_SIZE, ownerId: OTHER })
+  const mine = med(31, { ownerId: ME })
+  const theirs = med(32, { ownerId: OTHER })
   const shared = {
     currentUserId: ME,
     multi: true,

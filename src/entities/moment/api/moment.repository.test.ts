@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  confirmMoments,
   deleteMoment,
   listJourneyMoments,
   mergeMoments,
@@ -17,6 +18,7 @@ const row = {
   ends_at: '2026-01-01T11:00:00+00:00',
   id: M,
   journey_id: J,
+  kind: 'stay',
   latitude: 46.5,
   locked: false,
   longitude: 8.1,
@@ -35,6 +37,7 @@ for (const name of [
   'update',
   'delete',
   'eq',
+  'in',
   'order',
   'range',
   'maybeSingle',
@@ -82,6 +85,62 @@ describe('moment repository', () => {
       locked: true,
       place_id: null,
       published: false,
+    })
+  })
+
+  it('locks the moment when title, body, cover or published are edited', async () => {
+    result = { data: { ...row, locked: true }, error: null }
+    await updateMoment(M, { body: 'text', title: 'Name' })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      body: 'text',
+      locked: true,
+      title: 'Name',
+    })
+    await updateMoment(M, { coverMediaId: J })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      cover_media_id: J,
+      locked: true,
+    })
+    await updateMoment(M, { published: false })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      locked: true,
+      published: false,
+    })
+    // an explicit lock flag wins; a pure place or time change does not lock
+    await updateMoment(M, { locked: false, title: 'x' })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      locked: false,
+      title: 'x',
+    })
+    await updateMoment(M, { placeId: null })
+    expect(chain.update).toHaveBeenLastCalledWith({ place_id: null })
+  })
+
+  it('maps a kind or range change without locking (automation edits)', async () => {
+    result = { data: row, error: null }
+    await updateMoment(M, {
+      endsAt: '2026-01-01T12:00:00+00:00',
+      kind: 'point',
+      startsAt: '2026-01-01T09:00:00+00:00',
+    })
+    expect(chain.update).toHaveBeenLastCalledWith({
+      ends_at: '2026-01-01T12:00:00+00:00',
+      kind: 'point',
+      starts_at: '2026-01-01T09:00:00+00:00',
+    })
+  })
+
+  it('confirms stops by locking them, nothing else', async () => {
+    await confirmMoments([M, J])
+    expect(from).toHaveBeenCalledWith('moments')
+    expect(chain.update).toHaveBeenLastCalledWith({ locked: true })
+    expect(chain.in).toHaveBeenCalledWith('id', [M, J])
+    from.mockClear()
+    await confirmMoments([])
+    expect(from).not.toHaveBeenCalled()
+    result = { data: null, error: { message: 'no' } }
+    await expect(confirmMoments([M])).rejects.toMatchObject({
+      code: 'update_failed',
     })
   })
 

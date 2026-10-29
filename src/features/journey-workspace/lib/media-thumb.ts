@@ -1,3 +1,4 @@
+import { PHOTO_VARIANT_PREFERENCE } from '@trip-diary/utils'
 import type {
   MediaItem,
   MediaVariant,
@@ -48,6 +49,21 @@ export function pickViewerImageVariant(
   const order: ImageVariantKind[] =
     item.kind === 'video' ? ['poster', ...VIEWER_ORDER] : VIEWER_ORDER
   for (const kind of order) {
+    const found = item.variants.find((variant) => variant.kind === kind)
+    if (found !== undefined) return found
+  }
+  return null
+}
+
+/**
+ * The largest image variant for zoom: the shared `zoom` preference chain
+ * (`full` first, up to 2560 px; legacy `large` for rows without `full`).
+ */
+export function pickZoomImageVariant(
+  item: Pick<MediaItem, 'kind' | 'variants'>,
+): MediaVariant | null {
+  if (item.kind === 'video') return pickViewerImageVariant(item)
+  for (const kind of PHOTO_VARIANT_PREFERENCE.zoom) {
     const found = item.variants.find((variant) => variant.kind === kind)
     if (found !== undefined) return found
   }

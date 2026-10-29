@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Camera, CheckCircle2 } from 'lucide-react'
 import { useEffect, useState, type ChangeEvent } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import type { Profile } from '@/entities/profile/model/profile'
 import {
   profileSettingsSchema,
@@ -26,6 +27,7 @@ export function ProfileSettingsForm({
   profile,
   userId,
 }: ProfileSettingsFormProps) {
+  const { t } = useTranslation()
   const [avatarFile, setAvatarFile] = useState<File | null>(null)
   const [avatarPreview, setAvatarPreview] = useState<string | null>(
     profile.avatarUrl,
@@ -76,10 +78,12 @@ export function ProfileSettingsForm({
       })
       setSaved(true)
     } catch {
-      setSaveError('Profil se nepodařilo uložit. Zkuste to prosím znovu.')
+      setSaveError(t('profile.settings.saveError'))
     }
   }
 
+  const fieldError = (message: string | undefined) =>
+    message === undefined ? undefined : t(message)
   const displayName = useWatch({ control: form.control, name: 'displayName' })
   const username = useWatch({ control: form.control, name: 'username' })
   const avatarLabel = displayName || username
@@ -93,9 +97,11 @@ export function ProfileSettingsForm({
       onSubmit={(event) => void form.handleSubmit(handleSubmit)(event)}
     >
       <section className="rounded-md bg-surface p-5 shadow-soft sm:p-8">
-        <h2 className="text-xl font-semibold">Profilová fotografie</h2>
+        <h2 className="text-xl font-semibold">
+          {t('profile.settings.photoTitle')}
+        </h2>
         <p className="mt-2 text-sm leading-6 text-muted">
-          Pomůže rodině a přátelům poznat, kdo právě sdílí vzpomínku.
+          {t('profile.settings.photoHint')}
         </p>
         <div className="mt-6 flex flex-col gap-5 sm:flex-row sm:items-center">
           <Avatar
@@ -105,7 +111,7 @@ export function ProfileSettingsForm({
           />
           <label className="inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border border-border bg-surface px-5 text-sm font-semibold transition-colors hover:bg-sunk">
             <Camera aria-hidden="true" size={18} />
-            Vybrat fotografii
+            {t('profile.settings.photoChoose')}
             <input
               accept="image/jpeg,image/png,image/webp"
               className="sr-only"
@@ -118,26 +124,28 @@ export function ProfileSettingsForm({
 
       <section className="space-y-5 rounded-md bg-surface p-5 shadow-soft sm:p-8">
         <div>
-          <h2 className="text-xl font-semibold">Základní údaje</h2>
+          <h2 className="text-xl font-semibold">
+            {t('profile.settings.basicsTitle')}
+          </h2>
           <p className="mt-2 text-sm leading-6 text-muted">
-            Tyto informace se zobrazí na vašem veřejném profilu.
+            {t('profile.settings.basicsHint')}
           </p>
         </div>
         <Input
           autoCapitalize="none"
           autoComplete="username"
-          error={form.formState.errors.username?.message}
-          label="Uživatelské jméno"
+          error={fieldError(form.formState.errors.username?.message)}
+          label={t('profile.settings.username')}
           {...form.register('username')}
         />
         <Input
           autoComplete="name"
-          error={form.formState.errors.displayName?.message}
-          label="Zobrazované jméno"
+          error={fieldError(form.formState.errors.displayName?.message)}
+          label={t('profile.settings.displayName')}
           {...form.register('displayName')}
         />
         <label className="block text-sm font-medium">
-          Bio
+          {t('profile.settings.bio')}
           <textarea
             className="mt-2 min-h-32 w-full rounded-md border border-border bg-surface px-3 py-3 text-base font-normal outline-none transition-colors focus:border-primary"
             maxLength={500}
@@ -145,7 +153,7 @@ export function ProfileSettingsForm({
           />
         </label>
         <label className="block text-sm font-medium">
-          Preferovaný jazyk
+          {t('profile.settings.language')}
           <select
             className="mt-2 min-h-11 w-full rounded-md border border-border bg-surface px-3 text-base font-normal outline-none transition-colors focus:border-primary"
             {...form.register('preferredLocale')}
@@ -169,7 +177,7 @@ export function ProfileSettingsForm({
           {saved ? (
             <p className="flex items-center gap-2 text-sm font-medium text-primary">
               <CheckCircle2 aria-hidden="true" size={18} />
-              Profil je uložený.
+              {t('profile.settings.saved')}
             </p>
           ) : null}
         </div>
@@ -178,7 +186,9 @@ export function ProfileSettingsForm({
           disabled={form.formState.isSubmitting}
           type="submit"
         >
-          {form.formState.isSubmitting ? 'Ukládám…' : 'Uložit profil'}
+          {form.formState.isSubmitting
+            ? t('profile.settings.saving')
+            : t('profile.settings.save')}
         </Button>
       </div>
     </form>

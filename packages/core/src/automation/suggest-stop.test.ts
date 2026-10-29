@@ -34,6 +34,19 @@ const NEAR = 50.005
 const FAR = 50.5
 
 describe('suggestStop', () => {
+  it('never suggests the stop the photo is already in', () => {
+    const inStop = { ...photo(0.5), momentId: 'a' }
+    expect(suggestStop(inStop, [stop('a', 0, 1)])).toBeNull()
+    expect(suggestStop(inStop, [stop('a', 0, 1), stop('b', 2, 3)])).toEqual({
+      reason: 'near_time',
+      stopId: 'b',
+    })
+    // An unplaced photo (momentId null) is unaffected.
+    expect(
+      suggestStop({ ...photo(0.5), momentId: null }, [stop('a', 0, 1)]),
+    ).toEqual({ reason: 'inside', stopId: 'a' })
+  })
+
   it('returns null without capturedAt or stops', () => {
     expect(
       suggestStop({ capturedAt: null, latitude: 50, longitude: 14 }, [

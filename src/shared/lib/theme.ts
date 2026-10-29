@@ -4,7 +4,7 @@ export const THEME_STORAGE_KEY = 'trip-diary:theme'
 
 /** Same value as the static `<meta name="theme-color">` in index.html. */
 export const LIGHT_THEME_COLOR = '#285845'
-export const DARK_THEME_COLOR = '#121512'
+export const DARK_THEME_COLOR = '#1f2420'
 
 const DARK_QUERY = '(prefers-color-scheme: dark)'
 

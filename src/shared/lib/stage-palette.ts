@@ -35,3 +35,12 @@ export function readableOn(background: string): string {
   const inkContrast = (bg + 0.05) / (luminance(INK) + 0.05)
   return whiteContrast >= inkContrast ? '#ffffff' : INK
 }
+
+/**
+ * Stage colour for use as text on the page background: mixed with the theme's
+ * foreground, so dark stage colours stay readable in dark mode (and light
+ * ones in light mode).
+ */
+export function stageTextColor(color: string): string {
+  return `color-mix(in srgb, ${color} 55%, var(--color-foreground))`
+}

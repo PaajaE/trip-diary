@@ -88,6 +88,8 @@ export function computeTasks(
   days: readonly MomentDay[],
   /** Local days (day keys) that have a day note. */
   noteDays: ReadonlySet<string> = NO_NOTES,
+  /** Tree whose suggestions are offered (the shown levels); default `tree`. */
+  suggestionTree: WorkspaceTree = tree,
 ): WorkspaceTasks {
   const written = momentsUnderWrittenSegments(tree)
   let withoutText = 0
@@ -121,7 +123,7 @@ export function computeTasks(
   const unassignedMissing = tree.unassigned.filter(
     (item) => item.capturedAt === null,
   ).length
-  const suggestions = suggestionIds(tree)
+  const suggestions = suggestionIds(suggestionTree)
   return {
     daysToCull: { count: toCull, firstDay: firstToCull },
     daysWithoutText: { count: withoutText, firstDay: firstWithoutText },

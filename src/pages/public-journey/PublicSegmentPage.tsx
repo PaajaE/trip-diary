@@ -402,7 +402,7 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
           )}
         </div>
         {hasMap ? (
-          <aside className="hidden self-start min-[1000px]:sticky min-[1000px]:top-6 min-[1000px]:block">
+          <aside className="hidden self-start min-[1000px]:sticky min-[1000px]:top-[calc(var(--reader-bar-h)+1.5rem)] min-[1000px]:block">
             {mapSection('h-[min(34rem,calc(100svh-3rem))]')}
           </aside>
         ) : (

@@ -369,7 +369,8 @@ export function CullView({
           aria-pressed={filter}
           className={cn(
             chip,
-            filter && 'bg-amber-400 text-black hover:bg-amber-300',
+            filter &&
+              'bg-action-star text-action-star-foreground hover:bg-action-star-hover',
           )}
           aria-describedby={filterDisabled ? noStarsId : undefined}
           disabled={filterDisabled}
@@ -446,7 +447,7 @@ export function CullView({
         {item.starred ? (
           <Star
             aria-label={t('cull.starredBadge')}
-            className="absolute right-4 top-2 fill-amber-400 text-amber-400"
+            className="absolute right-4 top-2 fill-action-star text-action-star"
             role="img"
           />
         ) : null}
@@ -524,7 +525,7 @@ export function CullView({
               {e.starred && !e.trashed ? (
                 <Star
                   aria-hidden="true"
-                  className="absolute right-0.5 top-0.5 fill-amber-400 text-amber-400"
+                  className="absolute right-0.5 top-0.5 fill-action-star text-action-star"
                   size={14}
                 />
               ) : null}
@@ -545,7 +546,10 @@ export function CullView({
         </button>
         <button
           aria-label={t('cull.trash')}
-          className={cn(bigButton, 'bg-red-600 hover:bg-red-500')}
+          className={cn(
+            bigButton,
+            'bg-action-trash text-action-trash-foreground hover:bg-action-trash-hover',
+          )}
           disabled={entry.trashed}
           type="button"
           onClick={() => {
@@ -560,7 +564,7 @@ export function CullView({
           aria-pressed={item.starred}
           className={cn(
             bigButton,
-            'bg-amber-400 text-black hover:bg-amber-300',
+            'bg-action-star text-action-star-foreground hover:bg-action-star-hover',
           )}
           disabled={entry.trashed}
           type="button"
@@ -570,7 +574,7 @@ export function CullView({
         >
           <Star
             aria-hidden="true"
-            className={item.starred ? 'fill-black' : ''}
+            className={item.starred ? 'fill-action-star-foreground' : ''}
           />
           {t(item.starred ? 'cull.unstar' : 'cull.star')}
         </button>

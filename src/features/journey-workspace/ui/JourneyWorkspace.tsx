@@ -32,7 +32,7 @@ import {
   buildOverview,
   type OverviewDay,
 } from '@/features/journey-workspace/model/workspace-overview'
-import { useStoreMomentDays } from '@/features/journey-workspace/api/use-store-moment-days'
+import { depthChrome } from '@/features/journey-workspace/model/workspace-depth'
 import { isWorkspaceEmpty } from '@/features/journey-workspace/model/workspace-tree'
 import { targetTitles } from '@/features/journey-workspace/model/target-titles'
 import { BoundaryControl } from '@/features/journey-workspace/ui/BoundaryControl'
@@ -110,7 +110,6 @@ export function JourneyWorkspace({
   const navigate = useNavigate()
   const session = useWorkspaceSession(journeyId)
   const { editing, locale, placeNames, placeProgress, state, tree } = session
-  useStoreMomentDays(journeyId, tree)
   const isDesktop = useMediaQuery('(min-width: 1100px)')
   const hasRail = useMediaQuery('(min-width: 760px)')
   const [mapOpen, setMapOpen] = useState(false)
@@ -124,13 +123,6 @@ export function JourneyWorkspace({
     [onFullMapChange],
   )
   const [filterId, setFilterId] = useState<string | null>(null)
-  const { attachRow, ...layout } = useWorkspaceLayout({
-    mapShortcut: isDesktop && !full,
-    railShortcut: hasRail && !full,
-  })
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [hoverDay, setHoverDay] = useState<OverviewDay | null>(null)
-
   const notes = useDayNotes(journeyId)
   const noteDays = useMemo(() => new Set(notes.byDate.keys()), [notes.byDate])
   const overview = useMemo(
@@ -145,6 +137,21 @@ export function JourneyWorkspace({
           ),
     [tree, placeNames, noteDays],
   )
+  // ZS-6: only the levels the journey's size needs (an empty level is hidden).
+  const chrome = useMemo(
+    () =>
+      overview === null
+        ? { showDays: true, showNav: true, showStages: true }
+        : depthChrome(overview.depth),
+    [overview],
+  )
+  const rail = hasRail && chrome.showNav
+  const { attachRow, ...layout } = useWorkspaceLayout({
+    mapShortcut: isDesktop && !full,
+    railShortcut: rail && !full,
+  })
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const [hoverDay, setHoverDay] = useState<OverviewDay | null>(null)
   const mapModel = useMemo(
     () =>
       tree === null
@@ -442,7 +449,9 @@ export function JourneyWorkspace({
     ]
       .filter((part) => part !== null)
       .join(' · ')
-    const railCollapsed = hasRail && layout.rail === 'collapsed'
+    // The collapse toggle lives in the stage list: without it the rail stays open.
+    const railCollapsed =
+      rail && chrome.showStages && layout.rail === 'collapsed'
     const panelOn = isDesktop && layout.map === 'panel' && !full
     const near = (target: number) => Math.abs(layout.mapW - target) < 2
     body = (
@@ -453,18 +462,25 @@ export function JourneyWorkspace({
         <OverviewTaskBar tasks={overview.tasks} onOpen={openTask} />
         <div
           className={cn(
-            'relative grid min-[760px]:grid-cols-[var(--rail-w)_minmax(0,1fr)]',
+            'relative grid',
+            rail
+              ? 'min-[760px]:grid-cols-[var(--rail-w)_minmax(0,1fr)]'
+              : 'grid-cols-[minmax(0,1fr)]',
             railCollapsed
               ? '[--rail-w:60px]'
               : '[--rail-w:200px] min-[1100px]:[--rail-w:220px]',
-            panelOn
-              ? 'min-[1100px]:grid-cols-[var(--rail-w)_minmax(0,1fr)_14px_var(--map-w)]'
-              : 'min-[1100px]:grid-cols-[var(--rail-w)_minmax(0,1fr)]',
+            rail
+              ? panelOn
+                ? 'min-[1100px]:grid-cols-[var(--rail-w)_minmax(0,1fr)_14px_var(--map-w)]'
+                : 'min-[1100px]:grid-cols-[var(--rail-w)_minmax(0,1fr)]'
+              : panelOn
+                ? 'min-[1100px]:grid-cols-[minmax(0,1fr)_14px_var(--map-w)]'
+                : null,
           )}
           ref={attachRow}
           style={{ '--map-w': `${String(layout.mapW)}px` } as CSSProperties}
         >
-          {hasRail ? (
+          {rail ? (
             <nav
               aria-label={t('workspace.overview.stages')}
               className={cn(
@@ -472,16 +488,18 @@ export function JourneyWorkspace({
                 railCollapsed ? 'px-0' : 'px-2.5',
               )}
             >
-              <div className="no-scrollbar sticky top-20 max-h-[calc(100svh-6rem)] overflow-y-auto">
-                <StageRail
-                  activeId={activeId}
-                  chapters={overview.chapters}
-                  collapsed={railCollapsed}
-                  locale={locale}
-                  onJump={jumpToChapter}
-                  onToggle={layout.toggleRail}
-                />
-                {railCollapsed ? null : (
+              <div className="no-scrollbar sticky top-[calc(5rem+env(safe-area-inset-top))] max-h-[calc(100svh-6rem-env(safe-area-inset-top))] overflow-y-auto">
+                {chrome.showStages ? (
+                  <StageRail
+                    activeId={activeId}
+                    chapters={overview.chapters}
+                    collapsed={railCollapsed}
+                    locale={locale}
+                    onJump={jumpToChapter}
+                    onToggle={layout.toggleRail}
+                  />
+                ) : null}
+                {railCollapsed || !chrome.showDays ? null : (
                   <DayStrip days={overview.strip} onJump={jumpToDay} />
                 )}
               </div>
@@ -492,7 +510,7 @@ export function JourneyWorkspace({
             className="min-w-0 px-5 py-4 sm:px-6"
             role="region"
           >
-            {hasRail ? null : (
+            {hasRail || !chrome.showStages ? null : (
               <div className="mb-4">
                 <StageChips
                   activeId={activeId}
@@ -596,7 +614,7 @@ export function JourneyWorkspace({
               />
               <aside
                 aria-label={t('workspace.mapHeading')}
-                className="sticky top-20 flex h-[calc(100svh-6rem)] min-w-0 flex-col self-start py-3.5 pr-3.5 pl-1"
+                className="sticky top-[calc(5rem+env(safe-area-inset-top))] flex h-[calc(100svh-6rem-env(safe-area-inset-top))] min-w-0 flex-col self-start py-3.5 pr-3.5 pl-1"
               >
                 <MapPanelHeader
                   halfActive={near(layout.rowWidth / 2)}

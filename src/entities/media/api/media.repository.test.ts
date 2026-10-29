@@ -70,6 +70,31 @@ describe('media repository', () => {
     expect(insert.mock.lastCall?.[0]).not.toHaveProperty('journey_id')
   })
 
+  it('writes device only when provided', async () => {
+    insert.mockResolvedValue({ error: null })
+    const base = {
+      capturedAt: null,
+      capturedTz: null,
+      contentHash: 'h',
+      height: 1,
+      id: 'm',
+      latitude: null,
+      longitude: null,
+      ownerId: 'u',
+      width: 2,
+    }
+    await createMedia({ ...base, device: 'Canon EOS R5' })
+    expect(insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ device: 'Canon EOS R5' }),
+    )
+    await createMedia({ ...base, device: null })
+    expect(insert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ device: null }),
+    )
+    await createMedia(base)
+    expect(insert.mock.lastCall?.[0]).not.toHaveProperty('device')
+  })
+
   it('lists existing source asset ids in batches of 100 for the owner', async () => {
     const ids = Array.from({ length: 250 }, (_, index) => `a${String(index)}`)
     inFilter

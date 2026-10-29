@@ -113,7 +113,7 @@ function PhotoTile({
           aria-hidden="true"
           className={cn(
             'inline-flex size-6 items-center justify-center rounded-full border-2 border-white bg-black/35 text-white min-[760px]:size-7',
-            selected && 'border-primary bg-primary',
+            selected && 'border-primary bg-primary text-primary-foreground',
           )}
         >
           {selected ? <Check size={14} /> : null}

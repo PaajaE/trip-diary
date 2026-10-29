@@ -20,8 +20,8 @@ insert into public.moments (id, journey_id, starts_at, ends_at, published, creat
 ('da200000-0000-4000-8000-000000000001','da000000-0000-4000-8000-000000000001','2026-06-03T10:00:00Z','2026-06-03T11:00:00Z', true, auth.uid()),
 -- 2026-06-04 only has an unpublished moment
 ('da200000-0000-4000-8000-000000000002','da000000-0000-4000-8000-000000000001','2026-06-04T10:00:00Z','2026-06-04T11:00:00Z', false, auth.uid()),
--- 22:30Z on 06-05 is 00:30 on 06-06 in Prague
-('da200000-0000-4000-8000-000000000003','da000000-0000-4000-8000-000000000001','2026-06-05T22:30:00Z','2026-06-05T23:00:00Z', true, auth.uid());
+-- 02:30Z on 06-06 is 04:30 in Prague: first moment of day 06-06 (day starts at 04:00)
+('da200000-0000-4000-8000-000000000003','da000000-0000-4000-8000-000000000001','2026-06-06T02:30:00Z','2026-06-06T03:00:00Z', true, auth.uid());
 
 -- editor (owner) writes
 select lives_ok($$ insert into public.day_notes (journey_id, local_date, body) values

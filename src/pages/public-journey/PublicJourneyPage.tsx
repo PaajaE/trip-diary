@@ -181,7 +181,7 @@ export function PublicJourneyPage({
         {hasRouteSection ? (
           <section
             aria-labelledby="route-heading"
-            className="scroll-mt-16 space-y-4"
+            className="scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4"
             id="route"
           >
             <div>
@@ -236,7 +236,7 @@ export function PublicJourneyPage({
         {stageInfo.length > 0 ? (
           <section
             aria-labelledby="stages-heading"
-            className="scroll-mt-16 space-y-4"
+            className="scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4"
             id="stages"
           >
             <div>
@@ -276,7 +276,7 @@ export function PublicJourneyPage({
         {hasPlaces ? (
           <section
             aria-labelledby="places-heading"
-            className="scroll-mt-16 space-y-3"
+            className="scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-3"
             id="places"
           >
             <div>

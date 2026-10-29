@@ -22,6 +22,7 @@ function toMoment(row: MomentRow): Moment {
     endsAt: row.ends_at,
     id: row.id,
     journeyId: row.journey_id,
+    kind: row.kind,
     latitude: row.latitude,
     // Only when stored; most rows (and old test data) have none yet.
     ...(row.local_day ? { localDay: row.local_day } : {}),
@@ -46,6 +47,7 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
   if (patch.coverMediaId !== undefined)
     update.cover_media_id = patch.coverMediaId
   if (patch.endsAt !== undefined) update.ends_at = patch.endsAt
+  if (patch.kind !== undefined) update.kind = patch.kind
   if (patch.latitude !== undefined) update.latitude = patch.latitude
   if (patch.locked !== undefined) update.locked = patch.locked
   if (patch.longitude !== undefined) update.longitude = patch.longitude
@@ -54,6 +56,14 @@ function toUpdate(patch: MomentPatch): MomentUpdate {
   if (patch.published !== undefined) update.published = patch.published
   if (patch.startsAt !== undefined) update.starts_at = patch.startsAt
   if (patch.title !== undefined) update.title = patch.title
+  // A conscious edit of the content locks the moment (plan principle: every
+  // deliberate intervention locks), so the automation never regroups it.
+  const editsContent =
+    patch.body !== undefined ||
+    patch.coverMediaId !== undefined ||
+    patch.published !== undefined ||
+    patch.title !== undefined
+  if (patch.locked === undefined && editsContent) update.locked = true
   return update
 }
 
@@ -94,6 +104,21 @@ export async function updateMoment(
     throw new MomentError('not_found')
   }
   return toMoment(data)
+}
+
+/**
+ * Confirms stops ("Den sedí", a sorted stop): locks them so the automation
+ * never regroups them again. Content, range and place stay as they are.
+ */
+export async function confirmMoments(momentIds: string[]): Promise<void> {
+  if (momentIds.length === 0) return
+  const { error } = await getSupabaseClient()
+    .from('moments')
+    .update({ locked: true })
+    .in('id', momentIds)
+  if (error !== null) {
+    throw new MomentError('update_failed', error.message, error)
+  }
 }
 
 /**
@@ -212,6 +237,7 @@ export async function createMoments(inputs: NewMoment[]): Promise<void> {
       ends_at: input.endsAt,
       id: input.id,
       journey_id: input.journeyId,
+      kind: input.kind ?? 'stay',
       latitude: input.latitude,
       locked: input.locked ?? false,
       longitude: input.longitude,

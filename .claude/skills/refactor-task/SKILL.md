@@ -35,4 +35,4 @@ Update REFACTOR_PLAN.md concisely (status, new risks, results actually obtained)
 Return: what changed · what was verified · what remains · blockers · the single best next action. Do not start an unrelated task.
 
 ## Stop and ask first
-Remote DB writes or migrations, production policy/secret/auth changes, deploys, Cloudflare production changes, deleting data, commits or pushes, destructive git, new MCPs/plugins/dependencies, and anything outside the approved plan.
+Remote DB writes or migrations, production policy/secret/auth changes, deploys, Cloudflare production changes, deleting data, pushes to other branches, PRs, destructive git, new MCPs/plugins/dependencies, and anything outside the approved plan.

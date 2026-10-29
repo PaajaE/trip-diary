@@ -18,11 +18,13 @@ export function organizeOptions(
       trek: (name) => t('autoOrganize.names.trek', { name }),
       trekAround: (name) => t('autoOrganize.names.trekAround', { name }),
     },
-    segmentTitle: ({ index, kind, stageKind, tripType }) =>
+    segmentTitle: ({ index, inDay, kind, stageKind, tripType }) =>
       kind === 'stage' || tripType === null
         ? stageKind === null
           ? t('autoOrganize.stageTitle', { index })
           : t(`autoOrganize.stageKindTitle.${stageKind}`, { index })
-        : t(`autoOrganize.tripTitle.${tripType}`, { index }),
+        : inDay === true
+          ? t(`autoOrganize.inDayTripTitle.${tripType}`, { index })
+          : t(`autoOrganize.tripTitle.${tripType}`, { index }),
   }
 }

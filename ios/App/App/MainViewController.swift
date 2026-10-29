@@ -8,5 +8,23 @@ class MainViewController: CAPBridgeViewController {
         bridge?.registerPluginInstance(PhotoMetadataPlugin())
         bridge?.registerPluginInstance(MediaLibraryPlugin())
         bridge?.registerPluginInstance(VideoPlugin())
+        applyAdaptiveBackground()
+        // Edge swipe = browser Back, which the router uses to close the
+        // full-screen map and to step up through the reader pages.
+        webView?.allowsBackForwardNavigationGestures = true
+    }
+
+    /// Same values as `--color-background` in src/index.css (light / dark), so
+    /// overscroll, rotation and the first frame never flash a mismatched colour.
+    private func applyAdaptiveBackground() {
+        let background = UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0x1f / 255, green: 0x24 / 255, blue: 0x20 / 255, alpha: 1)
+                : UIColor(red: 0xf8 / 255, green: 0xf5 / 255, blue: 0xef / 255, alpha: 1)
+        }
+        view.backgroundColor = background
+        webView?.backgroundColor = background
+        webView?.scrollView.backgroundColor = background
+        webView?.underPageBackgroundColor = background
     }
 }

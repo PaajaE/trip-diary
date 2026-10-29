@@ -35,6 +35,7 @@ export async function createMedia(
       captured_at: input.capturedAt,
       captured_tz: input.capturedTz,
       content_hash: input.contentHash,
+      ...(input.device === undefined ? {} : { device: input.device }),
       height: input.height,
       id: input.id,
       kind: video ? 'video' : 'photo',

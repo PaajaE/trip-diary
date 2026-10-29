@@ -156,6 +156,27 @@ describe('buildJourneyStats', () => {
     expect(stats.days).toBe(1)
   })
 
+  it('counts days with the 04:00 rule: 00:40 local joins the previous day', () => {
+    const tree = parsePublicJourney(fixture)
+    if (tree === null) throw new Error('fixture')
+    const [first] = tree.moments
+    if (first === undefined) throw new Error('fixture')
+    const at = (startsAt: string) => ({ ...first, startsAt })
+    const counted = buildJourneyStats({
+      ...tree,
+      journey: {
+        ...tree.journey,
+        endsAt: null,
+        homeTz: 'Europe/Prague',
+        startsAt: null,
+      },
+      media: [],
+      // 22:00Z = 00:00 Prague (06-10 day), 12:00Z = 14:00 Prague (06-10 day)
+      moments: [at('2026-06-10T22:00:00Z'), at('2026-06-10T12:00:00Z')],
+    })
+    expect(counted.days).toBe(1)
+  })
+
   it('uses the journey dates inclusively when both are set', () => {
     const tree = parsePublicJourney(fixture)
     if (tree === null) throw new Error('fixture')

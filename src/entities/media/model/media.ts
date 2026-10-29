@@ -84,6 +84,8 @@ export interface NewPhotoMedia {
   capturedAt: string | null
   capturedTz: string | null
   contentHash: string
+  /** Normalized capture device (EXIF Make + Model); null when unknown. */
+  device?: string | null
   height: number | null
   id: string
   /** Journey the media is imported into (needs can_edit_journey). */
@@ -103,6 +105,8 @@ export interface NewVideoMedia {
   capturedAt: string | null
   capturedTz: string | null
   contentHash: null
+  /** Capture device when known (native metadata); null on web. */
+  device?: string | null
   durationMs: number
   height: number
   id: string

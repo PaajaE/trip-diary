@@ -3,6 +3,7 @@ import {
   createRoute,
   createRouter,
   Outlet,
+  redirect,
 } from '@tanstack/react-router'
 import { Capacitor } from '@capacitor/core'
 import { Suspense } from 'react'
@@ -11,6 +12,9 @@ import {
   LazyCreateJourneyPage,
   LazyDashboardPage,
   LazyJourneyBatchRoutePage,
+  LazyJourneyFlowDayRoutePage,
+  LazyJourneyFlowRoutePage,
+  LazyJourneyFlowSortRoutePage,
   LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
@@ -20,7 +24,6 @@ import {
   LazyMediaLibraryDiagnosticsPage,
   LazyVideoUploadDevPage,
   LazyMediaUploadDevPage,
-  LazyProfileRoutePage,
   LazySettingsRoutePage,
   LazyJourneyQuickNoteRoutePage,
   LazySpacesRoutePage,
@@ -91,10 +94,18 @@ const settingsRoute = createRoute({
   component: LazySettingsRoutePage,
 })
 
-const profileRoute = createRoute({
+// v1 profile address; the public profile now lives at /$spaceHandle.
+const legacyProfileRoute = createRoute({
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- TanStack Router redirect
+    throw redirect({
+      params: { spaceHandle: params.username },
+      replace: true,
+      to: '/$spaceHandle',
+    })
+  },
   getParentRoute: () => rootRoute,
   path: '/u/$username',
-  component: LazyProfileRoutePage,
 })
 
 const createJourneyRoute = createRoute({
@@ -156,6 +167,27 @@ const journeyBatchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/batch',
   component: LazyJourneyBatchRoutePage,
+})
+
+const journeyFlowRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow',
+  component: LazyJourneyFlowRoutePage,
+})
+
+const journeyFlowDayRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow/$dayKey',
+  component: LazyJourneyFlowDayRoutePage,
+})
+
+const journeyFlowSortRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/flow/$dayKey/sort',
+  component: LazyJourneyFlowSortRoutePage,
 })
 
 const tipsRoute = createRoute({
@@ -255,7 +287,7 @@ const routeTree = rootRoute.addChildren([
   signUpRoute,
   dashboardRoute,
   settingsRoute,
-  profileRoute,
+  legacyProfileRoute,
   createJourneyRoute,
   journeyRoute,
   journeyMembersRoute,
@@ -264,6 +296,9 @@ const routeTree = rootRoute.addChildren([
   journeyTrashRoute,
   journeyImportRoute,
   journeyBatchRoute,
+  journeyFlowRoute,
+  journeyFlowDayRoute,
+  journeyFlowSortRoute,
   journeyQuickNoteRoute,
   spacesRoute,
   tipsRoute,

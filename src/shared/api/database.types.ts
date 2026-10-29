@@ -840,6 +840,7 @@ export type Database = {
           content_hash: string | null
           created_at: string
           deleted_at: string | null
+          device: string | null
           duration_ms: number | null
           focal_x: number | null
           focal_y: number | null
@@ -873,6 +874,7 @@ export type Database = {
           content_hash?: string | null
           created_at?: string
           deleted_at?: string | null
+          device?: string | null
           duration_ms?: number | null
           focal_x?: number | null
           focal_y?: number | null
@@ -906,6 +908,7 @@ export type Database = {
           content_hash?: string | null
           created_at?: string
           deleted_at?: string | null
+          device?: string | null
           duration_ms?: number | null
           focal_x?: number | null
           focal_y?: number | null
@@ -1004,6 +1007,7 @@ export type Database = {
           ends_at: string
           id: string
           journey_id: string
+          kind: string
           latitude: number | null
           local_day: string | null
           locked: boolean
@@ -1023,6 +1027,7 @@ export type Database = {
           ends_at: string
           id: string
           journey_id: string
+          kind?: string
           latitude?: number | null
           local_day?: string | null
           locked?: boolean
@@ -1042,6 +1047,7 @@ export type Database = {
           ends_at?: string
           id?: string
           journey_id?: string
+          kind?: string
           latitude?: number | null
           local_day?: string | null
           locked?: boolean
@@ -1947,6 +1953,13 @@ export type Database = {
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       is_time_zone_name: { Args: { p_value: string }; Returns: boolean }
+      journey_day_zones: {
+        Args: { p_journey_id: string }
+        Returns: {
+          dates: string[]
+          tzs: string[]
+        }[]
+      }
       journey_progress: {
         Args: { p_journey_ids: string[] }
         Returns: {
@@ -1989,6 +2002,7 @@ export type Database = {
           updated_at: string
         }[]
       }
+      local_day: { Args: { p_ts: string; p_tz: string }; Returns: string }
       mark_media_reviewed: {
         Args: { p_media_ids: string[]; p_reviewed?: boolean }
         Returns: number
@@ -2085,6 +2099,15 @@ export type Database = {
       }
       normalize_content_slug: {
         Args: { p_id: string; p_value: string }
+        Returns: string
+      }
+      pick_local_day: {
+        Args: {
+          p_dates: string[]
+          p_home_tz: string
+          p_ts: string
+          p_tzs: string[]
+        }
         Returns: string
       }
       purge_media: { Args: { p_media_ids: string[] }; Returns: string[] }
@@ -2266,7 +2289,7 @@ export type Database = {
         | 'succeeded'
         | 'failed'
         | 'stale'
-      trip_type: 'trek' | 'day' | 'transfer' | 'stay'
+      trip_type: 'trek' | 'day' | 'transfer' | 'stay' | 'walk'
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2455,7 +2478,7 @@ export const Constants = {
         'failed',
         'stale',
       ],
-      trip_type: ['trek', 'day', 'transfer', 'stay'],
+      trip_type: ['trek', 'day', 'transfer', 'stay', 'walk'],
     },
   },
 } as const

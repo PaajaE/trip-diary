@@ -104,6 +104,7 @@ describe('uploadPhoto media analysis', () => {
     capturedAt: '2026-09-11T10:00:00.000Z',
     capturedTz: 'Europe/Prague',
     contentHash: 'a'.repeat(64),
+    device: null,
     height: 3,
     id: MEDIA,
     latitude: 50.08,
@@ -111,6 +112,32 @@ describe('uploadPhoto media analysis', () => {
     ownerId: OWNER,
     width: 6,
   }
+
+  it('payload carries the normalized EXIF device', async () => {
+    const deps = makeDeps([], {
+      readExifTime: vi.fn(() =>
+        Promise.resolve({
+          dateTimeOriginal: '2026:09:11 12:00:00',
+          make: 'Apple',
+          model: 'iPhone 15 Pro',
+          offsetTimeOriginal: '+02:00',
+          subsecTimeOriginal: null,
+        }),
+      ),
+    })
+    await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(deps.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ device: 'Apple iPhone 15 Pro' }),
+    )
+  })
+
+  it('payload device is null without Make/Model', async () => {
+    const deps = makeDeps([])
+    await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(deps.createMedia).toHaveBeenCalledWith(
+      expect.objectContaining({ device: null }),
+    )
+  })
 
   it('payload carries phash and quality', async () => {
     const deps = makeDeps([])

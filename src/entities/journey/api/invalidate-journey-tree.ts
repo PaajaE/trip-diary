@@ -11,17 +11,22 @@ import { segmentQueryKeys } from '@/entities/segment/api/segment-query-keys'
 export function invalidateJourneyTree(
   queryClient: QueryClient,
   journeyId: string,
+  /** `cancelRefetch: false` keeps a refetch that is already running. */
+  options: { cancelRefetch?: boolean } = {},
 ): Promise<unknown[]> {
   return Promise.all([
-    queryClient.invalidateQueries({
-      queryKey: segmentQueryKeys.journey(journeyId),
-    }),
-    queryClient.invalidateQueries({
-      queryKey: momentQueryKeys.journey(journeyId),
-    }),
-    queryClient.invalidateQueries({
-      queryKey: mediaQueryKeys.journey(journeyId),
-    }),
+    queryClient.invalidateQueries(
+      { queryKey: segmentQueryKeys.journey(journeyId) },
+      options,
+    ),
+    queryClient.invalidateQueries(
+      { queryKey: momentQueryKeys.journey(journeyId) },
+      options,
+    ),
+    queryClient.invalidateQueries(
+      { queryKey: mediaQueryKeys.journey(journeyId) },
+      options,
+    ),
   ])
 }
 

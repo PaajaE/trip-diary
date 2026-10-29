@@ -43,7 +43,7 @@ export function PublicSpaceHeader({
             src={avatarUrl}
           />
           <div className="min-w-0 pt-1">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-strong">
               {t('publicSpace.tagline')}
             </p>
             <h1 className="reader-display mt-2 text-3xl tracking-[-0.04em] sm:text-4xl">

@@ -1,3 +1,4 @@
+import { compareText } from './compare.ts'
 import { centroid, distanceKm, type GeoPoint } from './geo.ts'
 import {
   pointOf,
@@ -53,7 +54,7 @@ function locatedPoints(members: readonly DatedMediaPoint[]): GeoPoint[] {
 }
 
 function byTimeThenId(a: DatedMediaPoint, b: DatedMediaPoint): number {
-  return a.time - b.time || a.id.localeCompare(b.id)
+  return a.time - b.time || compareText(a.id, b.id)
 }
 
 /** Dwell based: does the next photo still belong to the running moment? */

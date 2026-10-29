@@ -20,12 +20,6 @@ export const LazySettingsRoutePage = lazy(() =>
   ),
 )
 
-export const LazyProfileRoutePage = lazy(() =>
-  import('@/pages/profile/ProfileRoutePage').then(({ ProfileRoutePage }) => ({
-    default: ProfileRoutePage,
-  })),
-)
-
 export const LazyCreateJourneyPage = lazy(() =>
   import('@/pages/journey/CreateJourneyPage').then(({ CreateJourneyPage }) => ({
     default: CreateJourneyPage,
@@ -123,6 +117,24 @@ export const LazyJourneyImportRoutePage = lazy(() =>
 export const LazyJourneyBatchRoutePage = lazy(() =>
   import('@/pages/journey/JourneyBatchRoutePage').then(
     ({ JourneyBatchRoutePage }) => ({ default: JourneyBatchRoutePage }),
+  ),
+)
+
+export const LazyJourneyFlowRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyFlowRoutePage').then(
+    ({ JourneyFlowRoutePage }) => ({ default: JourneyFlowRoutePage }),
+  ),
+)
+
+export const LazyJourneyFlowDayRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyFlowDayRoutePage').then(
+    ({ JourneyFlowDayRoutePage }) => ({ default: JourneyFlowDayRoutePage }),
+  ),
+)
+
+export const LazyJourneyFlowSortRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyFlowSortRoutePage').then(
+    ({ JourneyFlowSortRoutePage }) => ({ default: JourneyFlowSortRoutePage }),
   ),
 )
 

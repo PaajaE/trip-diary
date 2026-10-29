@@ -10,6 +10,7 @@ export const journeyQueryKeys = {
     ['journey-contribution', journeyId] as const,
   contributionLocal: (journeyId: string) =>
     ['journey-contribution', journeyId, 'local'] as const,
+  homeTz: (journeyId: string) => ['journeys', journeyId, 'home-tz'] as const,
   owner: (journeyId: string) => ['journey-owner', journeyId] as const,
   myRole: (journeyId: string, userId: string | undefined) =>
     ['journey-my-role', journeyId, userId] as const,

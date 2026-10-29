@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildPhotoDays,
   dayNumber,
   dayPlaceNames,
   firstDayKey,
@@ -29,19 +30,19 @@ function entry(
 
 describe('localDayKey', () => {
   it('uses the local day of the zone, not UTC', () => {
-    expect(localDayKey('2026-05-29T23:30:00Z', 'Europe/Prague')).toBe(
+    expect(localDayKey('2026-05-30T03:30:00Z', 'Europe/Prague')).toBe(
       '2026-05-30',
     )
-    expect(localDayKey('2026-05-29T23:30:00Z', 'America/Edmonton')).toBe(
+    expect(localDayKey('2026-05-30T03:30:00Z', 'America/Edmonton')).toBe(
       '2026-05-29',
     )
   })
 
   it('crosses midnight at the zone boundary', () => {
-    expect(localDayKey('2026-05-29T21:59:59Z', 'Europe/Prague')).toBe(
+    expect(localDayKey('2026-05-30T01:59:59Z', 'Europe/Prague')).toBe(
       '2026-05-29',
     )
-    expect(localDayKey('2026-05-29T22:00:00Z', 'Europe/Prague')).toBe(
+    expect(localDayKey('2026-05-30T02:00:00Z', 'Europe/Prague')).toBe(
       '2026-05-30',
     )
   })
@@ -49,6 +50,18 @@ describe('localDayKey', () => {
   it('falls back to UTC for a missing or invalid zone', () => {
     expect(localDayKey('2026-05-29T23:30:00Z', null)).toBe('2026-05-29')
     expect(localDayKey('2026-05-29T23:30:00Z', 'Nope/Zone')).toBe('2026-05-29')
+  })
+
+  it('starts the day at 04:00 local time', () => {
+    expect(localDayKey('2026-05-29T22:40:00Z', 'Europe/Prague')).toBe(
+      '2026-05-29',
+    )
+    expect(localDayKey('2026-05-30T01:59:00Z', 'Europe/Prague')).toBe(
+      '2026-05-29',
+    )
+    expect(localDayKey('2026-05-30T02:00:00Z', 'Europe/Prague')).toBe(
+      '2026-05-30',
+    )
   })
 
   it('has no day without a usable start', () => {
@@ -73,9 +86,9 @@ describe('groupMomentsByDay', () => {
   it('uses each moment zone and the fallback zone', () => {
     const days = groupMomentsByDay(
       [
-        entry(1, '2026-05-29T23:30:00Z', 'America/Edmonton'),
-        entry(2, '2026-05-29T23:30:00Z', 'Europe/Prague'),
-        entry(3, '2026-05-29T23:30:00Z', null),
+        entry(1, '2026-05-30T03:30:00Z', 'America/Edmonton'),
+        entry(2, '2026-05-30T03:30:00Z', 'Europe/Prague'),
+        entry(3, '2026-05-30T03:30:00Z', null),
       ],
       'Asia/Tokyo',
     )
@@ -145,7 +158,7 @@ describe('day numbers', () => {
   it('counts local calendar days from the first moment of the journey', () => {
     const entries = [
       entry(1, '2026-06-03T09:00:00Z', 'America/Edmonton'),
-      entry(2, '2026-05-26T07:00:00Z', 'America/Edmonton'),
+      entry(2, '2026-05-26T12:00:00Z', 'America/Edmonton'),
     ]
     const first = firstDayKey(entries)
     expect(first).toBe('2026-05-26')
@@ -153,5 +166,66 @@ describe('day numbers', () => {
     expect(dayNumber(first, '2026-06-03')).toBe(9)
     expect(dayNumber(first, UNKNOWN_DAY)).toBeNull()
     expect(dayNumber(null, '2026-06-03')).toBeNull()
+  })
+})
+
+describe('photo days (SQL pick_local_day rule)', () => {
+  const photo = (at: string, tz: string | null) => ({
+    capturedAt: at,
+    capturedTz: tz,
+  })
+
+  it('puts 00:40 on the previous day in the home zone', () => {
+    const days = groupMomentsByDay(
+      [entry(1, '2026-05-29T22:40:00Z', null)],
+      'Europe/Prague',
+      buildPhotoDays([], 'Europe/Prague'),
+    )
+    expect(days.map((d) => d.key)).toEqual(['2026-05-29'])
+  })
+
+  it('follows the zone of the photo day (zone crossing)', () => {
+    // Photos of 2026-06-02 were taken in Edmonton; 02:30Z on 3 June is
+    // 20:30 on 2 June there, but 04:30 on 3 June in Prague (home).
+    const photoDays = buildPhotoDays(
+      [photo('2026-06-02T18:00:00Z', 'America/Edmonton')],
+      'Europe/Prague',
+    )
+    expect(photoDays).toEqual({
+      dates: ['2026-06-02'],
+      zones: ['America/Edmonton'],
+    })
+    const moments = [
+      entry(1, '2026-06-03T02:30:00Z', null),
+      entry(2, '2026-06-03T11:30:00Z', null),
+    ]
+    expect(
+      groupMomentsByDay(moments, 'Europe/Prague', photoDays).map((d) => d.key),
+    ).toEqual(['2026-06-02', '2026-06-03'])
+    expect(firstDayKey(moments, 'Europe/Prague', photoDays)).toBe('2026-06-02')
+  })
+
+  it('falls back to the home zone, UTC when unset, without photo days', () => {
+    const none = buildPhotoDays([], null)
+    expect(
+      groupMomentsByDay(
+        [entry(1, '2026-05-29T23:30:00Z', 'Asia/Tokyo')],
+        null,
+        none,
+      )[0]?.key,
+    ).toBe('2026-05-29')
+  })
+
+  it('lets only ready, dated media vote; own zone else home', () => {
+    const days = buildPhotoDays(
+      [
+        photo('2026-06-02T10:00:00Z', null),
+        { ...photo('2026-06-02T11:00:00Z', 'Asia/Tokyo'), status: 'failed' },
+        photo('garbage', 'Asia/Tokyo'),
+        { capturedAt: null, capturedTz: 'Asia/Tokyo' },
+      ],
+      'Europe/Prague',
+    )
+    expect(days).toEqual({ dates: ['2026-06-02'], zones: ['Europe/Prague'] })
   })
 })

@@ -4,8 +4,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { invalidateJourneyTree } from '@/entities/journey/api/invalidate-journey-tree'
+import { organizeNow } from '@/features/journey-organize/api/auto-organize'
 import {
-  applyOrganizationPlan,
   previewOrganization,
   type OrganizeProgress,
 } from '@/features/journey-organize/api/organize-journey'
@@ -59,37 +59,51 @@ export function OrganizeDialog({
     setAttempt((value) => value + 1)
   }, [])
 
-  const apply = useCallback(
-    async (plan: OrganizationPlan) => {
-      setState({ progress: null, status: 'applying' })
-      const result = await applyOrganizationPlan(journeyId, plan, {
+  const apply = useCallback(async () => {
+    setState({ progress: null, status: 'applying' })
+    // The preview is only shown: the apply re-plans on the current state
+    // (under the journey lock, with an undo snapshot), so a change made in
+    // the meantime is never overwritten by an older plan.
+    let outcome: Awaited<ReturnType<typeof organizeNow>>
+    try {
+      outcome = await organizeNow(journeyId, {
+        ...organizeOptions(t, i18n.language),
         onProgress: (progress) => {
           setState({ progress, status: 'applying' })
         },
       })
-      // Even a partial run changed data, so always refresh the tree.
+    } catch {
       await invalidateJourneyTree(queryClient, journeyId).catch(() => undefined)
-      if (result.ok) {
-        showToast({
-          message: t('autoOrganize.done', {
-            moments: result.counts.momentsCreated,
-            suggestions:
-              result.counts.stagesCreated + result.counts.tripsCreated,
-          }),
-        })
-        onClose()
-        return
-      }
-      showToast({
-        message: t('autoOrganize.failed', {
-          step: t(`autoOrganize.steps.${result.error.step}`),
-        }),
-        variant: 'error',
-      })
+      showToast({ message: t('autoOrganize.loadError'), variant: 'error' })
       reload()
-    },
-    [journeyId, onClose, queryClient, reload, showToast, t],
-  )
+      return
+    }
+    const { result } = outcome
+    // Even a partial run changed data, so always refresh the tree.
+    await invalidateJourneyTree(queryClient, journeyId).catch(() => undefined)
+    if (result === null) {
+      showToast({ message: t('autoOrganize.planNothing') })
+      onClose()
+      return
+    }
+    if (result.ok) {
+      showToast({
+        message: t('autoOrganize.done', {
+          moments: result.counts.momentsCreated,
+          suggestions: result.counts.stagesCreated + result.counts.tripsCreated,
+        }),
+      })
+      onClose()
+      return
+    }
+    showToast({
+      message: t('autoOrganize.failed', {
+        step: t(`autoOrganize.steps.${result.error.step}`),
+      }),
+      variant: 'error',
+    })
+    reload()
+  }, [i18n.language, journeyId, onClose, queryClient, reload, showToast, t])
 
   const busy = state.status === 'applying'
   return (
@@ -143,7 +157,7 @@ export function OrganizeDialog({
             className={`${dialogButton} bg-primary text-primary-foreground`}
             type="button"
             onClick={() => {
-              void apply(state.plan)
+              void apply()
             }}
           >
             {t('autoOrganize.apply')}

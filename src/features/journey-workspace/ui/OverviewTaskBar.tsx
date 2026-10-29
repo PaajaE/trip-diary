@@ -73,7 +73,7 @@ export function OverviewTaskBar({
                 'inline-grid h-[22px] min-w-[22px] place-items-center rounded-full px-1.5 text-xs font-semibold tabular-nums',
                 item.count === 0
                   ? 'bg-primary-soft text-primary'
-                  : 'bg-accent-soft text-accent',
+                  : 'bg-accent-soft text-accent-strong',
               )}
             >
               {item.count}

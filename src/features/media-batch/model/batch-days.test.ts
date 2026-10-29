@@ -17,6 +17,7 @@ function media(
     capturedAt,
     capturedTz,
     createdAt: '2026-01-01T00:00:00Z',
+    device: null,
     durationMs: null,
     focalX: null,
     focalY: null,
@@ -40,28 +41,17 @@ function media(
 
 describe('groupBatchByDay', () => {
   it('groups by the local day of the capture zone, not by UTC', () => {
-    // 05:00 UTC on 2 Jun is 22:00 on 1 Jun in Vancouver (UTC-7).
+    // 02:30 UTC on 2 Jun is 04:30 in Prague (UTC+2): the day starts at 04:00,
+    // so it is 2 Jun, while 23:30 UTC on 1 Jun (01:30 on 2 Jun) is still 1 Jun.
     const days = groupBatchByDay([
-      media('a', '2026-06-01T20:00:00Z', 'America/Vancouver'),
-      media('b', '2026-06-02T05:00:00Z', 'America/Vancouver'),
-      media('c', '2026-06-02T17:00:00Z', 'America/Vancouver'),
+      media('a', '2026-06-01T10:00:00Z'),
+      media('b', '2026-06-02T02:30:00Z'),
+      media('c', '2026-06-02T08:00:00Z'),
+      media('d', '2026-06-01T23:30:00Z'),
     ])
     expect(days.map((day) => [day.key, day.items.map((i) => i.id)])).toEqual([
-      ['2026-06-01', ['a', 'b']],
-      ['2026-06-02', ['c']],
-    ])
-  })
-
-  it('keeps a shot after midnight with the evening it belongs to', () => {
-    // 00:30 in Vancouver on 2 Jun, then the next morning: one sleep gap.
-    const days = groupBatchByDay([
-      media('eve', '2026-06-02T04:00:00Z', 'America/Vancouver'),
-      media('late', '2026-06-02T07:30:00Z', 'America/Vancouver'),
-      media('morning', '2026-06-02T15:30:00Z', 'America/Vancouver'),
-    ])
-    expect(days.map((day) => [day.key, day.items.map((i) => i.id)])).toEqual([
-      ['2026-06-01', ['eve', 'late']],
-      ['2026-06-02', ['morning']],
+      ['2026-06-01', ['a', 'd']],
+      ['2026-06-02', ['b', 'c']],
     ])
   })
 

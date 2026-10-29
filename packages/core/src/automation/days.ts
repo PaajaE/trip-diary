@@ -6,6 +6,12 @@ import {
   type MediaPoint,
 } from './media-point.ts'
 import { assignNightDays } from './night-days.ts'
+import {
+  isKnownTimeZone,
+  localDay,
+  photoDayZones,
+  pickLocalDay,
+} from './local-day.ts'
 import { timeZoneAt } from './time-zone.ts'
 
 export interface DaySummary {
@@ -30,15 +36,6 @@ export interface StageBoundarySuggestion {
 }
 
 export const DEFAULT_STAGE_SHIFT_KM = 80
-
-function localDateFormatter(timeZone: string): Intl.DateTimeFormat {
-  return new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone,
-    year: 'numeric',
-  })
-}
 
 function summarizeGroup(
   date: string,
@@ -67,19 +64,23 @@ function summarizeGroup(
   }
 }
 
+function zoneOrUtc(zone: string): string {
+  return isKnownTimeZone(zone) ? zone : 'UTC'
+}
+
 /**
- * Groups media by local calendar day. `timeZone` is the journey home zone
- * (IANA name); per-media zones can refine this later.
+ * Groups media by local calendar day (a day starts at 04:00 local time).
+ * `timeZone` is the journey home zone (IANA name); see summarizeZonedDays
+ * for per-photo zones.
  */
 export function summarizeDays(
   media: readonly MediaPoint[],
   timeZone: string,
 ): DaySummary[] {
-  const format = localDateFormatter(timeZone)
   const { dated } = sortDated(media)
   const days = new Map<string, DatedMediaPoint[]>()
   for (const item of dated) {
-    const date = format.format(new Date(item.time))
+    const date = localDay(item.time, zoneOrUtc(timeZone))
     const list = days.get(date)
     if (list === undefined) {
       days.set(date, [item])
@@ -91,7 +92,7 @@ export function summarizeDays(
 }
 
 export interface ZonedDaySummary extends DaySummary {
-  /** IANA zone the day was (mostly) spent in: that of its first photo. */
+  /** IANA zone the day was mostly spent in (majority of its photos). */
   timeZone: string
 }
 
@@ -104,10 +105,14 @@ function zoneAtPoint(point: GeoPoint): string | null {
 }
 
 /**
- * Groups media by the local calendar day of the place where each photo was
- * taken. The zone comes from the GPS position (offline lookup); photos
- * without a position inherit the zone of the previous located photo, and
- * the journey home zone is used before the first position is known.
+ * Groups media by local calendar day (starting at 04:00 local time) in the
+ * zone each day was mostly spent in. A photo's zone is its captured zone when
+ * known, else derived from its GPS position (offline lookup); photos with
+ * neither inherit the zone of the previous photo, and the journey home zone
+ * is used before any zone is known. The zone of a day is the majority zone of
+ * its photos (ties: alphabetically first). Each photo is then placed on the
+ * earliest photo day whose zone puts it on that day (same rule as SQL
+ * pick_local_day), so days without photos use the home zone.
  * Sorted by date, so the result does not depend on input order.
  */
 export function summarizeZonedDays(
@@ -115,52 +120,53 @@ export function summarizeZonedDays(
   homeTimeZone: string,
   options: {
     /**
-     * `midnight` (default, what the app uses today): the local calendar date.
+     * `fourAm` (default): the day starts at 04:00 local time (mirrors SQL).
      * `night`: the day changes in the middle of the night's longest gap (see
-     * assignNightDays). The app is switched over separately.
+     * assignNightDays); without such a gap it still changes at 04:00.
      */
-    dayBoundary?: 'midnight' | 'night'
+    dayBoundary?: 'fourAm' | 'night'
   } = {},
 ): ZonedDaySummary[] {
+  const home = zoneOrUtc(homeTimeZone)
   const nightDays =
     options.dayBoundary === 'night'
       ? assignNightDays(media, homeTimeZone)
       : null
-  const formatters = new Map<string, Intl.DateTimeFormat>()
-  const formatterFor = (zone: string): Intl.DateTimeFormat => {
-    let formatter = formatters.get(zone)
-    if (formatter === undefined) {
-      formatter = localDateFormatter(zone)
-      formatters.set(zone, formatter)
-    }
-    return formatter
-  }
   const { dated } = sortDated(media)
-  const groups = new Map<
-    string,
-    { items: DatedMediaPoint[]; timeZone: string }
-  >()
-  let zone = homeTimeZone
-  for (const item of dated) {
+  let inherited = home
+  const photos = dated.map((item) => {
     const point = pointOf(item)
     if (point !== null) {
-      zone = zoneAtPoint(point) ?? zone
+      inherited = zoneAtPoint(point) ?? inherited
     }
+    const own = item.capturedTz
+    if (own !== undefined && own !== null && isKnownTimeZone(own)) {
+      inherited = own
+    }
+    return { instant: item.time, zone: inherited }
+  })
+  const { dates, zones } = photoDayZones(photos)
+  const groups = new Map<string, DatedMediaPoint[]>()
+  const nightZones = new Map<string, string>()
+  for (const [index, item] of dated.entries()) {
     const assigned = nightDays?.get(item.id)
     const date =
-      assigned?.date ?? formatterFor(zone).format(new Date(item.time))
-    const group = groups.get(date)
-    if (group === undefined) {
-      groups.set(date, { items: [item], timeZone: zone })
+      assigned?.date ?? pickLocalDay(item.time, home, dates, zones)
+    if (assigned !== undefined && !nightZones.has(date)) {
+      nightZones.set(date, photos[index]?.zone ?? assigned.timeZone)
+    }
+    const list = groups.get(date)
+    if (list === undefined) {
+      groups.set(date, [item])
     } else {
-      group.items.push(item)
+      list.push(item)
     }
   }
   return [...groups.entries()]
     .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(([date, group]) => ({
-      ...summarizeGroup(date, group.items),
-      timeZone: group.timeZone,
+    .map(([date, items]) => ({
+      ...summarizeGroup(date, items),
+      timeZone: nightZones.get(date) ?? zones[dates.indexOf(date)] ?? home,
     }))
 }
 
