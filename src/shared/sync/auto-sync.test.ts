@@ -25,7 +25,8 @@ describe('canAutomaticallySync', () => {
     expect(await canAutomaticallySync()).toBe(true)
   })
 
-  it('automatically syncs a native app when connected over Wi-Fi or cellular', async () => {
+  it('automatically syncs a native app over Wi-Fi, and over cellular only after opt-in', async () => {
+    localStorage.setItem('trip-diary:sync-on-cellular', '1')
     mocks.isNativePlatform.mockReturnValue(true)
     mocks.getStatus.mockResolvedValue({
       connected: true,
@@ -33,6 +34,22 @@ describe('canAutomaticallySync', () => {
     })
     expect(await canAutomaticallySync()).toBe(true)
 
+    mocks.getStatus.mockResolvedValue({
+      connected: true,
+      connectionType: 'wifi',
+    })
+    expect(await canAutomaticallySync()).toBe(true)
+    localStorage.removeItem('trip-diary:sync-on-cellular')
+  })
+
+  it('skips automatic sync on cellular by default (Wi-Fi only)', async () => {
+    localStorage.removeItem('trip-diary:sync-on-cellular')
+    mocks.isNativePlatform.mockReturnValue(true)
+    mocks.getStatus.mockResolvedValue({
+      connected: true,
+      connectionType: 'cellular',
+    })
+    expect(await canAutomaticallySync()).toBe(false)
     mocks.getStatus.mockResolvedValue({
       connected: true,
       connectionType: 'wifi',
