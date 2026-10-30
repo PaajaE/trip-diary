@@ -112,7 +112,7 @@ describe('searchJourney text', () => {
     expect(out.results[0]?.localDate).toBe('2026-01-02')
   })
 
-  it('follows the majority zone of the photo days (zone crossing)', () => {
+  it('reads a stop on the clock of the photo it was shot with (zone crossing)', () => {
     const photos = [
       med(1, {
         capturedAt: '2026-01-02T18:00:00+00:00',
@@ -140,11 +140,12 @@ describe('searchJourney text', () => {
       },
       'noční',
     )
-    // 02:00Z is 21:00 on 2 Jan in New York (a photo day spent there) and
-    // 03:00 on 3 Jan in Prague: the earlier photo day wins.
+    // The photo at 02:00Z was shot in Prague (03:00 on 3 Jan there, after the
+    // author's sleep gap), so the moment is read on the Prague clock, not on
+    // the New York clock of the earlier photo day.
     expect(out.results.map((r) => [r.kind, r.localDate])).toEqual([
-      ['moment', '2026-01-02'],
-      ['media', '2026-01-02'],
+      ['moment', '2026-01-03'],
+      ['media', '2026-01-03'],
     ])
   })
 
