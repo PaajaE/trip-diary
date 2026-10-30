@@ -40,6 +40,15 @@ export function useResolveMissingPlaces(
   const [round, setRound] = useState(0)
   const cache = useRef(new Map<string, Place | null>())
   const focus = useRef(focusDayKey)
+  // A run that ends after the component is gone must not touch its state
+  // (in tests the DOM is already torn down by then).
+  const mounted = useRef(true)
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+    }
+  }, [])
   useEffect(() => {
     focus.current = focusDayKey
   }, [focusDayKey])
@@ -102,10 +111,12 @@ export function useResolveMissingPlaces(
         )
       } finally {
         current.running = false
-        // A cancelled run leaves the progress to a session that follows;
-        // without one (disabled) the progress is cleared.
-        if (!stopped() || session.current === null) setProgress(null)
-        if (!stopped()) setRound((value) => value + 1)
+        if (mounted.current) {
+          // A cancelled run leaves the progress to a session that follows;
+          // without one (disabled) the progress is cleared.
+          if (!stopped() || session.current === null) setProgress(null)
+          if (!stopped()) setRound((value) => value + 1)
+        }
       }
     }
     void run()
