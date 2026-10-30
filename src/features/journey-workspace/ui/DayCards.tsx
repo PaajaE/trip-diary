@@ -42,11 +42,12 @@ function Mosaic({ day }: { day: OverviewDay }) {
           className="block h-full w-full rounded-none"
           item={item}
           key={item.id}
-          // The hero fills two thirds (the whole card when alone): the ~220 px
-          // thumb is blurry there, the side cells are small enough for it.
-          {...(index === 0
-            ? { sizes: day.mosaic.length === 1 ? '340px' : '230px' }
-            : {})}
+          // The ~205 px thumb is soft in every cell (it is cropped to the
+          // cell and the screen is often 2x); the browser picks thumb or
+          // small by the displayed width. Hero: two thirds, all when alone.
+          sizes={
+            index > 0 ? '115px' : day.mosaic.length === 1 ? '340px' : '230px'
+          }
         />
       ))}
       empty={<ImageIcon aria-hidden="true" size={28} />}
