@@ -3,8 +3,8 @@ import {
   buildMediaUrl,
   DEFAULT_MEDIA_BASE_URL,
   getSharpThumb,
-  getThumbUrl,
-  pickThumbVariant,
+  getTinyThumbUrl,
+  pickTinyThumbVariant,
   pickZoomImageVariant,
 } from '@/features/journey-workspace/lib/media-thumb'
 import { med, variant } from '@/features/journey-workspace/test-fixtures'
@@ -14,11 +14,13 @@ describe('media thumbnails', () => {
     const id = med(1).id
     const mk = (...kinds: Parameters<typeof variant>[1][]) =>
       med(1, { variants: kinds.map((k) => variant(id, k)) })
-    expect(pickThumbVariant(mk('large', 'small', 'thumb'))?.kind).toBe('thumb')
-    expect(pickThumbVariant(mk('large', 'small'))?.kind).toBe('small')
-    expect(pickThumbVariant(mk('large', 'medium'))?.kind).toBe('medium')
-    expect(pickThumbVariant(mk('large'))?.kind).toBe('large')
-    expect(pickThumbVariant(mk())).toBeNull()
+    expect(pickTinyThumbVariant(mk('large', 'small', 'thumb'))?.kind).toBe(
+      'thumb',
+    )
+    expect(pickTinyThumbVariant(mk('large', 'small'))?.kind).toBe('small')
+    expect(pickTinyThumbVariant(mk('large', 'medium'))?.kind).toBe('medium')
+    expect(pickTinyThumbVariant(mk('large'))?.kind).toBe('large')
+    expect(pickTinyThumbVariant(mk())).toBeNull()
   })
 
   it('uses the poster for videos and never the mp4 variant', () => {
@@ -27,9 +29,9 @@ describe('media thumbnails', () => {
       kind: 'video',
       variants: [variant(id, 'video'), variant(id, 'poster', 'k/p.jpg')],
     })
-    expect(getThumbUrl(video)).toBe(`${DEFAULT_MEDIA_BASE_URL}/k/p.jpg`)
+    expect(getTinyThumbUrl(video)).toBe(`${DEFAULT_MEDIA_BASE_URL}/k/p.jpg`)
     const noPoster = med(1, { kind: 'video', variants: [variant(id, 'video')] })
-    expect(getThumbUrl(noPoster)).toBeNull()
+    expect(getTinyThumbUrl(noPoster)).toBeNull()
   })
 
   it('joins base url and key without double slashes', () => {

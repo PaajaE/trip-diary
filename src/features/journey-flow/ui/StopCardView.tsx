@@ -8,7 +8,7 @@ import {
   countsText,
   stopNameText,
 } from '@/features/journey-workspace/lib/moment-labels'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { MediaImage } from '@/features/journey-workspace/ui/MediaImage'
 import { cn } from '@/shared/lib/cn'
 
 const STRIP_MAX = 5
@@ -149,20 +149,16 @@ export function StopCardView({
           className="mt-2 grid grid-cols-[repeat(6,minmax(0,3.5rem))] gap-1"
         >
           {visible.map((item) => {
-            const url = getThumbUrl(item, BASE_URL)
             return (
               <li
                 className="aspect-square min-w-0 overflow-hidden rounded-md bg-sunk"
                 key={item.id}
               >
-                {url === null ? null : (
-                  <img
-                    alt=""
-                    className="size-full object-cover"
-                    loading="lazy"
-                    src={url}
-                  />
-                )}
+                <MediaImage
+                  baseUrl={BASE_URL}
+                  className="size-full object-cover"
+                  item={item}
+                />
               </li>
             )
           })}

@@ -11,7 +11,7 @@ import {
   WorkspaceDialog,
 } from '@/features/journey-workspace/ui/WorkspaceDialog'
 import { formatLocalTime } from '@/features/journey-workspace/lib/format-range'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { MediaImage } from '@/features/journey-workspace/ui/MediaImage'
 import { BASE_URL } from '@/features/journey-workspace/lib/moment-labels'
 import { cn } from '@/shared/lib/cn'
 
@@ -65,7 +65,6 @@ export function PhotoPickSheet({
       </p>
       <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6">
         {stop.media.map((item) => {
-          const url = getThumbUrl(item, BASE_URL)
           const time = timeOf(item.capturedAt, item.capturedTz)
           const on = cut ? item.id === cutId : picked.has(item.id)
           return (
@@ -89,9 +88,11 @@ export function PhotoPickSheet({
                   }
                 }}
               >
-                {url === null ? null : (
-                  <img alt="" className="size-full object-cover" src={url} />
-                )}
+                <MediaImage
+                  baseUrl={BASE_URL}
+                  className="size-full object-cover"
+                  item={item}
+                />
                 <span className="absolute inset-x-0 bottom-0 bg-black/60 px-1 text-[11px] text-white">
                   {time}
                 </span>

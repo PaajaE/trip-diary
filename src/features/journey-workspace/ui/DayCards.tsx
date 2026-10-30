@@ -36,18 +36,12 @@ const BADGE =
 function Mosaic({ day }: { day: OverviewDay }) {
   return (
     <MosaicGrid
-      cells={day.mosaic.map((item, index) => (
+      cells={day.mosaic.map((item) => (
         <MediaThumb
           baseUrl={BASE_URL}
           className="block h-full w-full rounded-none"
           item={item}
           key={item.id}
-          // The ~205 px thumb is soft in every cell (it is cropped to the
-          // cell and the screen is often 2x); the browser picks thumb or
-          // small by the displayed width. Hero: two thirds, all when alone.
-          sizes={
-            index > 0 ? '115px' : day.mosaic.length === 1 ? '340px' : '230px'
-          }
         />
       ))}
       empty={<ImageIcon aria-hidden="true" size={28} />}

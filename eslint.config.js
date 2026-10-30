@@ -188,6 +188,29 @@ export default defineConfig([
     },
   },
   {
+    // The tiny thumb (~220 px) is soft in anything but a strip or a map marker.
+    // Show media through <MediaImage>/<MediaThumb> (measured, srcset) or
+    // getCardUrl (large fixed area); only these files may ask for the thumb.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      'src/features/journey-workspace/lib/media-thumb.ts',
+      'src/features/journey-workspace/lib/media-thumb.test.ts',
+      'src/features/journey-workspace/model/workspace-map.ts',
+      'src/features/journey-workspace/ui/MediaImage.tsx',
+    ],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'ImportSpecifier[imported.name=/^(getTinyThumbUrl|pickTinyThumbVariant)$/]',
+          message:
+            'The tiny thumb is ~220 px and blurry in anything but a strip: use <MediaImage>/<MediaThumb> (size-aware srcset) or getCardUrl.',
+        },
+      ],
+    },
+  },
+  {
     files: ['src/**/*.test.{ts,tsx}'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',

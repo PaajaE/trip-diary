@@ -1,7 +1,7 @@
 import type { HierarchyDepth } from '@trip-diary/core/automation'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import type { Segment } from '@/entities/segment/model/segment'
-import { pickThumbVariant } from '@/features/journey-workspace/lib/media-thumb'
+import { getCardUrl } from '@/features/journey-workspace/lib/media-thumb'
 import {
   looseElementId,
   segmentElementId,
@@ -144,7 +144,7 @@ export function dayStopNames(
 }
 
 function usable(item: MediaItem): boolean {
-  return pickThumbVariant(item) !== null
+  return getCardUrl(item) !== null
 }
 
 function coverOf(entry: WorkspaceMoment): MediaItem | null {
