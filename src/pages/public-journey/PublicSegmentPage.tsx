@@ -17,6 +17,7 @@ import {
   zoneOf,
 } from '@/entities/public-journey/lib/journey-model'
 import { resolveImage } from '@/entities/public-journey/lib/media-url'
+import { GreetAuthorsBar } from '@/features/public-journey/ui/GreetAuthorsBar'
 import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { buildMapData } from '@/features/public-journey/lib/build-map-data'
 import {
@@ -453,6 +454,7 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
       ) : null}
       <div className="mt-10">
         <TargetEngagement target={{ id: segment.id, type: 'segment' }} />
+        <GreetAuthorsBar />
       </div>
       <MediaLightbox
         index={lightbox?.index ?? null}

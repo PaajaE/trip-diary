@@ -47,7 +47,10 @@ import {
 } from '@/features/journey-workspace/lib/moment-labels'
 import { MediaTiles } from '@/features/journey-workspace/ui/moment-blocks'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
-import { nextStep } from '@/features/journey-workspace/model/workspace-tasks'
+import {
+  nextStep,
+  suggestedSegments,
+} from '@/features/journey-workspace/model/workspace-tasks'
 import { NextStepCard } from '@/features/journey-workspace/ui/NextStepCard'
 import {
   OverviewTaskBar,
@@ -465,6 +468,13 @@ export function JourneyWorkspace({
       >
         <NextStepCard
           step={nextStep(overview.tasks)}
+          onAcceptAll={() => {
+            void (async () => {
+              for (const segment of suggestedSegments(ready)) {
+                await editing.edits.acceptSegment(segment)
+              }
+            })()
+          }}
           onStart={(step) => {
             openTask(step.id)
           }}

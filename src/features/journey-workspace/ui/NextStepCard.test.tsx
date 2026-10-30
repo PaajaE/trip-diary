@@ -30,4 +30,22 @@ describe('NextStepCard', () => {
     expect(screen.getByTestId('next-step-done')).toBeTruthy()
     expect(screen.queryByRole('button')).toBeNull()
   })
+
+  it('offers accepting all suggestions and a short version', () => {
+    const onAcceptAll = vi.fn()
+    const onStart = vi.fn()
+    const step = {
+      count: 4,
+      id: 'suggestions' as const,
+      minutes: 1,
+      shortMinutes: 1,
+    }
+    render(
+      <NextStepCard step={step} onAcceptAll={onAcceptAll} onStart={onStart} />,
+    )
+    fireEvent.click(screen.getByTestId('next-step-accept-all'))
+    expect(onAcceptAll).toHaveBeenCalledTimes(1)
+    fireEvent.click(screen.getByTestId('next-step-short'))
+    expect(onStart).toHaveBeenCalledWith(step)
+  })
 })

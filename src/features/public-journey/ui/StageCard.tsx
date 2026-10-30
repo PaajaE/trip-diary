@@ -20,6 +20,8 @@ interface StageCardProps {
   segmentId: string
   spaceHandle: string
   title: string
+  /** The stage lies ahead (it has not started yet). */
+  upcoming?: boolean
 }
 
 /** Stage as a card: coloured badge, 2/1/1 mosaic, title, numbers, first lines. */
@@ -36,6 +38,7 @@ export function StageCard({
   segmentId,
   spaceHandle,
   title,
+  upcoming = false,
 }: StageCardProps) {
   const { t } = useTranslation()
   return (
@@ -69,7 +72,14 @@ export function StageCard({
         />
       </span>
       <span className="flex flex-1 flex-col justify-center gap-1.5 p-5">
-        <span className="text-xs text-muted">{range}</span>
+        <span className="text-xs text-muted">
+          {range}
+          {upcoming ? (
+            <span className="ml-2 rounded-full bg-sunk px-2 py-0.5 font-medium">
+              {t('publicJourney.upcoming')}
+            </span>
+          ) : null}
+        </span>
         <span className="reader-display text-2xl leading-tight md:text-3xl">
           {title}
         </span>

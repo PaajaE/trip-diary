@@ -1,4 +1,5 @@
 import { isUnreviewed } from '@/features/journey-workspace/model/day-status'
+import type { Segment } from '@/entities/segment/model/segment'
 import type { MomentDay } from '@/features/journey-workspace/model/workspace-days'
 import type {
   WorkspaceMoment,
@@ -70,6 +71,17 @@ export interface WorkspaceTasks {
   unreviewed: { count: number }
   /** Segments waiting for accept or reject. */
   suggestions: { count: number; firstSegmentId: string | null }
+}
+
+/** Suggested segments still waiting for accept or reject, tree order. */
+export function suggestedSegments(tree: WorkspaceTree): Segment[] {
+  const out: Segment[] = []
+  const walk = (node: WorkspaceSegment) => {
+    if (node.segment.origin === 'suggested') out.push(node.segment)
+    node.children.forEach(walk)
+  }
+  tree.roots.forEach(walk)
+  return out
 }
 
 function suggestionIds(tree: WorkspaceTree): string[] {

@@ -6,9 +6,12 @@ import type { NextStep } from '@/features/journey-workspace/model/workspace-task
  * what is missing; when nothing waits, a quiet confirmation.
  */
 export function NextStepCard({
+  onAcceptAll,
   onStart,
   step,
 }: {
+  /** Accepts every waiting suggestion at once (each with its own Undo). */
+  onAcceptAll?: (() => void) | undefined
   onStart: (step: NextStep) => void
   step: NextStep | null
 }) {
@@ -41,15 +44,41 @@ export function NextStepCard({
           {t('workspace.nextStep.estimate', { minutes: step.minutes })}
         </p>
       </div>
-      <button
-        className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
-        type="button"
-        onClick={() => {
-          onStart(step)
-        }}
-      >
-        {t('workspace.nextStep.start')}
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        {step.id === 'suggestions' && onAcceptAll !== undefined ? (
+          <button
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            data-testid="next-step-accept-all"
+            type="button"
+            onClick={onAcceptAll}
+          >
+            {t('workspace.nextStep.acceptAll')}
+          </button>
+        ) : null}
+        <button
+          className={
+            step.id === 'suggestions' && onAcceptAll !== undefined
+              ? 'inline-flex min-h-11 items-center rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-foreground'
+              : 'inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground'
+          }
+          type="button"
+          onClick={() => {
+            onStart(step)
+          }}
+        >
+          {t('workspace.nextStep.start')}
+        </button>
+        <button
+          className="inline-flex min-h-11 items-center rounded-xl px-3 text-sm font-medium text-muted hover:text-foreground"
+          data-testid="next-step-short"
+          type="button"
+          onClick={() => {
+            onStart(step)
+          }}
+        >
+          {t('workspace.nextStep.short', { minutes: step.shortMinutes })}
+        </button>
+      </div>
     </section>
   )
 }
