@@ -169,6 +169,9 @@ export function majorityZone(zones: readonly string[]): string | null {
   return best
 }
 
+/** An instant this close to a photo is read on that photo's clock (12 h). */
+export const OWN_ZONE_WINDOW_MS = 12 * 3_600_000
+
 export interface PhotoDayZones {
   /** Photo days (YYYY-MM-DD), ascending. */
   dates: string[]
@@ -178,6 +181,13 @@ export interface PhotoDayZones {
    * sleep gap, else at 04:00.
    */
   night: (time: number, zone: string) => NightDayResolution
+  /**
+   * Zone of the photo closest in time to an instant (ties: the earlier one),
+   * null when no photo is within OWN_ZONE_WINDOW_MS. A stop starts and ends at
+   * its own photos, so this is the zone the stop was shot in, however the
+   * rest of its day went. Far from every photo it says nothing.
+   */
+  zoneAt: (time: number) => string | null
   /** Majority zone of each day in `dates`. */
   zones: string[]
 }
@@ -203,27 +213,54 @@ export function photoDayZones(
   const zones = dates.map(
     (date) => majorityZone(byDay.get(date) ?? []) ?? 'UTC',
   )
-  const night = createNightDayResolver(
-    photos.flatMap((photo) =>
+  const known = photos
+    .flatMap((photo) =>
       isKnownTimeZone(photo.zone)
         ? [{ time: photo.instant, zone: photo.zone }]
         : [],
-    ),
-  )
-  return { dates, night, zones }
+    )
+    .sort((a, b) => a.time - b.time)
+  const night = createNightDayResolver(known)
+  const zoneAt = (time: number): string | null => {
+    // First photo not before the instant; the answer is it or its predecessor.
+    let low = 0
+    let high = known.length
+    while (low < high) {
+      const mid = (low + high) >> 1
+      if ((known[mid]?.time ?? Infinity) < time) low = mid + 1
+      else high = mid
+    }
+    const before = known[low - 1]
+    const after = known[low]
+    const gapBefore = before === undefined ? Infinity : time - before.time
+    const gapAfter = after === undefined ? Infinity : after.time - time
+    const best = gapBefore <= gapAfter ? before : after
+    return best !== undefined &&
+      Math.min(gapBefore, gapAfter) <= OWN_ZONE_WINDOW_MS
+      ? best.zone
+      : null
+  }
+  return { dates, night, zoneAt, zones }
 }
 
 /**
- * Day of an instant by the author's night: the zone is the one pickLocalDay
- * finds (zone of the photo day, else home), the boundary is the middle of the
- * longest sleep gap of that night, else 04:00. The one function every screen
- * and the stored `moments.local_day` use.
+ * Day of an instant by the author's night: the zone is that of the photo
+ * closest in time (so a stop is read on the clock of the place it was shot,
+ * also on a travel day that is mostly spent in another zone); without any
+ * photo the one pickLocalDay finds (zone of the photo day, else home). The
+ * boundary is the middle of the longest sleep gap of that night, else 04:00.
+ * The one function every screen and the stored `moments.local_day` use.
  */
 export function pickDay(
   instant: number | Date,
   homeZone: string | null | undefined,
   photoDays: PhotoDayZones,
 ): string {
+  const time = typeof instant === 'number' ? instant : instant.getTime()
+  const own = photoDays.zoneAt(time)
+  if (own !== null) {
+    return photoDays.night(time, own).date
+  }
   const base = pickLocalDay(instant, homeZone, photoDays.dates, photoDays.zones)
   const known = photoDays.zones[photoDays.dates.indexOf(base)]
   const home =
@@ -231,6 +268,5 @@ export function pickDay(
       ? homeZone
       : 'UTC'
   const zone = known !== undefined && isKnownTimeZone(known) ? known : home
-  const time = typeof instant === 'number' ? instant : instant.getTime()
   return photoDays.night(time, zone).date
 }

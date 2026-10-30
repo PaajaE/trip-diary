@@ -4,6 +4,7 @@ import {
   localDay,
   majorityZone,
   photoDayZones,
+  pickDay,
   pickLocalDay,
 } from './local-day.ts'
 
@@ -232,5 +233,37 @@ describe('summarizeZonedDays', () => {
       'Europe/Prague',
     )
     expect(day?.timeZone).toBe('Europe/Prague')
+  })
+})
+
+describe('pickDay reads a stop on the clock of its own photo', () => {
+  // Prague at dawn, then most of the same day in Dublin (an hour behind), the
+  // evening there. The Dublin majority must not pull the Prague dawn back.
+  const t = (iso: string) => Date.parse(iso)
+  const photos = [
+    { instant: t('2026-05-26T02:08:00Z'), zone: 'Europe/Prague' },
+    { instant: t('2026-05-26T02:18:00Z'), zone: 'Europe/Prague' },
+    { instant: t('2026-05-26T03:43:00Z'), zone: 'Europe/Prague' },
+    ...[0, 1, 2, 3, 4, 5, 6, 7].map((i) => ({
+      instant: t('2026-05-26T11:32:00Z') + i * 60_000,
+      zone: 'Europe/Dublin',
+    })),
+    { instant: t('2026-05-27T16:10:00Z'), zone: 'America/Edmonton' },
+  ]
+
+  it('puts 04:08 in Prague on 26 May, not on 25 May', () => {
+    const days = photoDayZones(photos)
+    expect(days.zones[0]).toBe('Europe/Dublin')
+    expect(pickDay(t('2026-05-26T02:08:00Z'), null, days)).toBe('2026-05-26')
+    expect(pickDay(t('2026-05-26T11:32:00Z'), null, days)).toBe('2026-05-26')
+    expect(pickDay(t('2026-05-27T16:10:00Z'), null, days)).toBe('2026-05-27')
+  })
+
+  it('keeps the home zone far from every photo', () => {
+    const days = photoDayZones(photos)
+    // A month after the last photo: nothing to read a clock from.
+    expect(pickDay(t('2026-07-10T01:00:00Z'), 'Europe/Prague', days)).toBe(
+      '2026-07-09',
+    )
   })
 })
