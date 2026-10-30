@@ -10,6 +10,7 @@ import {
   CULL_MIN_PHOTOS,
   computeTasks,
   dayNeedsCulling,
+  nextStep,
 } from '@/features/journey-workspace/model/workspace-tasks'
 import { groupMomentsByDay } from '@/features/journey-workspace/model/workspace-days'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
@@ -158,5 +159,48 @@ describe('task bar counts', () => {
       'done',
     ])
     expect(chapter).toMatchObject({ doneDays: 1, totalDays: 2 })
+  })
+})
+
+describe('nextStep', () => {
+  const none = {
+    daysToCull: { count: 0, firstDay: null },
+    daysWithoutText: { count: 0, firstDay: null },
+    mediaWithoutTime: { count: 0, firstDay: null, unassigned: false },
+    suggestions: { count: 0, firstSegmentId: null },
+    unreviewed: { count: 0 },
+  }
+  it('is null when nothing waits', () => {
+    expect(nextStep(none)).toBeNull()
+  })
+  it('follows the order: sort, approve, best photos, write, dates', () => {
+    expect(
+      nextStep({
+        ...none,
+        daysWithoutText: { count: 3, firstDay: '2026-06-02' },
+        unreviewed: { count: 340 },
+      })?.id,
+    ).toBe('unreviewed')
+    expect(
+      nextStep({
+        ...none,
+        daysToCull: { count: 2, firstDay: '2026-06-02' },
+        daysWithoutText: { count: 3, firstDay: '2026-06-02' },
+      })?.id,
+    ).toBe('toCull')
+    expect(
+      nextStep({
+        ...none,
+        mediaWithoutTime: { count: 4, firstDay: null, unassigned: true },
+      })?.id,
+    ).toBe('noTime')
+  })
+  it('estimates minutes from the count and caps the short version at 2', () => {
+    const step = nextStep({ ...none, unreviewed: { count: 340 } })
+    expect(step).toMatchObject({ minutes: 17, shortMinutes: 2 })
+    expect(nextStep({ ...none, unreviewed: { count: 1 } })).toMatchObject({
+      minutes: 1,
+      shortMinutes: 1,
+    })
   })
 })

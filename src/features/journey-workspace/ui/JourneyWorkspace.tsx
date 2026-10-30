@@ -47,6 +47,8 @@ import {
 } from '@/features/journey-workspace/lib/moment-labels'
 import { MediaTiles } from '@/features/journey-workspace/ui/moment-blocks'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
+import { nextStep } from '@/features/journey-workspace/model/workspace-tasks'
+import { NextStepCard } from '@/features/journey-workspace/ui/NextStepCard'
 import {
   OverviewTaskBar,
   type TaskId,
@@ -461,6 +463,12 @@ export function JourneyWorkspace({
         className="overflow-clip rounded-[18px] border border-border bg-background shadow-soft"
         data-testid="workspace-overview"
       >
+        <NextStepCard
+          step={nextStep(overview.tasks)}
+          onStart={(step) => {
+            openTask(step.id)
+          }}
+        />
         <OverviewTaskBar tasks={overview.tasks} onOpen={openTask} />
         <div
           className={cn(
