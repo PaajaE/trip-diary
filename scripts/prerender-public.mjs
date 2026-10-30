@@ -8,6 +8,7 @@ import { parsePublicJourney } from '@trip-diary/core/public-journey'
 import { cs } from '../packages/i18n/src/cs.ts'
 import { en } from '../packages/i18n/src/en.ts'
 import {
+  buildAtomFeed,
   buildPages,
   buildRobots,
   buildSitemap,
@@ -172,6 +173,18 @@ for (const row of list) {
     const embed = { journey: tree, journeySlug: slug, spaceHandle: handle }
     const options = { handle, mediaBaseUrl, slug }
     const pages = buildPages(tree, options)
+    if (siteUrl !== undefined) {
+      await mkdir(join(distDir, handle, slug), { recursive: true })
+      await writeFile(
+        join(distDir, handle, slug, 'feed.xml'),
+        buildAtomFeed(tree, {
+          handle,
+          siteUrl,
+          slug,
+          updatedAt: row.updated_at,
+        }),
+      )
+    }
     for (const page of pages) {
       if (page.kind === 'journey') {
         // The React hero swaps the same remote URL for the same-origin copy,
@@ -206,6 +219,7 @@ for (const row of list) {
         }),
       )
       sitemap.push({ lastmod: row.updated_at, urlPath: page.urlPath })
+
       written += 1
     }
   } catch (error) {

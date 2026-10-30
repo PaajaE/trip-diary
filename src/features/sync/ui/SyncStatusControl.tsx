@@ -150,7 +150,10 @@ export function SyncStatusControl() {
             }}
             type="checkbox"
           />
-          <span>{t('sync.panel.cellularSync')}</span>
+          <span>
+            {t('sync.panel.cellularSync')}
+            <span className="mt-1 block">{t('sync.panel.cellularHint')}</span>
+          </span>
         </label>
 
         {canSyncNow ? (

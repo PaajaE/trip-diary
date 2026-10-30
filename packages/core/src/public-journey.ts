@@ -61,31 +61,46 @@ export const publicMediaSchema = z.object({
   width: z.number().int().positive().nullable(),
 })
 
-export const publicSegmentSchema = z.object({
-  body: z.string(),
-  coverMediaId: z.uuid().nullable(),
-  endsAt: isoDateTime,
-  id: z.uuid(),
-  kind: segmentKindSchema,
-  parentId: z.uuid().nullable(),
-  position: z.number().int().nonnegative(),
-  startsAt: isoDateTime,
-  title: z.string().min(1),
-  tripType: tripTypeSchema.nullable(),
-  tz: z.string().nullable(),
+/**
+ * A delayed publication hides an end that lies after the cutoff (the RPC
+ * returns null); readers then treat the item as ending where it starts.
+ */
+const endsOrStarts = <T extends { endsAt: string | null; startsAt: string }>(
+  value: T,
+): Omit<T, 'endsAt'> & { endsAt: string } => ({
+  ...value,
+  endsAt: value.endsAt ?? value.startsAt,
 })
 
-export const publicMomentSchema = z.object({
-  body: z.string(),
-  coverMediaId: z.uuid().nullable(),
-  endsAt: isoDateTime,
-  id: z.uuid(),
-  latitude: latitude.nullable(),
-  longitude: longitude.nullable(),
-  placeId: z.uuid().nullable(),
-  startsAt: isoDateTime,
-  title: z.string().nullable(),
-})
+export const publicSegmentSchema = z
+  .object({
+    body: z.string(),
+    coverMediaId: z.uuid().nullable(),
+    endsAt: isoDateTime.nullable(),
+    id: z.uuid(),
+    kind: segmentKindSchema,
+    parentId: z.uuid().nullable(),
+    position: z.number().int().nonnegative(),
+    startsAt: isoDateTime,
+    title: z.string().min(1),
+    tripType: tripTypeSchema.nullable(),
+    tz: z.string().nullable(),
+  })
+  .transform(endsOrStarts)
+
+export const publicMomentSchema = z
+  .object({
+    body: z.string(),
+    coverMediaId: z.uuid().nullable(),
+    endsAt: isoDateTime.nullable(),
+    id: z.uuid(),
+    latitude: latitude.nullable(),
+    longitude: longitude.nullable(),
+    placeId: z.uuid().nullable(),
+    startsAt: isoDateTime,
+    title: z.string().nullable(),
+  })
+  .transform(endsOrStarts)
 
 export const publicPlaceSchema = z.object({
   countryCode: z.string().nullable(),

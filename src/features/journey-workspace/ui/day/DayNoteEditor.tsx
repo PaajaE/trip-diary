@@ -1,7 +1,9 @@
+import { Mic, Square } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { DAY_NOTE_MAX_LENGTH } from '@/entities/day-note/model/day-note'
 import { codePointLength } from '@/features/journey-workspace/lib/text-edit'
+import { useDictation } from '@/features/quick-note/lib/use-dictation'
 import { cn } from '@/shared/lib/cn'
 
 type Status = 'error' | 'idle' | 'saved' | 'saving' | 'tooLong'
@@ -22,9 +24,14 @@ export function DayNoteEditor({
   onSave,
   value,
 }: DayNoteEditorProps) {
-  const { t } = useTranslation()
+  const { i18n, t } = useTranslation()
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
+  const dictation = useDictation({
+    getBase: () => draft,
+    lang: i18n.language.startsWith('cs') ? 'cs-CZ' : 'en-US',
+    onText: setDraft,
+  })
   const [status, setStatus] = useState<Status>('idle')
   const areaRef = useRef<HTMLTextAreaElement>(null)
   const saved = value ?? ''
@@ -118,6 +125,30 @@ export function DayNoteEditor({
         }}
       />
       <div className="mt-2 flex items-center gap-3 text-sm">
+        {dictation.supported ? (
+          <button
+            aria-pressed={dictation.listening}
+            className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-surface px-3 py-1.5 font-medium"
+            data-testid="day-note-dictate"
+            type="button"
+            onMouseDown={(event) => {
+              event.preventDefault()
+            }}
+            onClick={() => {
+              if (dictation.listening) dictation.stop()
+              else dictation.start()
+            }}
+          >
+            {dictation.listening ? (
+              <Square aria-hidden="true" className="size-4" />
+            ) : (
+              <Mic aria-hidden="true" className="size-4" />
+            )}
+            {dictation.listening
+              ? t('quickNote.dictateStop')
+              : t('quickNote.dictate')}
+          </button>
+        ) : null}
         <button
           className="rounded-sm bg-primary px-3 py-1.5 font-medium text-primary-foreground"
           type="button"

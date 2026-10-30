@@ -772,6 +772,7 @@ export type Database = {
           ends_at: string | null
           home_tz: string | null
           id: string
+          publish_delay_days: number
           slug: string
           space_id: string
           starts_at: string | null
@@ -788,6 +789,7 @@ export type Database = {
           ends_at?: string | null
           home_tz?: string | null
           id: string
+          publish_delay_days?: number
           slug: string
           space_id: string
           starts_at?: string | null
@@ -804,6 +806,7 @@ export type Database = {
           ends_at?: string | null
           home_tz?: string | null
           id?: string
+          publish_delay_days?: number
           slug?: string
           space_id?: string
           starts_at?: string | null

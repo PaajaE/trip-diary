@@ -10,6 +10,7 @@ export type JourneyTab =
   | 'flow'
   | 'import'
   | 'members'
+  | 'publishing'
   | 'quick'
   | 'trash'
   | 'workspace'
@@ -41,7 +42,8 @@ export function JourneyTabs({
   publicPaths: PublicJourneyPaths | null | undefined
 }) {
   const { t } = useTranslation()
-  const isManage = current === 'members' || current === 'trash'
+  const isManage =
+    current === 'members' || current === 'trash' || current === 'publishing'
   const tab = (key: JourneyTab, active = current === key) =>
     cn(TAB_BASE, active ? TAB_ACTIVE : TAB_IDLE)
   const aria = (key: JourneyTab) => (current === key ? 'page' : undefined)

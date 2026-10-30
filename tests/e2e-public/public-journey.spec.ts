@@ -136,6 +136,10 @@ test('a mobile reader gets a greeting bar that jumps to the comments', async ({
     return
   }
   await expect(bar).toBeVisible()
+  await expect(page.getByTestId('follow-news')).toHaveAttribute(
+    'href',
+    /\/feed\.xml$/,
+  )
   await bar.click()
   await expect(page.locator('#comments')).toBeInViewport()
   await noOverflow(page)

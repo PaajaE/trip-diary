@@ -454,7 +454,7 @@ function SegmentView({ journeySlug, model, segment, spaceHandle }: ViewProps) {
       ) : null}
       <div className="mt-10">
         <TargetEngagement target={{ id: segment.id, type: 'segment' }} />
-        <GreetAuthorsBar />
+        <GreetAuthorsBar feedHref={`/${spaceHandle}/${journeySlug}/feed.xml`} />
       </div>
       <MediaLightbox
         index={lightbox?.index ?? null}

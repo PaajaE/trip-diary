@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAtomFeed,
   buildPages,
   buildRobots,
   buildSitemap,
@@ -400,5 +401,36 @@ describe('prerender helpers', () => {
     expect(renderPage(tpl, page, { embed: tree, strings })).not.toContain(
       'route-heading-shell',
     )
+  })
+})
+
+describe('buildAtomFeed', () => {
+  const stageId = '11111111-1111-4111-8111-111111111111'
+  const tree = {
+    journey: { space: { name: 'Rodina' }, title: 'Kanada <2026>' },
+    segments: [
+      {
+        body: 'Hory a jezera & medvědi.',
+        endsAt: '2026-06-10T00:00:00Z',
+        id: stageId,
+        kind: 'stage',
+        startsAt: '2026-06-01T00:00:00Z',
+        title: 'Rocky Mountains',
+      },
+    ],
+  }
+  it('writes one escaped entry per stage with links to the stage pages', () => {
+    const xml = buildAtomFeed(tree, {
+      handle: 'rodina',
+      siteUrl: 'https://example.test/',
+      slug: 'kanada',
+      updatedAt: '2026-06-11T00:00:00Z',
+    })
+    expect(xml).toContain('<feed xmlns="http://www.w3.org/2005/Atom">')
+    expect(xml).toContain('Kanada &lt;2026&gt; · Rodina')
+    expect(xml).toContain(`https://example.test/rodina/kanada/e/${stageId}`)
+    expect(xml).toContain('<updated>2026-06-11T00:00:00.000Z</updated>')
+    expect(xml.match(/<entry>/g)).toHaveLength(1)
+    expect(xml).toContain('Hory a jezera &amp; medvědi.')
   })
 })

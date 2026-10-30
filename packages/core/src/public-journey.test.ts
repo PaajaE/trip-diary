@@ -9,6 +9,7 @@ import {
   mapPreviewSvg,
   parsePublicJourney,
   publicJourneySchema,
+  publicSegmentSchema,
 } from './public-journey.ts'
 
 // fixtures/public-journey.json is real output of get_public_journey for the
@@ -206,5 +207,24 @@ describe('formatJourneyPeriod', () => {
   it('handles a single day and a missing start', () => {
     expect(formatJourneyPeriod('2025-07-20', null, 'cs')).toContain('2025')
     expect(formatJourneyPeriod(null, null, 'cs')).toBeNull()
+  })
+})
+
+describe('delayed publication', () => {
+  it('reads a hidden end (null) as the start', () => {
+    const segment = publicSegmentSchema.parse({
+      body: '',
+      coverMediaId: null,
+      endsAt: null,
+      id: '00000000-0000-4000-8000-000000000001',
+      kind: 'stage',
+      parentId: null,
+      position: 0,
+      startsAt: '2026-06-01T00:00:00+00:00',
+      title: 'Etapa',
+      tripType: null,
+      tz: null,
+    })
+    expect(segment.endsAt).toBe(segment.startsAt)
   })
 })

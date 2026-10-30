@@ -1,10 +1,12 @@
+import { confidenceFromMargin, distanceKm } from '@trip-diary/core/automation'
 import { isUnreviewed } from '@/features/journey-workspace/model/day-status'
 import type { Segment } from '@/entities/segment/model/segment'
 import type { MomentDay } from '@/features/journey-workspace/model/workspace-days'
-import type {
-  WorkspaceMoment,
-  WorkspaceSegment,
-  WorkspaceTree,
+import {
+  collectMoments,
+  type WorkspaceMoment,
+  type WorkspaceSegment,
+  type WorkspaceTree,
 } from '@/features/journey-workspace/model/workspace-tree'
 
 const NO_NOTES: ReadonlySet<string> = new Set()
@@ -208,4 +210,92 @@ export function nextStep(tasks: WorkspaceTasks): NextStep | null {
       Math.ceil(Math.min(seconds, SHORT_STEP_SECONDS) / 60),
     ),
   }
+}
+
+/** A suggestion this sure (0-1) is accepted by "Accept all above 80 %". */
+export const SUGGESTION_AUTO_ACCEPT_MIN = 0.8
+
+/** Distance (km) the author moved at a suggested boundary that counts as a clear move. */
+const SUGGESTION_MOVE_KM = 80
+
+export interface SuggestionConfidence {
+  /** 0-1: from how far the journey moved at the start of the segment. */
+  confidence: number
+  segment: Segment
+}
+
+/**
+ * How sure we are about each waiting suggestion. A stage or trip that starts
+ * after the photographer moved far (a flight, a long drive) is a clear
+ * boundary (80 km is 0.5, 240 km is certain); one that starts after a short
+ * hop is doubtful (below 0.5). UNVERIFIED on real journeys.
+ */
+export function suggestionConfidences(
+  tree: WorkspaceTree,
+): SuggestionConfidence[] {
+  const all = collectMoments(tree)
+  const located = all.filter(
+    (entry) =>
+      entry.moment.latitude !== null && entry.moment.longitude !== null,
+  )
+  const firstOf = (node: WorkspaceSegment): WorkspaceMoment | null => {
+    const own = [...node.moments]
+    const walk = (child: WorkspaceSegment) => {
+      own.push(...child.moments)
+      child.children.forEach(walk)
+    }
+    node.children.forEach(walk)
+    const sorted = own
+      .filter((e) => e.moment.latitude !== null && e.moment.longitude !== null)
+      .sort((a, b) => a.moment.startsAt.localeCompare(b.moment.startsAt))
+    return sorted[0] ?? null
+  }
+  return suggestedNodes(tree).map((node) => {
+    const first = firstOf(node)
+    if (first === null) return { confidence: 0.5, segment: node.segment }
+    const before = located
+      .filter((entry) => entry.moment.startsAt < first.moment.startsAt)
+      .at(-1)
+    if (
+      before === undefined ||
+      first.moment.latitude === null ||
+      first.moment.longitude === null ||
+      before.moment.latitude === null ||
+      before.moment.longitude === null
+    ) {
+      return { confidence: 0.5, segment: node.segment }
+    }
+    const moved = distanceKm(
+      { latitude: before.moment.latitude, longitude: before.moment.longitude },
+      { latitude: first.moment.latitude, longitude: first.moment.longitude },
+    )
+    return {
+      // Below the threshold the boundary is doubtful, above it grows sure.
+      confidence:
+        moved >= SUGGESTION_MOVE_KM
+          ? confidenceFromMargin(moved, SUGGESTION_MOVE_KM, 160)
+          : (0.5 * moved) / SUGGESTION_MOVE_KM,
+      segment: node.segment,
+    }
+  })
+}
+
+/** Suggestions that are sure enough to accept in one go. */
+export function confidentSuggestions(
+  tree: WorkspaceTree,
+  min: number = SUGGESTION_AUTO_ACCEPT_MIN,
+): Segment[] {
+  return suggestionConfidences(tree)
+    .filter((item) => item.confidence >= min)
+    .map((item) => item.segment)
+}
+
+function suggestedNodes(tree: WorkspaceTree): WorkspaceSegment[] {
+  const out: WorkspaceSegment[] = []
+  const walk = (node: WorkspaceSegment) => {
+    if (node.segment.origin === 'suggested') out.push(node)
+    node.children.forEach(walk)
+  }
+  tree.roots.forEach(walk)
+  return out
 }

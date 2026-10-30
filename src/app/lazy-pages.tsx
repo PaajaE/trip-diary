@@ -160,6 +160,14 @@ export const LazyJourneyTrashRoutePage = lazy(() =>
   ),
 )
 
+export const LazyJourneyPublishingRoutePage = lazy(() =>
+  import('@/pages/journey/JourneyPublishingRoutePage').then(
+    ({ JourneyPublishingRoutePage }) => ({
+      default: JourneyPublishingRoutePage,
+    }),
+  ),
+)
+
 export const LazyTipsRoutePage = lazy(() =>
   import('@/pages/tips/TipsRoutePage').then(({ TipsRoutePage }) => ({
     default: TipsRoutePage,
