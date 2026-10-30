@@ -110,7 +110,7 @@ describe('Série', () => {
 })
 
 describe('Porovnání', () => {
-  it('the kept photo stays; challengers by swipe, swipe up trashes that one', async () => {
+  it('the kept photo stays; challengers by swipe, swipe up stars that one', async () => {
     const { actions, idsOf } = setup({ mutate: lakeSeries })
     const lake = idsOf(ID.lake)
     await openStop(3)
@@ -127,9 +127,10 @@ describe('Porovnání', () => {
       within(duel).getByText('Ponechaná zůstává, vyzyvatel 2 z 3'),
     ).toBeInTheDocument()
     expect(panes()[0]?.querySelector('figure')?.dataset.photoId).toBe(lake[0])
-    // Swipe up on the challenger: that photo goes to the trash.
+    // Swipe up on the challenger: that photo is marked as the best.
     await swipeOn(panes()[1]?.querySelector('figure') ?? duel, 0, -120)
-    expect(actions.trashPhotos).toHaveBeenCalledWith([lake[2]])
+    expect(actions.starPhotos).toHaveBeenCalledWith([lake[2]], true)
+    expect(actions.trashPhotos).not.toHaveBeenCalled()
     expect(panes()[0]?.querySelector('figure')?.dataset.photoId).toBe(lake[0])
   })
 

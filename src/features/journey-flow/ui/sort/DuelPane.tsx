@@ -17,7 +17,7 @@ const ICON =
 
 /**
  * One photo of the compare duel: role badge, "Nechat tuhle", ★ and a trash
- * button (swipe up does the same), the shared zoom of the compare view.
+ * button; swipe up stars; the shared zoom of the compare view.
  */
 export function DuelPane({
   api,

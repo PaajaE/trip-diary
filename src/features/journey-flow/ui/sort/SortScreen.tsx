@@ -321,7 +321,7 @@ export function SortScreen({
               total={stop.total}
               onSeries={openSeries}
               onSwipe={(direction) => {
-                if (direction === 'up') sort.trash()
+                if (direction === 'up') sort.best()
                 else if (direction === 'left') sort.skip(1)
                 else if (direction === 'right') sort.skip(-1)
               }}

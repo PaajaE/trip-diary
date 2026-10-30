@@ -146,7 +146,7 @@ export function QuickSortView({
   const swipe = useSwipe({
     enabled: () => !compare.zoomed,
     onSwipe: (direction) => {
-      if (direction === 'up') trash()
+      if (direction === 'up') star()
       else if (direction === 'right') star()
       else if (direction === 'left') skip()
     },

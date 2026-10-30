@@ -486,7 +486,7 @@ describe('QuickSortView', () => {
     expect(progress()).toBe('2 of 4')
   })
 
-  it('swipes: up trashes, right stars, left skips', async () => {
+  it('swipes: up and right star, left skips, trashing is by button', async () => {
     const { calls } = setup()
     const stage = screen.getByTestId('quick-sort-stage')
     const swipe = async (dx: number, dy: number) => {
@@ -504,7 +504,8 @@ describe('QuickSortView', () => {
     await swipe(-120, 5)
     expect(progress()).toBe('2 of 4')
     await swipe(5, -120)
-    expect(calls.trash).toHaveBeenCalledTimes(1)
+    expect(calls.star).toHaveBeenCalledTimes(2)
+    expect(calls.trash).not.toHaveBeenCalled()
   })
 
   it('Escape finishes at once without steps, asks (summary) with steps', async () => {

@@ -41,7 +41,7 @@ export interface SortStageProps {
 /**
  * The one big photo of the sorting screen with its badges: "Podobné: N",
  * the finished stop, the time and position, and a suggested-trash reason
- * (the photo is faded, never deleted). Swipe up = Koš.
+ * (the photo is faded, never deleted). Swipe up = best (star).
  */
 export function SortStage({
   baseUrl,

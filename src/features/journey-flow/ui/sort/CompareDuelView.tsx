@@ -54,7 +54,7 @@ export interface CompareDuelProps {
 
 /**
  * Porovnání (M-Porovnani, W-Serie, M-PorovnaniCela): the kept photo stays,
- * challengers come by swiping or with [ ]; a swipe up trashes the photo it
+ * challengers come by swiping or with [ ]; a swipe up stars the photo it
  * is on; "Nechat tuhle" under each. Swipe left = next challenger, right =
  * the previous one (like the sorting screen). Synchronous zoom Celá ·
  * 100 % · 200 %. Tab or the swap button swaps the sides.
@@ -210,7 +210,7 @@ export function CompareDuelView({
               star(role)
             }}
             onSwipe={(direction) => {
-              if (direction === 'up') trash(role)
+              if (direction === 'up') star(role)
               else if (direction === 'left') step(1)
               else if (direction === 'right') step(-1)
             }}
