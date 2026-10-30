@@ -31,7 +31,7 @@ import { cn } from '@/shared/lib/cn'
 import { MosaicGrid } from '@/shared/ui/MosaicGrid'
 
 const BADGE =
-  'inline-flex items-center gap-1 rounded-full bg-sunk px-[7px] py-px text-muted'
+  'inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sunk px-[7px] py-px text-muted'
 
 function Mosaic({ day }: { day: OverviewDay }) {
   return (
@@ -104,7 +104,7 @@ export function DayCard({
         <span className="truncate text-[13px] text-muted">
           {day.places.length > 0 ? day.places.join(' · ') : ' '}
         </span>
-        <span className="mt-1 flex items-center gap-2 text-[11.5px] text-faint">
+        <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-faint">
           {day.photoCount > 0 ? (
             <span className={BADGE}>
               {t('terms.photo.count', { count: day.photoCount })}
