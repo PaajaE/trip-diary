@@ -86,6 +86,10 @@ export interface OrganizeDeps {
   createSegments: typeof createSegments
   deleteMoments: typeof deleteAutoMoments
   deleteSegments: typeof deleteSuggestedSegments
+  /** Fresh start: rejected suggestions are forgotten and deleted too. */
+  forgetRejected?: boolean
+  /** Fresh start: accepted suggestions are discarded too. */
+  forgetAccepted?: boolean
   getHomeTz: typeof getJourneyHomeTz
   getUserId: typeof getCurrentUserId
   /** Labels of place-based titles; Czech when omitted. */
@@ -261,6 +265,8 @@ export function planFromState(
       {
         homeTz: homeTz ?? 'UTC',
         ...(deps.labels === undefined ? {} : { labels: deps.labels }),
+        ...(deps.forgetRejected === true ? { forgetRejected: true } : {}),
+        ...(deps.forgetAccepted === true ? { forgetAccepted: true } : {}),
         newId: deps.newId,
         segmentTitle: deps.segmentTitle,
       },

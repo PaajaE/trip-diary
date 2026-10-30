@@ -120,6 +120,33 @@ describe('OrganizeJourneyButton', () => {
     expect(screen.queryByRole('dialog')).toBeNull()
   })
 
+  it('start over re-plans and applies with the rejected suggestions forgotten', async () => {
+    preview.mockResolvedValue({ ...plan, segmentsToDelete: ['r1', 'r2'] })
+    organizeNow.mockResolvedValue({ plan, result: null, unreadyIds: [] })
+    renderButton()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Organize automatically' }),
+    )
+    await screen.findByText('New stops: 1')
+    expect(preview).toHaveBeenLastCalledWith(
+      'j',
+      expect.objectContaining({ forgetRejected: false }),
+    )
+    fireEvent.click(screen.getByRole('checkbox'))
+    expect(await screen.findByText('Old suggestions discarded: 2')).toBeTruthy()
+    expect(preview).toHaveBeenLastCalledWith(
+      'j',
+      expect.objectContaining({ forgetRejected: true }),
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Organize' }))
+    await waitFor(() => {
+      expect(organizeNow).toHaveBeenCalledWith(
+        'j',
+        expect.objectContaining({ forgetRejected: true }),
+      )
+    })
+  })
+
   it('offers no apply button when there is nothing to change', async () => {
     preview.mockResolvedValue({
       ...plan,

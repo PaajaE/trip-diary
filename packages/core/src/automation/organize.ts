@@ -122,6 +122,16 @@ export interface OrganizeOptions {
   /** A rejected stage starting this close blocks a new suggestion. */
   rejectedBoundaryToleranceMs?: number
   /**
+   * Forget the rejected suggestions: they no longer block a new suggestion
+   * and are deleted with the old suggested ones (a fresh start).
+   */
+  forgetRejected?: boolean
+  /**
+   * Forget the accepted suggestions too: they are deleted and the stages and
+   * trips are planned again over them. Manual segments are never touched.
+   */
+  forgetAccepted?: boolean
+  /**
    * How far beyond its stored range a confirmed (protected) stop may grow to
    * take in a new photo, on either edge. Default 2 h. Never across a day.
    */
@@ -836,12 +846,19 @@ function planSegments(
   const tolerance =
     options.rejectedBoundaryToleranceMs ??
     DEFAULT_REJECTED_BOUNDARY_TOLERANCE_MS
-  const keptSegments = input.segments.filter(
-    (segment) => segment.origin === 'manual' || segment.origin === 'accepted',
+  const forgetAccepted = options.forgetAccepted === true
+  const acceptedAll = input.segments.filter(
+    (segment) => segment.origin === 'accepted',
   )
-  const rejected = input.segments.filter(
+  const keptSegments = input.segments.filter(
+    (segment) =>
+      segment.origin === 'manual' ||
+      (segment.origin === 'accepted' && !forgetAccepted),
+  )
+  const rejectedAll = input.segments.filter(
     (segment) => segment.origin === 'rejected',
   )
+  const rejected = options.forgetRejected === true ? [] : rejectedAll
   const existingSuggested = input.segments.filter(
     (segment) => segment.origin === 'suggested',
   )
@@ -1129,9 +1146,11 @@ function planSegments(
     if (match === undefined) toCreate.push(candidate)
     else keptIds.add(match.id)
   }
-  const segmentsToDelete = existingSuggested
-    .filter((segment) => !keptIds.has(segment.id))
-    .map((segment) => segment.id)
+  const segmentsToDelete = [
+    ...existingSuggested.filter((segment) => !keptIds.has(segment.id)),
+    ...(options.forgetRejected === true ? rejectedAll : []),
+    ...(forgetAccepted ? acceptedAll : []),
+  ].map((segment) => segment.id)
 
   const counters = { stage: 0, trip: 0 }
   const planned = toCreate.map((candidate): PlannedSegment => {
