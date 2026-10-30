@@ -1,5 +1,4 @@
-import { summarizeZonedDays } from '../days.ts'
-import { pickLocalDay } from '../local-day.ts'
+import { createDayOfInstant } from '../days.ts'
 import {
   DEFAULT_INTAKE_WINDOW_MS,
   isPlanEmpty,
@@ -148,12 +147,12 @@ export function confirmedState(
   }
 }
 
-/** Local day of an instant by the photo days of the input (04:00 rule). */
+/** Local day of an instant by the photo days of the input (day by the night). */
 function dayResolver(
   input: OrganizeInput,
   homeTz: string,
 ): (iso: string) => string {
-  const days = summarizeZonedDays(
+  const dayOf = createDayOfInstant(
     input.media.map((item) => ({
       capturedAt: item.capturedAt,
       capturedTz: item.capturedTz ?? null,
@@ -163,9 +162,7 @@ function dayResolver(
     })),
     homeTz,
   )
-  const dates = days.map((day) => day.date)
-  const zones = days.map((day) => day.timeZone)
-  return (iso) => pickLocalDay(Date.parse(iso), homeTz, dates, zones)
+  return (iso) => dayOf(Date.parse(iso))
 }
 
 /**

@@ -1,5 +1,9 @@
-import { DAY_START_HOUR, localDay, pickLocalDay } from './local-day.ts'
-import { summarizeZonedDays, type ZonedDaySummary } from './days.ts'
+import { DAY_START_HOUR } from './local-day.ts'
+import {
+  createDayOfInstant,
+  summarizeZonedDays,
+  type ZonedDaySummary,
+} from './days.ts'
 import { centroid, distanceKm, type GeoPoint } from './geo.ts'
 import { sortDated, type MediaPoint } from './media-point.ts'
 import { detectStops, type DetectedDayTrip, type StopKind } from './stays.ts'
@@ -363,12 +367,10 @@ function intakeIntoConfirmed(
   const windowMs = options.intakeWindowMs ?? DEFAULT_INTAKE_WINDOW_MS
   const radiusKm = (options.intakeRadiusM ?? DEFAULT_INTAKE_RADIUS_M) / 1000
   const { dated } = sortDated(input.media.map((item) => toPoint(item)))
-  const days = summarizeZonedDays(dated, options.homeTz)
-  const dates = days.map((day) => day.date)
-  const zones = days.map((day) => day.timeZone)
+  const dayOfInstant = createDayOfInstant(dated, options.homeTz)
   const dayOf = (time: number): string => {
     try {
-      return pickLocalDay(time, options.homeTz, dates, zones)
+      return dayOfInstant(time)
     } catch {
       return new Date(time).toISOString().slice(0, 10)
     }
@@ -802,15 +804,6 @@ export function tripTypeOf(kind: StageTripKind): SuggestedTripType {
   return kind === 'day' ? 'day' : 'trek'
 }
 
-/** Local day (YYYY-MM-DD, 04:00 start) of an instant, UTC date if the zone is unknown. */
-function localDayOf(instant: number, timeZone: string): string {
-  try {
-    return localDay(instant, timeZone)
-  } catch {
-    return new Date(instant).toISOString().slice(0, 10)
-  }
-}
-
 /** Names of an in-day trip: the natural place most of its photos are at. */
 function inDayNames(
   trip: DetectedDayTrip,
@@ -887,6 +880,14 @@ function planSegments(
   // Stages: one pass over the whole journey (zone per day by GPS).
   const stages: Candidate[] = []
   const stageTrips: FreshWindow[] = []
+  const tripDayInstant = createDayOfInstant(dated, options.homeTz)
+  const tripDayOf = (instant: number): string => {
+    try {
+      return tripDayInstant(instant)
+    } catch {
+      return new Date(instant).toISOString().slice(0, 10)
+    }
+  }
   const first = dated[0]
   const last = dated[dated.length - 1]
   if (first !== undefined && last !== undefined) {
@@ -1069,7 +1070,7 @@ function planSegments(
       names: inDayNames(trip, tripType, placeOf, labels),
       range,
       reason: trip.reason,
-      startsOn: localDayOf(start, options.homeTz),
+      startsOn: tripDayOf(start),
       tripType,
     })
   }
