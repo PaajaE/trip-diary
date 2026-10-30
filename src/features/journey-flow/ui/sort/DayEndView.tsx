@@ -12,7 +12,7 @@ import {
   formatLocalTime,
   mediaDisplayZone,
 } from '@/features/journey-workspace/lib/format-range'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { getCardUrl } from '@/features/journey-workspace/lib/media-thumb'
 import { stopNameText } from '@/features/journey-workspace/lib/moment-labels'
 import { MediaThumb } from '@/features/journey-workspace/ui/MediaThumb'
 import { cn } from '@/shared/lib/cn'
@@ -52,7 +52,7 @@ export function DayEndView({
   const cover =
     starred.find((m) => m.id === coverId) ??
     starred.find((m) => m.id === summary.coverMediaId)
-  const coverUrl = cover === undefined ? null : getThumbUrl(cover, baseUrl)
+  const coverUrl = cover === undefined ? null : getCardUrl(cover, baseUrl)
   const places = placesOf(day.stops).map(
     (name) => stopNameText(name, t, locale).text,
   )

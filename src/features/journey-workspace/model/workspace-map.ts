@@ -1,4 +1,4 @@
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { getTinyThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
 import {
   momentElementId,
   segmentElementId,
@@ -348,7 +348,8 @@ export function buildBubbleModel(
 ): BubbleModel {
   const moments = new Map<string, MomentBubble>()
   const add = (entry: WorkspaceMoment) => {
-    const url = entry.cover === null ? null : getThumbUrl(entry.cover, baseUrl)
+    const url =
+      entry.cover === null ? null : getTinyThumbUrl(entry.cover, baseUrl)
     if (url === null) return
     moments.set(entry.moment.id, {
       photoCount: entry.photoCount,
@@ -381,7 +382,7 @@ export function buildBubbleModel(
     top.entry = null
     const coords = coordsOf(root)
     let mean = stageAnchor(root, coords)
-    let url = root.cover === null ? null : getThumbUrl(root.cover, baseUrl)
+    let url = root.cover === null ? null : getTinyThumbUrl(root.cover, baseUrl)
     // A stage without a cover of its own borrows its best moment's photo.
     const fallback: WorkspaceMoment | null = url === null ? topEntry() : null
     if (fallback !== null) {

@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { MediaImage } from '@/features/journey-workspace/ui/MediaImage'
 
 /**
  * "Best photos of the day": a suggestion of 3-6 photos with one tap to mark
@@ -51,7 +51,6 @@ export function BestOfDayStrip({
       </div>
       <ul className="mt-2 grid grid-cols-3 gap-1.5 min-[760px]:grid-cols-6">
         {picks.map((item) => {
-          const src = getThumbUrl(item, baseUrl)
           return (
             <li
               className="relative aspect-[4/3] overflow-hidden rounded-lg bg-sunk"
@@ -65,14 +64,11 @@ export function BestOfDayStrip({
                   onOpen(item, event.currentTarget)
                 }}
               >
-                {src === null ? null : (
-                  <img
-                    alt=""
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                    src={src}
-                  />
-                )}
+                <MediaImage
+                  baseUrl={baseUrl}
+                  className="h-full w-full object-cover"
+                  item={item}
+                />
               </button>
               {item.starred ? (
                 <Star

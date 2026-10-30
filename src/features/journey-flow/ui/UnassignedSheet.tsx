@@ -10,7 +10,7 @@ import {
   type GroupSuggestion,
 } from '@/features/journey-flow/model/unassigned'
 import { formatLocalTime } from '@/features/journey-workspace/lib/format-range'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { MediaImage } from '@/features/journey-workspace/ui/MediaImage'
 import {
   BASE_URL,
   stopNameText,
@@ -28,12 +28,13 @@ export type UnassignedActions = Pick<
 >
 
 function Thumb({ item, locale }: { item: MediaItem; locale: string }) {
-  const url = getThumbUrl(item, BASE_URL)
   return (
     <span className="relative block size-full overflow-hidden rounded-lg bg-sunk">
-      {url === null ? null : (
-        <img alt="" className="size-full object-cover" src={url} />
-      )}
+      <MediaImage
+        baseUrl={BASE_URL}
+        className="size-full object-cover"
+        item={item}
+      />
       {item.capturedAt === null ? null : (
         <span className="absolute inset-x-0 bottom-0 bg-black/60 px-1 text-[11px] text-white">
           {formatLocalTime(item.capturedAt, item.capturedTz, locale)}

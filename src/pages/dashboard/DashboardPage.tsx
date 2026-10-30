@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import type { ComponentProps } from 'react'
 import { ArrowRight, MapPinned, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { JourneyProgress } from '@/entities/dashboard/api/journey-progress.repository'
@@ -8,10 +9,8 @@ import { pickContinueJourney } from '@/entities/dashboard/lib/pick-continue-jour
 import type { DashboardJourneyCard } from '@/entities/dashboard/model/dashboard'
 import { journeyMemberRoleLabels } from '@/entities/journey/model/journey-member'
 import { useSession } from '@/features/auth/session'
-import {
-  DEFAULT_MEDIA_BASE_URL,
-  getThumbUrl,
-} from '@/features/journey-workspace/lib/media-thumb'
+import { DEFAULT_MEDIA_BASE_URL } from '@/features/journey-workspace/lib/media-thumb'
+import { MediaImage } from '@/features/journey-workspace/ui/MediaImage'
 import { useActiveSpace } from '@/features/spaces/model/use-active-space'
 import { buildPublicSpaceShare } from '@/features/sharing/lib/build-share-messages'
 import { ShareIconButton } from '@/features/sharing/ui/ShareIconButton'
@@ -144,13 +143,11 @@ export function JourneyCard({
   journey,
   progress,
 }: {
-  cover: Parameters<typeof getThumbUrl>[0] | undefined
+  cover: ComponentProps<typeof MediaImage>['item'] | undefined
   journey: DashboardJourneyCard
   progress: JourneyProgress | undefined
 }) {
   const { t } = useTranslation()
-  const coverUrl =
-    cover === undefined ? null : getThumbUrl(cover, MEDIA_BASE_URL)
   const toSort = progress?.mediaUnreviewed ?? 0
   return (
     <Link
@@ -159,13 +156,12 @@ export function JourneyCard({
       search={{}}
       to="/j/$journeyId"
     >
-      {coverUrl === null ? null : (
-        <img
-          alt=""
+      {cover === undefined ? null : (
+        <MediaImage
+          baseUrl={MEDIA_BASE_URL}
           className="aspect-[16/7] w-full object-cover"
-          data-testid="journey-card-cover"
-          loading="lazy"
-          src={coverUrl}
+          item={cover}
+          testId="journey-card-cover"
         />
       )}
       <div className="p-5">

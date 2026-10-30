@@ -16,7 +16,7 @@ import {
   BASE_URL,
   stopNameText,
 } from '@/features/journey-workspace/lib/moment-labels'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import { getCardUrl } from '@/features/journey-workspace/lib/media-thumb'
 import { buttonVariants } from '@/shared/ui/button-variants'
 import { cn } from '@/shared/lib/cn'
 
@@ -119,9 +119,9 @@ export function IntakeScreen({
 }
 
 function coverUrl(
-  item: Parameters<typeof getThumbUrl>[0] | undefined,
+  item: Parameters<typeof getCardUrl>[0] | undefined,
 ): string | null {
-  return item === undefined ? null : getThumbUrl(item, BASE_URL)
+  return item === undefined ? null : getCardUrl(item, BASE_URL)
 }
 
 function IntakeDayCard({

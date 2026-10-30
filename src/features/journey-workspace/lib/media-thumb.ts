@@ -12,8 +12,12 @@ const PHOTO_ORDER: ImageVariantKind[] = ['thumb', 'small', 'medium', 'large']
 // Videos show their poster; the mp4 variant is never usable as an image.
 const VIDEO_ORDER: ImageVariantKind[] = ['poster', ...PHOTO_ORDER]
 
-/** Picks the smallest suitable image variant, falling back to larger ones. */
-export function pickThumbVariant(
+/**
+ * The smallest image variant (`thumb`, ~220 px; falling back to larger ones).
+ * Only for tiny strips and map markers: it is soft anywhere larger, where
+ * <MediaImage> or getCardUrl is the way to show a photo.
+ */
+export function pickTinyThumbVariant(
   item: Pick<MediaItem, 'kind' | 'variants'>,
 ): MediaVariant | null {
   const order = item.kind === 'video' ? VIDEO_ORDER : PHOTO_ORDER
@@ -32,42 +36,62 @@ export function buildMediaUrl(
   return `${base}/${storageKey.replace(/^\/+/, '')}`
 }
 
-export function getThumbUrl(
+export function getTinyThumbUrl(
   item: Pick<MediaItem, 'kind' | 'variants'>,
   baseUrl: string = DEFAULT_MEDIA_BASE_URL,
 ): string | null {
-  const variant = pickThumbVariant(item)
+  const variant = pickTinyThumbVariant(item)
   return variant === null ? null : buildMediaUrl(variant.storageKey, baseUrl)
 }
 
 /**
- * A photo shown larger than a strip (a day card hero): `thumb` (~220 px) is
- * only for tiny grids and looks soft there, so the browser also gets `small`
- * (~800 px) and chooses by the displayed size and the screen density.
+ * Sources of a photo by their real widths (`thumb` ~220 px, `small` ~800 px,
+ * `medium` ~1600 px): the browser chooses by the displayed size and the screen
+ * density. `thumb` alone is only for tiny strips and is soft anywhere larger.
  * Without both widths it is the plain thumb. Videos stay on their poster.
  */
 export function getSharpThumb(
   item: Pick<MediaItem, 'kind' | 'variants'>,
   baseUrl: string = DEFAULT_MEDIA_BASE_URL,
 ): { src: string; srcSet: string | null } | null {
-  const plain = getThumbUrl(item, baseUrl)
+  const plain = getTinyThumbUrl(item, baseUrl)
   if (plain === null || item.kind === 'video') {
     return plain === null ? null : { src: plain, srcSet: null }
   }
   const thumb = item.variants.find((variant) => variant.kind === 'thumb')
   const small = item.variants.find((variant) => variant.kind === 'small')
+  const medium = item.variants.find((variant) => variant.kind === 'medium')
   if (thumb === undefined || small === undefined) {
     return { src: plain, srcSet: null }
   }
   return {
     src: buildMediaUrl(small.storageKey, baseUrl),
-    srcSet: [thumb, small]
+    srcSet: [thumb, small, ...(medium === undefined ? [] : [medium])]
       .map(
         (variant) =>
           `${buildMediaUrl(variant.storageKey, baseUrl)} ${String(variant.width)}w`,
       )
       .join(', '),
   }
+}
+
+const CARD_ORDER: ImageVariantKind[] = ['small', 'medium', 'thumb', 'large']
+
+/**
+ * One source for a large fixed area (a cover or CSS background) whose size is
+ * not measured: `small` (~800 px), never the ~220 px thumb.
+ */
+export function getCardUrl(
+  item: Pick<MediaItem, 'kind' | 'variants'>,
+  baseUrl: string = DEFAULT_MEDIA_BASE_URL,
+): string | null {
+  const order: ImageVariantKind[] =
+    item.kind === 'video' ? ['poster', ...CARD_ORDER] : CARD_ORDER
+  for (const kind of order) {
+    const found = item.variants.find((variant) => variant.kind === kind)
+    if (found !== undefined) return buildMediaUrl(found.storageKey, baseUrl)
+  }
+  return null
 }
 
 const VIEWER_ORDER: ImageVariantKind[] = ['large', 'medium', 'small', 'thumb']
