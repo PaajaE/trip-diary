@@ -8,6 +8,7 @@ import {
   dayMediaCounts,
   dayStatus,
 } from '@/features/journey-workspace/model/day-status'
+import { bestPhotosOfDay } from '@/features/journey-workspace/model/best-of-day-pick'
 import { buildDayStops } from '@/features/journey-workspace/model/day-stops'
 import {
   dayPlaceNames,
@@ -16,6 +17,7 @@ import {
 import type { WorkspaceMoment } from '@/features/journey-workspace/model/workspace-tree'
 import { DayStatusChips } from '@/features/journey-workspace/ui/DayStatusChips'
 import { CullView } from '@/features/journey-workspace/ui/cull/CullView'
+import { BestOfDayStrip } from '@/features/journey-workspace/ui/day/BestOfDayStrip'
 import { DayMiniMap } from '@/features/journey-workspace/ui/day/DayMiniMap'
 import { DayNoteEditor } from '@/features/journey-workspace/ui/day/DayNoteEditor'
 import { DayStops } from '@/features/journey-workspace/ui/day/DayStops'
@@ -148,6 +150,7 @@ function DayDetailBody({
       return item === undefined ? [] : [item]
     })
   }, [allMedia, mediaOrder])
+  const bestPicks = useMemo(() => bestPhotosOfDay(orderedMedia), [orderedMedia])
   const [cullOpener, setCullOpener] = useState<HTMLElement | null>(null)
   const cullOpen = cull?.open === true
   const photoCount = stops.reduce((n, stop) => n + stop.photoCount, 0)
@@ -373,6 +376,19 @@ function DayDetailBody({
             value={notes.byDate.get(dayKey) ?? null}
             onSave={(body) => notes.save(dayKey, body)}
           />
+
+          {canEdit ? (
+            <BestOfDayStrip
+              baseUrl={baseUrl}
+              picks={bestPicks}
+              onMarkAll={(items) => {
+                void (async () => {
+                  for (const item of items) await edits.toggleStar(item)
+                })()
+              }}
+              onOpen={onOpenMedia}
+            />
+          ) : null}
 
           <DayStops
             baseUrl={baseUrl}

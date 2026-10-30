@@ -14,6 +14,7 @@ import {
 } from '@/entities/public-journey/lib/journey-model'
 import { readHeroMirror } from '@/entities/public-journey/lib/embedded-journey'
 import { resolveImage } from '@/entities/public-journey/lib/media-url'
+import { GreetAuthorsBar } from '@/features/public-journey/ui/GreetAuthorsBar'
 import { TargetEngagement } from '@/features/public-engagement/ui/CommentsSection'
 import { buildMapData } from '@/features/public-journey/lib/build-map-data'
 import { excerpt, formatDateRange } from '@/features/public-journey/lib/format'
@@ -40,6 +41,9 @@ interface PublicJourneyPageProps {
   journeySlug: string
   spaceHandle: string
 }
+
+/** Long journeys open with this many stage cards; the rest sits behind one tap. */
+const STAGES_SHOWN_FIRST = 6
 
 export function PublicJourneyPage({
   data,
@@ -92,6 +96,31 @@ export function PublicJourneyPage({
         }
       }),
     [model],
+  )
+  // Read once: "still ahead" must not flicker on re-render.
+  const [now] = useState(() => Date.now())
+  type StageInfo = (typeof stageInfo)[number]
+  const renderStage = (info: StageInfo, index: number) => (
+    <li
+      className={index === 0 ? 'md:col-span-2' : undefined}
+      key={info.stage.id}
+    >
+      <StageCard
+        badge={t('publicJourney.stageBadge', { n: index + 1 })}
+        body={excerpt(info.stage.body, 200)}
+        color={info.color}
+        counts={`${t('publicJourney.stopsCount', { count: info.moments })} · ${t('publicJourney.mediaCount', { count: info.media.length })}`}
+        featured={index === 0}
+        journeySlug={journeySlug}
+        media={info.mosaic}
+        mediaTotal={info.media.length}
+        range={`${formatDateRange(model, info.stage, i18n.language)} · ${t('workspace.daysCount', { count: info.days })}`}
+        segmentId={info.stage.id}
+        spaceHandle={spaceHandle}
+        title={info.stage.title}
+        upcoming={Date.parse(info.stage.startsAt) > now}
+      />
+    </li>
   )
   const firstStage = model.stages[0]
   const saved = useSavedReadingPosition(readingKey(spaceHandle, journeySlug))
@@ -249,28 +278,26 @@ export function PublicJourneyPage({
               </p>
             </div>
             <ul className="grid gap-5 md:grid-cols-2">
-              {stageInfo.map((info, index) => (
-                <li
-                  className={index === 0 ? 'md:col-span-2' : undefined}
-                  key={info.stage.id}
-                >
-                  <StageCard
-                    badge={t('publicJourney.stageBadge', { n: index + 1 })}
-                    body={excerpt(info.stage.body, 200)}
-                    color={info.color}
-                    counts={`${t('publicJourney.stopsCount', { count: info.moments })} · ${t('publicJourney.mediaCount', { count: info.media.length })}`}
-                    featured={index === 0}
-                    journeySlug={journeySlug}
-                    media={info.mosaic}
-                    mediaTotal={info.media.length}
-                    range={`${formatDateRange(model, info.stage, i18n.language)} · ${t('workspace.daysCount', { count: info.days })}`}
-                    segmentId={info.stage.id}
-                    spaceHandle={spaceHandle}
-                    title={info.stage.title}
-                  />
-                </li>
-              ))}
+              {stageInfo
+                .slice(0, STAGES_SHOWN_FIRST)
+                .map((info, index) => renderStage(info, index))}
             </ul>
+            {stageInfo.length > STAGES_SHOWN_FIRST ? (
+              <details className="group space-y-5">
+                <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-medium text-accent-strong underline-offset-2 hover:underline [&::-webkit-details-marker]:hidden group-open:hidden">
+                  {t('publicJourney.stagesShowRest', {
+                    count: stageInfo.length - STAGES_SHOWN_FIRST,
+                  })}
+                </summary>
+                <ul className="grid gap-5 md:grid-cols-2">
+                  {stageInfo
+                    .slice(STAGES_SHOWN_FIRST)
+                    .map((info, index) =>
+                      renderStage(info, index + STAGES_SHOWN_FIRST),
+                    )}
+                </ul>
+              </details>
+            ) : null}
           </section>
         ) : null}
 
@@ -308,6 +335,7 @@ export function PublicJourneyPage({
           </section>
         ) : null}
         <TargetEngagement target={{ id: journey.id, type: 'journey' }} />
+        <GreetAuthorsBar />
       </div>
     </main>
   )

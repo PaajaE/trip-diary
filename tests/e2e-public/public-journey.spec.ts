@@ -124,3 +124,19 @@ test('the journey page offers to continue where this reader stopped', async ({
   await resume.click()
   await expect(page).toHaveURL(/\/e\/[^/#]+#day-\d{4}-\d{2}-\d{2}$/)
 })
+
+test('a mobile reader gets a greeting bar that jumps to the comments', async ({
+  page,
+}, testInfo) => {
+  await mockPublicBackend(page)
+  await page.goto(atlasUrl)
+  const bar = page.getByTestId('greet-authors')
+  if (testInfo.project.name === 'desktop') {
+    await expect(bar).toBeHidden()
+    return
+  }
+  await expect(bar).toBeVisible()
+  await bar.click()
+  await expect(page.locator('#comments')).toBeInViewport()
+  await noOverflow(page)
+})

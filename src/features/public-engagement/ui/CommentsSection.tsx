@@ -54,7 +54,10 @@ function Comments({ target }: { target: EngagementTarget }) {
     dateStyle: 'medium',
   })
   return (
-    <div className="space-y-4">
+    <div
+      className="scroll-mt-[calc(var(--reader-bar-h)+3.5rem)] space-y-4"
+      id="comments"
+    >
       <h2 className="text-lg font-semibold">
         {t('publicEngagement.comments')}
       </h2>

@@ -1,4 +1,5 @@
 import { isUnreviewed } from '@/features/journey-workspace/model/day-status'
+import type { Segment } from '@/entities/segment/model/segment'
 import type { MomentDay } from '@/features/journey-workspace/model/workspace-days'
 import type {
   WorkspaceMoment,
@@ -72,6 +73,17 @@ export interface WorkspaceTasks {
   suggestions: { count: number; firstSegmentId: string | null }
 }
 
+/** Suggested segments still waiting for accept or reject, tree order. */
+export function suggestedSegments(tree: WorkspaceTree): Segment[] {
+  const out: Segment[] = []
+  const walk = (node: WorkspaceSegment) => {
+    if (node.segment.origin === 'suggested') out.push(node.segment)
+    node.children.forEach(walk)
+  }
+  tree.roots.forEach(walk)
+  return out
+}
+
 function suggestionIds(tree: WorkspaceTree): string[] {
   const out: string[] = []
   const walk = (node: WorkspaceSegment) => {
@@ -139,5 +151,61 @@ export function computeTasks(
       count: suggestions.length,
       firstSegmentId: suggestions[0] ?? null,
     },
+  }
+}
+
+export type NextStepId =
+  | 'noText'
+  | 'noTime'
+  | 'suggestions'
+  | 'toCull'
+  | 'unreviewed'
+
+export interface NextStep {
+  count: number
+  id: NextStepId
+  /** Rough time for the whole step, minutes (at least 1). */
+  minutes: number
+  /** The short version: only the first few items, minutes (at least 1). */
+  shortMinutes: number
+}
+
+/** Seconds one item of a step takes (a guess to tune on real use, UNVERIFIED). */
+const SECONDS_PER_ITEM: Record<NextStepId, number> = {
+  noText: 60,
+  noTime: 20,
+  suggestions: 15,
+  toCull: 90,
+  unreviewed: 3,
+}
+
+/** The "just 2 minutes" version covers at most this many seconds of work. */
+const SHORT_STEP_SECONDS = 120
+
+/**
+ * The one next step, in the fixed order of the web spec: sort, approve the
+ * stages, pick the best photos, write, then the leftovers. Null when nothing
+ * is waiting.
+ */
+export function nextStep(tasks: WorkspaceTasks): NextStep | null {
+  const order: [NextStepId, number][] = [
+    ['unreviewed', tasks.unreviewed.count],
+    ['suggestions', tasks.suggestions.count],
+    ['toCull', tasks.daysToCull.count],
+    ['noText', tasks.daysWithoutText.count],
+    ['noTime', tasks.mediaWithoutTime.count],
+  ]
+  const found = order.find(([, count]) => count > 0)
+  if (found === undefined) return null
+  const [id, count] = found
+  const seconds = count * SECONDS_PER_ITEM[id]
+  return {
+    count,
+    id,
+    minutes: Math.max(1, Math.ceil(seconds / 60)),
+    shortMinutes: Math.max(
+      1,
+      Math.ceil(Math.min(seconds, SHORT_STEP_SECONDS) / 60),
+    ),
   }
 }

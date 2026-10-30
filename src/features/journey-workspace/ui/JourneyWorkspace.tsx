@@ -48,6 +48,11 @@ import {
 import { MediaTiles } from '@/features/journey-workspace/ui/moment-blocks'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
 import {
+  nextStep,
+  suggestedSegments,
+} from '@/features/journey-workspace/model/workspace-tasks'
+import { NextStepCard } from '@/features/journey-workspace/ui/NextStepCard'
+import {
   OverviewTaskBar,
   type TaskId,
 } from '@/features/journey-workspace/ui/OverviewTaskBar'
@@ -461,6 +466,19 @@ export function JourneyWorkspace({
         className="overflow-clip rounded-[18px] border border-border bg-background shadow-soft"
         data-testid="workspace-overview"
       >
+        <NextStepCard
+          step={nextStep(overview.tasks)}
+          onAcceptAll={() => {
+            void (async () => {
+              for (const segment of suggestedSegments(ready)) {
+                await editing.edits.acceptSegment(segment)
+              }
+            })()
+          }}
+          onStart={(step) => {
+            openTask(step.id)
+          }}
+        />
         <OverviewTaskBar tasks={overview.tasks} onOpen={openTask} />
         <div
           className={cn(
