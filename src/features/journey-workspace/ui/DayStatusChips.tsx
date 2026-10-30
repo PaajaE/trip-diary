@@ -4,7 +4,7 @@ import type { DayStatus } from '@/features/journey-workspace/model/day-status'
 import { cn } from '@/shared/lib/cn'
 
 const CHIP =
-  'inline-flex items-center gap-1 rounded-full px-[7px] py-px text-[11.5px]'
+  'inline-flex items-center gap-1 whitespace-nowrap rounded-full px-[7px] py-px text-[11.5px]'
 const DONE = 'bg-primary-soft text-primary'
 const PENDING = 'bg-accent-soft text-accent-strong'
 
