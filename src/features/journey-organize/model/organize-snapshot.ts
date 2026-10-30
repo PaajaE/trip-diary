@@ -39,11 +39,13 @@ export const snapshotMomentSchema = z.object({
 })
 export type SnapshotMoment = z.infer<typeof snapshotMomentSchema>
 
-/** A suggested segment the run deleted (re-created as it was). */
+/** A suggested (or, after a fresh start, rejected) segment the run deleted. */
 export const snapshotSegmentSchema = z.object({
   endsAt: instantSchema,
   id: z.uuid(),
   kind: z.enum(['stage', 'trip']),
+  /** Absent in older snapshots: those only held suggested segments. */
+  origin: z.enum(['suggested', 'rejected']).optional(),
   parentId: z.uuid().nullable(),
   position: z.number().int().nonnegative(),
   startsAt: instantSchema,
@@ -214,12 +216,15 @@ export function buildOrganizeSnapshot(
   })
   const deletedSegments = plan.segmentsToDelete.flatMap((id) => {
     const stored = segmentById.get(id)
-    if (stored?.origin !== 'suggested') return []
+    if (stored?.origin !== 'suggested' && stored?.origin !== 'rejected') {
+      return []
+    }
     return [
       {
         endsAt: stored.endsAt,
         id: stored.id,
         kind: stored.kind,
+        origin: stored.origin,
         parentId: stored.parentId,
         position: stored.position,
         startsAt: stored.startsAt,

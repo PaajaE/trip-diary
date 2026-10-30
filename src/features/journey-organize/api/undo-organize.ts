@@ -256,7 +256,7 @@ async function undoLocked(
               id: segment.id,
               journeyId,
               kind: segment.kind,
-              origin: 'suggested',
+              origin: segment.origin ?? 'suggested',
               parentId:
                 segment.parentId !== null && failedStages.has(segment.parentId)
                   ? null

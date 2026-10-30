@@ -493,6 +493,9 @@ export const cs: TranslationResources = {
       'Uspořádání se zastavilo v kroku „{{step}}“. Můžeš ho spustit znovu, naváže se.',
     intro:
       'Z nahraných fotek a videí se vytvoří zastávky a návrhy etap a výletů.',
+    fresh: 'Začít znovu: zahodit staré návrhy',
+    freshHint:
+      'Smažou se i zamítnuté návrhy etap a výletů a nabídnou se nové. Ruční a přijaté etapy, zamčené zastávky, texty a fotky zůstanou. Jde vrátit přes Vrátit uspořádání.',
     keepLocked:
       'Média v zamčených a ručně vytvořených zastávkách zůstanou, ruční a přijaté etapy a výlety se nemění.',
     keepRejected: 'Zamítnuté návrhy se nenabídnou znovu.',
@@ -507,6 +510,9 @@ export const cs: TranslationResources = {
       trek: 'Trek: {{name}}',
       trekAround: 'Trek kolem {{name}}',
     },
+    planChanges:
+      'Změny: upravených zastávek {{updated}}, přesunutých fotek {{moved}}, smazaných zastávek {{deleted}}',
+    planDiscarded: 'Zahodí se starých návrhů: {{count}}',
     planMoments: 'Nové zastávky: {{count}}',
     planNothing: 'Není co měnit, vše je aktuální.',
     planSuggestions: 'Návrhy etap a výletů: {{count}}',

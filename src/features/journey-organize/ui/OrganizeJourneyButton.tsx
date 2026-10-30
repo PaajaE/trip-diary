@@ -38,10 +38,14 @@ export function OrganizeDialog({
   const { showToast } = useToast()
   const [state, setState] = useState<State>({ status: 'loading' })
   const [attempt, setAttempt] = useState(0)
+  const [fresh, setFresh] = useState(false)
 
   useEffect(() => {
     let cancelled = false
-    previewOrganization(journeyId, organizeOptions(t, i18n.language)).then(
+    previewOrganization(journeyId, {
+      ...organizeOptions(t, i18n.language),
+      forgetRejected: fresh,
+    }).then(
       (plan) => {
         if (!cancelled) setState({ plan, status: 'ready' })
       },
@@ -52,7 +56,7 @@ export function OrganizeDialog({
     return () => {
       cancelled = true
     }
-  }, [journeyId, attempt, t, i18n.language])
+  }, [journeyId, attempt, fresh, t, i18n.language])
 
   const reload = useCallback(() => {
     setState({ status: 'loading' })
@@ -68,6 +72,7 @@ export function OrganizeDialog({
     try {
       outcome = await organizeNow(journeyId, {
         ...organizeOptions(t, i18n.language),
+        forgetRejected: fresh,
         onProgress: (progress) => {
           setState({ progress, status: 'applying' })
         },
@@ -103,7 +108,16 @@ export function OrganizeDialog({
       variant: 'error',
     })
     reload()
-  }, [i18n.language, journeyId, onClose, queryClient, reload, showToast, t])
+  }, [
+    fresh,
+    i18n.language,
+    journeyId,
+    onClose,
+    queryClient,
+    reload,
+    showToast,
+    t,
+  ])
 
   const busy = state.status === 'applying'
   return (
@@ -113,6 +127,25 @@ export function OrganizeDialog({
         <li>{t('autoOrganize.keepLocked')}</li>
         <li>{t('autoOrganize.keepRejected')}</li>
       </ul>
+      <div className="mt-3 flex items-start gap-2 text-sm">
+        <input
+          checked={fresh}
+          className="mt-1"
+          disabled={busy}
+          id="organize-fresh"
+          type="checkbox"
+          onChange={(event) => {
+            setFresh(event.target.checked)
+            setState({ status: 'loading' })
+          }}
+        />
+        <div>
+          <label className="font-semibold" htmlFor="organize-fresh">
+            {t('autoOrganize.fresh')}
+          </label>
+          <p className="text-muted">{t('autoOrganize.freshHint')}</p>
+        </div>
+      </div>
       <div aria-live="polite" className="mt-3 text-sm" role="status">
         {state.status === 'loading' ? t('autoOrganize.loading') : null}
         {state.status === 'error' ? (
@@ -133,6 +166,20 @@ export function OrganizeDialog({
                   count: suggestionCount(state.plan),
                 })}
               </p>
+              <p>
+                {t('autoOrganize.planChanges', {
+                  deleted: state.plan.momentsToDelete.length,
+                  moved: state.plan.mediaReassignments.length,
+                  updated: state.plan.momentsToUpdate.length,
+                })}
+              </p>
+              {fresh ? (
+                <p>
+                  {t('autoOrganize.planDiscarded', {
+                    count: state.plan.segmentsToDelete.length,
+                  })}
+                </p>
+              ) : null}
             </>
           )
         ) : null}

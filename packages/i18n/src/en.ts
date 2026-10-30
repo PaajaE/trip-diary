@@ -494,6 +494,9 @@ export const en = {
       'Organizing stopped at the step "{{step}}". You can run it again, it will pick up.',
     intro:
       'Stops and suggested stages and trips are created from your photos and videos.',
+    fresh: 'Start over: discard old suggestions',
+    freshHint:
+      'Rejected stage and trip suggestions are deleted too and fresh ones are offered. Manual and accepted stages, locked stops, texts and photos stay. Can be undone with Undo organize.',
     keepLocked:
       'Media in locked and hand-made stops stay put, manual and accepted stages and trips are not changed.',
     keepRejected: 'Rejected suggestions will not be suggested again.',
@@ -508,6 +511,9 @@ export const en = {
       trek: 'Trek: {{name}}',
       trekAround: 'Trek around {{name}}',
     },
+    planChanges:
+      'Changes: {{updated}} stops updated, {{moved}} photos moved, {{deleted}} stops deleted',
+    planDiscarded: 'Old suggestions discarded: {{count}}',
     planMoments: 'New stops: {{count}}',
     planNothing: 'Nothing to change, everything is up to date.',
     planSuggestions: 'Stage and trip suggestions: {{count}}',
