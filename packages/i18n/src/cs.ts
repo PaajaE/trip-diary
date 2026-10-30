@@ -495,7 +495,7 @@ export const cs: TranslationResources = {
       'Z nahraných fotek a videí se vytvoří zastávky a návrhy etap a výletů.',
     fresh: 'Začít znovu: zahodit staré návrhy',
     freshHint:
-      'Smažou se i zamítnuté návrhy etap a výletů a nabídnou se nové. Ruční a přijaté etapy, zamčené zastávky, texty a fotky zůstanou. Jde vrátit přes Vrátit uspořádání.',
+      'Smažou se všechny návrhy etap a výletů, i zamítnuté a přijaté (i s jejich názvy), a nabídnou se nové. Ruční etapy a výlety, zamčené zastávky, texty a fotky zůstanou. Jde vrátit přes Vrátit uspořádání.',
     keepLocked:
       'Média v zamčených a ručně vytvořených zastávkách zůstanou, ruční a přijaté etapy a výlety se nemění.',
     keepRejected: 'Zamítnuté návrhy se nenabídnou znovu.',

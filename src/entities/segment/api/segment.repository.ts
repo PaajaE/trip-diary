@@ -153,7 +153,7 @@ export async function createSegments(inputs: NewSegment[]): Promise<void> {
   }
 }
 
-/** Deletes suggested and rejected segments by id; accepted/manual rows are never matched. */
+/** Deletes suggested, rejected and accepted segments by id; manual rows are never matched. */
 export async function deleteSuggestedSegments(
   segmentIds: string[],
 ): Promise<void> {
@@ -162,7 +162,7 @@ export async function deleteSuggestedSegments(
     .from('segments')
     .delete()
     .in('id', segmentIds)
-    .in('origin', ['suggested', 'rejected'])
+    .in('origin', ['suggested', 'rejected', 'accepted'])
   if (error !== null) {
     throw new SegmentError('delete_failed', error.message, error)
   }

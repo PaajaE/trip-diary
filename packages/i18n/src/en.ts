@@ -496,7 +496,7 @@ export const en = {
       'Stops and suggested stages and trips are created from your photos and videos.',
     fresh: 'Start over: discard old suggestions',
     freshHint:
-      'Rejected stage and trip suggestions are deleted too and fresh ones are offered. Manual and accepted stages, locked stops, texts and photos stay. Can be undone with Undo organize.',
+      'All stage and trip suggestions, rejected and accepted ones too (with their names), are deleted and fresh ones are offered. Manual stages and trips, locked stops, texts and photos stay. Can be undone with Undo organize.',
     keepLocked:
       'Media in locked and hand-made stops stay put, manual and accepted stages and trips are not changed.',
     keepRejected: 'Rejected suggestions will not be suggested again.',

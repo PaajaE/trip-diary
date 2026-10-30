@@ -74,10 +74,14 @@ describe('segment batch repository', () => {
     })
   })
 
-  it('deletes only suggested and rejected segments (never accepted or manual)', async () => {
+  it('deletes only suggested, rejected and accepted segments (never manual)', async () => {
     await deleteSuggestedSegments([S])
     expect(chain.in).toHaveBeenCalledWith('id', [S])
-    expect(chain.in).toHaveBeenCalledWith('origin', ['suggested', 'rejected'])
+    expect(chain.in).toHaveBeenCalledWith('origin', [
+      'suggested',
+      'rejected',
+      'accepted',
+    ])
     await deleteSuggestedSegments([])
     expect(from).toHaveBeenCalledTimes(1)
   })

@@ -452,6 +452,42 @@ describe('planOrganization', () => {
     expect(fresh.segmentsToDelete).toEqual(['rej-stage', 'rej-trip'])
   })
 
+  it('forgetAccepted deletes accepted segments, plans over them, keeps manual ones', () => {
+    const input: OrganizeInput = {
+      media: journeyMedia(),
+      moments: [],
+      segments: [
+        {
+          endsAt: '2026-09-07T00:00:00Z',
+          id: 'accepted-stage',
+          kind: 'stage',
+          origin: 'accepted',
+          startsAt: '2026-09-01T00:00:00Z',
+          tripType: null,
+        },
+        {
+          endsAt: '2026-09-09T00:00:00Z',
+          id: 'manual-stage',
+          kind: 'stage',
+          origin: 'manual',
+          startsAt: '2026-09-08T00:00:00Z',
+          tripType: null,
+        },
+      ],
+    }
+    const kept = planOrganization(input, options())
+    const fresh = planOrganization(input, {
+      ...options(),
+      forgetAccepted: true,
+    })
+    expect(kept.segmentsToDelete).not.toContain('accepted-stage')
+    expect(fresh.segmentsToDelete).toContain('accepted-stage')
+    expect(fresh.segmentsToDelete).not.toContain('manual-stage')
+    expect(fresh.stageSuggestions.length).toBeGreaterThan(
+      kept.stageSuggestions.length,
+    )
+  })
+
   it('a rejected trip of another type does not block a suggestion', () => {
     const plan = planOrganization(
       {

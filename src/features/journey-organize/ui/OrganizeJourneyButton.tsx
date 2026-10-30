@@ -44,6 +44,7 @@ export function OrganizeDialog({
     let cancelled = false
     previewOrganization(journeyId, {
       ...organizeOptions(t, i18n.language),
+      forgetAccepted: fresh,
       forgetRejected: fresh,
     }).then(
       (plan) => {
@@ -72,6 +73,7 @@ export function OrganizeDialog({
     try {
       outcome = await organizeNow(journeyId, {
         ...organizeOptions(t, i18n.language),
+        forgetAccepted: fresh,
         forgetRejected: fresh,
         onProgress: (progress) => {
           setState({ progress, status: 'applying' })
