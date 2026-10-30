@@ -1,22 +1,29 @@
 import { useTranslation } from 'react-i18next'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { formatDuration } from '@/features/journey-workspace/lib/format-range'
-import { getThumbUrl } from '@/features/journey-workspace/lib/media-thumb'
+import {
+  getSharpThumb,
+  getThumbUrl,
+} from '@/features/journey-workspace/lib/media-thumb'
 import { cn } from '@/shared/lib/cn'
 
 interface MediaThumbProps {
   baseUrl: string
   className?: string
   item: MediaItem
+  /** Displayed width (CSS `sizes`): asks for a sharper variant than the thumb. */
+  sizes?: string
 }
 
 export function MediaThumb({
   baseUrl,
   className = 'h-16 w-16',
   item,
+  sizes,
 }: MediaThumbProps) {
   const { t } = useTranslation()
-  const url = getThumbUrl(item, baseUrl)
+  const sharp = sizes === undefined ? null : getSharpThumb(item, baseUrl)
+  const url = sharp?.src ?? getThumbUrl(item, baseUrl)
   const isVideo = item.kind === 'video'
   return (
     <span
@@ -33,7 +40,9 @@ export function MediaThumb({
           decoding="async"
           height={160}
           loading="lazy"
+          sizes={sharp?.srcSet == null ? undefined : sizes}
           src={url}
+          srcSet={sharp?.srcSet ?? undefined}
           width={160}
         />
       ) : null}

@@ -36,12 +36,17 @@ const BADGE =
 function Mosaic({ day }: { day: OverviewDay }) {
   return (
     <MosaicGrid
-      cells={day.mosaic.map((item) => (
+      cells={day.mosaic.map((item, index) => (
         <MediaThumb
           baseUrl={BASE_URL}
           className="block h-full w-full rounded-none"
           item={item}
           key={item.id}
+          // The hero fills two thirds (the whole card when alone): the ~220 px
+          // thumb is blurry there, the side cells are small enough for it.
+          {...(index === 0
+            ? { sizes: day.mosaic.length === 1 ? '340px' : '230px' }
+            : {})}
         />
       ))}
       empty={<ImageIcon aria-hidden="true" size={28} />}

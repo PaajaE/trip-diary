@@ -40,6 +40,36 @@ export function getThumbUrl(
   return variant === null ? null : buildMediaUrl(variant.storageKey, baseUrl)
 }
 
+/**
+ * A photo shown larger than a strip (a day card hero): `thumb` (~220 px) is
+ * only for tiny grids and looks soft there, so the browser also gets `small`
+ * (~800 px) and chooses by the displayed size and the screen density.
+ * Without both widths it is the plain thumb. Videos stay on their poster.
+ */
+export function getSharpThumb(
+  item: Pick<MediaItem, 'kind' | 'variants'>,
+  baseUrl: string = DEFAULT_MEDIA_BASE_URL,
+): { src: string; srcSet: string | null } | null {
+  const plain = getThumbUrl(item, baseUrl)
+  if (plain === null || item.kind === 'video') {
+    return plain === null ? null : { src: plain, srcSet: null }
+  }
+  const thumb = item.variants.find((variant) => variant.kind === 'thumb')
+  const small = item.variants.find((variant) => variant.kind === 'small')
+  if (thumb === undefined || small === undefined) {
+    return { src: plain, srcSet: null }
+  }
+  return {
+    src: buildMediaUrl(small.storageKey, baseUrl),
+    srcSet: [thumb, small]
+      .map(
+        (variant) =>
+          `${buildMediaUrl(variant.storageKey, baseUrl)} ${String(variant.width)}w`,
+      )
+      .join(', '),
+  }
+}
+
 const VIEWER_ORDER: ImageVariantKind[] = ['large', 'medium', 'small', 'thumb']
 
 /** Largest available image variant (video: its poster first). */

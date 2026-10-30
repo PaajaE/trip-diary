@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildMediaUrl,
   DEFAULT_MEDIA_BASE_URL,
+  getSharpThumb,
   getThumbUrl,
   pickThumbVariant,
   pickZoomImageVariant,
@@ -52,5 +53,37 @@ describe('media thumbnails', () => {
       variants: [variant(id, 'video'), variant(id, 'poster', 'k/p.jpg')],
     })
     expect(pickZoomImageVariant(video)?.kind).toBe('poster')
+  })
+})
+
+describe('getSharpThumb', () => {
+  it('offers thumb and small by their widths, src is the small one', () => {
+    const id = med(1).id
+    const item = med(1, {
+      variants: [
+        { ...variant(id, 'thumb', 'k/t.webp'), width: 205 },
+        { ...variant(id, 'small', 'k/s.webp'), width: 747 },
+      ],
+    })
+    const sharp = getSharpThumb(item)
+    expect(sharp?.src).toBe(`${DEFAULT_MEDIA_BASE_URL}/k/s.webp`)
+    expect(sharp?.srcSet).toBe(
+      `${DEFAULT_MEDIA_BASE_URL}/k/t.webp 205w, ${DEFAULT_MEDIA_BASE_URL}/k/s.webp 747w`,
+    )
+  })
+
+  it('falls back to the plain thumb without both widths and for videos', () => {
+    const id = med(1).id
+    const onlyThumb = med(1, { variants: [variant(id, 'thumb', 'k/t.webp')] })
+    expect(getSharpThumb(onlyThumb)).toEqual({
+      src: `${DEFAULT_MEDIA_BASE_URL}/k/t.webp`,
+      srcSet: null,
+    })
+    const video = med(1, {
+      kind: 'video',
+      variants: [variant(id, 'poster', 'k/p.jpg'), variant(id, 'small')],
+    })
+    expect(getSharpThumb(video)?.srcSet).toBeNull()
+    expect(getSharpThumb(med(1, { variants: [] }))).toBeNull()
   })
 })
