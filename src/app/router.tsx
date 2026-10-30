@@ -18,6 +18,7 @@ import {
   LazyJourneyImportRoutePage,
   LazyJourneyMembersRoutePage,
   LazyJourneyRoutePage,
+  LazyJourneyPublishingRoutePage,
   LazyJourneyTrashRoutePage,
   LazyJourneyWorkspaceDayRoutePage,
   LazyJourneyWorkspaceRoutePage,
@@ -153,6 +154,13 @@ const journeyTrashRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/j/$journeyId/trash',
   component: LazyJourneyTrashRoutePage,
+})
+
+const journeyPublishingRoute = createRoute({
+  beforeLoad: requireAuth,
+  getParentRoute: () => rootRoute,
+  path: '/j/$journeyId/publishing',
+  component: LazyJourneyPublishingRoutePage,
 })
 
 const journeyImportRoute = createRoute({
@@ -294,6 +302,7 @@ const routeTree = rootRoute.addChildren([
   journeyWorkspaceRoute,
   journeyWorkspaceDayRoute,
   journeyTrashRoute,
+  journeyPublishingRoute,
   journeyImportRoute,
   journeyBatchRoute,
   journeyFlowRoute,

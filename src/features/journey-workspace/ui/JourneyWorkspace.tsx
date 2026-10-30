@@ -48,6 +48,7 @@ import {
 import { MediaTiles } from '@/features/journey-workspace/ui/moment-blocks'
 import { ModerationPanel } from '@/features/journey-workspace/ui/ModerationPanel'
 import {
+  confidentSuggestions,
   nextStep,
   suggestedSegments,
 } from '@/features/journey-workspace/model/workspace-tasks'
@@ -468,6 +469,14 @@ export function JourneyWorkspace({
       >
         <NextStepCard
           step={nextStep(overview.tasks)}
+          confidentCount={confidentSuggestions(ready).length}
+          onAcceptConfident={() => {
+            void (async () => {
+              for (const segment of confidentSuggestions(ready)) {
+                await editing.edits.acceptSegment(segment)
+              }
+            })()
+          }}
           onAcceptAll={() => {
             void (async () => {
               for (const segment of suggestedSegments(ready)) {

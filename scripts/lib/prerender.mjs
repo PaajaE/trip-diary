@@ -281,6 +281,9 @@ export function renderPage(
       ? null
       : `<meta name="twitter:image" content="${escapeHtml(page.hero.ogImage)}" />`,
     page.hero === null ? null : preloadTag(page.hero),
+    page.kind === 'journey' && canonical !== null
+      ? `<link rel="alternate" type="application/atom+xml" href="${escapeHtml(canonical)}/feed.xml" />`
+      : null,
     ...originHints({ mapOrigin, mediaBaseUrl, supabaseUrl }),
   ].filter((t) => t !== null)
   const block = `    ${tags.join('\n    ')}\n  </head>`
@@ -555,6 +558,48 @@ export function buildSitemap(entries, siteUrl) {
     })
     .join('\n')
   return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`
+}
+
+/**
+ * Atom feed of a public journey: one entry per stage, newest first. Static
+ * file, no JavaScript, no subscriber data. What a delayed publication hides is
+ * not in `tree` already (the RPC filtered it), so it cannot leak here.
+ */
+export function buildAtomFeed(tree, { handle, slug, siteUrl, updatedAt }) {
+  const site = trimSlash(siteUrl)
+  const base = `${site}${pathsFor(handle, slug)}`
+  const stages = tree.segments
+    .filter((s) => s.kind === 'stage' && isSafePathSegment(s.id))
+    .sort((a, b) => Date.parse(b.startsAt) - Date.parse(a.startsAt))
+  const stamp = (value) => {
+    const ms = Date.parse(value ?? '')
+    return new Date(Number.isNaN(ms) ? 0 : ms).toISOString()
+  }
+  const newest = stages.reduce(
+    (max, s) => Math.max(max, Date.parse(s.endsAt) || 0),
+    Date.parse(updatedAt ?? '') || 0,
+  )
+  const entries = stages
+    .map(
+      (s) => `  <entry>
+    <id>${escapeHtml(`${base}/e/${s.id}`)}</id>
+    <title>${escapeHtml(s.title)}</title>
+    <link rel="alternate" href="${escapeHtml(`${base}/e/${s.id}`)}" />
+    <updated>${stamp(s.endsAt)}</updated>
+    <summary>${escapeHtml(summarize(s.body) || tree.journey.title)}</summary>
+  </entry>`,
+    )
+    .join('\n')
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <id>${escapeHtml(base)}</id>
+  <title>${escapeHtml(`${tree.journey.title} · ${tree.journey.space.name}`)}</title>
+  <link rel="self" href="${escapeHtml(`${base}/feed.xml`)}" />
+  <link rel="alternate" href="${escapeHtml(base)}" />
+  <updated>${new Date(newest).toISOString()}</updated>
+${entries}
+</feed>
+`
 }
 
 export function buildRobots(source, siteUrl) {

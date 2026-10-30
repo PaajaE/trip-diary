@@ -47,6 +47,8 @@ export const cs: TranslationResources = {
     },
     panel: {
       title: 'Synchronizace',
+      cellularHint:
+        'Ve výchozím stavu se odesílá jen přes Wi‑Fi. Fotky mohou spotřebovat hodně dat, v zahraničí (roaming) to nech vypnuté.',
       cellularSync: 'Synchronizovat i přes mobilní data',
     },
     progress: {
@@ -268,6 +270,7 @@ export const cs: TranslationResources = {
       batch: 'Třídění',
       quick: 'Zápis',
       members: 'Členové',
+      publishing: 'Zveřejnění a soukromí',
       trash: 'Koš',
       public: 'Veřejná stránka',
       manage: 'Správa cesty',
@@ -902,6 +905,45 @@ export const cs: TranslationResources = {
     previous: 'Předchozí fotka',
     title: 'Prohlížeč fotek',
   },
+  publishing: {
+    delay: {
+      days_one: 'Odložit o {{count}} den',
+      days_few: 'Odložit o {{count}} dny',
+      days_many: 'Odložit o {{count}} dne',
+      days_other: 'Odložit o {{count}} dní',
+      hint: 'Čtenáři uvidí jen to, co je starší než zvolený odstup. O novějším obsahu se nedozví ani z náhledu, ani ze zdroje stránky.',
+      label: 'Zpoždění zveřejnění',
+      none: 'Bez zpoždění',
+      title: 'Odložené zveřejnění',
+    },
+    loading: 'Načítám…',
+    now: {
+      counts: 'V editaci {{total}}, zveřejněno {{published}} zastávek.',
+      explain:
+        'Zveřejněné zastávky vidí čtenáři (po uplynutí případného odstupu), ostatní jsou jen tvoje.',
+      title: 'Co je zveřejněno',
+    },
+    privacy: {
+      home: 'Domov se na veřejné stránce nikdy neukazuje přesně.',
+      location: 'U jednotlivé fotky můžeš skrýt polohu.',
+      title: 'Soukromí',
+    },
+    saveFailed: 'Změnu se nepodařilo uložit. Zkus to znovu.',
+    saved: 'Uloženo.',
+    title: 'Zveřejnění a soukromí',
+    unavailable: 'Tuto cestu se nepodařilo načíst.',
+    visibility: {
+      private: {
+        hint: 'Vidíš ji jen ty a členové cesty.',
+        label: 'Soukromá',
+      },
+      public: {
+        hint: 'Kdokoli s odkazem si ji může přečíst.',
+        label: 'Veřejná',
+      },
+      title: 'Kdo ji uvidí',
+    },
+  },
   trash: {
     title: 'Koš',
     subtitle:
@@ -1122,6 +1164,10 @@ export const cs: TranslationResources = {
     backToOverview: 'Přehled',
     nextStep: {
       acceptAll: 'Přijmout všechny návrhy',
+      acceptConfident_one: 'Přijmout vše nad 80 % (1)',
+      acceptConfident_few: 'Přijmout vše nad 80 % ({{count}})',
+      acceptConfident_many: 'Přijmout vše nad 80 % ({{count}})',
+      acceptConfident_other: 'Přijmout vše nad 80 % ({{count}})',
       allDone: 'Hotovo, nic dalšího nečeká. Díky!',
       estimate: 'asi {{minutes}} min',
       label: 'Další krok',
@@ -1347,7 +1393,7 @@ export const cs: TranslationResources = {
     moveToTitle: 'Přesunout výběr do',
     nextDay: 'Další den',
     noteLabel: 'Zápis dne',
-    notePlaceholder: '✎ Napiš pár vět o tomhle dni.',
+    notePlaceholder: '✎ Stačí jedna věta o tomhle dni.',
     noteSave: 'Uložit',
     noteSaved: 'Zápis dne uložen',
     noteSaveFailed: 'Zápis dne se nepodařilo uložit.',
@@ -1536,6 +1582,7 @@ export const cs: TranslationResources = {
     next: 'Další',
     openMedia: 'Otevřít fotku',
     allPhotos: 'Všech {{count}}',
+    followNews: 'Sledovat novinky',
     greetAuthors: 'Pozdrav autorům',
     stagesShowRest_one: 'Zobrazit další etapu',
     stagesShowRest_few: 'Zobrazit další {{count}} etapy',
@@ -1990,7 +2037,7 @@ export const cs: TranslationResources = {
       afterDecision: 'Po rozhodnutí se otevře další fotka.',
       fullscreen: 'Celá obrazovka, bez rušení (F)',
       fullscreenExit: 'Zavřít celou obrazovku',
-      fullscreenHint: 'Klepnutím schováš ovládání · tah nahoru = Koš',
+      fullscreenHint: 'Klepnutím schováš ovládání · tah nahoru = Nejlepší',
       fullscreenKeysHint: 'nápověda za chvíli zmizí',
       showControls: 'Ukázat ovládání',
       toDayEnd: 'Konec dne',
@@ -2090,7 +2137,7 @@ export const cs: TranslationResources = {
         waiting: 'Vyzyvatel {{n}}, čeká',
         winner: 'Ponechaná',
       },
-      hint: 'Tah doleva nebo doprava: další vyzyvatel. Tah nahoru na fotce: ta jde do koše. Dvojí klepnutí přiblíží místo, kam ťukneš.',
+      hint: 'Tah doleva nebo doprava: další vyzyvatel. Tah nahoru na fotce: označí ji jako nejlepší (★). Dvojí klepnutí přiblíží místo, kam ťukneš.',
       fullscreenHint: 'Klepni pro ovládání · tah do strany = další',
       fullscreenKeys: 'Pohni myší pro ovládání',
     },

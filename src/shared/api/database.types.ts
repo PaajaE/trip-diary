@@ -772,6 +772,7 @@ export type Database = {
           ends_at: string | null
           home_tz: string | null
           id: string
+          publish_delay_days: number
           slug: string
           space_id: string
           starts_at: string | null
@@ -788,6 +789,7 @@ export type Database = {
           ends_at?: string | null
           home_tz?: string | null
           id: string
+          publish_delay_days?: number
           slug: string
           space_id: string
           starts_at?: string | null
@@ -804,6 +806,7 @@ export type Database = {
           ends_at?: string | null
           home_tz?: string | null
           id?: string
+          publish_delay_days?: number
           slug?: string
           space_id?: string
           starts_at?: string | null
@@ -1949,7 +1952,19 @@ export type Database = {
       }
       is_journey_member: { Args: { p_journey_id: string }; Returns: boolean }
       is_journey_owner: { Args: { p_journey_id: string }; Returns: boolean }
+      is_media_published: {
+        Args: {
+          p_captured_at: string
+          p_journey_id: string
+          p_moment_id: string
+        }
+        Returns: boolean
+      }
       is_public_photo: { Args: { p_photo_id: string }; Returns: boolean }
+      is_published_at: {
+        Args: { p_journey_id: string; p_ts: string }
+        Returns: boolean
+      }
       is_space_member: { Args: { p_space_id: string }; Returns: boolean }
       is_space_owner: { Args: { p_space_id: string }; Returns: boolean }
       is_time_zone_name: { Args: { p_value: string }; Returns: boolean }
@@ -1971,6 +1986,10 @@ export type Database = {
           media_unreviewed: number
           starred: number
         }[]
+      }
+      journey_publish_cutoff: {
+        Args: { p_journey_id: string }
+        Returns: string
       }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
       list_journey_pending_invites: {
@@ -2063,6 +2082,7 @@ export type Database = {
           ends_at: string | null
           home_tz: string | null
           id: string
+          publish_delay_days: number
           slug: string
           space_id: string
           starts_at: string | null

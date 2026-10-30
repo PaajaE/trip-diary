@@ -84,7 +84,11 @@ describe('JourneyTabs', () => {
     expect(button).toHaveAttribute('aria-expanded', 'true')
     expect(screen.getByRole('menu')).toBeTruthy()
     const items = screen.getAllByRole('menuitem')
-    expect(items.map((item) => item.textContent)).toEqual(['Members', 'Trash'])
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Members',
+      'Publishing and privacy',
+      'Trash',
+    ])
     expect(items[0]).toHaveAttribute('aria-current', 'page')
     expect(items[1]).not.toHaveAttribute('aria-current')
     rerender(<JourneyTabs current="trash" journeyId="j" publicPaths={null} />)
@@ -96,10 +100,18 @@ describe('JourneyTabs', () => {
     const button = screen.getByRole('button', { name: /Manage journey/ })
     expect(button).not.toHaveAttribute('aria-current')
     fireEvent.click(button)
-    const [members, trash] = screen.getAllByRole('menuitem')
-    if (members === undefined || trash === undefined) throw new Error('items')
+    const [members, publishing, trash] = screen.getAllByRole('menuitem')
+    if (
+      members === undefined ||
+      publishing === undefined ||
+      trash === undefined
+    ) {
+      throw new Error('items')
+    }
     expect(document.activeElement).toBe(members)
     fireEvent.keyDown(members, { key: 'ArrowDown' })
+    expect(document.activeElement).toBe(publishing)
+    fireEvent.keyDown(publishing, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(trash)
     fireEvent.keyDown(trash, { key: 'ArrowDown' })
     expect(document.activeElement).toBe(members)

@@ -44,6 +44,8 @@ export const en = {
     },
     panel: {
       title: 'Synchronization',
+      cellularHint:
+        'By default only Wi‑Fi is used. Photos can use a lot of data; keep this off while roaming abroad.',
       cellularSync: 'Sync over mobile data',
     },
     progress: {
@@ -267,6 +269,7 @@ export const en = {
       batch: 'Sorting',
       quick: 'Note',
       members: 'Members',
+      publishing: 'Publishing and privacy',
       trash: 'Trash',
       public: 'Public page',
       manage: 'Manage journey',
@@ -902,6 +905,45 @@ export const en = {
     previous: 'Previous photo',
     title: 'Photo viewer',
   },
+  publishing: {
+    delay: {
+      days_one: 'Delay by {{count}} day',
+      days_few: 'Delay by {{count}} days',
+      days_many: 'Delay by {{count}} days',
+      days_other: 'Delay by {{count}} days',
+      hint: 'Readers only see what is older than the chosen delay. They learn nothing of newer content, not from the preview and not from the page source.',
+      label: 'Publication delay',
+      none: 'No delay',
+      title: 'Delayed publication',
+    },
+    loading: 'Loading…',
+    now: {
+      counts: '{{total}} stops in editing, {{published}} published.',
+      explain:
+        'Readers see the published stops (after any delay); the rest is only yours.',
+      title: 'What is published',
+    },
+    privacy: {
+      home: 'Your home is never shown exactly on the public page.',
+      location: 'You can hide the location of a single photo.',
+      title: 'Privacy',
+    },
+    saveFailed: 'The change could not be saved. Try again.',
+    saved: 'Saved.',
+    title: 'Publishing and privacy',
+    unavailable: 'This journey could not be loaded.',
+    visibility: {
+      private: {
+        hint: 'Only you and the members of the journey can see it.',
+        label: 'Private',
+      },
+      public: {
+        hint: 'Anyone with the link can read it.',
+        label: 'Public',
+      },
+      title: 'Who can see it',
+    },
+  },
   trash: {
     title: 'Trash',
     subtitle:
@@ -1124,6 +1166,10 @@ export const en = {
     backToOverview: 'Overview',
     nextStep: {
       acceptAll: 'Accept all suggestions',
+      acceptConfident_one: 'Accept all above 80 % (1)',
+      acceptConfident_few: 'Accept all above 80 % ({{count}})',
+      acceptConfident_many: 'Accept all above 80 % ({{count}})',
+      acceptConfident_other: 'Accept all above 80 % ({{count}})',
       allDone: 'All done, nothing else is waiting. Thanks!',
       estimate: 'about {{minutes}} min',
       label: 'Next step',
@@ -1349,7 +1395,7 @@ export const en = {
     moveToTitle: 'Move the selection to',
     nextDay: 'Next day',
     noteLabel: 'Day note',
-    notePlaceholder: '✎ Write a few lines about this day.',
+    notePlaceholder: '✎ One sentence about this day is enough.',
     noteSave: 'Save',
     noteSaved: 'Day note saved',
     noteSaveFailed: 'The day note could not be saved.',
@@ -1540,6 +1586,7 @@ export const en = {
     next: 'Next',
     openMedia: 'Open photo',
     allPhotos: 'All {{count}}',
+    followNews: 'Follow the news',
     greetAuthors: 'Greet the authors',
     stagesShowRest_one: 'Show one more stage',
     stagesShowRest_few: 'Show {{count}} more stages',
@@ -2001,7 +2048,7 @@ export const en = {
       afterDecision: 'After a decision the next photo opens.',
       fullscreen: 'Full screen, no distractions (F)',
       fullscreenExit: 'Close full screen',
-      fullscreenHint: 'Tap to hide the controls · swipe up = Trash',
+      fullscreenHint: 'Tap to hide the controls · swipe up = Best',
       fullscreenKeysHint: 'the hint fades out shortly',
       showControls: 'Show the controls',
       toDayEnd: 'End of the day',
@@ -2103,7 +2150,7 @@ export const en = {
         waiting: 'Challenger {{n}}, waiting',
         winner: 'Kept',
       },
-      hint: 'Swipe left or right: next challenger. Swipe up on a photo: it goes to the trash. A double tap zooms in where you tap.',
+      hint: 'Swipe left or right: next challenger. Swipe up on a photo: marks it as the best (★). A double tap zooms in where you tap.',
       fullscreenHint: 'Tap for the controls · swipe sideways = next',
       fullscreenKeys: 'Move the mouse for the controls',
     },

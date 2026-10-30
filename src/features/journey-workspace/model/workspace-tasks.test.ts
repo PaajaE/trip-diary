@@ -10,7 +10,9 @@ import {
   CULL_MIN_PHOTOS,
   computeTasks,
   dayNeedsCulling,
+  confidentSuggestions,
   nextStep,
+  suggestionConfidences,
 } from '@/features/journey-workspace/model/workspace-tasks'
 import { groupMomentsByDay } from '@/features/journey-workspace/model/workspace-days'
 import { buildWorkspaceTree } from '@/features/journey-workspace/model/workspace-tree'
@@ -202,5 +204,41 @@ describe('nextStep', () => {
       minutes: 1,
       shortMinutes: 1,
     })
+  })
+})
+
+describe('suggestion confidence', () => {
+  const stage = seg(1, {
+    endsAt: '2026-01-09T00:00:00+00:00',
+    origin: 'suggested',
+    startsAt: '2026-01-05T00:00:00+00:00',
+  })
+  const before = mom(10, {
+    endsAt: '2026-01-04T10:00:00+00:00',
+    latitude: 51.18,
+    longitude: -115.57,
+    startsAt: '2026-01-04T09:00:00+00:00',
+  })
+  const after = (latitude: number, longitude: number) =>
+    mom(11, {
+      endsAt: '2026-01-05T10:00:00+00:00',
+      latitude,
+      longitude,
+      startsAt: '2026-01-05T09:00:00+00:00',
+    })
+
+  it('is sure after a long move, doubtful after a short hop', () => {
+    const far = buildWorkspaceTree([stage], [before, after(53.9, -115.5)], [])
+    const hop = buildWorkspaceTree([stage], [before, after(51.2, -115.5)], [])
+    expect(suggestionConfidences(far)[0]?.confidence).toBeGreaterThanOrEqual(
+      0.8,
+    )
+    expect(suggestionConfidences(hop)[0]?.confidence).toBeLessThan(0.5)
+    expect(confidentSuggestions(far)).toHaveLength(1)
+    expect(confidentSuggestions(hop)).toHaveLength(0)
+  })
+  it('stays undecided without positions', () => {
+    const tree = buildWorkspaceTree([stage], [], [])
+    expect(suggestionConfidences(tree)[0]?.confidence).toBe(0.5)
   })
 })

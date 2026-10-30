@@ -10,6 +10,7 @@ import {
   isKnownTimeZone,
   localDay,
   photoDayZones,
+  pickDay,
   pickLocalDay,
 } from './local-day.ts'
 import { timeZoneAt } from './time-zone.ts'
@@ -105,6 +106,34 @@ function zoneAtPoint(point: GeoPoint): string | null {
 }
 
 /**
+ * Day (YYYY-MM-DD) of any instant, by the author's night over these media:
+ * the zone of the day they were mostly taken in, the day changing in the
+ * middle of the longest sleep gap (04:00 without one). The same rule as the
+ * screens use (`pickDay`), so the algorithm and the UI agree on every day.
+ */
+export function createDayOfInstant(
+  media: readonly MediaPoint[],
+  homeTimeZone: string,
+): (instant: number) => string {
+  const home = zoneOrUtc(homeTimeZone)
+  const { dated } = sortDated(media)
+  let inherited = home
+  const photos = dated.map((item) => {
+    const point = pointOf(item)
+    if (point !== null) {
+      inherited = zoneAtPoint(point) ?? inherited
+    }
+    const own = item.capturedTz
+    if (own !== undefined && own !== null && isKnownTimeZone(own)) {
+      inherited = own
+    }
+    return { instant: item.time, zone: inherited }
+  })
+  const photoDays = photoDayZones(photos)
+  return (instant) => pickDay(instant, home, photoDays)
+}
+
+/**
  * Groups media by local calendar day (starting at 04:00 local time) in the
  * zone each day was mostly spent in. A photo's zone is its captured zone when
  * known, else derived from its GPS position (offline lookup); photos with
@@ -120,16 +149,16 @@ export function summarizeZonedDays(
   homeTimeZone: string,
   options: {
     /**
-     * `fourAm` (default): the day starts at 04:00 local time (mirrors SQL).
-     * `night`: the day changes in the middle of the night's longest gap (see
-     * assignNightDays); without such a gap it still changes at 04:00.
+     * `night` (default): the day changes in the middle of the night's longest
+     * gap (see assignNightDays); without such a gap it still changes at 04:00.
+     * `fourAm`: the plain 04:00 rule (mirrors the SQL fallback).
      */
     dayBoundary?: 'fourAm' | 'night'
   } = {},
 ): ZonedDaySummary[] {
   const home = zoneOrUtc(homeTimeZone)
   const nightDays =
-    options.dayBoundary === 'night'
+    options.dayBoundary !== 'fourAm'
       ? assignNightDays(media, homeTimeZone)
       : null
   const { dated } = sortDated(media)

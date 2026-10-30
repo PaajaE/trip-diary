@@ -14,7 +14,7 @@ import { AnchoredPanel } from '@/shared/ui/AnchoredPanel'
 const MENU_ITEM_CLASS =
   'flex min-h-11 items-center rounded-sm px-3 text-sm font-semibold hover:bg-background focus-visible:bg-background focus-visible:outline'
 
-export type ManageTab = 'members' | 'trash'
+export type ManageTab = 'members' | 'publishing' | 'trash'
 
 /**
  * "Journey management" menu button at the end of the journey tabs: members and
@@ -109,6 +109,16 @@ export function JourneyManageMenu({
             onClick={close}
           >
             {t('owner.tabs.members')}
+          </Link>
+          <Link
+            aria-current={current === 'publishing' ? 'page' : undefined}
+            className={itemClass('publishing')}
+            params={{ journeyId }}
+            role="menuitem"
+            to="/j/$journeyId/publishing"
+            onClick={close}
+          >
+            {t('owner.tabs.publishing')}
           </Link>
           <Link
             aria-current={current === 'trash' ? 'page' : undefined}

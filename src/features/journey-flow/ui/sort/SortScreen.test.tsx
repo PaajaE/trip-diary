@@ -139,7 +139,7 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
     expect(actions.trashPhotos).not.toHaveBeenCalled()
   })
 
-  it('swipe up trashes, sideways moves without deciding', async () => {
+  it('swipe up marks the best, sideways moves without deciding', async () => {
     const { actions, idsOf } = setup()
     const stage = screen.getByTestId('sort-stage')
     const swipe = async (dx: number, dy: number) => {
@@ -153,7 +153,8 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
     await swipe(-120, 4)
     expect(position()).toMatch(/· 2 z 3$/)
     await swipe(4, -120)
-    expect(actions.trashPhotos).toHaveBeenCalledWith([idsOf(ID.ride)[1]])
+    expect(actions.starPhotos).toHaveBeenCalledWith([idsOf(ID.ride)[1]], true)
+    expect(actions.trashPhotos).not.toHaveBeenCalled()
   })
 
   it('keyboard: K, N, S, arrows; ignored in a text field', async () => {
@@ -203,7 +204,7 @@ describe('SortScreen (Třídění, krok 2 ze 2)', () => {
     expect(screen.queryByTestId('sort-filmstrip')).toBeNull()
     expect(position()).toMatch(/\d:\d\d · 1 z 3$/)
     expect(
-      screen.getByText('Klepnutím schováš ovládání · tah nahoru = Koš'),
+      screen.getByText('Klepnutím schováš ovládání · tah nahoru = Nejlepší'),
     ).toBeInTheDocument()
     expect(
       screen.getByRole('button', { name: '★ Nejlepší' }),

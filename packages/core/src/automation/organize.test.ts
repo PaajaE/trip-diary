@@ -174,13 +174,13 @@ describe('planOrganization', () => {
 
   it('suggests a stage boundary at the jump (04:00 local of the new zone) and trips per stage', () => {
     const plan = planOrganization(empty(journeyMedia()), options())
-    // 04:00 day rule: v1 (10:00Z = 03:00 PDT on 09-05) still belongs to the
-    // day 09-04, so the Vancouver stage starts at 09-04 04:00 PDT (11:00Z).
+    // Day by the night: v1 (10:00Z = 03:00 PDT on 09-05) comes after a long
+    // gap, so it opens 09-05 and the Vancouver stage starts with that photo.
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
       '2026-09-01T09:00:00.000Z',
-      '2026-09-04T11:00:00.000Z',
+      '2026-09-05T10:00:00.000Z',
     ])
-    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-04T11:00:00.000Z')
+    expect(plan.stageSuggestions[0]?.endsAt).toBe('2026-09-05T10:00:00.000Z')
     expect(plan.stageSuggestions[0]?.title).toBe('stage--1')
     expect(plan.tripSuggestions).toHaveLength(1)
     const trip = plan.tripSuggestions[0]
@@ -370,9 +370,9 @@ describe('planOrganization', () => {
     expect(plan.segmentsToDelete).toEqual(['old-suggested'])
     // The manual stage covers the first stage region; the day trip is covered
     // by an accepted trip, so only the Vancouver stage remains suggested.
-    // 04:00 day rule: the Vancouver stage starts 09-04 04:00 PDT (11:00Z).
+    // Day by the night: the Vancouver stage starts with its first photo.
     expect(plan.stageSuggestions.map((s) => s.startsAt)).toEqual([
-      '2026-09-04T11:00:00.000Z',
+      '2026-09-05T10:00:00.000Z',
     ])
     expect(plan.tripSuggestions).toEqual([])
     expect(plan.segmentsToDelete).not.toContain('manual-stage')
@@ -1022,8 +1022,10 @@ describe('planOrganization ZS-4', () => {
         return 'x'
       },
     })
-    // 08:00 UTC on Sep 1st is 20:00 Sep 1st in Auckland
-    expect(titles.some((t) => t === '2026-09-01:true')).toBe(true)
+    // The photos are in Alberta: 08:00 UTC is 02:00 local on Sep 1st, before
+    // the 04:00 fallback, so the trip is numbered by Aug 31st there (not by
+    // the home zone, Auckland, where it would be Sep 1st).
+    expect(titles.some((t) => t === '2026-08-31:true')).toBe(true)
   })
 
   it('plans two authors walking the same trek with one shared trip', () => {

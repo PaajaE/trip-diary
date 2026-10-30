@@ -125,20 +125,31 @@ describe('ZS-5 intake into confirmed stops', () => {
     ).toHaveLength(1)
   })
 
-  it('never extends across the 04:00 local day boundary', () => {
-    // Prague (UTC+2 in July): the stop ends 03:30 local, the photo at 04:30
-    // local is 60 min later at the same place but on the next day.
+  // Prague (UTC+2 in July). Photographer awake all night in 2-3 h steps: no
+  // sleep gap over 4 h, so the day changes at the 04:00 fallback.
+  const awake = [
+    media('k1', '2026-07-09T20:30:00.000Z'), // 22:30
+    media('k2', '2026-07-09T22:50:00.000Z'), // 00:50
+    media('k3', '2026-07-10T05:10:00.000Z'), // 07:10
+  ]
+
+  it('never extends across the 04:00 fallback day boundary', () => {
+    // The stop ends 03:30 local, the photo at 04:30 local is 60 min later at
+    // the same place but on the next day.
     const stop = confirmed({
       endsAt: '2026-07-10T01:30:00.000Z',
       startsAt: '2026-07-10T01:00:00.000Z',
     })
-    const late = withLocked([media('n1', '2026-07-10T02:30:00.000Z')], stop)
+    const late = withLocked(
+      [...awake, media('n1', '2026-07-10T02:30:00.000Z')],
+      stop,
+    )
     const options = harnessOptions('Europe/Prague')
     expect(planOrganization(late, options).momentsToExtend).toEqual([])
     // ... and backwards: a stop starting at 04:30 local does not take in a
     // photo from 03:30 local (the previous day).
     const early = withLocked(
-      [media('n0', '2026-07-10T01:30:00.000Z')],
+      [...awake, media('n0', '2026-07-10T01:30:00.000Z')],
       confirmed({
         endsAt: '2026-07-10T03:00:00.000Z',
         startsAt: '2026-07-10T02:30:00.000Z',
@@ -154,6 +165,19 @@ describe('ZS-5 intake into confirmed stops', () => {
       }),
     )
     expect(planOrganization(sameDay, options).momentsToExtend).toHaveLength(1)
+  })
+
+  it('follows the night, not the clock: no sleep gap between 03:30 and 04:30', () => {
+    // Only these photos in the night: the long gap before them is the sleep,
+    // so 03:30 and 04:30 are the same morning and the stop may grow.
+    const stop = confirmed({
+      endsAt: '2026-07-10T01:30:00.000Z',
+      startsAt: '2026-07-10T01:00:00.000Z',
+    })
+    const late = withLocked([media('n1', '2026-07-10T02:30:00.000Z')], stop)
+    expect(
+      planOrganization(late, harnessOptions('Europe/Prague')).momentsToExtend,
+    ).toHaveLength(1)
   })
 
   it('needs the place to fit: a photo 2 km away does not join', () => {

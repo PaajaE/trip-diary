@@ -335,7 +335,7 @@ export function PublicJourneyPage({
           </section>
         ) : null}
         <TargetEngagement target={{ id: journey.id, type: 'journey' }} />
-        <GreetAuthorsBar />
+        <GreetAuthorsBar feedHref={`/${spaceHandle}/${journeySlug}/feed.xml`} />
       </div>
     </main>
   )
