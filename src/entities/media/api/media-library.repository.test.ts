@@ -51,6 +51,7 @@ for (const name of [
   'select',
   'update',
   'eq',
+  'neq',
   'is',
   'order',
   'range',
@@ -96,6 +97,23 @@ describe('media library repository', () => {
     await expect(listJourneyMedia(J)).rejects.toMatchObject({
       code: 'invalid_row',
     })
+  })
+
+  it('excludes found rows in the query and drops found/unknown statuses in the parser', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    result = {
+      data: [
+        row,
+        { ...row, id: '33333333-3333-4333-8333-333333333333', status: 'found' },
+        { ...row, id: '44444444-4444-4444-8444-444444444444', status: 'zzz' },
+      ],
+      error: null,
+    }
+    const items = await listJourneyMedia(J)
+    expect(chain.neq).toHaveBeenCalledWith('status', 'found')
+    expect(items.map((item) => item.id)).toEqual([A])
+    expect(warn).toHaveBeenCalledTimes(1)
+    warn.mockRestore()
   })
 
   it('reads the analysis columns and drops a malformed quality blob', async () => {

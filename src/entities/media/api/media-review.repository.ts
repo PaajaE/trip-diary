@@ -1,6 +1,6 @@
 import {
   MEDIA_WITH_VARIANTS,
-  toMediaItem,
+  toMediaItems,
 } from '@/entities/media/api/media-library.repository'
 import { countRpc } from '@/entities/media/api/media-trash.repository'
 import {
@@ -34,7 +34,7 @@ export async function listUnreviewedMedia(
   if (error !== null) {
     throw new MediaLibraryError('list_failed', error.message, error)
   }
-  return data.map(toMediaItem)
+  return toMediaItems(data)
 }
 
 /** How many media still wait to be sorted (same filter as the list). */

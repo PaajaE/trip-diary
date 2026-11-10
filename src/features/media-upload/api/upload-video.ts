@@ -14,12 +14,14 @@ import {
 } from '@/entities/media/api/media-upload.api'
 import {
   addVariant,
-  createMedia,
+  createOrPromoteMedia,
   deleteMedia,
+  deleteMediaVariants,
   markMediaFailed,
   markMediaReady,
 } from '@/entities/media/api/media.repository'
 import {
+  type CreateMediaResult,
   MediaUploadError,
   type MultipartCompleteResponse,
   type MultipartCreateResponse,
@@ -96,7 +98,10 @@ export interface UploadVideoDeps {
     parts: { etag: string; partNumber: number }[]
     uploadId: string
   }) => Promise<MultipartCompleteResponse>
-  createMedia: (input: NewPhotoMedia | NewVideoMedia) => Promise<void>
+  /** Resolves with the row id to upload into (a reused found row keeps its id); void = input.id. */
+  createMedia: (
+    input: NewPhotoMedia | NewVideoMedia,
+  ) => Promise<CreateMediaResult> | Promise<void>
   createMultipart: (input: {
     byteSize: number
     durationMs: number
@@ -104,6 +109,8 @@ export interface UploadVideoDeps {
   }) => Promise<MultipartCreateResponse>
   deleteExportedFiles: (fileUrls: string[]) => Promise<void>
   deleteMedia: (mediaId: string) => Promise<void>
+  /** Reused rows only: drops partial variants, keeps the media row. */
+  deleteMediaVariants: (mediaId: string) => Promise<void>
   deleteMediaObjects: (mediaId: string) => Promise<number>
   exportVideo: (assetId: string) => Promise<ExportedVideo>
   markMediaFailed: (mediaId: string) => Promise<void>
@@ -142,10 +149,11 @@ const defaultDeps: UploadVideoDeps = {
   addVariant,
   cancelUpload: cancelVideoUpload,
   completeMultipart,
-  createMedia,
+  createMedia: createOrPromoteMedia,
   createMultipart,
   deleteExportedFiles,
   deleteMedia,
+  deleteMediaVariants,
   deleteMediaObjects: deleteMediaObjectsRemote,
   exportVideo: (assetId) => exportVideo({ assetId }),
   markMediaFailed,
@@ -301,14 +309,14 @@ async function uploadExported(
   ) => void,
 ): Promise<UploadedVideo> {
   const captureTime = resolveVideoCaptureTime(options.assetMetadata)
-  const mediaId = deps.newId()
-  await deps.createMedia({
+  const newMediaId = deps.newId()
+  const created = await deps.createMedia({
     capturedAt: captureTime.capturedAt,
     capturedTz: captureTime.capturedTz,
     contentHash: null,
     durationMs: exported.durationMs,
     height: exported.height,
-    id: mediaId,
+    id: newMediaId,
     ...(options.journeyId === undefined
       ? {}
       : { journeyId: options.journeyId }),
@@ -321,6 +329,8 @@ async function uploadExported(
       ? {}
       : { sourceAssetId: options.sourceAssetId }),
   })
+  const mediaId = created?.mediaId ?? newMediaId
+  const reused = created?.reusedFoundRow === true
 
   let uploadId: string | null = null
   let stopUpload: () => Promise<void> = () => Promise.resolve()
@@ -430,12 +440,22 @@ async function uploadExported(
     if (uploadId !== null) {
       await deps.abortMultipart({ mediaId, uploadId }).catch(() => undefined)
     }
-    await deps.markMediaFailed(mediaId).catch(() => undefined)
-    try {
-      await deps.deleteMediaObjects(mediaId)
-      await deps.deleteMedia(mediaId)
-    } catch {
-      // R2 cleanup or row delete failed: keep the 'failed' row for later cleanup.
+    if (reused) {
+      // Existing found row: keep it (and its moment/star), stay 'pending'.
+      try {
+        await deps.deleteMediaObjects(mediaId)
+        await deps.deleteMediaVariants(mediaId)
+      } catch {
+        // Best effort; the retry replaces leftovers.
+      }
+    } else {
+      await deps.markMediaFailed(mediaId).catch(() => undefined)
+      try {
+        await deps.deleteMediaObjects(mediaId)
+        await deps.deleteMedia(mediaId)
+      } catch {
+        // R2 cleanup or row delete failed: keep the 'failed' row for later cleanup.
+      }
     }
     throw error instanceof MediaUploadError
       ? error

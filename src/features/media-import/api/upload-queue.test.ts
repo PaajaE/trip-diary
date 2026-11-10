@@ -269,6 +269,7 @@ describe('UploadQueue', () => {
     ['heic_unsupported', 'skipped'],
     ['video_too_long', 'skipped'],
     ['duplicate', 'skipped'],
+    ['dismissed', 'skipped'],
     ['video_too_large', 'skipped'],
     ['processing_failed', 'failed'],
   ] as const)('does not retry %s (becomes %s)', async (code, state) => {
@@ -529,6 +530,52 @@ describe('UploadQueue', () => {
       ])
       expect(again).toEqual({ enqueued: 1, known: 1, skipped: 0 })
       expect(states(queue)).toEqual({ a: 'pending', b: 'done' })
+    })
+  })
+
+  describe('batched dismissed check', () => {
+    it('skips dismissed jobs as `dismissed` without calling process', async () => {
+      const listDismissed = vi.fn(() => Promise.resolve(new Set(['b'])))
+      const { process, queue } = setup({ listDismissed })
+      await queue.init()
+      await queue.enqueue('photokit', [candidate('a'), candidate('b')])
+      queue.start()
+      await queue.whenSettled()
+      expect(listDismissed).toHaveBeenCalledTimes(1)
+      expect(listDismissed).toHaveBeenCalledWith(J, ['a', 'b'])
+      expect(states(queue)).toEqual({ a: 'done', b: 'skipped' })
+      expect(
+        queue.getSnapshot().jobs.find((j) => j.sourceId === 'b')?.lastError,
+      ).toBe('dismissed')
+      expect(process).toHaveBeenCalledTimes(1)
+      expect(process.mock.calls[0]?.[0].sourceId).toBe('a')
+    })
+
+    it('a failing check (offline / RPC error) never blocks the uploads', async () => {
+      const listDismissed = vi.fn(() => Promise.reject(new Error('offline')))
+      const { process, queue } = setup({ listDismissed })
+      await queue.init()
+      await queue.enqueue('photokit', [candidate('a'), candidate('b')])
+      queue.start()
+      await queue.whenSettled()
+      expect(states(queue)).toEqual({ a: 'done', b: 'done' })
+      expect(process).toHaveBeenCalledTimes(2)
+    })
+
+    it('does not look up anything while offline, and checks once back online', async () => {
+      const listDismissed = vi.fn(() => Promise.resolve(new Set(['a'])))
+      const { comesOnline, env, process, queue } = setup({ listDismissed })
+      await queue.init()
+      await queue.enqueue('photokit', [candidate('a')])
+      env.online = false
+      queue.start()
+      await queue.whenSettled()
+      expect(listDismissed).not.toHaveBeenCalled()
+      comesOnline()
+      await queue.whenSettled()
+      expect(listDismissed).toHaveBeenCalledTimes(1)
+      expect(process).not.toHaveBeenCalled()
+      expect(states(queue)).toEqual({ a: 'skipped' })
     })
   })
 })

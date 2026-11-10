@@ -5,6 +5,7 @@ import {
 import { MediaLibraryError } from '@/shared/lib/media-library'
 
 const SKIPPED_UPLOAD_CODES: ReadonlySet<MediaUploadErrorCode> = new Set([
+  'dismissed',
   'duplicate',
   'heic_unsupported',
   'video_too_large',

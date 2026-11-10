@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import {
   MEDIA_WITH_VARIANTS,
-  toMediaItem,
+  toMediaItems,
 } from '@/entities/media/api/media-library.repository'
 import type { MediaItem } from '@/entities/media/model/media-library'
 import { getSupabaseClient } from '@/shared/api/supabase'
@@ -73,9 +73,6 @@ export async function getCoverMedia(
     .eq('status', 'ready')
     .is('deleted_at', null)
   if (error !== null) throw new Error(error.message)
-  for (const row of data) {
-    const item = toMediaItem(row)
-    covers.set(item.id, item)
-  }
+  for (const item of toMediaItems(data)) covers.set(item.id, item)
   return covers
 }

@@ -54,6 +54,10 @@ function makeDeps(calls: string[], overrides: Partial<UploadPhotoDeps> = {}) {
       calls.push('delete-r2')
       return Promise.resolve(2)
     }),
+    deleteMediaVariants: vi.fn(() => {
+      calls.push('delete-variants')
+      return Promise.resolve()
+    }),
     hashFile: vi.fn(() => Promise.resolve('a'.repeat(64))),
     markMediaFailed: vi.fn(() => {
       calls.push('failed')
@@ -87,7 +91,7 @@ function makeDeps(calls: string[], overrides: Partial<UploadPhotoDeps> = {}) {
       calls.push(`sign:${input.kind}`)
       return Promise.resolve({
         headers: { 'content-type': input.contentType },
-        key: `${OWNER}/${MEDIA}/${input.kind}.webp`,
+        key: `${OWNER}/${input.mediaId}/${input.kind}.webp`,
         publicUrl: `https://cdn/${input.kind}`,
         url: `https://r2/${input.kind}`,
       })
@@ -376,6 +380,97 @@ describe('uploadPhoto', () => {
       uploadPhoto(file, { deps, ownerId: OWNER }),
     ).rejects.toMatchObject({ code: 'duplicate' })
     expect(calls).toEqual([])
+  })
+})
+
+describe('uploadPhoto with a reused found row', () => {
+  const FOUND = '44444444-4444-4444-8444-444444444444'
+
+  it('uploads into the id createMedia returns and finalises that row', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      createMedia: vi.fn(() =>
+        Promise.resolve({ mediaId: FOUND, reusedFoundRow: true }),
+      ),
+      signPut: vi.fn((input: Parameters<UploadPhotoDeps['signPut']>[0]) =>
+        Promise.resolve({
+          headers: {},
+          key: `${OWNER}/${input.mediaId}/${input.kind}.webp`,
+          publicUrl: `https://cdn/${input.kind}`,
+          url: `https://r2/${input.kind}`,
+        }),
+      ),
+    })
+    const result = await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(result.mediaId).toBe(FOUND)
+    expect(deps.markMediaReady).toHaveBeenCalledWith(FOUND)
+    expect(deps.addVariant).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaId: FOUND }),
+    )
+  })
+
+  it('a dismissed row stops before any upload work', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      createMedia: vi.fn(() =>
+        Promise.reject(new MediaUploadError('dismissed')),
+      ),
+    })
+    await expect(
+      uploadPhoto(file, { deps, ownerId: OWNER }),
+    ).rejects.toMatchObject({ code: 'dismissed' })
+    expect(deps.signPut).not.toHaveBeenCalled()
+    expect(calls).toEqual([])
+  })
+})
+
+describe('uploadPhoto failure cleanup of reused vs created rows', () => {
+  const FOUND = '44444444-4444-4444-8444-444444444444'
+  const failingPut = (): UploadPhotoDeps['put'] =>
+    vi.fn(() => Promise.reject(new Error('net')))
+
+  it('a reused found row is neither failed nor deleted; partial objects and variants go', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      createMedia: vi.fn(() =>
+        Promise.resolve({ mediaId: FOUND, reusedFoundRow: true }),
+      ),
+      put: failingPut(),
+    })
+    await expect(
+      uploadPhoto(file, { deps, ownerId: OWNER }),
+    ).rejects.toMatchObject({ code: 'upload_failed' })
+    expect(deps.markMediaFailed).not.toHaveBeenCalled()
+    expect(deps.deleteMedia).not.toHaveBeenCalled()
+    expect(deps.deleteMediaObjects).toHaveBeenCalledWith(FOUND)
+    expect(deps.deleteMediaVariants).toHaveBeenCalledWith(FOUND)
+  })
+
+  it('retry after a failed reused upload resumes the same id', async () => {
+    const ids: string[] = []
+    const createMedia = vi.fn(() => {
+      ids.push(FOUND)
+      return Promise.resolve({ mediaId: FOUND, reusedFoundRow: true })
+    })
+    const first = makeDeps([], { createMedia, put: failingPut() })
+    await expect(
+      uploadPhoto(file, { deps: first, ownerId: OWNER }),
+    ).rejects.toBeInstanceOf(MediaUploadError)
+    const second = makeDeps([], { createMedia })
+    const result = await uploadPhoto(file, { deps: second, ownerId: OWNER })
+    expect(ids).toEqual([FOUND, FOUND])
+    expect(result.mediaId).toBe(FOUND)
+    expect(second.markMediaReady).toHaveBeenCalledWith(FOUND)
+  })
+
+  it('a row created by this attempt is cleaned exactly as before', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, { put: failingPut() })
+    await expect(
+      uploadPhoto(file, { deps, ownerId: OWNER }),
+    ).rejects.toMatchObject({ code: 'upload_failed' })
+    expect(calls.slice(-3)).toEqual(['failed', 'delete-r2', 'delete-row'])
+    expect(deps.deleteMediaVariants).not.toHaveBeenCalled()
   })
 })
 

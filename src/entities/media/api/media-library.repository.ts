@@ -6,6 +6,7 @@ import {
   type MediaMetaPatch,
   mediaItemSchema,
 } from '@/entities/media/model/media-library'
+import { mediaStatusSchema } from '@/entities/media/model/media'
 import { fetchAllPages } from '@/shared/api/fetch-all-pages'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
@@ -67,8 +68,31 @@ export function toMediaItem(row: MediaWithVariants): MediaItem {
 }
 
 /**
- * Lists a journey's live media (all upload statuses, trashed rows excluded)
- * with variants, oldest capture first.
+ * Maps rows of an "uploaded media" list. Found rows (metadata only, no file)
+ * are never part of these lists: they are dropped, as is a row whose status
+ * this app does not know (a newer database enum value), so one odd row can
+ * never fail a whole list. Queries also filter found rows server-side.
+ */
+export function toMediaItems(rows: readonly MediaWithVariants[]): MediaItem[] {
+  const items: MediaItem[] = []
+  for (const row of rows) {
+    const status = mediaStatusSchema.safeParse(row.status)
+    if (!status.success) {
+      console.warn('[media] dropped a row with an unknown status', {
+        id: row.id,
+        status: row.status,
+      })
+      continue
+    }
+    if (status.data === 'found') continue
+    items.push(toMediaItem(row))
+  }
+  return items
+}
+
+/**
+ * Lists a journey's live media (all upload statuses, trashed rows and found
+ * rows excluded) with variants, oldest capture first.
  */
 export async function listJourneyMedia(
   journeyId: string,
@@ -78,6 +102,7 @@ export async function listJourneyMedia(
       .from('media')
       .select(MEDIA_WITH_VARIANTS)
       .eq('journey_id', journeyId)
+      .neq('status', 'found')
       .is('deleted_at', null)
       .order('captured_at', { ascending: true, nullsFirst: false })
       .order('id', { ascending: true })
@@ -86,7 +111,7 @@ export async function listJourneyMedia(
   if (error !== null) {
     throw new MediaLibraryError('list_failed', error.message, error)
   }
-  return data.map(toMediaItem)
+  return toMediaItems(data)
 }
 
 async function updateMedia(

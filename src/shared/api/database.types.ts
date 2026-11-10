@@ -1874,6 +1874,18 @@ export type Database = {
         Args: { p_handle: string; p_name: string }
         Returns: string
       }
+      create_found_media: {
+        Args: { p_items: Json; p_journey_id: string }
+        Returns: {
+          asset_id: string
+          current_status: Database['public']['Enums']['media_status']
+          dropped: boolean
+          in_journey_id: string
+          kept: boolean
+          media_id: string
+          outcome: string
+        }[]
+      }
       create_journey_guide_section: {
         Args: { p_body?: string; p_journey_id: string; p_title: string }
         Returns: string
@@ -1915,6 +1927,14 @@ export type Database = {
       delete_moment: {
         Args: { p_mode: string; p_moment_id: string }
         Returns: undefined
+      }
+      found_media_batch_journey: {
+        Args: { p_fn: string; p_media_ids: string[] }
+        Returns: string
+      }
+      found_media_insert: {
+        Args: { p_items: Json; p_journey_id: string }
+        Returns: string[]
       }
       get_journey_invite_preview: {
         Args: { p_raw_token: string }
@@ -1991,6 +2011,15 @@ export type Database = {
         Args: { p_journey_id: string }
         Returns: string
       }
+      known_source_assets: {
+        Args: { p_journey_id: string; p_source_asset_ids: string[] }
+        Returns: {
+          in_journey_id: string
+          media_id: string
+          source_asset_id: string
+          state: string
+        }[]
+      }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
       list_journey_pending_invites: {
         Args: { p_journey_id: string }
@@ -2026,6 +2055,7 @@ export type Database = {
         Args: { p_media_ids: string[]; p_reviewed?: boolean }
         Returns: number
       }
+      media_actionable_ids: { Args: { p_ids: string[] }; Returns: string[] }
       media_batch_journey: {
         Args: { p_fn: string; p_media_ids: string[] }
         Returns: string
@@ -2130,6 +2160,14 @@ export type Database = {
         }
         Returns: string
       }
+      promote_found_media: {
+        Args: { p_items: Json }
+        Returns: {
+          duplicate_of: string
+          media_id: string
+          outcome: string
+        }[]
+      }
       purge_media: { Args: { p_media_ids: string[] }; Returns: string[] }
       remove_space_member: {
         Args: { p_space_id: string; p_user_id: string }
@@ -2187,6 +2225,10 @@ export type Database = {
         Returns: string
       }
       trash_media: { Args: { p_media_ids: string[] }; Returns: number }
+      triage_found_media: {
+        Args: { p_decision: string; p_media_ids: string[] }
+        Returns: number
+      }
       update_entry: {
         Args: {
           p_body: string
@@ -2280,7 +2322,7 @@ export type Database = {
       journey_stop_status: 'planned' | 'visited'
       journey_visibility: 'public' | 'private'
       media_kind: 'photo' | 'video'
-      media_status: 'pending' | 'uploading' | 'ready' | 'failed'
+      media_status: 'pending' | 'uploading' | 'ready' | 'failed' | 'found'
       media_variant_kind:
         | 'thumb'
         | 'small'
@@ -2466,7 +2508,7 @@ export const Constants = {
       journey_stop_status: ['planned', 'visited'],
       journey_visibility: ['public', 'private'],
       media_kind: ['photo', 'video'],
-      media_status: ['pending', 'uploading', 'ready', 'failed'],
+      media_status: ['pending', 'uploading', 'ready', 'failed', 'found'],
       media_variant_kind: [
         'thumb',
         'small',

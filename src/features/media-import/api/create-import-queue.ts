@@ -1,3 +1,4 @@
+import { knownSourceAssets } from '@/entities/media/api/media-found.repository'
 import { listExistingSourceAssetIds } from '@/entities/media/api/media.repository'
 import { dexieUploadJobStore } from '@/entities/media/api/upload-jobs.store'
 import type { ImportSourceKind } from '@/entities/media/model/upload-job'
@@ -21,6 +22,14 @@ export function createImportQueue(
     clock: () => Date.now(),
     isOnline: isBrowserOnline,
     journeyId,
+    listDismissed: async (journey, sourceIds) => {
+      const known = await knownSourceAssets(journey, sourceIds)
+      return new Set(
+        known
+          .filter((r) => r.state === 'dismissed')
+          .map((r) => r.sourceAssetId),
+      )
+    },
     listExisting: listExistingSourceAssetIds,
     onOnline: browserOnlineEvents,
     ownerId,

@@ -1,3 +1,4 @@
+import { knownSourceAssets } from '@/entities/media/api/media-found.repository'
 import type { UploadJob } from '@/entities/media/model/upload-job'
 import {
   uploadPhoto,
@@ -20,6 +21,11 @@ import type {
 } from '@/features/media-import/model/types'
 
 export interface ImportProcessorDeps {
+  /**
+   * Per-job safety net before any export/processing: true when the source
+   * asset is dismissed. A rejection means "unknown" and the job proceeds.
+   */
+  isDismissed: (job: UploadJob) => Promise<boolean>
   /** Resolved lazily: sources are chosen after the queue is created. */
   getSource: (kind: ImportSourceKind) => MediaSource | undefined
   uploadPhoto: (
@@ -31,6 +37,14 @@ export interface ImportProcessorDeps {
     file: File,
     options: UploadWebVideoOptions,
   ) => Promise<{ mediaId: string }>
+}
+
+/** Default: one known_source_assets lookup for the job's source id. */
+export async function isSourceDismissed(job: UploadJob): Promise<boolean> {
+  const known = await knownSourceAssets(job.journeyId, [job.sourceId])
+  return known.some(
+    (row) => row.sourceAssetId === job.sourceId && row.state === 'dismissed',
+  )
 }
 
 export function jobToCandidate(job: UploadJob): ImportCandidate {
@@ -54,6 +68,7 @@ export function createImportProcessor(
   deps: Partial<ImportProcessorDeps> & Pick<ImportProcessorDeps, 'getSource'>,
 ): (job: UploadJob, hooks: JobHooks) => Promise<{ mediaId: string }> {
   const upload = deps.uploadPhoto ?? uploadPhoto
+  const isDismissed = deps.isDismissed ?? isSourceDismissed
   const uploadVid = deps.uploadVideo ?? uploadVideo
   const uploadWebVid = deps.uploadWebVideo ?? uploadWebVideo
   const runWebVideo = async (
@@ -94,6 +109,11 @@ export function createImportProcessor(
     }
   }
   return async (job, hooks) => {
+    // Before exportPhoto / uploadVideo(assetId) / reading a web file: a
+    // dismissed asset must not be exported (iCloud download, CPU, battery).
+    // The check never blocks an upload: any failure (offline) proceeds.
+    const dismissed = await isDismissed(job).catch(() => false)
+    if (dismissed) throw new ImportJobError('skip', 'dismissed')
     if (job.mediaType === 'video') {
       if (job.sourceKind !== 'photokit') {
         return runWebVideo(job, hooks)

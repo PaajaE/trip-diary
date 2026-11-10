@@ -7,6 +7,7 @@ export type MediaVariantKind = ImageVariantKind
 export type MediaUploadErrorCode =
   | 'create_failed'
   | 'delete_failed'
+  | 'dismissed'
   | 'duplicate'
   | 'export_failed'
   | 'finalize_failed'
@@ -72,13 +73,25 @@ export type MultipartCompleteResponse = z.infer<
 
 export const deleteMediaResponseSchema = z.object({ deleted: z.number() })
 
+/**
+ * 'found' = metadata known, file not uploaded yet (triage before upload).
+ * Such rows are never part of the uploaded-media lists; see media-triage.ts.
+ */
 export const mediaStatusSchema = z.enum([
   'pending',
   'uploading',
   'ready',
   'failed',
+  'found',
 ])
 export type MediaStatus = z.infer<typeof mediaStatusSchema>
+
+/** What createMedia did: the row id to upload into (a promoted found row keeps its id). */
+export interface CreateMediaResult {
+  mediaId: string
+  /** True when an existing found/kept row was promoted instead of inserting. */
+  reusedFoundRow: boolean
+}
 
 export interface NewPhotoMedia {
   capturedAt: string | null

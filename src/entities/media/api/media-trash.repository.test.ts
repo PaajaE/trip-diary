@@ -17,7 +17,7 @@ let rpcResult: { data: unknown; error: unknown } = { data: 0, error: null }
 const rpc = vi.fn(() => Promise.resolve(rpcResult))
 let listResult: { data: unknown; error: unknown } = { data: [], error: null }
 const chain: Record<string, ReturnType<typeof vi.fn>> = {}
-for (const name of ['select', 'eq', 'not', 'order', 'range']) {
+for (const name of ['select', 'eq', 'neq', 'not', 'order', 'range']) {
   chain[name] = vi.fn(() => Object.assign(Promise.resolve(listResult), chain))
 }
 const from = vi.fn(() => chain)
@@ -142,6 +142,7 @@ describe('listTrashedMedia', () => {
     await listTrashedMedia(J)
     expect(from).toHaveBeenCalledWith('media')
     expect(chain.eq).toHaveBeenCalledWith('journey_id', J)
+    expect(chain.neq).toHaveBeenCalledWith('status', 'found')
     expect(chain.not).toHaveBeenCalledWith('deleted_at', 'is', null)
     expect(chain.order).toHaveBeenCalledWith('deleted_at', { ascending: false })
   })
