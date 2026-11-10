@@ -185,25 +185,26 @@ for (const row of list) {
         }),
       )
     }
+    // One data.json per journey, shared by all its pages (the tree is
+    // megabytes; inlining it in every page made the Pages artifact huge).
+    // The hero mirror must be known first: the file carries it.
+    const journeyPage = pages.find((page) => page.kind === 'journey')
+    if (journeyPage !== undefined) {
+      // The React hero swaps the same remote URL for the same-origin copy,
+      // so the image is downloaded once, not twice.
+      const mirror = await mirrorHero(journeyPage)
+      if (mirror !== null) embed.heroMirror = mirror
+    }
+    const dataPath = `${base}/${handle}/${slug}/data.json`
+    await mkdir(join(distDir, handle, slug), { recursive: true })
+    await writeFile(
+      join(distDir, handle, slug, 'data.json'),
+      serializeJsonForScript(embed),
+    )
     for (const page of pages) {
-      if (page.kind === 'journey') {
-        // The React hero swaps the same remote URL for the same-origin copy,
-        // so the image is downloaded once, not twice.
-        const mirror = await mirrorHero(page)
-        if (mirror !== null) embed.heroMirror = mirror
-      }
-      // Journey page: the tree is a separate file, not inlined (HTML size).
+      // A journey page without a shell keeps the tree inline (one page).
       const dataUrl =
-        page.kind === 'journey' && page.shell
-          ? `${base}/${page.dir}/data.json`
-          : undefined
-      if (dataUrl !== undefined) {
-        await mkdir(join(distDir, page.dir), { recursive: true })
-        await writeFile(
-          join(distDir, page.dir, 'data.json'),
-          serializeJsonForScript(embed),
-        )
-      }
+        page.kind === 'journey' && !page.shell ? undefined : dataPath
       await writePage(
         page.dir,
         renderPage(template, page, {
