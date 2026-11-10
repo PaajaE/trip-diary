@@ -529,6 +529,8 @@ Průběh 2026-10-24 (větev `claude/affectionate-knuth-8abj8b`, PR #46): impleme
 
 Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře, **aplikace nespuštěna, reálná data nečtena**) a diskuse nad ním. Uživatel schválil všechna doporučení (rozhodnutí 10). Plán, DB kontrakt ZS-D1–D4 a úkoly ZS-0–ZS-8 jsou v [plan-v2.md](plan-v2.md), kap. 5, Fáze 4f. Balík A (základy) je sloučený, balík B (algoritmus ZS-3, ZS-4) je sloučený; balík C (tok ZS-5 až ZS-7) je v PR a čeká na ověření na zařízení.
 
+- **Rychlé opravy importu a prohlížeče (2026-11-10, 🟡 IMPLEMENTED, zařízení UNVERIFIED):** výběr z knihovny už nespouští nahrávání (souhrn + „Nahrát N“ v přilepeném panelu), jeden vstup, nativní checkbox/radio z tokenů, akce prohlížeče v přilepené liště. Chování na iOS (WKWebView, safe area) neověřeno.
+
 **Balík A — Základy (2026-10-26, větev `claude/kind-hawking-wuv63g`, 🟡 IMPLEMENTED):**
 
 - **ZS-1** (migrace `20261027120000`–`20261027120300`, pgTAP): `moments.kind`, `trip_type` `walk`, `media.device`, den od 4:00 místního času (`local_day`, `journey_day_zones`, `pick_local_day`; `journey_progress`, `search_journey` a `get_public_journey` je používají). Lokálně se `db:*` nedaly spustit (Docker nestáhne image, chybí Supabase CLI), `database.types.ts` je upraven ručně. **CI na PR #51 zelené:** `db:test` 38 souborů / 763 testů, `db:lint`, `db:types` bez rozdílu. **Oprava:** migrace `20261027120000`–`20261027120300` jsou po sloučení #51 v produkci (ověřeno čtením `list_migrations` 2026-10-26; aplikoval je nasazovací workflow, ne orchestrátor). Dřívější věta „do produkce nic neaplikováno“ platila jen do merge.

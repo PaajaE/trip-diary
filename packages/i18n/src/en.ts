@@ -715,7 +715,7 @@ export const en = {
     accessDenied:
       'Access to the photo library is not allowed. Enable it in the system Settings and try again.',
     back: 'Back to the journey',
-    byDate: 'By date',
+    byDate: 'Or find by date',
     cancel: 'Stop and clear the waiting items',
     chooseFiles: 'Choose files',
     chooseFromLibrary: 'Choose from library',
@@ -728,8 +728,7 @@ export const en = {
     dateFrom: 'From',
     dateTo: 'To',
     finished: 'Import finished: {{count}} imported.',
-    icloudHint:
-      'Downloading originals from iCloud can take a long time and uses mobile data. Leave it off to import only what is stored on this device.',
+    icloudHint: 'Can take a long time and uses mobile data.',
     icloudLabel: 'Download originals from iCloud',
     itemPhoto: 'Photo {{name}}',
     itemVideo: 'Video {{name}}',
@@ -743,7 +742,6 @@ export const en = {
     sortBatch: 'Sort the batch',
     sortOffer: 'The uploaded media is waiting to be sorted into stops.',
     pause: 'Pause',
-    pickedCount: 'Selected: {{count}}',
     pickedLimited:
       '{{count}} of the selected items are outside the photos this app can access and were left out.',
     picking: 'Opening the library…',
@@ -758,7 +756,7 @@ export const en = {
     rangeAll: 'Everything',
     rangeDates: 'Date range',
     rangeLabel: 'What to import',
-    rangeSince: 'Everything since the last import ({{date}})',
+    rangeSince: 'Since the last import ({{date}})',
     reason: {
       asset_unavailable:
         'The original is only in iCloud. Turn on downloading from iCloud and retry.',
@@ -776,9 +774,10 @@ export const en = {
     },
     resume: 'Resume',
     retryFailed: 'Retry failed',
-    scan: 'Scan the photo library',
+    scan: 'Find in library',
     scanning: 'Scanning…',
     start: 'Start import',
+    startCount: 'Upload {{count}}',
     state: {
       done: 'Done: {{count}}',
       failed: 'Failed: {{count}}',
@@ -901,6 +900,7 @@ export const en = {
     filmstrip: 'Photos of this stop',
     goTo: 'Show item {{n}} of {{total}}',
     moment: 'Stop',
+    details: 'Caption and time',
     moreActions: 'More actions',
     moveToMoment: 'Move to stop',
     next: 'Next photo',
