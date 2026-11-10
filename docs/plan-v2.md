@@ -684,7 +684,7 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
 - **RPC (vše `security definer`, jen `authenticated`, zápis smí editor a jen vlastní řádky, dávka
   až 5000, klient posílá 1000–2000):** `create_found_media(journey, items jsonb)` (hromadně,
   idempotentně podle `(owner, source_asset_id)`, jeden příkaz bez smyček), `triage_found_media(ids,
-  'keep'|'drop'|'restore'|'undecided')`, `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
+'keep'|'drop'|'restore'|'undecided')`, `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
   zapíše `content_hash`, hlásí `duplicate`). Pak platí dnešní tok `uploading → ready`.
 - **Invarianty:** veřejné RPC už filtrují `status = 'ready'`, nic se v nich nemění; `found` nemá
   varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` jen
