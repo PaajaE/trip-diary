@@ -82,6 +82,7 @@ export function demoCandidates({ total }: DemoOptions): ImportCandidate[] {
       const at = new Date(
         startDay + dayIndex * 86_400_000 + (minutes + 360) * 60_000,
       )
+      const isVideo = n % 18 === 5 && n < 320
       const noGps = n % 14 === 3 && n < 23 * 14 // ~23 without location
       const place = DAY_PLACES[dayIndex % DAY_PLACES.length] ?? null
       out.push({
@@ -91,10 +92,10 @@ export function demoCandidates({ total }: DemoOptions): ImportCandidate[] {
             : null,
         byteSize: null,
         capturedAt: at.toISOString(),
-        durationMs: n % 18 === 5 ? 24_000 : null,
+        durationMs: isVideo ? 24_000 : null,
         latitude: noGps ? null : 51.1 - dayIndex * 0.12 + random() * 0.05,
         longitude: noGps ? null : -114 - dayIndex * 0.6 + random() * 0.05,
-        mediaType: n % 18 === 5 ? 'video' : 'photo',
+        mediaType: isVideo ? 'video' : 'photo',
         place,
         sourceId: `demo-${String(n)}`,
       })
@@ -113,7 +114,7 @@ export function demoCandidates({ total }: DemoOptions): ImportCandidate[] {
 /** Whether the demo item is "only in iCloud" (no local preview). */
 export function isDemoCloud(sourceId: string): boolean {
   const n = Number(sourceId.split('-')[1] ?? '-1')
-  return n >= 0 && n < 330 && n % 23 === 4
+  return n >= 0 && n < 320 && n % 23 === 4
 }
 
 export interface SeedOptions {

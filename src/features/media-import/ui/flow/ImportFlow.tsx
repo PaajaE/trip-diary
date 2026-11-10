@@ -8,6 +8,10 @@ import {
 import { dayKey } from '@/features/media-import/model/triage'
 import type { ImportRange } from '@/features/media-import/model/types'
 import {
+  ConfirmAllSheet,
+  OverviewScreen,
+} from '@/features/media-import/ui/flow/OverviewScreens'
+import {
   DeniedScreen,
   RangeSheet,
   ReadingScreen,
@@ -126,6 +130,9 @@ export function ImportFlow(props: ImportFlowProps) {
       }
     : undefined
 
+  const uploadable = flow.scope.filter((item) => item.status !== 'dismissed')
+  const uploadableCloud = uploadable.filter((item) => item.icloudOnly).length
+
   const sinceRangeValue: ImportRange | undefined =
     props.lastImportAt === null ? undefined : sinceRange(props.lastImportAt)
 
@@ -178,6 +185,30 @@ export function ImportFlow(props: ImportFlowProps) {
         />
       )
       break
+    case 'overview':
+      screen = (
+        <OverviewScreen
+          dismissedBefore={flow.previouslyDismissed.length}
+          items={flow.scope}
+          locale={i18n.language}
+          onAll={() => {
+            flow.setSheet({ kind: 'confirmAll' })
+          }}
+          onBack={() => {
+            flow.setStep('select')
+          }}
+          onShowDismissed={() => {
+            flow.setStep('dismissed')
+          }}
+          onTriage={() => {
+            flow.setFilter('all')
+            flow.setStep('grid')
+          }}
+          skipped={flow.summary.skipped}
+          timeZone={props.timeZone}
+        />
+      )
+      break
     case 'reading':
       screen = (
         <ReadingScreen onCancel={flow.cancelRead} progress={flow.progress} />
@@ -190,13 +221,32 @@ export function ImportFlow(props: ImportFlowProps) {
     case 'grid':
     case 'icloudWaiting':
     case 'loading':
-    case 'overview':
     case 'quick':
     case 'resume':
     case 'series':
     case 'upload':
       screen = null
   }
+
+  const sheetNode =
+    flow.sheet?.kind === 'confirmAll' ? (
+      <ConfirmAllSheet
+        count={uploadable.length}
+        icloudCount={uploadableCloud}
+        icloudDownload={flow.icloudDownload}
+        items={uploadable}
+        locale={i18n.language}
+        onClose={() => {
+          flow.setSheet(null)
+        }}
+        onGo={() => void flow.startUpload('all')}
+        onIcloud={flow.setIcloudDownload}
+        onReview={() => {
+          flow.setSheet(null)
+          flow.setStep('grid')
+        }}
+      />
+    ) : null
 
   return (
     <div
@@ -205,6 +255,7 @@ export function ImportFlow(props: ImportFlowProps) {
       data-testid="import-flow"
     >
       {screen}
+      {sheetNode}
       {flow.sheet?.kind === 'range' ? (
         <RangeSheet
           count={rangeCount}
