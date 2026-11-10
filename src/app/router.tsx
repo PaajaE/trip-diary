@@ -24,6 +24,7 @@ import {
   LazyJourneyWorkspaceRoutePage,
   LazyMediaLibraryDiagnosticsPage,
   LazyVideoUploadDevPage,
+  LazyImportTriageDevPage,
   LazyMediaUploadDevPage,
   LazySettingsRoutePage,
   LazyJourneyQuickNoteRoutePage,
@@ -262,6 +263,13 @@ const mediaUploadDevRoute = createRoute({
   component: LazyMediaUploadDevPage,
 })
 
+// Import flow harness over a fake library: web dev builds only.
+const importTriageDevRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/dev/import-triage',
+  component: LazyImportTriageDevPage,
+})
+
 const publicSpaceRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/$spaceHandle',
@@ -318,7 +326,7 @@ const routeTree = rootRoute.addChildren([
     ? [mediaLibraryDiagnosticsRoute, videoUploadDevRoute]
     : []),
   ...(import.meta.env.DEV && !Capacitor.isNativePlatform()
-    ? [mediaUploadDevRoute]
+    ? [mediaUploadDevRoute, importTriageDevRoute]
     : []),
   publicSpaceRoute,
   publicJourneyRoute,

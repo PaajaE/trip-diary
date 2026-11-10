@@ -129,3 +129,8 @@ export function resolveRange(choice: RangeChoice): ImportRange | undefined {
       return dayRange(choice.fromDay, choice.toDay, choice.timeZone)
   }
 }
+
+/** 'YYYY-MM-DD' of a Date in the device calendar (for date inputs). */
+export function isoDay(date: Date): string {
+  return `${String(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}

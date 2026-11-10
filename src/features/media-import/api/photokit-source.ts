@@ -46,6 +46,7 @@ export function toCandidate(asset: MediaLibraryAsset): ImportCandidate | null {
   const video = asset.mediaType === 'video'
   const durationMs = asset.durationMs ?? null
   return {
+    burstId: asset.burstId ?? null,
     capturedAt: asset.creationDate ?? null,
     durationMs: video ? durationMs : null,
     latitude: asset.latitude ?? null,

@@ -13,6 +13,8 @@ export type ImportSkipReason =
   | 'video_too_long'
 
 export interface ImportCandidate {
+  /** Burst / live series id when the library knows one. */
+  burstId?: string | null
   byteSize?: number | null
   /** Exact UTC instant (ISO 8601) or null when the source does not know it. */
   capturedAt: string | null
@@ -20,6 +22,8 @@ export interface ImportCandidate {
   latitude: number | null
   longitude: number | null
   mediaType: 'photo' | 'video'
+  /** Place name when the source knows one. */
+  place?: string | null
   /** Set when the candidate can never be imported (listed as skipped). */
   skipReason?: ImportSkipReason
   /** PHAsset local id, or for web a stable id (name + size + lastModified). */
