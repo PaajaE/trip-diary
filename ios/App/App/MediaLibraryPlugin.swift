@@ -3,6 +3,7 @@ import Capacitor
 import Photos
 import ImageIO
 import PhotosUI
+import UIKit
 
 /// Reads the device photo library through PhotoKit.
 ///
@@ -20,7 +21,9 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "pickAssets", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "readEmbeddedMetadata", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "exportPhoto", returnType: CAPPluginReturnPromise),
-        CAPPluginMethod(name: "deletePhotoExports", returnType: CAPPluginReturnPromise)
+        CAPPluginMethod(name: "deletePhotoExports", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getThumbnails", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "deleteThumbnails", returnType: CAPPluginReturnPromise)
     ]
 
     private static let isoFormatter: ISO8601DateFormatter = {
@@ -29,6 +32,13 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         formatter.timeZone = TimeZone(identifier: "UTC")
         return formatter
     }()
+
+    public override func load() {
+        // Thumbnails are a disposable cache: drop files untouched for 7 days.
+        DispatchQueue.global(qos: .utility).async {
+            ThumbnailSupport.purgeExpired()
+        }
+    }
 
     @objc func getAuthorizationStatus(_ call: CAPPluginCall) {
         call.resolve(["status": Self.statusName(PHPhotoLibrary.authorizationStatus(for: .readWrite))])
@@ -324,6 +334,131 @@ public class MediaLibraryPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    // MARK: - Thumbnails
+
+    /// Small JPEG previews for triage before upload (Caches/media-thumbs).
+    /// `ids` (1...60), `size` = longest edge px (clamped 96...512, default 256),
+    /// `allowNetwork` (default false: iCloud-only assets come back `unavailable`).
+    /// Resolves `{ thumbnails: [{ id, unavailable, fileUrl?, width?, height? }] }` in
+    /// request order; per-asset failures are `unavailable: true`, never a rejection.
+    /// Videos return the poster frame. Rejects: NOT_AUTHORIZED, THUMBNAIL_FAILED.
+    @objc func getThumbnails(_ call: CAPPluginCall) {
+        guard let ids = call.getArray("ids", String.self),
+              !ids.isEmpty, ids.count <= ThumbnailSupport.maxIdsPerCall else {
+            call.reject("ids must contain 1...\(ThumbnailSupport.maxIdsPerCall) entries", "THUMBNAIL_FAILED")
+            return
+        }
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        guard status == .authorized || status == .limited else {
+            call.reject("Photo library access not granted", "NOT_AUTHORIZED")
+            return
+        }
+        let size = ThumbnailSupport.clampSize(call.getInt("size"))
+        let allowNetwork = call.getBool("allowNetwork") ?? false
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            guard let directory = try? ThumbnailSupport.directory() else {
+                call.reject("Cannot create thumbnail directory", "THUMBNAIL_FAILED")
+                return
+            }
+            // Under limited access, assets outside the selection are simply not returned.
+            var byId: [String: PHAsset] = [:]
+            PHAsset.fetchAssets(withLocalIdentifiers: ids, options: nil)
+                .enumerateObjects { asset, _, _ in byId[asset.localIdentifier] = asset }
+
+            let results = ThumbnailResults(count: ids.count)
+            let queue = OperationQueue()
+            queue.maxConcurrentOperationCount = ThumbnailSupport.concurrency
+            queue.qualityOfService = .userInitiated
+            for (index, id) in ids.enumerated() {
+                queue.addOperation {
+                    let item = Self.thumbnail(
+                        for: byId[id], id: id, size: size, allowNetwork: allowNetwork, directory: directory)
+                    results.set(index, item)
+                }
+            }
+            queue.waitUntilAllOperationsAreFinished()
+            call.resolve(["thumbnails": results.all()])
+        }
+    }
+
+    /// Runs on a queue worker (never the main thread); blocks it until PhotoKit answers.
+    private static func thumbnail(
+        for asset: PHAsset?, id: String, size: Int, allowNetwork: Bool, directory: URL
+    ) -> JSObject {
+        let unavailable: JSObject = ["id": id, "unavailable": true]
+        guard let asset else { return unavailable }
+
+        let url = directory.appendingPathComponent(ThumbnailSupport.fileName(id: id, size: size))
+        if let cached = ThumbnailSupport.pixelSize(of: url) {
+            // Touch so the 7-day purge keeps files that are still in use.
+            try? FileManager.default.setAttributes([.modificationDate: Date()], ofItemAtPath: url.path)
+            return ready(id: id, url: url, width: cached.width, height: cached.height)
+        }
+
+        let options = PHImageRequestOptions()
+        options.deliveryMode = .highQualityFormat // one final, non-degraded callback
+        options.resizeMode = .fast
+        options.isNetworkAccessAllowed = allowNetwork
+        options.isSynchronous = false
+
+        let semaphore = DispatchSemaphore(value: 0)
+        let box = ImageBox()
+        let manager = PHImageManager.default()
+        let requestId = manager.requestImage(
+            for: asset, targetSize: CGSize(width: size, height: size),
+            contentMode: .aspectFit, options: options
+        ) { image, info in
+            if (info?[PHImageResultIsDegradedKey] as? Bool) ?? false { return }
+            box.image = image
+            semaphore.signal()
+        }
+        // iCloud-only assets without network may never deliver a final result.
+        if semaphore.wait(timeout: .now() + (allowNetwork ? 30 : 8)) == .timedOut {
+            manager.cancelImageRequest(requestId)
+            return unavailable
+        }
+        guard let image = box.image, let jpeg = encode(image, longEdge: size) else {
+            return unavailable
+        }
+        do {
+            try jpeg.data.write(to: url, options: .atomic)
+        } catch {
+            return unavailable
+        }
+        return ready(id: id, url: url, width: jpeg.width, height: jpeg.height)
+    }
+
+    private static func ready(id: String, url: URL, width: Int, height: Int) -> JSObject {
+        ["id": id, "unavailable": false, "fileUrl": url.absoluteString, "width": width, "height": height]
+    }
+
+    /// Redraws upright at scale 1 (pixel size == point size) and encodes JPEG ~0.7.
+    private static func encode(_ image: UIImage, longEdge: Int) -> (data: Data, width: Int, height: Int)? {
+        let pixelWidth = image.size.width * image.scale
+        let pixelHeight = image.size.height * image.scale
+        guard pixelWidth > 0, pixelHeight > 0 else { return nil }
+        let ratio = min(1, CGFloat(longEdge) / max(pixelWidth, pixelHeight))
+        let target = CGSize(width: max(1, (pixelWidth * ratio).rounded()),
+                            height: max(1, (pixelHeight * ratio).rounded()))
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        format.opaque = true
+        let rendered = UIGraphicsImageRenderer(size: target, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: target)) // draw applies imageOrientation
+        }
+        guard let data = rendered.jpegData(compressionQuality: ThumbnailSupport.jpegQuality) else { return nil }
+        return (data, Int(target.width), Int(target.height))
+    }
+
+    /// Deletes cached thumbnails of `ids` (every size) or all of them when omitted.
+    @objc func deleteThumbnails(_ call: CAPPluginCall) {
+        let ids = call.getArray("ids", String.self)
+        DispatchQueue.global(qos: .utility).async {
+            call.resolve(["deleted": ThumbnailSupport.delete(ids: ids)])
+        }
+    }
+
     // MARK: - Serialization
 
     private static func serialize(_ asset: PHAsset) -> JSObject {
@@ -472,4 +607,30 @@ private final class AssetPickerDelegate: NSObject, PHPickerViewControllerDelegat
     func presentationControllerDidDismiss(_ presentationController: UIPresentationController) {
         finish(nil)
     }
+}
+
+/// Thread-safe slots so concurrent workers can fill results by request index.
+private final class ThumbnailResults: @unchecked Sendable {
+    private let lock = NSLock()
+    private var items: [JSObject]
+
+    init(count: Int) {
+        items = Array(repeating: ["unavailable": true], count: count)
+    }
+
+    func set(_ index: Int, _ item: JSObject) {
+        lock.lock()
+        items[index] = item
+        lock.unlock()
+    }
+
+    func all() -> [JSObject] {
+        lock.lock()
+        defer { lock.unlock() }
+        return items
+    }
+}
+
+private final class ImageBox: @unchecked Sendable {
+    var image: UIImage?
 }

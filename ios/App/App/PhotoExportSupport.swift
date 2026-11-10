@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import ImageIO
 
@@ -118,5 +119,84 @@ enum PhotoExport {
             height: image.height,
             byteSize: byteSize,
             hasExif: metadata[kCGImagePropertyExifDictionary] != nil)
+    }
+}
+
+/// Pure helpers for MediaLibraryPlugin.getThumbnails / deleteThumbnails.
+/// Cache files live in Caches/media-thumbs as `<sha1(localIdentifier)>-<size>.jpg`.
+enum ThumbnailSupport {
+    static let defaultSize = 256
+    static let minSize = 96
+    static let maxSize = 512
+    static let maxIdsPerCall = 60
+    static let concurrency = 4
+    static let jpegQuality = 0.7
+    static let directoryName = "media-thumbs"
+    static let maxAge: TimeInterval = 7 * 24 * 60 * 60
+
+    /// Requested long edge clamped to 96...512; nil falls back to 256.
+    static func clampSize(_ requested: Int?) -> Int {
+        guard let requested else { return defaultSize }
+        return min(max(requested, minSize), maxSize)
+    }
+
+    /// Stable hash of a PHAsset local identifier (it contains "/", so it is not a file name).
+    static func hash(_ id: String) -> String {
+        Insecure.SHA1.hash(data: Data(id.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func fileName(id: String, size: Int) -> String {
+        "\(hash(id))-\(size).jpg"
+    }
+
+    static func directory() throws -> URL {
+        let caches = try FileManager.default.url(
+            for: .cachesDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
+        let directory = caches.appendingPathComponent(directoryName, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory
+    }
+
+    /// Pixel size of an existing JPEG without decoding it; nil when unreadable.
+    static func pixelSize(of url: URL) -> (width: Int, height: Int)? {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let width = properties[kCGImagePropertyPixelWidth] as? Int,
+              let height = properties[kCGImagePropertyPixelHeight] as? Int,
+              width > 0, height > 0
+        else { return nil }
+        return (width, height)
+    }
+
+    /// Removes cache files not modified for `maxAge`. Returns how many were deleted.
+    @discardableResult
+    static func purgeExpired(now: Date = Date()) -> Int {
+        guard let directory = try? directory(),
+              let files = try? FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: [.contentModificationDateKey])
+        else { return 0 }
+        var deleted = 0
+        for file in files {
+            let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?
+                .contentModificationDate
+            guard let modified, now.timeIntervalSince(modified) > maxAge else { continue }
+            if (try? FileManager.default.removeItem(at: file)) != nil { deleted += 1 }
+        }
+        return deleted
+    }
+
+    /// Deletes cached thumbnails of `ids` (every size), or the whole cache when nil.
+    static func delete(ids: [String]?) -> Int {
+        guard let directory = try? directory(),
+              let files = try? FileManager.default.contentsOfDirectory(
+                at: directory, includingPropertiesForKeys: nil)
+        else { return 0 }
+        let prefixes = ids.map { Set($0.map { hash($0) + "-" }) }
+        var deleted = 0
+        for file in files {
+            if let prefixes, !prefixes.contains(where: { file.lastPathComponent.hasPrefix($0) }) { continue }
+            if (try? FileManager.default.removeItem(at: file)) != nil { deleted += 1 }
+        }
+        return deleted
     }
 }

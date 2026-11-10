@@ -553,6 +553,7 @@ Rozbor algoritmu shlukování a toku třídění (kód a syntetické scénáře,
 - **ZS-7:** auto-uspořádání po nahrání (debounce, jeden běh na cestu, zámek mezi kartami), Vrátit uspořádání (jen nezamčené zastávky, koš/★/ruční zásahy se nedotkne), Příjem nových dnů, Kontrola zastávek (mapa, karty, Cestou, výlet, Nezařazené), Třídění po dnech, Série a Porovnání, Konec dne; mobil i web.
 - **Ověřeno:** jednotkové a komponentové testy, `format:check`, `lint`, `typecheck`, `test`, `test:packages`, `build`; nezávislé review (3 průchody) a vizuální smoke test v Chromiu na zasetých datech.
 - **UNVERIFIED:** iPhone/WKWebView (dotyk, celá obrazovka, Web Locks, Dexie v18), reálná data Kanady, brána ZS-7 „celý tok na reálných datech“. Otevřené v DB: obnovení obálky po Zpět u koše, serverové omezení geokódování.
+- **Fáze 4f, vlna 4 (2026-11-10):** plugin `MediaLibrary.getThumbnails`/`deleteThumbnails` 🟡 IMPLEMENTED; TS obal TESTED (Vitest, mockovaný plugin), **Swift UNVERIFIED** (nepřeložen, paměť a rychlost na iPhonu neměřeny; kontrolní seznam v `native-testing.md`).
 
 | Zjištění (VERIFIED čtením kódu, syntetické scénáře)                                                   | Úkol       |
 | ----------------------------------------------------------------------------------------------------- | ---------- |

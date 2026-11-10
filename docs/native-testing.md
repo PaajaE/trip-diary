@@ -19,6 +19,24 @@
 7. Re-enable mobile-data sync (or reconnect on Wi-Fi) and confirm automatic
    sync completes.
 
+### iOS: photo thumbnails (`MediaLibrary.getThumbnails`) — UNVERIFIED on device
+
+Run on a physical iPhone with a library of about 300 assets, release build.
+
+1. 300 assets, full access: time from opening the triage grid to the first 60
+   thumbnails visible, and to all 300. Record both (and the device model).
+2. Memory: Xcode memory gauge while scrolling through all 300; it must settle
+   (no steady growth) and stay well below the jetsam limit.
+3. iCloud-only asset ("Optimize iPhone Storage"): with `allowNetwork` off it is
+   `unavailable` (placeholder, no download, no spinner stuck); with it on it loads.
+4. Limited access: select 10 photos, request ids of others; they come back
+   `unavailable`, the call does not fail. Access denied -> `NOT_AUTHORIZED`.
+5. Videos show the poster frame; HEIC, portrait (rotated) and screenshots are upright.
+6. Second open of the grid is fast (cache reuse); `Caches/media-thumbs` holds
+   `<sha1>-<size>.jpg` files; `deleteThumbnails` empties it; files older than
+   7 days are purged on app launch.
+7. Nothing is uploaded or written to the app's own database during triage.
+
 ## Android
 
 1. Install JDK 21 and Android Studio with the current Android SDK.
