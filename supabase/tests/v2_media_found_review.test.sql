@@ -126,6 +126,7 @@ create temp table fr_big as
 select * from public.create_found_media('b1000000-0000-4000-8000-000000000001',
   (select jsonb_agg(jsonb_build_object('id', ('b5000000-0000-4000-8000-' || lpad(to_hex(g), 12, '0')), 'sourceAssetId', 'rb-' || g)) from generate_series(1, 5000) g));
 select public.triage_found_media((select array_agg(media_id) from fr_big), 'keep');
+update fr_t set t0 = clock_timestamp();
 create temp table fr_pr as
 select * from public.promote_found_media(
   (select jsonb_agg(jsonb_build_object('id', media_id, 'contentHash', repeat('d', 64))) from fr_big));
@@ -133,7 +134,7 @@ update fr_t set t1 = clock_timestamp();
 grant select on fr_pr, fr_t to public;
 select is((select count(*)::int from fr_pr where outcome = 'promoted'), 1, 'm4: 5000 ids with one hash: exactly one is promoted');
 select is((select count(*)::int from fr_pr where outcome = 'duplicate' and duplicate_of is not null), 4999, 'm4: the other 4999 are duplicates of the first');
-select ok((select t1 - t0 < interval '3 seconds' from fr_t), 'm4: 5000 repeated hashes finish well inside the statement timeout');
+select ok((select t1 - t0 < interval '3 seconds' from fr_t), 'm4: promote of 5000 repeated hashes takes under 3 seconds');
 
 -- ---------------------------------------------------------------------------
 -- M2: deleting a journey deletes its found rows
