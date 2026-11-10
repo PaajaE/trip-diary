@@ -425,31 +425,29 @@ begin
       from public.media m join items i on i.id = m.id
      where m.journey_id = v_journey
   ),
-  ranked as materialized (
-    select c.*,
-           row_number() over (partition by c.eh order by c.id) as rn,
-           first_value(c.id) over (partition by c.eh order by c.id) as first_id
-      from cand c
-     where c.eligible and c.eh is not null
-  ),
-  held as (
-    select c.id,
-           (select d.id from public.media d
-             where d.owner_id = v_uid and d.content_hash = c.eh and d.id <> c.id
-             limit 1) as holder
-      from ranked c
-  ),
-  cls as (
-    select c.id,
+  -- One pass, no joins between CTEs (their row estimates are 1, which made the
+  -- planner pick nested loops: 25M comparisons for 5000 rows).
+  cls as materialized (
+    select c.id, c.eh, c.status,
            case when not c.eligible then null
                 when c.eh is null then 'promote'
-                when h.holder is not null or r.rn > 1 then 'duplicate'
+                when h.holder is not null or c.rn > 1 then 'duplicate'
                 else 'promote' end as k,
-           coalesce(h.holder, case when r.rn > 1 then r.first_id end) as holder,
-           c.eh, c.status
-      from cand c
-      left join ranked r on r.id = c.id
-      left join held h on h.id = c.id
+           coalesce(h.holder, case when c.rn > 1 then c.first_id end) as holder
+      from (
+        select c0.*,
+               row_number() over (partition by c0.grp order by c0.id) as rn,
+               first_value(c0.id) over (partition by c0.grp order by c0.id) as first_id
+          from (select cand.*,
+                       case when cand.eligible and cand.eh is not null then cand.eh end as grp
+                  from cand) c0
+      ) c
+      left join lateral (
+        select d.id as holder from public.media d
+         where c.grp is not null and d.owner_id = v_uid
+           and d.content_hash = c.grp and d.id <> c.id
+         limit 1
+      ) h on true
   )
   select jsonb_agg(jsonb_build_object(
            'id', k.id,
