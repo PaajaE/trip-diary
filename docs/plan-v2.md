@@ -675,6 +675,35 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 - **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
 - **`pickBestOfDay`:** hotovo v `core`, nezapojeno do UI.
 
+##### Mockupy importu na iOS: Vybrat → Probrat → Nahrát (2026-11-10, 📝 PROPOSED, neschváleno)
+
+Mockups for wave 4 of 4f-B (decision 1 above). **Status PROPOSED: not approved by the user.**
+Everything in them is **UNVERIFIED on a device**. Once approved, the HTML is the binding
+spec for the wave (project rule: an approved mockup is the spec).
+
+- **Source of truth:** `docs/design/import-triage/import-triage.html`. One self-contained
+  file (inline CSS and JS, system fonts, no CDN), works offline by double-click, clickable
+  between screens, light/dark toggle. Anchors `#a-select`, `#b-overview`, `#c-grid`, …;
+  `?theme=dark`, `?bare=1` (phone only), `?view=all`. Each screen carries its own notes
+  ("Replaces / Needs") under the phone.
+- **Snapshots:** `docs/design/import-triage/png/NN-name-{light,dark}.png`, 390×844 CSS px
+  at 2× (780×1688 px), 20 screens × 2 themes. They are renders of the HTML, not the source.
+- Tokens, radii and shadows are copied from `src/index.css`; strings are Czech, tykání,
+  with the existing vocabulary (zastávka, Třídění, Nejlepší, Koš).
+
+| Screen (anchor)                                                    | What it covers                                                                                  | Replaces / reuses                                                                                             | New capability needed                                                                                 |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| A `#a-select`, `#a-limited`, `#a-denied`, `#a-range`, `#a-reading` | One primary action, two shortcut chips, iCloud switch, limited access, denied, date range, read | Replaces picker, "Podle data", "Projít knihovnu" and `batchLimit` in `ImportPage.tsx`; reuses `range.ts`      | Native `readMetadata` (paged); `presentLimitedLibraryPicker`; open Settings                           |
+| B `#b-overview`, `#b-large`                                        | Counts, date range, days, iCloud-only, no GPS, route/day preview, 2 700+ without limit          | New; `pickDay`, `summarizeZonedDays`, `planOrganization` from `packages/core` run on metadata only            | Size/time estimate before upload; metadata-only core run                                              |
+| C `#c-grid`, `#c-quick`, `#c-series`, `#c-icloud`                  | Triage from local thumbnails, quick sort (Pryč / Ponechat / Nejlepší), series, iCloud-only tile | Reuses `BatchPage`, `BatchTile`, `QuickSortView`, `SeriesView`, `model/cull.ts`; source is local, not `media` | Native `getThumbnail(localId, px)`; `phash`/sharpness on thumbnails; local (Dexie) store of decisions |
+| D `#d-upload`, `#d-paused`, `#d-done`                              | Upload of kept photos only, ETA, pause, per-item retry, Wi‑Fi note, lock note, next step        | Replaces `QueueSection`/`ProgressRing` in `ImportPage.tsx`; reuses `use-upload-eta.ts` and queue persistence  | Full variants only for selected items; Phase 4d M3 (`beginBackgroundTask`); writing ★ after upload    |
+| V `#v-viewer`, `#v-details`                                        | Viewer bottom panel: sticky action bar, collapsible caption/time/place                          | Replaces the `aside` in `MediaViewer.tsx` (actions fell below the fold at 390×844)                            | None (layout only)                                                                                    |
+| S `#s-empty`, `#s-error`, `#s-offline`, `#s-resume`                | Empty, error, offline, resume after app restart                                                 | Replaces `nothingToImport`, `loadError`, `waitingOnline`, silent queue resume                                 | Persisted triage decisions (new); the upload queue already survives restart                           |
+
+Expected DB impact: none (decisions live locally until upload; ★ goes through the existing
+call). **UNVERIFIED**; `db-specialist` confirms before wave 4 starts. Open design questions
+are listed in the PR that added the mockups.
+
 ##### Brána 4f
 
 `pnpm algo:score` existuje a běží v CI jako report (cíle ze specifikace: přiřazení dne > 98 %, F1 hranic etap > 0,9, sloučení duplicit > 99,5 %, falešný odpad < 0,5 %, vrácené auto-akce < 5 %; všechno **UNVERIFIED**, než se změří); fotka pořízená po půlnoci spadne do správného dne a `day_notes` se nezmění; posun hodin a vrácení dávky mají pgTAP; mobilní tok ze 4. vlny ověřen na iPhonu (dávka ~300 fotek bez nahrání před tříděním) a ve ~390 px; `pnpm check` a `pnpm db:test` zelené; žádné `new Date()` jako čas zážitku.
