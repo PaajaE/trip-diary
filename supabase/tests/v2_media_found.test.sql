@@ -3,7 +3,7 @@
 -- stranger (f04), anon.
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(92);
+select plan(94);
 
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
@@ -70,7 +70,7 @@ select is((select count(*)::int from public.create_found_media('f1000000-0000-40
 select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '{"id":1}'::jsonb) $$, '22023', null, 'items must be an array');
 select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000e1"}]'::jsonb) $$, '22023', null, 'sourceAssetId is required');
 select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000e1","sourceAssetId":"asset-E","capturedAt":"not a date"}]'::jsonb) $$, '22023', null, 'bad timestamp is 22023');
-select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000e1","sourceAssetId":"asset-E","latitude":10}]'::jsonb) $$, '23514', null, 'lone latitude violates the table check');
+select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000e1","sourceAssetId":"asset-E","latitude":10}]'::jsonb) $$, '22023', null, 'lone latitude violates the table check (22023 with the item index)');
 select throws_ok($$ select * from public.create_found_media(null, '[]'::jsonb) $$, '22023', null, 'journey is required');
 select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', (select jsonb_agg(jsonb_build_object('id', gen_random_uuid(), 'sourceAssetId', 'big-' || g)) from generate_series(1, 5001) g)) $$, '22023', null, 'more than 5000 items is rejected');
 select is((select count(*)::int from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[]'::jsonb)), 0, 'empty array is a no-op');
@@ -98,10 +98,12 @@ select is(public.triage_found_media(array['f4000000-0000-4000-8000-00000000000c'
 select is(public.triage_found_media(array['f3000000-0000-4000-8000-000000000001']::uuid[], 'drop'), 0, 'ready rows are ignored by triage');
 select is((select deleted_at is null from public.media where id = 'f3000000-0000-4000-8000-000000000001'), true, 'ready row untouched');
 -- trash_media (existing RPC) works on a found row and dedupes too
-select is(public.trash_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[]), 1, 'existing trash_media works on found rows');
+select is(public.trash_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[]), 0, 'trash_media ignores found rows (they are not part of the Trash)');
+select is(public.triage_found_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'drop'), 1, 'a found row is dropped through triage_found_media');
 select is((select count(*)::int from public.create_found_media('f1000000-0000-4000-8000-000000000001',
   '[{"id":"f4000000-0000-4000-8000-0000000000c9","sourceAssetId":"asset-C"}]'::jsonb) where outcome = 'existing' and dropped), 1, 'trashed found row is not re-offered');
-select is(public.restore_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[]), 1, 'existing restore_media works on found rows');
+select is(public.restore_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[]), 0, 'restore_media ignores found rows');
+select is(public.triage_found_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'restore'), 1, 'a dropped found row is restored through triage_found_media');
 
 -- ---------------------------------------------------------------------------
 -- Organising works on found rows (captured_at / tz / GPS only)
@@ -115,9 +117,9 @@ select is(public.create_moment_from_media(array['f4000000-0000-4000-8000-0000000
 -- ---------------------------------------------------------------------------
 select throws_ok($$ update public.journeys set cover_media_id = 'f4000000-0000-4000-8000-00000000000a' where id = 'f1000000-0000-4000-8000-000000000001' $$, '23514', null, 'a found row cannot be a cover');
 select throws_ok($$ insert into public.media_variants (media_id, kind, storage_key, mime_type, width, height, byte_size) values ('f4000000-0000-4000-8000-00000000000a','small','k/found.webp','image/webp',10,10,10) $$, '23514', null, 'a found row cannot get variants');
-select throws_ok($$ update public.media set status = 'ready' where id = 'f4000000-0000-4000-8000-00000000000a' $$, '23514', null, 'found cannot skip upload (found -> ready)');
-select throws_ok($$ update public.media set status = 'uploading' where id = 'f4000000-0000-4000-8000-00000000000a' $$, '23514', null, 'found cannot skip upload (found -> uploading)');
-select throws_ok($$ update public.media set status = 'found' where id = 'f3000000-0000-4000-8000-000000000001' $$, '23514', null, 'ready cannot become found');
+select throws_ok($$ update public.media set status = 'ready' where id = 'f4000000-0000-4000-8000-00000000000a' $$, '42501', null, 'found cannot skip upload (found -> ready)');
+select throws_ok($$ update public.media set status = 'uploading' where id = 'f4000000-0000-4000-8000-00000000000a' $$, '42501', null, 'found cannot skip upload (found -> uploading)');
+select throws_ok($$ update public.media set status = 'found' where id = 'f3000000-0000-4000-8000-000000000001' $$, '42501', null, 'ready cannot become found');
 select lives_ok($$ update public.media set caption = 'x' where id = 'f4000000-0000-4000-8000-00000000000a' $$, 'other updates of found rows are fine');
 
 -- ---------------------------------------------------------------------------
@@ -162,7 +164,7 @@ select is((select count(*)::int from public.create_found_media('f1000000-0000-40
 select throws_ok($$ select public.triage_found_media(array['f4000000-0000-4000-8000-00000000000a']::uuid[], 'drop') $$, 'P0002', null, 'editor cannot triage the owner''s rows');
 select is(public.triage_found_media(array['f4000000-0000-4000-8000-0000000000f4']::uuid[], 'keep'), 1, 'editor triages their own rows');
 select throws_ok($$ select public.triage_found_media(array['f4000000-0000-4000-8000-0000000000f4','f4000000-0000-4000-8000-00000000000a']::uuid[], 'keep') $$, 'P0002', null, 'mixed own and foreign ids are refused as a whole');
-select is(public.move_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'f2000000-0000-4000-8000-000000000001'), 1, 'editor can organise the owner''s found rows');
+select throws_ok($$ select public.move_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'f2000000-0000-4000-8000-000000000001') $$, 'P0002', null, 'editor cannot move the owner''s found rows (private to the uploader)');
 -- demoted editor loses write access to their own rows
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000f01","role":"authenticated"}',true);
 update public.journey_members set role = 'member' where journey_id = 'f1000000-0000-4000-8000-000000000001' and user_id = '00000000-0000-4000-8000-000000000f02';

@@ -1932,6 +1932,10 @@ export type Database = {
         Args: { p_fn: string; p_media_ids: string[] }
         Returns: string
       }
+      found_media_insert: {
+        Args: { p_items: Json; p_journey_id: string }
+        Returns: string[]
+      }
       get_journey_invite_preview: {
         Args: { p_raw_token: string }
         Returns: {

@@ -670,7 +670,7 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 - **Produkce (2026-10-29, na výslovný pokyn uživatele):** migrace `20261028120000_v2_moment_local_day` aplikována přes Supabase MCP jako jedna transakce se zápisem do `supabase_migrations.schema_migrations` (verze i název jako v souboru, aby pozdější `db push` neběžel dvakrát). Předtím čtením ověřeno: seznam migrací končil `v2_local_day`, sloupec `local_day` neexistoval. Potom čtením ověřeno: sloupec existuje (0 uložených hodnot, NULL = záložní pravidlo 04:00), `journey_progress` nové znění, `set_moment_local_days` s EXECUTE jen pro `authenticated` (a `service_role`/`postgres`), přímý UPDATE sloupce pro `authenticated` ne. Funkční test s přihlášeným uživatelem na produkci neproběhl (kryje ho pgTAP).
 - **Nahrávání:** výchozí je jen Wi‑Fi (mobilní data po zapnutí v panelu synchronizace); platí pro nativní aplikaci, web beze změny. Odhad objemu a varování při roamingu zatím chybí.
 
-##### DB kontrakt wave 4 — nalezená média, třídění před nahráním (2026-11-10, 📝 PROPOSED)
+##### DB kontrakt wave 4 — nalezená média, třídění před nahráním (2026-11-10, ✅ IMPLEMENTED, pgTAP v CI)
 
 Vlna 4 potřebuje řádky v `media` ještě před nahráním (sestavená cesta bez jediné nahrané
 fotky). **Rozhodnutí: varianta (a)**, nové `media_status = 'found'`; varianta (b) (metadata jen
@@ -690,17 +690,28 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
   deníku, max 1000 id, vrací stav `found|kept|dismissed|uploaded`, aby klient přeskočil známé bez stahování řádků), `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
   zapíše `content_hash`, hlásí `duplicate`). Pak platí dnešní tok `uploading → ready`.
 - **Invarianty:** veřejné RPC už filtrují `status = 'ready'`, nic se v nich nemění; `found` nemá
-  varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` jen
-  do `pending`; čtenář (`member`) `found` řádky nevidí (RLS), vlastník a editor ano;
+  varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` ven vede jen
+  `promote_found_media` (přímý UPDATE `status` z/do `found` dá `42501`, trigger kontroluje
+  transakční příznak, který nastaví jen tato funkce); čtenář (`member`) `found` řádky nevidí (RLS), vlastník a editor ano;
   `journey_progress` počítá dál jen `ready` (kdo chce počet k roztřídění před nahráním, čte `found`
   přímo); kvóta se v DB nepočítá, `found` nemá varianty, takže nic neváží.
+- **Opravy po review PR 69 (`20261110130000_v2_found_review_fixes.sql`):** smazání deníku smaže
+  jeho `found` řádky (hlavička starší migrace tvrdila „FK cascade“, neplatí; sirotky by nikdo
+  nedosáhl); `found` řádky jsou soukromé nahrávajícímu: `move_media`, `mark_media_reviewed`,
+  `set_media_location`, … cizí `found` řádek odmítnou jako `P0002` (stejně jako `triage_found_media`);
+  `trash_media`, `restore_media`, `claim_media_purge` i `purge_media` `found` řádky ignorují
+  (zahozené před nahráním se mění jen přes `triage_found_media`, Koš je nezobrazuje);
+  vadná položka v dávce dá `22023` s indexem položky; souběh `promote_found_media` se stejným
+  hashem dá `duplicate`, ne `23505`; `promote_found_media` je lineární (okno místo
+  self-joinu), **klient posílá nejvýš 1000 položek na volání** (strop 5000 zůstává).
 - **Navazující práce klienta (není součást kontraktu):** obrazovka Koše musí `found` řádky
-  vynechat nebo je ukázat s lokálním náhledem; stávající RPC (`move_media`, …) mají strop 500 id,
+  vynechat (`status <> 'found'`; DB je z Koše nikdy nevyřadí sama, jen je neumí smazat) nebo je ukázat s lokálním náhledem; stávající RPC (`move_media`, …) mají strop 500 id,
   klient je volá po dávkách; souřadnice `found` fotek se mohou promítnout do zveřejněné zastávky
   (`create_moment_from_media`), než je fotka zahozena.
-- Stav: migrace `20261031120000_v2_media_found_enum.sql`, `20261031120100_v2_media_found.sql` a
-  `20261110120000_v2_found_dismissed.sql`, pgTAP `v2_media_found.test.sql` a
-  `v2_media_found_dismissed.test.sql` (UNVERIFIED lokálně: bez Dockeru, ověřuje CI). Do produkce **neaplikováno**.
+- Stav: migrace `20261031120000_v2_media_found_enum.sql`, `20261031120100_v2_media_found.sql`,
+  `20261110120000_v2_found_dismissed.sql` a `20261110130000_v2_found_review_fixes.sql`, pgTAP
+  `v2_media_found.test.sql`, `v2_media_found_dismissed.test.sql` a `v2_media_found_review.test.sql`
+  (IMPLEMENTED; pgTAP lokálně UNVERIFIED, bez Dockeru, ověřuje CI). Do produkce **neaplikováno**.
 
 ##### Stav 4f (2026-10-29, původní lokální session)
 
