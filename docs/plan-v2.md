@@ -680,11 +680,14 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
 - **Stav třídění bez nového sloupce:** nerozhodnuto = `found`, `reviewed_at` NULL; ponecháno
   = `found`, `reviewed_at` nastaveno; nejlepší = ponecháno + `starred`; zahozeno před nahráním
   = `found`, `deleted_at` (Koš). Unikátní index `(owner_id, source_asset_id)` pokrývá i koš, takže se
-  zahozená fotka při dalším importu nenabídne znovu; `restore` ji vrátí. Smazání z Koše ji zapomene.
+  zahozená fotka při dalším importu nenabídne znovu; `restore` ji vrátí. **Rozhodnutí 2026-11-10 („Pryč“ se pamatuje):**
+  zahozená před nahráním se nikdy znovu nenabízí („od posledního importu“, další výběr) a jde obnovit;
+  Koš `found` řádky nemaže (`claim_media_purge`/`purge_media` je přeskočí), takže ji nezapomene ani vysypání Koše.
 - **RPC (vše `security definer`, jen `authenticated`, zápis smí editor a jen vlastní řádky, dávka
   až 5000, klient posílá 1000–2000):** `create_found_media(journey, items jsonb)` (hromadně,
   idempotentně podle `(owner, source_asset_id)`, jeden příkaz bez smyček), `triage_found_media(ids,
-'keep'|'drop'|'restore'|'undecided')`, `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
+'keep'|'star'|'unstar'|'dismiss'|'restore'|'undecided'`, `drop` = `dismiss`), `known_source_assets(journey, source_asset_ids text[])` (čtení, člen
+  deníku, max 1000 id, vrací stav `found|kept|dismissed|uploaded`, aby klient přeskočil známé bez stahování řádků), `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
   zapíše `content_hash`, hlásí `duplicate`). Pak platí dnešní tok `uploading → ready`.
 - **Invarianty:** veřejné RPC už filtrují `status = 'ready'`, nic se v nich nemění; `found` nemá
   varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` jen
@@ -695,8 +698,9 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
   vynechat nebo je ukázat s lokálním náhledem; stávající RPC (`move_media`, …) mají strop 500 id,
   klient je volá po dávkách; souřadnice `found` fotek se mohou promítnout do zveřejněné zastávky
   (`create_moment_from_media`), než je fotka zahozena.
-- Stav: migrace `20261031120000_v2_media_found_enum.sql` a `20261031120100_v2_media_found.sql`,
-  pgTAP `v2_media_found.test.sql`. Do produkce **neaplikováno**.
+- Stav: migrace `20261031120000_v2_media_found_enum.sql`, `20261031120100_v2_media_found.sql` a
+  `20261110120000_v2_found_dismissed.sql`, pgTAP `v2_media_found.test.sql` a
+  `v2_media_found_dismissed.test.sql` (UNVERIFIED lokálně: bez Dockeru, ověřuje CI). Do produkce **neaplikováno**.
 
 ##### Stav 4f (2026-10-29, původní lokální session)
 

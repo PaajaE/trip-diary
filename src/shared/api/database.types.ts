@@ -1874,6 +1874,18 @@ export type Database = {
         Args: { p_handle: string; p_name: string }
         Returns: string
       }
+      create_found_media: {
+        Args: { p_items: Json; p_journey_id: string }
+        Returns: {
+          asset_id: string
+          current_status: Database['public']['Enums']['media_status']
+          dropped: boolean
+          in_journey_id: string
+          kept: boolean
+          media_id: string
+          outcome: string
+        }[]
+      }
       create_journey_guide_section: {
         Args: { p_body?: string; p_journey_id: string; p_title: string }
         Returns: string
@@ -1899,18 +1911,6 @@ export type Database = {
           p_title: string
         }
         Returns: string
-      }
-      create_found_media: {
-        Args: { p_items: Json; p_journey_id: string }
-        Returns: {
-          asset_id: string
-          current_status: Database['public']['Enums']['media_status']
-          dropped: boolean
-          in_journey_id: string
-          kept: boolean
-          media_id: string
-          outcome: string
-        }[]
       }
       create_moment_from_media: {
         Args: { p_media_ids: string[]; p_new_id: string }
@@ -2006,6 +2006,15 @@ export type Database = {
       journey_publish_cutoff: {
         Args: { p_journey_id: string }
         Returns: string
+      }
+      known_source_assets: {
+        Args: { p_journey_id: string; p_source_asset_ids: string[] }
+        Returns: {
+          in_journey_id: string
+          media_id: string
+          source_asset_id: string
+          state: string
+        }[]
       }
       leave_space: { Args: { p_space_id: string }; Returns: undefined }
       list_journey_pending_invites: {
@@ -2137,14 +2146,6 @@ export type Database = {
         Args: { p_id: string; p_value: string }
         Returns: string
       }
-      promote_found_media: {
-        Args: { p_items: Json }
-        Returns: {
-          duplicate_of: string
-          media_id: string
-          outcome: string
-        }[]
-      }
       pick_local_day: {
         Args: {
           p_dates: string[]
@@ -2153,6 +2154,14 @@ export type Database = {
           p_tzs: string[]
         }
         Returns: string
+      }
+      promote_found_media: {
+        Args: { p_items: Json }
+        Returns: {
+          duplicate_of: string
+          media_id: string
+          outcome: string
+        }[]
       }
       purge_media: { Args: { p_media_ids: string[] }; Returns: string[] }
       remove_space_member: {
@@ -2210,11 +2219,11 @@ export type Database = {
         Args: { p_at: string; p_moment: string; p_new_id: string }
         Returns: string
       }
+      trash_media: { Args: { p_media_ids: string[] }; Returns: number }
       triage_found_media: {
         Args: { p_decision: string; p_media_ids: string[] }
         Returns: number
       }
-      trash_media: { Args: { p_media_ids: string[] }; Returns: number }
       update_entry: {
         Args: {
           p_body: string
