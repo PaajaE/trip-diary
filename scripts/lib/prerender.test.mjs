@@ -204,6 +204,25 @@ describe('prerender helpers', () => {
     expect(plain).toContain('rel="stylesheet"')
   })
 
+  it('segment and moment pages load the shared data.json instead of inlining the tree', () => {
+    const tpl =
+      '<html><head><script type="module" crossorigin src="/assets/app-1.js"></script><link rel="modulepreload" crossorigin href="/assets/x.js"><link rel="stylesheet" crossorigin href="/assets/app-1.css"></head><body><div id="root"></div><script>1</script></body></html>'
+    const segment = buildPages(tree, { handle: 'pavel', slug: 'kanada' })[1]
+    const html = renderPage(tpl, segment, {
+      dataUrl: '/pavel/kanada/data.json',
+      embed: tree,
+    })
+    expect(html).not.toContain('id="__PUBLIC_JOURNEY__"></script>')
+    expect(html).not.toContain('<script type="module"')
+    expect(html).toContain('/pavel/kanada/data.json')
+    expect(html).toContain('["/assets/app-1.js"]')
+    expect(html).toContain('rel="stylesheet"')
+    // The page stays small: no copy of the tree.
+    expect(html.length).toBeLessThan(
+      renderPage(tpl, segment, { embed: tree }).length,
+    )
+  })
+
   it('puts the route heading and a map preview into the shell, both languages', () => {
     const located = {
       ...tree,

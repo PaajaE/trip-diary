@@ -330,11 +330,28 @@ export function renderPage(
       loader = `\n    ${bootScript(boot, preload, dataUrl)}`
     }
   }
+  if (shell === null && dataUrl !== undefined) {
+    // Segment and moment pages: the tree is the shared journey data.json, not
+    // a copy per page (it is megabytes; hundreds of copies broke the Pages
+    // deploy). The app is held back until the file is in place, like on the
+    // journey page; after 1.5 s the app fetches the tree itself.
+    const boot = []
+    html = html.replace(
+      /\s*<script\s+type="module"[^>]*\ssrc="([^"]+)"[^>]*><\/script>/g,
+      (_, src) => {
+        boot.push(src)
+        return ''
+      },
+    )
+    html = html.replace(/\s*<link\s+rel="modulepreload"[^>]*>/g, '')
+    tail = ''
+    loader = `\n    ${bootScript(boot, preload, dataUrl)}`
+  }
   // vite.config.ts (landingShell) fills #root with the landing hero; it does
   // not belong on journey pages, so replace the whole root element.
   const root =
     shell === null
-      ? '<div id="root"></div>'
+      ? `<div id="root"></div>${loader}`
       : `${shell}\n    <div id="root" hidden></div>${loader}`
   html = html.replace(
     /<div id="root">[\s\S]*?<\/div>(?=\s*<script>)|<div id="root"><\/div>/,
