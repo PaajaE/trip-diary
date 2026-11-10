@@ -47,10 +47,10 @@ function makeDeps(calls: string[], overrides: Partial<UploadVideoDeps> = {}) {
       calls.push(`cancel:${key}`)
       return Promise.resolve()
     }),
-    completeMultipart: vi.fn(() => {
+    completeMultipart: vi.fn((input: { mediaId: string }) => {
       calls.push('complete')
       return Promise.resolve({
-        key: `${OWNER}/${MEDIA}/video.mp4`,
+        key: `${OWNER}/${input.mediaId}/video.mp4`,
         publicUrl: 'https://cdn/video',
       })
     }),
@@ -58,10 +58,10 @@ function makeDeps(calls: string[], overrides: Partial<UploadVideoDeps> = {}) {
       calls.push(`create:${m.id}`)
       return Promise.resolve()
     }),
-    createMultipart: vi.fn(() => {
+    createMultipart: vi.fn((input: { mediaId: string }) => {
       calls.push('mp-create')
       return Promise.resolve({
-        key: `${OWNER}/${MEDIA}/video.mp4`,
+        key: `${OWNER}/${input.mediaId}/video.mp4`,
         partBytes: PART,
         partCount: 3,
         publicUrl: 'https://cdn/video',
@@ -79,6 +79,10 @@ function makeDeps(calls: string[], overrides: Partial<UploadVideoDeps> = {}) {
     deleteMediaObjects: vi.fn(() => {
       calls.push('delete-r2')
       return Promise.resolve(1)
+    }),
+    deleteMediaVariants: vi.fn(() => {
+      calls.push('delete-variants')
+      return Promise.resolve()
     }),
     exportVideo: vi.fn(() => {
       calls.push('export')
@@ -101,18 +105,18 @@ function makeDeps(calls: string[], overrides: Partial<UploadVideoDeps> = {}) {
     signParts: vi.fn<UploadVideoDeps['signParts']>((input) => {
       calls.push(`sign:${input.partNumbers.join(',')}`)
       return Promise.resolve({
-        key: `${OWNER}/${MEDIA}/video.mp4`,
+        key: `${OWNER}/${input.mediaId}/video.mp4`,
         parts: input.partNumbers.map((partNumber) => ({
           partNumber,
           url: `https://r2/part${String(partNumber)}`,
         })),
       })
     }),
-    signPut: vi.fn(() => {
+    signPut: vi.fn((input: { mediaId: string }) => {
       calls.push('sign-poster')
       return Promise.resolve({
         headers: { 'Content-Type': 'image/jpeg' },
-        key: `${OWNER}/${MEDIA}/poster.jpg`,
+        key: `${OWNER}/${input.mediaId}/poster.jpg`,
         publicUrl: 'https://cdn/poster',
         url: 'https://r2/poster',
       })
@@ -350,5 +354,29 @@ describe('uploadVideo', () => {
       uploadVideo({ assetId: 'a', deps, ownerId: OWNER }),
     ).rejects.toMatchObject({ code: 'invalid_response' })
     expect(deps.uploadParts).not.toHaveBeenCalled()
+  })
+
+  it('keeps a reused found row on failure (no failed, no row delete) and retries into the same id', async () => {
+    const FOUND = '44444444-4444-4444-8444-444444444444'
+    const calls: string[] = []
+    const createMedia = vi.fn<UploadVideoDeps['createMedia']>(() =>
+      Promise.resolve({ mediaId: FOUND, reusedFoundRow: true }),
+    )
+    const deps = makeDeps(calls, {
+      createMedia,
+      uploadParts: vi.fn(() =>
+        Promise.reject(new VideoPipelineError('UPLOAD_FAILED', 'net')),
+      ),
+    })
+    await expect(
+      uploadVideo({ assetId: 'a', deps, ownerId: OWNER }),
+    ).rejects.toMatchObject({ code: 'upload_failed' })
+    expect(deps.markMediaFailed).not.toHaveBeenCalled()
+    expect(deps.deleteMedia).not.toHaveBeenCalled()
+    expect(deps.deleteMediaObjects).toHaveBeenCalledWith(FOUND)
+    expect(deps.deleteMediaVariants).toHaveBeenCalledWith(FOUND)
+    const retry = makeDeps([], { createMedia })
+    await uploadVideo({ assetId: 'a', deps: retry, ownerId: OWNER })
+    expect(retry.markMediaReady).toHaveBeenCalledWith(FOUND)
   })
 })

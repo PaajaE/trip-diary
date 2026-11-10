@@ -761,6 +761,7 @@ export const cs: TranslationResources = {
     reason: {
       asset_unavailable:
         'Originál je jen v iCloudu. Zapni stahování z iCloudu a zkus to znovu.',
+      dismissed: 'Vyřazeno, nenahrává se',
       duplicate: 'Už je naimportováno.',
       heic_unsupported: 'Fotky HEIC/HEIF nejsou podporované. Převeď na JPEG.',
       no_capture_time:

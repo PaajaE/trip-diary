@@ -15,6 +15,7 @@ import {
   addVariant,
   createOrPromoteMedia,
   deleteMedia,
+  deleteMediaVariants,
   markMediaFailed,
   markMediaReady,
 } from '@/entities/media/api/media.repository'
@@ -87,6 +88,8 @@ export interface UploadPhotoDeps {
     input: NewPhotoMedia,
   ) => Promise<CreateMediaResult> | Promise<void>
   deleteMedia: (mediaId: string) => Promise<void>
+  /** Reused rows only: drops partial variants, keeps the media row. */
+  deleteMediaVariants: (mediaId: string) => Promise<void>
   deleteMediaObjects: (mediaId: string) => Promise<number>
   hashFile: (file: File) => Promise<string>
   markMediaFailed: (mediaId: string) => Promise<void>
@@ -111,6 +114,7 @@ const defaultDeps: UploadPhotoDeps = {
   addVariant,
   createMedia: createOrPromoteMedia,
   deleteMedia,
+  deleteMediaVariants,
   deleteMediaObjects: deleteMediaObjectsRemote,
   hashFile: sha256Hex,
   markMediaFailed,
@@ -144,11 +148,30 @@ export function toV2VariantKind(kind: string): ImageVariantKind | null {
 }
 
 /**
+ * Failure after promoting an existing found row: the row keeps its id, moment,
+ * star and reviewed_at and stays 'pending' (the database cannot move it back
+ * to 'found'; createOrPromoteMedia resumes a 'pending' row on the next try).
+ * Only what this attempt wrote is removed: R2 objects and variant rows.
+ */
+export async function cleanupReusedRow(
+  deps: Pick<UploadPhotoDeps, 'deleteMediaObjects' | 'deleteMediaVariants'>,
+  mediaId: string,
+): Promise<void> {
+  try {
+    await deps.deleteMediaObjects(mediaId)
+    await deps.deleteMediaVariants(mediaId)
+  } catch {
+    // Best effort; the retry replaces leftovers or hits the same keys.
+  }
+}
+
+/**
  * Uploads one photo: media row (uploading) -> per variant sign + PUT + variant
  * row -> media 'ready'. After the media row exists, any failure marks it
  * 'failed', deletes its R2 folder and, only if that cleanup succeeded, deletes
  * the media row so the same file can be uploaded again (its content_hash is
- * unique per owner). If the R2 cleanup fails the 'failed' row is kept. Cleanup
+ * unique per owner). If the R2 cleanup fails the 'failed' row is kept. A
+ * reused found row is never deleted or marked failed (see cleanupReusedRow). Cleanup
  * is best effort; the original upload error is always the one rethrown.
  */
 export async function uploadPhoto(
@@ -247,6 +270,8 @@ export async function uploadPhoto(
       : { sourceAssetId: options.sourceAssetId }),
   })
   const mediaId = created?.mediaId ?? newMediaId
+  // A reused found row existed before this attempt: never delete it.
+  const reused = created?.reusedFoundRow === true
 
   const uploaded: UploadedPhoto['variants'] = []
   try {
@@ -282,12 +307,16 @@ export async function uploadPhoto(
     report('finalizing', total, total)
     await deps.markMediaReady(mediaId)
   } catch (error) {
-    await deps.markMediaFailed(mediaId).catch(() => undefined)
-    try {
-      await deps.deleteMediaObjects(mediaId)
-      await deps.deleteMedia(mediaId)
-    } catch {
-      // R2 cleanup or row delete failed: keep the 'failed' row for later cleanup.
+    if (reused) {
+      await cleanupReusedRow(deps, mediaId)
+    } else {
+      await deps.markMediaFailed(mediaId).catch(() => undefined)
+      try {
+        await deps.deleteMediaObjects(mediaId)
+        await deps.deleteMedia(mediaId)
+      } catch {
+        // R2 cleanup or row delete failed: keep the 'failed' row for later cleanup.
+      }
     }
     throw error instanceof MediaUploadError
       ? error

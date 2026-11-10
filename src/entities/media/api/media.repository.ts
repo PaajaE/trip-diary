@@ -196,6 +196,21 @@ export async function deleteMedia(mediaId: string): Promise<void> {
   }
 }
 
+/**
+ * Deletes the variant rows of a media item but keeps the media row. Used when
+ * an upload into a REUSED found row fails: the row (moment, star) stays, the
+ * partial variants go so a retry can insert the same storage keys again.
+ */
+export async function deleteMediaVariants(mediaId: string): Promise<void> {
+  const { error } = await getSupabaseClient()
+    .from('media_variants')
+    .delete()
+    .eq('media_id', mediaId)
+  if (error !== null) {
+    throw new MediaUploadError('finalize_failed', error.message, error)
+  }
+}
+
 const SOURCE_ID_BATCH = 100
 
 /**

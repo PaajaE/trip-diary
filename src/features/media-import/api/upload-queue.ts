@@ -52,6 +52,14 @@ export interface UploadQueueDeps {
     ownerId: string,
     sourceIds: readonly string[],
   ) => Promise<Set<string>>
+  /**
+   * Source ids (of those given) the owner dismissed. Called once per start for
+   * all pending jobs; a rejection is ignored (never blocks uploads).
+   */
+  listDismissed?: (
+    journeyId: string,
+    sourceIds: readonly string[],
+  ) => Promise<Set<string>>
   maxAttempts?: number
   /** Subscribes to the browser coming back online; returns unsubscribe. */
   onOnline: (callback: () => void) => () => void
@@ -123,6 +131,7 @@ export function createUploadQueue(deps: UploadQueueDeps): UploadQueue {
   }
   let looping: Promise<void> | null = null
   let cancelWake: (() => void) | null = null
+  let needsDismissCheck = false
 
   const iso = (): string => new Date(deps.clock()).toISOString()
 
@@ -238,12 +247,46 @@ export function createUploadQueue(deps: UploadQueueDeps): UploadQueue {
     await save([working])
   }
 
+  /**
+   * One batched lookup for all pending jobs: dismissed ones are skipped
+   * without touching the library. Failure (offline, RPC error) is ignored;
+   * the processor re-checks per job.
+   */
+  /** `runtime` can change during an await; a function call defeats narrowing. */
+  const isRunning = (): boolean => runtime === 'running'
+
+  async function skipDismissed(): Promise<void> {
+    if (deps.listDismissed === undefined) return
+    const pending = [...jobs.values()].filter((j) => j.state === 'pending')
+    if (pending.length === 0) return
+    let dismissed: Set<string>
+    try {
+      dismissed = await deps.listDismissed(
+        deps.journeyId,
+        pending.map((j) => j.sourceId),
+      )
+    } catch {
+      return
+    }
+    const changed = pending
+      .filter((j) => dismissed.has(j.sourceId))
+      .filter((j) => jobs.get(j.id)?.state === 'pending')
+      .map((j) => patch(j, { lastError: 'dismissed', state: 'skipped' }))
+    for (const job of changed) retryAt.delete(job.id)
+    if (changed.length > 0) await save(changed)
+  }
+
   async function loop(): Promise<void> {
     while (runtime === 'running') {
       if (!deps.isOnline()) {
         runtime = 'waiting_online'
         emit()
         return
+      }
+      if (needsDismissCheck) {
+        needsDismissCheck = false
+        await skipDismissed()
+        if (!isRunning()) return
       }
       const pending = [...jobs.values()].filter((j) => j.state === 'pending')
       if (pending.length === 0) {
@@ -288,6 +331,7 @@ export function createUploadQueue(deps: UploadQueueDeps): UploadQueue {
   function start(): void {
     clearWake()
     runtime = 'running'
+    needsDismissCheck = true
     emit()
     kick()
   }

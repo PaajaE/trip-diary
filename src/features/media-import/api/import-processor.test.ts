@@ -167,3 +167,75 @@ describe('import processor', () => {
     })
   })
 })
+
+describe('import processor: early dismissed check', () => {
+  const noop = { onPhase: vi.fn() }
+
+  it('skips a dismissed photo before the source is opened or exported', async () => {
+    const { open, src } = source()
+    const upload = vi.fn(() => Promise.resolve({ mediaId: 'm1' }))
+    const run = createImportProcessor({
+      getSource: () => src,
+      isDismissed: () => Promise.resolve(true),
+      uploadPhoto: upload,
+    })
+    await expect(run(job, noop)).rejects.toMatchObject({
+      outcome: 'skip',
+      reason: 'dismissed',
+    })
+    expect(open).not.toHaveBeenCalled()
+    expect(upload).not.toHaveBeenCalled()
+  })
+
+  it('skips a dismissed iOS video before uploadVideo(assetId)', async () => {
+    const uploadVideo = vi.fn(() => Promise.resolve({ mediaId: 'v' }))
+    const run = createImportProcessor({
+      getSource: () => undefined,
+      isDismissed: () => Promise.resolve(true),
+      uploadVideo,
+    })
+    await expect(
+      run({ ...job, mediaType: 'video' }, noop),
+    ).rejects.toMatchObject({ reason: 'dismissed' })
+    expect(uploadVideo).not.toHaveBeenCalled()
+  })
+
+  it('skips a dismissed web video before reading the file', async () => {
+    const { open, src } = source()
+    const uploadWebVideo = vi.fn(() => Promise.resolve({ mediaId: 'v' }))
+    const run = createImportProcessor({
+      getSource: () => src,
+      isDismissed: () => Promise.resolve(true),
+      uploadWebVideo,
+    })
+    await expect(
+      run({ ...job, mediaType: 'video', sourceKind: 'web-files' }, noop),
+    ).rejects.toMatchObject({ reason: 'dismissed' })
+    expect(open).not.toHaveBeenCalled()
+    expect(uploadWebVideo).not.toHaveBeenCalled()
+  })
+
+  it('a failing check (offline) never blocks the upload', async () => {
+    const { src } = source()
+    const upload = vi.fn(() => Promise.resolve({ mediaId: 'm1' }))
+    const run = createImportProcessor({
+      getSource: () => src,
+      isDismissed: () => Promise.reject(new Error('offline')),
+      uploadPhoto: upload,
+    })
+    await expect(run(job, noop)).resolves.toEqual({ mediaId: 'm1' })
+    expect(upload).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks the job source id; a known, not dismissed asset uploads', async () => {
+    const { src } = source()
+    const isDismissed = vi.fn(() => Promise.resolve(false))
+    const run = createImportProcessor({
+      getSource: () => src,
+      isDismissed,
+      uploadPhoto: () => Promise.resolve({ mediaId: 'm1' }),
+    })
+    await run(job, noop)
+    expect(isDismissed).toHaveBeenCalledWith(job)
+  })
+})

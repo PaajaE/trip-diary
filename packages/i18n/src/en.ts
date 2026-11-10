@@ -762,6 +762,7 @@ export const en = {
     reason: {
       asset_unavailable:
         'The original is only in iCloud. Turn on downloading from iCloud and retry.',
+      dismissed: 'Dismissed, not uploaded',
       duplicate: 'Already imported.',
       heic_unsupported: 'HEIC/HEIF photos are not supported. Convert to JPEG.',
       no_capture_time: 'No capture date, so it does not fit the chosen range.',
