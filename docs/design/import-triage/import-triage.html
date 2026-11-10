@@ -1,0 +1,1140 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import na iOS: Vybrat → Probrat → Nahrát (mockup)</title>
+<!--
+  Trip Diary · mockup iOS importu „Vybrat → Probrat → Nahrát“ (Fáze 4f-B, vlna 4).
+  Stav: PROPOSED, rozhodnutí delegována (2026-11-10), čeká na schválení vizuálů uživatelem; na zařízení UNVERIFIED. Zdroj pravdy je tento soubor;
+  PNG v ./png jsou jen jeho snímky. Samostatný soubor: žádné CDN, fonty ani obrázky,
+  funguje offline po dvojkliku. Barvy, poloměry a stíny jsou tokeny z src/index.css.
+  Parametry URL: ?theme=light|dark  ?bare=1 (jen telefon, 390×844)  #id obrazovky.
+-->
+<style>
+:root{
+  --color-background:#f8f5ef;--color-surface:#ffffff;--color-foreground:#1f231e;--color-muted:#5f675e;
+  --color-border:#e4e0d6;--color-primary:#3d5c47;--color-primary-foreground:#ffffff;--color-accent:#c46a4a;
+  --color-accent-strong:#99472b;--color-destructive:#a43d3d;--color-sunk:#f1ede4;--color-faint:#8b9289;
+  --color-primary-soft:#e3ebe4;--color-accent-soft:#f6e4dc;--color-warn:#8a5d10;--color-warn-soft:#f5ead2;
+  --color-action-keep:#bfe3c8;--color-action-keep-foreground:#123320;
+  --color-action-trash:#f3c1bb;--color-action-trash-foreground:#4a1511;
+  --color-action-star:#f6dc8a;--color-action-star-foreground:#3f2e00;
+  --radius-sm:.5rem;--radius-md:1rem;--radius-lg:1.25rem;--shadow-soft:0 8px 24px rgb(41 48 42 / 5%);
+  --page:#e9e4d9;--scrim:rgb(20 24 20 / .5);
+  --sans:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+:root[data-theme='dark']{
+  --color-background:#1f2420;--color-surface:#2a312b;--color-foreground:#f1eee6;--color-muted:#bcc3b9;
+  --color-border:#434d44;--color-primary:#abd0b4;--color-primary-foreground:#14201a;--color-accent:#e08a68;
+  --color-accent-strong:#f0b89d;--color-destructive:#ff8f84;--color-sunk:#252b26;--color-faint:#98a195;
+  --color-primary-soft:#34463a;--color-accent-soft:#4b3a32;--color-warn:#e0b25a;--color-warn-soft:#463e27;
+  --color-action-keep:#8fcfa0;--color-action-keep-foreground:#0d2616;
+  --color-action-trash:#f0a39a;--color-action-trash-foreground:#3d0f0b;
+  --color-action-star:#efcf6a;--color-action-star-foreground:#352700;
+  --shadow-soft:0 8px 24px rgb(0 0 0 / 25%);--page:#0f110e;--scrim:rgb(0 0 0 / .6);color-scheme:dark;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme='light']):not([data-theme='dark']){
+    --color-background:#1f2420;--color-surface:#2a312b;--color-foreground:#f1eee6;--color-muted:#bcc3b9;
+    --color-border:#434d44;--color-primary:#abd0b4;--color-primary-foreground:#14201a;--color-accent:#e08a68;
+    --color-accent-strong:#f0b89d;--color-destructive:#ff8f84;--color-sunk:#252b26;--color-faint:#98a195;
+    --color-primary-soft:#34463a;--color-accent-soft:#4b3a32;--color-warn:#e0b25a;--color-warn-soft:#463e27;
+    --color-action-keep:#8fcfa0;--color-action-keep-foreground:#0d2616;
+    --color-action-trash:#f0a39a;--color-action-trash-foreground:#3d0f0b;
+    --color-action-star:#efcf6a;--color-action-star-foreground:#352700;
+    --shadow-soft:0 8px 24px rgb(0 0 0 / 25%);--page:#0f110e;--scrim:rgb(0 0 0 / .6);color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--color-foreground);font:15px/1.45 var(--sans);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+h1,h2,h3,p,ol,ul{margin:0}
+ol,ul{padding:0;list-style:none}
+:focus-visible{outline:3px solid color-mix(in srgb,var(--color-primary) 55%,transparent);outline-offset:2px}
+svg.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+svg.i.sm{width:14px;height:14px}svg.i.lg{width:26px;height:26px}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* ---------- prezentační rám (mimo telefon) ---------- */
+.top{max-width:1180px;margin:0 auto;padding:14px 16px 8px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between}
+.top h1{font:600 16px/1.3 var(--sans)}
+.top p{font-size:13px;color:var(--color-foreground)}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;background:var(--color-surface);border:1px solid var(--color-border);border-radius:12px;padding:3px;gap:2px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:9px;font-weight:600;font-size:13px;color:var(--color-foreground);min-height:34px}
+.seg button[aria-pressed='true']{background:var(--color-primary);color:var(--color-primary-foreground)}
+.pick{min-height:40px;border-radius:12px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-foreground);font:600 13px var(--sans);padding:0 10px;max-width:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:8px 16px 56px;display:flex;gap:28px;align-items:flex-start;justify-content:center}
+.idx{width:230px;flex:none;position:sticky;top:12px;font-size:13.5px;display:none}
+.idx h2{font:600 12px var(--sans);letter-spacing:.08em;text-transform:uppercase;margin:14px 0 4px}
+.idx a{display:block;padding:5px 8px;border-radius:8px;text-decoration:none;color:var(--color-foreground)}
+.idx a[aria-current='true']{background:var(--color-primary);color:var(--color-primary-foreground)}
+.idx code{font-size:12px}
+@media (min-width:900px){.idx{display:block}.pick.narrow{display:none}}
+#stage{display:flex;flex-direction:column;align-items:center;gap:0;min-width:0}
+.cell{width:390px;max-width:100%;display:none;margin-bottom:28px}
+.cell.on{display:block}
+body.all #stage{flex-direction:row;flex-wrap:wrap;gap:0 32px;justify-content:center;align-items:flex-start}
+body.all .cell{display:block}
+.cap{font:600 14px/1.3 var(--sans);margin:0 0 8px}
+.cap code{font-weight:500;font-size:12.5px}
+.note{font-size:13px;line-height:1.45;margin-top:12px;display:grid;gap:6px}
+.note b{font-weight:600}
+.note a{color:inherit}
+.note .tag{display:inline-block;font-size:12px;font-weight:600;border:1px solid var(--color-border);border-radius:99px;padding:1px 8px;background:var(--color-surface)}
+
+/* ---------- telefon ---------- */
+.frame{position:relative;width:390px;max-width:100%;height:844px;display:flex;flex-direction:column;overflow:hidden;background:var(--color-background);color:var(--color-foreground);border-radius:44px;box-shadow:0 0 0 9px #14170f,0 18px 40px rgb(0 0 0 / .25);isolation:isolate}
+@media (max-width:430px){.frame{border-radius:0;box-shadow:none}}
+body.bare{background:var(--color-background)}
+body.bare .top,body.bare .idx,body.bare .note,body.bare .cap{display:none}
+body.bare .wrap{padding:0;display:block;max-width:none}
+body.bare .cell{margin:0;width:390px}
+body.bare .frame{border-radius:0;box-shadow:none}
+.sb{height:47px;flex:none;display:flex;align-items:flex-end;justify-content:space-between;padding:0 28px 6px 34px;font:600 15px var(--sans);position:relative}
+.sb .isl{position:absolute;left:50%;top:11px;width:112px;height:32px;margin-left:-56px;border-radius:20px;background:#000}
+.sb .r{display:flex;gap:5px;align-items:center}
+.sb svg{width:17px;height:12px;fill:currentColor}
+.bat{width:25px;height:12px;border:1.5px solid currentColor;border-radius:4px;position:relative;padding:1px}
+.bat::before{content:"";display:block;height:100%;width:78%;background:currentColor;border-radius:1.5px}
+.bat::after{content:"";position:absolute;right:-4px;top:3px;width:2px;height:4px;background:currentColor;border-radius:0 1px 1px 0}
+.hi{position:absolute;left:50%;bottom:8px;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:var(--color-foreground);z-index:20;pointer-events:none}
+.hd{flex:none;display:flex;align-items:center;gap:4px;min-height:52px;padding:0 8px}
+.hd h2{font:600 18px/1.2 var(--sans);flex:1;min-width:0;padding-left:4px}
+.ib{width:44px;height:44px;border:0;border-radius:12px;background:none;display:grid;place-items:center;color:var(--color-foreground)}
+.tbtn{min-height:44px;border:0;background:none;color:var(--color-primary);font-weight:600;font-size:15px;padding:0 10px;border-radius:12px;display:inline-flex;align-items:center;gap:6px}
+.steps{flex:none;display:flex;gap:4px;padding:2px 16px 10px}
+.steps li{flex:1;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--color-muted)}
+.steps b{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--color-border);display:grid;place-items:center;font-size:12px;flex:none}
+.steps .cur{color:var(--color-foreground)}
+.steps .cur b{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-primary-foreground)}
+.steps .done b{background:var(--color-primary-soft);border-color:var(--color-primary-soft);color:var(--color-primary)}
+.steps svg.i{width:13px;height:13px;stroke-width:3}
+.bd{flex:1;min-height:0;overflow-y:auto;padding:6px 16px 18px;scrollbar-width:none}
+.bd::-webkit-scrollbar{display:none}
+.ft{flex:none;padding:12px 16px 34px;background:var(--color-background);border-top:1px solid var(--color-border);display:grid;gap:8px;position:relative;z-index:5}
+.ft .cap2{font-size:13px;color:var(--color-muted);text-align:center}
+h1.t{font:600 26px/1.2 var(--sans);letter-spacing:-.01em;text-wrap:balance}
+.lead{color:var(--color-muted);font-size:15px;margin-top:6px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--color-accent-strong);margin-bottom:4px}
+.lbl{font-size:13px;font-weight:600;color:var(--color-muted);margin:18px 0 8px}
+.btn{width:100%;min-height:52px;border-radius:var(--radius-md);border:1px solid transparent;font-weight:600;font-size:16px;display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px}
+.btn.p{background:var(--color-primary);color:var(--color-primary-foreground)}
+.btn.s{background:var(--color-surface);border-color:var(--color-border);color:var(--color-foreground)}
+.btn.t{background:none;color:var(--color-primary);min-height:44px}
+.btn.d{background:none;color:var(--color-destructive);min-height:44px}
+.btn.sm{min-height:44px;font-size:15px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;display:inline-flex;align-items:center;gap:8px;padding:0 14px;border-radius:99px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-foreground);font-weight:600;font-size:14px}
+.chip svg{color:var(--color-primary)}
+.card{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:12px 14px}
+.row{display:flex;align-items:center;gap:12px}
+.row .g{flex:1;min-width:0}
+.row b{display:block;font-size:15px;font-weight:600}
+.row small{display:block;font-size:13px;color:var(--color-muted);line-height:1.35}
+.sw{width:59px;height:44px;border-radius:99px;border:0;background:none;position:relative;flex:none}
+.sw::before{content:"";position:absolute;left:4px;top:6.5px;width:51px;height:31px;border-radius:99px;background:var(--color-border);transition:background .15s}
+.sw::after{content:"";position:absolute;top:8.5px;left:6px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgb(0 0 0 / .3);transition:transform .15s}
+.sw[aria-checked='true']::before{background:var(--color-primary)}
+.sw[aria-checked='true']::after{transform:translateX(20px)}
+:root[data-theme='dark'] .sw[aria-checked='false']::before{background:#5b665c}
+.lnk{min-height:44px;border:0;background:none;color:var(--color-primary);font-weight:600;font-size:14px;padding:0 4px;text-decoration:underline;text-underline-offset:3px}
+.tip{display:flex;align-items:center;gap:8px;margin:2px 0 6px;padding:2px 4px 2px 12px;border-radius:12px;background:var(--color-primary-soft);font-size:13.5px}
+.tip svg{color:var(--color-primary)}
+.tip span{flex:1;min-width:0}
+.tip[hidden]{display:none}
+.tip button{min-height:44px;border:0;background:none;color:var(--color-primary);font-weight:600;font-size:14px;padding:0 10px;border-radius:12px}
+.cld{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--color-sunk);color:var(--color-muted);font-size:12px;font-weight:600}
+.cld svg.i{width:26px;height:26px;stroke-width:1.75}
+.sub{font-size:13px;color:var(--color-muted)}
+.ic{display:flex;align-items:center;gap:8px}
+.ic[hidden],.hid[hidden]{display:none}
+.banner{display:flex;gap:12px;padding:14px;border-radius:var(--radius-md);background:var(--color-warn-soft);border:1px solid color-mix(in srgb,var(--color-warn) 35%,transparent);margin-bottom:14px}
+.banner>svg{color:var(--color-warn);margin-top:2px}
+.banner b{display:block;font-size:15px;font-weight:600}
+.banner p{font-size:14px;margin-top:2px}
+.banner .acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.banner .acts button{min-height:44px;border-radius:12px;border:1px solid color-mix(in srgb,var(--color-warn) 55%,transparent);background:var(--color-surface);color:var(--color-foreground);font-weight:600;font-size:14px;padding:0 12px}
+.banner.info{background:var(--color-primary-soft);border-color:transparent}
+.banner.info>svg{color:var(--color-primary)}
+.banner.err{background:var(--color-accent-soft);border-color:transparent}
+.banner.err>svg{color:var(--color-accent-strong)}
+.hero{display:grid;place-items:center;height:150px;margin:6px 0 4px}
+.stack{position:relative;width:200px;height:130px}
+.stack .ph{position:absolute;width:104px;height:104px;border-radius:14px;border:3px solid var(--color-surface);box-shadow:var(--shadow-soft)}
+.stack .a{left:6px;top:16px;transform:rotate(-9deg)}.stack .b{left:84px;top:8px;transform:rotate(7deg)}.stack .c{left:46px;top:22px;transform:rotate(-1deg)}
+.circ{width:72px;height:72px;border-radius:50%;display:grid;place-items:center;margin:18px auto 12px}
+.circ.ok{background:var(--color-primary-soft);color:var(--color-primary)}
+.circ.warn{background:var(--color-warn-soft);color:var(--color-warn)}
+.circ.err{background:var(--color-accent-soft);color:var(--color-accent-strong)}
+.center{text-align:center}
+.center .lead{max-width:330px;margin-left:auto;margin-right:auto}
+.prog{height:8px;border-radius:99px;background:var(--color-sunk);border:1px solid var(--color-border);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--color-primary);border-radius:99px}
+.prog.hold i{background:var(--color-warn)}
+
+/* fotky (obrázky jsou jen barevné plochy) */
+.ph{display:block;position:relative;overflow:hidden;background:linear-gradient(170deg,hsl(var(--h) 46% 72%),hsl(calc(var(--h) + 22) 40% 40%));width:100%;height:100%}
+.ph::before{content:"";position:absolute;left:-8%;right:-8%;bottom:-6%;height:58%;background:hsl(calc(var(--h) + 8) 34% 24% / .62);clip-path:polygon(0 100%,14% 34%,30% 66%,50% 6%,70% 58%,86% 26%,100% 100%)}
+.ph::after{content:"";position:absolute;top:13%;right:15%;width:12%;aspect-ratio:1;border-radius:50%;background:hsl(var(--h) 85% 92% / .8)}
+.ph.lk::before{clip-path:none;height:42%;bottom:0;background:linear-gradient(180deg,hsl(calc(var(--h) + 30) 40% 34% / .9),hsl(calc(var(--h) + 30) 45% 22%))}
+.ph.ct::before{clip-path:none;height:50%;bottom:0;background:linear-gradient(90deg,transparent 0 6%,hsl(calc(var(--h) + 10) 30% 22%) 6% 20%,transparent 20% 24%,hsl(calc(var(--h) + 10) 28% 28%) 24% 44%,transparent 44% 48%,hsl(calc(var(--h) + 10) 32% 20%) 48% 70%,transparent 70% 74%,hsl(calc(var(--h) + 10) 30% 26%) 74% 94%,transparent 94%)}
+.ph.gone{filter:grayscale(1) brightness(.7);opacity:.45}
+.tile.gx::after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(135deg,transparent 0 7px,rgb(0 0 0 / .14) 7px 9px)}
+.sk{position:absolute;inset:0;background:linear-gradient(100deg,var(--color-sunk) 30%,var(--color-border) 50%,var(--color-sunk) 70%);background-size:220% 100%;animation:sh 1.4s linear infinite}
+@keyframes sh{from{background-position:120% 0}to{background-position:-120% 0}}
+
+/* mřížka a štítky stavů */
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.tile{position:relative;aspect-ratio:1;border:0;padding:0;border-radius:6px;overflow:hidden;background:var(--color-sunk)}
+.tile .ph{position:absolute;inset:0}
+.st{position:absolute;left:4px;bottom:4px;display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 7px 0 5px;border-radius:99px;font-size:12px;font-weight:600;line-height:1}
+.st svg.i{width:12px;height:12px;stroke-width:3}
+.st-k{background:var(--color-action-keep);color:var(--color-action-keep-foreground)}
+.st-b{background:var(--color-action-star);color:var(--color-action-star-foreground)}
+.st-x{background:var(--color-action-trash);color:var(--color-action-trash-foreground)}
+.dotn{width:8px;height:8px;border-radius:50%;border:2px solid var(--color-muted)}
+.bdg{position:absolute;top:4px;height:22px;min-width:22px;padding:0 6px;border-radius:99px;display:inline-flex;align-items:center;justify-content:center;gap:3px;font-size:12px;font-weight:600;background:#1f231e;color:#ffffff}
+.bdg.l{left:4px}.bdg.r{right:4px;background:var(--color-surface);color:var(--color-foreground);border:1px solid var(--color-border)}
+.bdg svg.i{width:13px;height:13px}
+.dh{position:sticky;top:0;z-index:2;background:var(--color-background);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 0 6px}
+.dh b{font-size:15px;font-weight:600}.dh small{display:block;font-size:13px;color:var(--color-muted)}
+.dh .tbtn{padding:0 4px;font-size:14px;min-height:44px}
+.flt{flex:none;display:flex;gap:6px;overflow-x:auto;padding:0 16px 8px;scrollbar-width:none}
+.flt::-webkit-scrollbar{display:none}
+.flt .chip{min-height:44px;padding:0 11px;font-size:13px;gap:6px;white-space:nowrap}
+.flt .chip[aria-pressed='true']{background:var(--color-primary);border-color:var(--color-primary);color:var(--color-primary-foreground)}
+.flt .chip .sq{width:10px;height:10px;border-radius:3px}
+.flt .chip[aria-pressed='true'] svg{color:inherit}
+.tprog{flex:none;padding:0 16px 8px}
+.bar2{display:flex;justify-content:space-between;font-size:13px;color:var(--color-muted)}
+.bar2 b{color:var(--color-foreground);font-weight:600}
+
+/* B přehled */
+.route{padding:10px 12px 12px}
+.route svg.map{width:100%;height:auto;display:block}
+.rt-land{fill:var(--color-primary-soft)}.rt-line{fill:none;stroke:var(--color-primary);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1 6}
+.rt-solid{fill:none;stroke:var(--color-primary);stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.rt-dot{fill:var(--color-primary);stroke:var(--color-surface);stroke-width:2}
+.rt-txt{fill:var(--color-foreground);font:600 12px var(--sans)}
+.days{display:flex;align-items:flex-end;gap:4px;height:46px;margin-top:4px}
+.days i{flex:1;background:var(--color-primary);border-radius:3px 3px 0 0;min-width:2px;opacity:1}
+.days.dense{gap:1px}
+.dlab{display:flex;justify-content:space-between;font-size:12px;color:var(--color-muted);margin-top:4px}
+.dlab.each span{flex:1;text-align:center}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px}
+.hr{font-size:13px;color:var(--color-muted);padding-right:10px;white-space:nowrap}
+.stat{background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius-md);padding:6px 12px;min-height:54px}
+.stat b{display:block;font:600 22px/1.15 var(--sans)}
+.stat span{font-size:13px;color:var(--color-muted)}
+.note2{font-size:13px;color:var(--color-muted);margin-top:10px}
+
+/* C rychlé třídění */
+.qs{flex:1;min-height:0;display:flex;flex-direction:column;padding:0 16px}
+.qph{position:relative;flex:1;min-height:0;border-radius:var(--radius-lg);overflow:hidden;background:var(--color-sunk)}
+.qph .st{left:10px;top:10px;bottom:auto;height:26px;font-size:13px;padding:0 10px 0 8px}
+.qph .ser{position:absolute;right:10px;top:10px;height:44px;border:0;border-radius:99px;padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:13px;background:var(--color-surface);color:var(--color-foreground);border:1px solid var(--color-border)}
+.meta{display:flex;align-items:center;gap:8px;padding:10px 2px 4px;font-size:14px}
+.meta svg{color:var(--color-muted)}
+.acts3{display:grid;grid-template-columns:1fr 1.15fr 1fr;gap:8px;padding:6px 0 0}
+.act{min-height:66px;border:0;border-radius:var(--radius-md);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-weight:700;font-size:15px}
+.act.x{background:var(--color-action-trash);color:var(--color-action-trash-foreground)}
+.act.k{background:var(--color-action-keep);color:var(--color-action-keep-foreground)}
+.act.b{background:var(--color-action-star);color:var(--color-action-star-foreground)}
+.hint{font-size:13px;color:var(--color-muted);padding:8px 2px 0}
+.hint b{color:var(--color-foreground);font-weight:600}
+.qft{padding-bottom:34px;flex:none}
+
+/* C série */
+.ser2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+.sp{position:relative;display:block;width:100%;border:0;padding:0;background:none;text-align:left}
+.sp .im{display:block;aspect-ratio:1/1;border-radius:var(--radius-md);overflow:hidden;border:3px solid transparent;position:relative}
+.sp[aria-pressed='true'] .im{border-color:var(--color-primary)}
+.sp .im .ph{position:absolute;inset:0}
+.sp .lb{display:flex;justify-content:space-between;align-items:center;padding:6px 2px 0;font-size:13px;color:var(--color-muted)}
+.sp .lb b{color:var(--color-foreground);font-weight:600}
+.sp .rec{position:absolute;left:8px;top:8px;height:24px;padding:0 9px;border-radius:99px;background:var(--color-action-star);color:var(--color-action-star-foreground);font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px}
+.sp .rec svg.i{width:12px;height:12px}
+.sp .ck{position:absolute;right:8px;top:8px;width:28px;height:28px;border-radius:50%;background:var(--color-primary);color:var(--color-primary-foreground);display:none;place-items:center}
+.sp[aria-pressed='true'] .ck{display:grid}
+.sp .ck svg.i{width:16px;height:16px;stroke-width:3}
+
+/* sheet (A rozsah, C iCloud) */
+.under{position:absolute;inset:0;display:flex;flex-direction:column;z-index:0}
+.scrim{position:absolute;inset:0;background:var(--scrim);z-index:10;border:0;padding:0}
+.sheet{position:absolute;left:0;right:0;bottom:0;z-index:11;background:var(--color-surface);border-radius:24px 24px 0 0;padding:10px 16px 38px;box-shadow:0 -10px 30px rgb(0 0 0 / .18);display:grid;gap:12px}
+.sheet .grab{margin:0 auto 4px}
+i.grab{display:block;width:40px;height:5px;border-radius:3px;background:var(--color-border)}
+.sheet h2{font:600 20px/1.2 var(--sans)}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fld{border:1px solid var(--color-border);border-radius:12px;padding:8px 12px;min-height:58px;background:var(--color-background)}
+.fld small{display:block;font-size:12px;color:var(--color-muted)}
+.fld b{font-size:16px;font-weight:600}
+.found{display:flex;gap:10px;align-items:center;padding:12px;border-radius:12px;background:var(--color-primary-soft);font-size:15px}
+.found svg{color:var(--color-primary)}
+.thumb{width:72px;height:72px;border-radius:12px;overflow:hidden;flex:none;position:relative}
+
+/* D nahrávání */
+.big{font:700 44px/1 var(--sans);letter-spacing:-.02em}
+.big small{font:600 18px var(--sans);color:var(--color-muted);letter-spacing:0;margin-left:6px}
+.strip{display:flex;gap:6px;overflow:hidden;margin-top:8px}
+.strip .t{width:54px;height:54px;flex:none;border-radius:10px;overflow:hidden;position:relative}
+.strip .t .ph{position:absolute;inset:0}
+.strip .t i{position:absolute;right:3px;bottom:3px;width:18px;height:18px;border-radius:50%;background:var(--color-primary);color:var(--color-primary-foreground);display:grid;place-items:center}
+.strip .t i svg.i{width:11px;height:11px;stroke-width:3.5}
+.strip .more{width:54px;height:54px;flex:none;border-radius:10px;background:var(--color-sunk);border:1px solid var(--color-border);display:grid;place-items:center;font-size:13px;font-weight:600}
+.q{display:grid;gap:0;margin-top:6px}
+.qi{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid var(--color-border)}
+.qi:first-child{border-top:0}
+.qi .t{width:44px;height:44px;border-radius:10px;overflow:hidden;position:relative;flex:none}
+.qi .t .ph{position:absolute;inset:0}
+.qi .g{flex:1;min-width:0}
+.qi b{display:block;font-size:14px;font-weight:600}
+.qi small{display:block;font-size:13px;color:var(--color-muted)}
+.qi small.er{color:var(--color-destructive)}
+.rt{min-height:44px;padding:0 12px;border-radius:12px;border:1px solid var(--color-border);background:var(--color-surface);color:var(--color-foreground);font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.ring{width:36px;height:36px;border-radius:50%;background:conic-gradient(var(--color-primary) calc(var(--p) * 1%),var(--color-border) 0);display:grid;place-items:center;flex:none}
+.ring span{width:28px;height:28px;border-radius:50%;background:var(--color-background);display:grid;place-items:center;font-size:11px;font-weight:700}
+.info{display:flex;gap:10px;font-size:13.5px;color:var(--color-foreground);padding:8px 0}
+.info svg{color:var(--color-muted);margin-top:2px}
+.sec{font-size:13px;font-weight:600;color:var(--color-muted);margin:14px 0 4px}
+.mos{display:grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,78px);gap:3px;border-radius:var(--radius-md);overflow:hidden;margin-top:12px}
+.mos .ph{height:100%}.mos .w2{grid-column:span 2;grid-row:span 2}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+
+/* viewer */
+.frame.dk{background:#0e100d;color:#fff}
+.frame.dk .sb,.frame.dk .vt{color:#ffffff}
+.frame.dk .hi{background:var(--color-foreground)}
+.vt{flex:none;display:flex;align-items:center;gap:2px;padding:0 6px;min-height:48px}
+.vt .ib{color:#fff}
+.vt .mid{flex:1;text-align:center;font-size:14px;font-weight:600;color:#ffffff}
+.vt .mid small{display:block;font-size:12.5px;font-weight:500;color:#d9ddd6}
+.vimg{flex:1;min-height:0;position:relative;margin:4px 0}
+.vimg .ph{position:absolute;inset:0;border-radius:0}
+.vp{flex:none;background:var(--color-background);color:var(--color-foreground);border-radius:22px 22px 0 0;box-shadow:0 -8px 24px rgb(0 0 0 / .35);position:relative;z-index:5}
+.vp .grab{margin:8px auto 0}
+.fold{padding:0 16px}
+.fold>button.fh{width:100%;min-height:52px;border:0;background:none;display:flex;align-items:center;gap:10px;text-align:left;padding:0}
+.fold>button.fh .g{flex:1;min-width:0}
+.fold>button.fh b{display:block;font-size:15px;font-weight:600}
+.fold>button.fh small{display:block;font-size:13px;color:var(--color-muted)}
+.fold>button.fh svg.chev{transition:transform .2s;color:var(--color-muted)}
+.fold>button.fh[aria-expanded='true'] svg.chev{transform:rotate(180deg)}
+.fold .fb{padding:0 0 10px;display:grid;gap:10px}
+.fold .fb[hidden]{display:none}
+.cbox{border:1px solid var(--color-border);border-radius:12px;padding:10px 12px;background:var(--color-surface);font-size:15px;min-height:64px}
+.fact{display:flex;gap:10px;align-items:flex-start;font-size:14px}
+.fact svg{color:var(--color-muted);margin-top:2px}
+.fact small{display:block;color:var(--color-muted);font-size:13px}
+.vact{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:8px 10px 34px;border-top:1px solid var(--color-border)}
+.va{min-height:62px;justify-content:flex-start !important;padding-top:8px;border:0;border-radius:14px;background:none;color:var(--color-foreground);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:13px;font-weight:600}
+.va.p{background:var(--color-primary);color:var(--color-primary-foreground)}
+.va.dng{color:var(--color-destructive)}
+.vstar{color:#f6dc8a !important}
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+</style>
+</head>
+<body>
+<!-- Ikony: jednoduché obrysové symboly (bez externích souborů) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+    <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l3.1 6.3 6.9 1-5 4.9 1.2 6.9L12 18.3l-6.2 3.3L7 14.7l-5-4.9 6.9-1z"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></symbol>
+    <symbol id="i-xc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M15 9l-6 6M9 9l6 6"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.4 9.6 4.7 4.7 0 0 0 7 19z"/></symbol>
+    <symbol id="i-img" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></symbol>
+    <symbol id="i-lib" viewBox="0 0 24 24"><rect x="7" y="7" width="14" height="14" rx="3"/><path d="M17 3H6a3 3 0 0 0-3 3v11"/><circle cx="12" cy="12" r="1.3"/><path d="M21 17l-4-4-8 8"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4l13 8-13 8z"/></symbol>
+    <symbol id="i-wifi" viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 14 0M1.5 9a15 15 0 0 1 21 0M8.5 16a5 5 0 0 1 7 0M12 20h.01"/></symbol>
+    <symbol id="i-wifioff" viewBox="0 0 24 24"><path d="M5 12.5a10 10 0 0 1 5-2.7M1.5 9a15 15 0 0 1 4.5-3M16 10a10 10 0 0 1 3 2.5M8.5 16a5 5 0 0 1 7 0M12 20h.01M2 2l20 20"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></symbol>
+    <symbol id="i-retry" viewBox="0 0 24 24"><path d="M21 4v6h-6M3 20v-6h6M5.5 9A8 8 0 0 1 19 6l2 4M18.5 15A8 8 0 0 1 5 18l-2-4"/></symbol>
+    <symbol id="i-move" viewBox="0 0 24 24"><path d="M14 9l6 6-6 6M4 4v7a4 4 0 0 0 4 4h12"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="2.8"/></symbol>
+    <symbol id="i-pinplus" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 0 1 16 0z"/><path d="M12 7v6M9 10h6"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 16v-4.5M12 8h.01"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2.5"/><path d="M8 11V7.5a4 4 0 0 1 8 0V11"/></symbol>
+    <symbol id="i-ext" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></symbol>
+    <symbol id="i-warn" viewBox="0 0 24 24"><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="17" rx="3"/><path d="M16 2.5v4M8 2.5v4M3 10h18"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2.5l10 5-10 5-10-5zM2 12.5l10 5 10-5M2 17.5l10 5 10-5"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6M3.5 13a9 9 0 1 0 2.6-7.4L3 8"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7v5l3 2"/></symbol>
+    <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7z"/></symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div>
+    <h1>Import na iOS: Vybrat → Probrat → Nahrát</h1>
+    <p>Mockup, stav <b>PROPOSED</b> (neschváleno). Na zařízení <b>UNVERIFIED</b>. Fáze 4f-B, vlna 4.</p>
+  </div>
+  <div class="ctl">
+    <select class="pick narrow" id="pick" aria-label="Obrazovka"></select>
+    <div class="seg" role="group" aria-label="Zobrazení">
+      <button type="button" id="v-one" aria-pressed="true">Jedna</button>
+      <button type="button" id="v-all" aria-pressed="false">Všechny</button>
+    </div>
+    <div class="seg" role="group" aria-label="Motiv">
+      <button type="button" id="t-light" aria-pressed="false">Světlý</button>
+      <button type="button" id="t-dark" aria-pressed="false">Tmavý</button>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<nav class="idx" id="idx" aria-label="Obrazovky"></nav>
+<main id="stage">
+
+<!-- ============ A · VÝBĚR ============ -->
+<article class="cell">
+<h3 class="cap">A1 · Výběr (výchozí) <code>#a-select</code></h3>
+<div class="frame" id="a-select" data-group="A · Výběr" data-title="Výběr z knihovny">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Přidat fotky</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="cur"><b>1</b>Vybrat</li><li><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="hero"><div class="stack" aria-hidden="true"><span class="ph a" style="--h:205"></span><span class="ph b lk" style="--h:28"></span><span class="ph c" style="--h:140"></span></div></div>
+    <h1 class="t">Co chceš přidat do cesty?</h1>
+    <p class="lead">Nejdřív se jen podíváš, co se našlo. Nic se nenahrává, dokud to nepotvrdíš.</p>
+    <div class="lbl">Rychlá volba</div>
+    <div class="chips">
+      <button class="chip" data-go="a-reading"><svg class="i"><use href="#i-clock"/></svg>Od posledního importu (12. 10.)</button>
+      <button class="chip" data-go="a-range"><svg class="i"><use href="#i-cal"/></svg>Rozsah dat</button>
+    </div>
+    <p class="sub" style="margin-top:10px">Dříve vyřazené fotky se znovu nenabízejí. Najdeš je ve filtru Vyřazené.</p>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-cloud"/></svg><span>Fotky z iCloudu se najdou taky, ale náhledy se z iCloudu nestahují. Originály se stáhnou až při nahrání a jen ty, které ponecháš.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="a-reading"><svg class="i"><use href="#i-lib"/></svg>Vybrat z knihovny</button><p class="cap2">Otevře knihovnu fotek v telefonu.</p></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> v <code>ImportPage.tsx</code> dnešní picker, volbu „Podle data“ a tlačítko „Projít knihovnu fotek“. Zůstává jediný vstup. Zpráva <code>batchLimit</code> a konstanta <code>MAX_IMPORT_BATCH</code> mizí.</p>
+  <p><b>Rozhodnutí 2026-11-10:</b> globální přepínač iCloudu je pryč. Náhledy se z iCloudu nikdy nestahují; volba „stáhnout originály“ přijde až v potvrzení před nahráním (<a href="#c-confirm">C6</a>). „Od posledního importu“ nenabízí znovu fotky označené Pryč.</p>
+  <p><b>Potřebuje:</b> existující PhotoKit zdroj (<code>photokit-source.ts</code>), kurzor posledního importu (<code>ImportCursor</code>) a seznam lokálně vyřazených položek. Nic nového v DB.</p>
+  <p><span class="tag">PROPOSED · UNVERIFIED na zařízení</span></p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">A2 · Omezený přístup k fotkám <code>#a-limited</code></h3>
+<div class="frame" id="a-limited" data-group="A · Výběr" data-title="Omezený přístup ke knihovně">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Přidat fotky</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="cur"><b>1</b>Vybrat</li><li><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="banner" role="status"><svg class="i lg"><use href="#i-warn"/></svg><div><b>Aplikace vidí jen část knihovny</b><p>Máš povolený přístup jen k 64 vybraným fotkám. Ostatní se nenajdou, ani když jsou z cesty.</p><div class="acts"><button>Vybrat další fotky</button><button>Povolit celou knihovnu</button></div></div></div>
+    <h1 class="t">Co chceš přidat do cesty?</h1>
+    <p class="lead">Teď se hledá jen mezi povolenými fotkami.</p>
+    <div class="lbl">Rychlá volba</div>
+    <div class="chips">
+      <button class="chip" data-go="a-reading"><svg class="i"><use href="#i-clock"/></svg>Od posledního importu (12. 10.)</button>
+      <button class="chip" data-go="a-range"><svg class="i"><use href="#i-cal"/></svg>Rozsah dat</button>
+    </div>
+    <p class="sub" style="margin-top:10px">Dříve vyřazené fotky se znovu nenabízejí. Najdeš je ve filtru Vyřazené.</p>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-cloud"/></svg><span>Fotky z iCloudu se najdou taky, ale náhledy se z iCloudu nestahují. Originály se stáhnou až při nahrání a jen ty, které ponecháš.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="a-reading"><svg class="i"><use href="#i-lib"/></svg>Vybrat z knihovny</button><p class="cap2">Otevře knihovnu fotek v telefonu.</p></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> hlášku <code>pickedLimited</code> („mimo fotky, ke kterým má aplikace přístup“), která dnes přijde až po výběru.</p>
+  <p><b>Potřebuje:</b> stav <code>limited</code> (v kódu už se rozlišuje) a nativní volání <code>presentLimitedLibraryPicker</code> (Fáze 2 ho předpokládá; <b>UNVERIFIED</b>, že ho plugin vystavuje).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">A3 · Přístup zamítnut <code>#a-denied</code></h3>
+<div class="frame" id="a-denied" data-group="A · Výběr" data-title="Přístup zamítnut">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Přidat fotky</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="cur"><b>1</b>Vybrat</li><li><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd center">
+    <div class="circ warn"><svg class="i lg"><use href="#i-lock"/></svg></div>
+    <h1 class="t">Aplikace nevidí tvoje fotky</h1>
+    <p class="lead">Povol je v Nastavení: Trip Diary → Fotky → Všechny fotky. Pak se vrať a zkus to znovu.</p>
+    <div class="card" style="margin-top:20px;text-align:left"><div class="row"><svg class="i" style="color:var(--color-primary)"><use href="#i-info"/></svg><div class="g"><small style="color:var(--color-foreground)">Fotky zůstávají v telefonu. Nahrají se jen ty, které sám ponecháš.</small></div></div></div>
+  </div>
+  <div class="ft"><button class="btn p"><svg class="i"><use href="#i-ext"/></svg>Otevřít Nastavení</button><button class="btn t" data-go="a-select">Zkusit znovu</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> text <code>accessDenied</code> v <code>ImportPage.tsx</code> (dnes jen věta bez tlačítka).</p>
+  <p><b>Potřebuje:</b> otevření systémového Nastavení z aplikace (Capacitor <code>App.openSettings</code> nebo URL <code>app-settings:</code>; <b>UNVERIFIED</b>).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">A4 · Rozsah dat <code>#a-range</code></h3>
+<div class="frame" id="a-range" data-group="A · Výběr" data-title="Rozsah dat (list)" data-under="a-select">
+  <button class="scrim" data-go="a-select" aria-label="Zavřít"></button>
+  <div class="sheet" role="dialog" aria-label="Rozsah dat">
+    <i class="grab"></i>
+    <h2>Rozsah dat</h2>
+    <div class="chips"><button class="chip">Poslední týden</button><button class="chip">Poslední měsíc</button><button class="chip">Letos</button></div>
+    <div class="fields"><div class="fld"><small>Od</small><b>3. 8. 2026</b></div><div class="fld"><small>Do</small><b>11. 8. 2026</b></div></div>
+    <div class="found"><svg class="i"><use href="#i-img"/></svg><span><b class="tnum">330</b> položek za 9 dní</span></div>
+    <button class="btn p" data-go="a-reading">Použít rozsah</button>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> <code>RangeOption</code> a pole Od/Do v <code>ImportPage.tsx</code>. Počet se ukazuje hned (jen dotaz na metadata), tlačítko je vždy vidět.</p>
+  <p><b>Potřebuje:</b> počet podle rozsahu bez exportu médií (<code>range.ts</code> existuje; nativní počet bez načítání <b>UNVERIFIED</b>).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">A5 · Čtení knihovny <code>#a-reading</code></h3>
+<div class="frame" id="a-reading" data-group="A · Výběr" data-title="Čtení údajů z knihovny">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="a-select"><svg class="i"><use href="#i-back"/></svg></button><h2>Čtu knihovnu</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="cur"><b>1</b>Vybrat</li><li><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd center">
+    <div class="circ ok"><svg class="i lg"><use href="#i-lib"/></svg></div>
+    <div class="big tnum">211<small>z 330</small></div>
+    <p class="lead" style="margin-top:10px">Čtu datum, polohu a typ. Nic se nenahrává a nic se nemění.</p>
+    <div class="prog" style="margin:20px 8px 0" role="progressbar" aria-valuenow="64" aria-valuemin="0" aria-valuemax="100" aria-label="Čtení údajů"><i style="width:64%"></i></div>
+    <p class="lead" style="margin-top:14px">Náhledy se načtou až potom, po dnech.</p>
+  </div>
+  <div class="ft"><button class="btn p" data-go="b-overview">Dál: přehled</button><button class="btn t" data-go="a-select">Zrušit</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> dnešní „Procházím…“ (<code>scanning</code>) a okamžitý start fronty po výběru.</p>
+  <p><b>Potřebuje:</b> <b>nové nativní</b> <code>readMetadata</code> po stránkách (datum, GPS, typ, délka videa, <code>burstId</code>, příznak jen-iCloud z <code>PHAssetResource</code>); průběh se posílá po dávkách. <b>UNVERIFIED</b> rychlost na 2 700+ položkách.</p>
+</div>
+</article>
+
+<!-- ============ B · PŘEHLED ============ -->
+<article class="cell">
+<h3 class="cap">B1 · Co se našlo <code>#b-overview</code></h3>
+<div class="frame" id="b-overview" data-group="B · Přehled" data-title="Přehled nalezeného">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="a-select"><svg class="i"><use href="#i-back"/></svg></button><h2>Co se našlo</h2><span class="hr">Zatím nic nenahráno</span></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="cur"><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <h1 class="t">Z toho se už teď sestaví cesta</h1>
+    <p class="lead">Calgary → Vancouver · 3.–11. 8. 2026 · 9 dní</p>
+    <div class="card route" style="margin-top:12px">
+      <svg class="map" viewBox="0 0 334 100" role="img" aria-label="Náhled trasy z dat o poloze">
+        <path class="rt-land" d="M8 60 C26 32 58 24 92 28 C120 8 168 4 206 16 C238 4 286 10 318 32 C332 52 322 80 296 92 C240 98 150 96 92 94 C50 96 16 86 8 60z"/>
+        <path class="rt-solid" d="M286 68 L250 60 L228 48 L184 24 L132 48 L92 54 L58 74"/>
+        <circle class="rt-dot" cx="286" cy="68" r="6"/><circle class="rt-dot" cx="250" cy="60" r="5"/><circle class="rt-dot" cx="228" cy="48" r="5"/><circle class="rt-dot" cx="184" cy="24" r="6"/><circle class="rt-dot" cx="132" cy="48" r="5"/><circle class="rt-dot" cx="92" cy="54" r="5"/><circle class="rt-dot" cx="58" cy="74" r="6"/>
+        <text class="rt-txt" x="246" y="88">Calgary</text><text class="rt-txt" x="16" y="92">Vancouver</text><text class="rt-txt" x="160" y="16">Jasper</text>
+      </svg>
+      <div class="days" aria-label="Počet položek za den" data-bars="34,52,40,60,28,22,46,56,30"></div>
+      <div class="dlab each"><span>3.</span><span>4.</span><span>5.</span><span>6.</span><span>7.</span><span>8.</span><span>9.</span><span>10.</span><span>11.</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b class="tnum">312</b><span>fotek</span></div>
+      <div class="stat"><b class="tnum">18</b><span>videí</span></div>
+      <div class="stat"><b class="tnum">14</b><span>jen v iCloudu</span></div>
+      <div class="stat"><b class="tnum">23</b><span>bez polohy</span></div>
+    </div>
+    <p class="note2">Náhled je jen z času a polohy. Originály z iCloudu (14) se stáhnou až při nahrání a jen ty ponechané. Bez polohy zařadíme podle času.</p>
+    <p class="note2" style="margin-top:2px">Dříve vyřazeno: 40 · <button class="lnk" data-go="c-dismissed">Zobrazit</button></p>
+  </div>
+  <div class="ft"><button class="btn p" data-go="c-grid">Probrat<svg class="i"><use href="#i-right"/></svg></button><button class="btn s sm" data-go="b-confirm">Nahrát vše bez probírání</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> dnešní jediný řádek <code>pickedCount</code> („Vybráno: 50“).</p>
+  <p><b>Rozhodnutí 2026-11-10:</b> „Nahrát vše bez probírání“ nikdy nezačne hned; nejdřív potvrzení s počtem a velikostí (<a href="#b-confirm">B3</a>). Řádek „Dříve vyřazeno“ se ukáže jen když něco takového je.</p>
+  <p><b>Potřebuje:</b> <b>core</b> nad metadaty: <code>pickDay</code>, <code>summarizeZonedDays</code>, <code>planOrganization</code> (jen dny a místa, bez fotek); počty z <code>readMetadata</code>. Nic nového v DB. Varianta velkého výběru: <a href="#b-large">B2 · 2 714 položek</a>.</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">B2 · Velký výběr, 2 714 položek <code>#b-large</code></h3>
+<div class="frame" id="b-large" data-group="B · Přehled" data-title="Velký výběr (2 714), bez limitu">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="a-select"><svg class="i"><use href="#i-back"/></svg></button><h2>Co se našlo</h2><span class="hr">Zatím nic nenahráno</span></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="cur"><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <h1 class="t">Z toho se už teď sestaví cesta</h1>
+    <p class="lead">14. 6.–11. 8. 2026 · 59 dní · Calgary → Victoria</p>
+    <div class="card route" style="margin-top:12px">
+      <svg class="map" viewBox="0 0 334 80" role="img" aria-label="Náhled trasy z dat o poloze">
+        <path class="rt-land" d="M8 46 C26 22 58 16 92 20 C120 4 168 2 206 10 C238 2 286 6 318 24 C332 40 322 64 296 72 C240 78 150 76 92 76 C50 78 16 68 8 46z"/>
+        <path class="rt-solid" d="M286 54 L262 48 L240 38 L214 30 L184 18 L160 28 L132 36 L110 40 L92 42 L70 54 L50 60 L34 50"/>
+        <circle class="rt-dot" cx="286" cy="54" r="5"/><circle class="rt-dot" cx="240" cy="38" r="4"/><circle class="rt-dot" cx="184" cy="18" r="5"/><circle class="rt-dot" cx="132" cy="36" r="4"/><circle class="rt-dot" cx="92" cy="42" r="4"/><circle class="rt-dot" cx="50" cy="60" r="5"/><circle class="rt-dot" cx="34" cy="50" r="5"/>
+      </svg>
+      <div class="days dense" aria-label="Počet položek za den" data-bars="seed:59"></div>
+      <div class="dlab"><span>14. 6.</span><span>11. 8.</span></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b class="tnum">2 598</b><span>fotek</span></div>
+      <div class="stat"><b class="tnum">116</b><span>videí</span></div>
+      <div class="stat"><b class="tnum">212</b><span>jen v iCloudu</span></div>
+      <div class="stat"><b class="tnum">187</b><span>bez polohy</span></div>
+    </div>
+    <div class="banner info" style="margin:12px 0 0;padding:12px" role="status"><svg class="i"><use href="#i-info"/></svg><div><b>Žádný limit, probíráš po dnech</b><p>Rozhodnutí se ukládají průběžně. Nahrát vše: ≈ 3,4 GB (odhad), asi 2 h 10 min na Wi‑Fi.</p></div></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="c-grid">Probrat<svg class="i"><use href="#i-right"/></svg></button><button class="btn s sm" data-go="b-confirm">Nahrát vše bez probírání</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> chybu <code>batchLimit</code> („jedna dávka jich pojme nejvýše 500“) a větev <code>overLimit</code>.</p>
+  <p><b>Potřebuje:</b> odhad objemu a času před nahráním (Fáze 4f-B uvádí, že chybí; <b>UNVERIFIED</b>, jak přesný z <code>PHAssetResource</code> bez exportu); stránkované čtení metadat a náhledů; místní úložiště rozhodnutí (Dexie) místo JS fronty v paměti.</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">B3 · Potvrzení: nahrát vše <code>#b-confirm</code></h3>
+<div class="frame" id="b-confirm" data-group="B · Přehled" data-title="Potvrzení: nahrát vše bez probírání (list)" data-under="b-overview">
+  <button class="scrim" data-go="b-overview" aria-label="Zavřít"></button>
+  <div class="sheet" role="dialog" aria-label="Nahrát vše bez probírání">
+    <i class="grab"></i>
+    <h2>Nahrát všech 330 bez probírání?</h2>
+    <p style="font-size:15px">Nahraje se všechno, i rozmazané a duplicity. ≈ 1,4 GB, asi 55 min na Wi‑Fi (odhad). Kdykoli můžeš pozastavit.</p>
+    <div class="card" style="padding:6px 12px"><div class="row"><div class="g"><b style="font-size:14px">14 je jen v iCloudu. Stáhnout přes Wi‑Fi při nahrání</b><small>Mobilní data zůstávají vypnutá (nastavení nahrávání).</small></div><button class="sw" role="switch" aria-checked="true" aria-label="Stáhnout z iCloudu přes Wi‑Fi při nahrání"></button></div></div>
+    <button class="btn p" data-go="d-upload"><svg class="i"><use href="#i-up"/></svg>Nahrát všech 330 (≈ 1,4 GB)</button>
+    <button class="btn s sm" data-go="c-grid">Radši probrat</button>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Rozhodnutí 2026-11-10:</b> cesta „bez probírání“ je výslovná volba s počtem a velikostí, ne tichý start. Přepínač iCloudu je výchozně zapnutý; stahování přes mobilní data zůstává ve stávajícím nastavení „jen Wi‑Fi“.</p>
+  <p><b>Potřebuje:</b> odhad objemu z <code>PHAssetResource</code> (<b>UNVERIFIED</b>). Nic nového v DB.</p>
+</div>
+</article>
+
+<!-- ============ C · PROBÍRÁNÍ ============ -->
+<article class="cell">
+<h3 class="cap">C1 · Mřížka po dnech <code>#c-grid</code></h3>
+<div class="frame" id="c-grid" data-group="C · Probírání" data-title="Probrat: mřížka po dnech">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět na přehled" data-go="b-overview"><svg class="i"><use href="#i-back"/></svg></button><h2>Probrat</h2><button class="tbtn" data-go="c-quick"><svg class="i"><use href="#i-play"/></svg>Rychlé třídění</button></div>
+  <div class="tprog"><div class="prog" role="progressbar" aria-valuenow="119" aria-valuemin="0" aria-valuemax="330" aria-label="Probráno 119 z 330"><i style="width:36%"></i></div></div>
+  <div class="flt" role="group" aria-label="Filtr stavu">
+    <button class="chip" aria-pressed="true">Vše 330</button>
+    <button class="chip" aria-pressed="false"><span class="dotn"></span>Nalezené 211</button>
+    <button class="chip" aria-pressed="false"><svg class="i sm" style="color:var(--color-primary)"><use href="#i-check"/></svg>Ponechané 84</button>
+    <button class="chip" aria-pressed="false"><svg class="i sm" style="color:var(--color-warn)"><use href="#i-star"/></svg>Nejlepší 12</button>
+    <button class="chip" aria-pressed="false" data-go="c-dismissed"><svg class="i sm" style="color:var(--color-destructive)"><use href="#i-xc"/></svg>Vyřazené 23</button>
+  </div>
+  <div class="bd" style="padding-top:0">
+    <div class="tip" role="note"><svg class="i"><use href="#i-info"/></svg><span>Z telefonu se nic nemaže. Jen se to nenahraje.</span><button type="button" data-hide=".tip">Rozumím</button></div>
+    <div class="dh"><div><b>Po 3. 8. · Calgary</b><small>41 položek · zbývá 9</small></div><button class="tbtn">Ponechat zbylé (9)</button></div>
+    <div class="grid" data-tiles="205/k,150/b,30/n,210/n/c,100/x,0/n/l"></div>
+    <div class="dh" style="margin-top:6px"><div><b>Út 4. 8. · Banff</b><small>57 položek · zbývá 31</small></div><button class="tbtn">Ponechat zbylé (31)</button></div>
+    <div class="grid" data-tiles="95/n/v0:24,340/k,180/n,215/n/c,120/b,260/n"></div>
+  </div>
+  <div class="ft">
+    <div class="bar2"><span>Zbývá probrat <b class="tnum">211</b></span><span>≈ 410 MB</span></div>
+    <button class="btn p" data-go="c-confirm"><svg class="i"><use href="#i-up"/></svg>Nahrát 96 vybraných</button>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Reuse:</b> logika a rozvržení z <code>BatchPage</code>, <code>BatchDaySection</code>, <code>BatchFilterBar</code>, <code>BatchTile</code>, <code>BatchActionBar</code>. <b>Mění se zdroj dat:</b> položky z místního úložiště rozhodnutí, ne z tabulky <code>media</code>.</p>
+  <p><b>Potřebuje:</b> <b>nové nativní</b> <code>getThumbnail(localId, px)</code> (~256 px, PHImageManager, fronta s limitem paralelismu, <code>isNetworkAccessAllowed = false</code>); stav fotky (nalezena, ponechána, nejlepší, pryč) uložený lokálně; „N vybraných“ = ponechané + nejlepší. Paměť a plynulost posunu při 2 700+ dlaždicích <b>UNVERIFIED</b>.</p>
+  <p><b>Rozhodnutí 2026-11-10:</b> štítek má jen rozhodnutý stav: <b>Ponechána</b> (✓), <b>Nejlepší</b> (★), <b>Pryč</b> (✕, dlaždice ztlumená a šrafovaná). Nalezená (nerozhodnutá) dlaždice štítek nemá; zbývající počet je v ukazateli a v „Zbývá probrat“. Dlaždice bez místního náhledu (jen iCloud) je mráček s časem, třídit jde podle data, času a místa. První použití ukáže jednořádkové vysvětlení pod hlavičkou („Rozumím“ ho skryje). Tlačítko vždy vede do potvrzení <a href="#c-confirm">C6</a>, pokud něco zbývá probrat.</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">C2 · Rychlé třídění <code>#c-quick</code></h3>
+<div class="frame" id="c-quick" data-group="C · Probírání" data-title="Rychlé třídění">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět do mřížky" data-go="c-grid"><svg class="i"><use href="#i-x"/></svg></button><h2 class="tnum" style="text-align:center"><span id="q-i">1</span> z <span id="q-n">211</span></h2><button class="tbtn" id="q-undo"><svg class="i"><use href="#i-undo"/></svg>Zpět</button></div>
+  <div class="qs">
+    <div class="qph" id="q-ph">
+      <span class="ph" id="q-img" style="--h:205"></span>
+      <button class="ser" data-go="c-series"><svg class="i sm"><use href="#i-layers"/></svg>Série: 4 podobné</button>
+    </div>
+    <div class="meta"><svg class="i sm"><use href="#i-clock"/></svg><span>Út 4. 8. · 14:07</span><svg class="i sm" style="margin-left:6px"><use href="#i-pin"/></svg><span>Banff</span></div>
+    <div class="acts3">
+      <button class="act x" data-act="away"><svg class="i lg"><use href="#i-xc"/></svg>Pryč</button>
+      <button class="act k" data-act="keep"><svg class="i lg"><use href="#i-check"/></svg>Ponechat</button>
+      <button class="act b" data-act="best"><svg class="i lg"><use href="#i-star"/></svg>Nejlepší</button>
+    </div>
+    <p class="hint"><b>Pryč:</b> z telefonu se nic nemaže, jen se to nenahraje. Vrátit jde ve filtru Vyřazené. Tah nahoru = Nejlepší.</p>
+    <p class="hint" style="padding-bottom:10px">K nahrání <b class="tnum" id="q-up">96</b> · zbývá probrat <b class="tnum" id="q-left">211</b></p>
+  </div>
+  <div class="qft"></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Reuse:</b> <code>QuickSortView</code>, <code>QuickSortActions</code> a <code>model/cull.ts</code> (stejná logika, Undo, gesto tahu nahoru = ★ z 4f-B). Místo Koše je <b>Pryč</b>: v textu je přímo napsáno, že fotka zůstává v telefonu. Na tlačítka se dá klikat (počítadla se mění). Nerozhodnutá fotka štítek nemá (rozhodnutí 2026-11-10).</p>
+  <p><b>Potřebuje:</b> větší náhled (~1024 px) pro zoom, jinak stačí 256 px zvětšených (<b>UNVERIFIED</b> ostrost); haptika; <code>phash</code>/ostrost z náhledů pro „Série“ (závislost vlny 4 na ověření ve WKWebView).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">C3 · Série podobných <code>#c-series</code></h3>
+<div class="frame" id="c-series" data-group="C · Probírání" data-title="Série podobných snímků">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="c-quick"><svg class="i"><use href="#i-back"/></svg></button><h2>Vyber tu nejlepší</h2></div>
+  <div class="bd">
+    <p class="lead" style="margin-top:0">Čtyři podobné snímky, 14:07–14:08. Vybraná zůstane, ostatní půjdou Pryč (z telefonu se nic nemaže).</p>
+    <div class="ser2">
+      <button class="sp" aria-pressed="true"><span class="im"><span class="ph" style="--h:205"></span><span class="rec"><svg class="i"><use href="#i-star"/></svg>Doporučená</span><span class="ck"><svg class="i"><use href="#i-check"/></svg></span></span><span class="lb"><b>Nejostřejší</b><span>92 %</span></span></button>
+      <button class="sp" aria-pressed="false"><span class="im"><span class="ph" style="--h:210"></span><span class="ck"><svg class="i"><use href="#i-check"/></svg></span></span><span class="lb"><span>Oči zavřené</span><span>71 %</span></span></button>
+      <button class="sp" aria-pressed="false"><span class="im"><span class="ph" style="--h:200"></span><span class="ck"><svg class="i"><use href="#i-check"/></svg></span></span><span class="lb"><span>Rozmazaná</span><span>48 %</span></span></button>
+      <button class="sp" aria-pressed="false"><span class="im"><span class="ph" style="--h:208"></span><span class="ck"><svg class="i"><use href="#i-check"/></svg></span></span><span class="lb"><span>Ostrá</span><span>88 %</span></span></button>
+    </div>
+    <p class="note2">Ostrost se měří v rámci série.</p>
+  </div>
+  <div class="ft"><button class="btn p" data-go="c-quick">Nechat tuhle, ostatní 3 Pryč</button><button class="btn s sm" data-go="c-quick">Nechat víc než jednu</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Reuse:</b> <code>SeriesView</code> a texty <code>series.*</code> (Doporučená, Nejostřejší ze série). Rozdíl: „Pryč“ místo „do koše“, a nic se ještě nenahrálo.</p>
+  <p><b>Potřebuje:</b> série z lokálních metadat (<code>burstId</code>) a z <code>phash</code>/ostrosti na náhledech (<b>UNVERIFIED</b> výkon a přesnost na iPhonu).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">C4 · Fotka jen v iCloudu <code>#c-icloud</code></h3>
+<div class="frame" id="c-icloud" data-group="C · Probírání" data-title="Dlaždice jen v iCloudu (list)" data-under="c-grid">
+  <button class="scrim" data-go="c-grid" aria-label="Zavřít"></button>
+  <div class="sheet" role="dialog" aria-label="Fotka jen v iCloudu">
+    <i class="grab"></i>
+    <div class="row" style="align-items:flex-start"><div class="thumb"><span class="cld"><svg class="i"><use href="#i-cloud"/></svg></span></div><div class="g"><h2>Jen v iCloudu</h2><small style="color:var(--color-muted);font-size:14px">Út 4. 8. · 15:32 · Banff</small></div><svg class="i lg" style="color:var(--color-muted)"><use href="#i-cloud"/></svg></div>
+    <p style="font-size:15px">Náhled se z iCloudu nestahuje, proto je tu jen mráček. Třídit můžeš podle data, času a místa. Originál se stáhne až při nahrání a jen když fotku ponecháš.</p>
+    <div class="row card" style="padding:10px 12px"><svg class="i" style="color:var(--color-primary)"><use href="#i-wifi"/></svg><div class="g"><b style="font-size:14px">Stáhne se přes Wi‑Fi při nahrání</b><small>Volbu uvidíš v potvrzení před nahráním.</small></div></div>
+    <div class="acts3"><button class="act x" data-go="c-grid"><svg class="i lg"><use href="#i-xc"/></svg>Pryč</button><button class="act k" data-go="c-grid"><svg class="i lg"><use href="#i-check"/></svg>Ponechat</button><button class="act b" data-go="c-grid"><svg class="i lg"><use href="#i-star"/></svg>Nejlepší</button></div>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> chybu <code>reason.asset_unavailable</code> („Originál je jen v iCloudu…“), která dnes přijde až při nahrávání. Teď je to vidět při probírání.</p>
+  <p><b>Rozhodnutí 2026-11-10:</b> žádný globální přepínač; náhled se z iCloudu nikdy nestahuje (<code>isNetworkAccessAllowed = false</code>), dlaždice bez místního náhledu je mráček. Rozhodnutí o stažení originálů je kontextové (<a href="#c-confirm">C6</a>).</p>
+  <p><b>Potřebuje:</b> příznak z <code>PHAssetResource</code> (lokálně dostupný / ne) a rozlišení „je místní náhled“ (<b>UNVERIFIED</b>, že iOS vrátí degradovaný náhled u optimalizovaných originálů bez stažení).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">C5 · Vyřazené (Pryč) <code>#c-dismissed</code></h3>
+<div class="frame" id="c-dismissed" data-group="C · Probírání" data-title="Vyřazené: vrátit zpět">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět do mřížky" data-go="c-grid"><svg class="i"><use href="#i-back"/></svg></button><h2>Vyřazené</h2></div>
+  <div class="flt" role="group" aria-label="Filtr stavu">
+    <button class="chip" aria-pressed="false" data-go="c-grid">Vše 330</button>
+    <button class="chip" aria-pressed="false" data-go="c-grid"><span class="dotn"></span>Nalezené 211</button>
+    <button class="chip" aria-pressed="false" data-go="c-grid"><svg class="i sm" style="color:var(--color-primary)"><use href="#i-check"/></svg>Ponechané 84</button>
+    <button class="chip" aria-pressed="false" data-go="c-grid"><svg class="i sm" style="color:var(--color-warn)"><use href="#i-star"/></svg>Nejlepší 12</button>
+    <button class="chip" aria-pressed="true"><svg class="i sm"><use href="#i-xc"/></svg>Vyřazené 23</button>
+  </div>
+  <div class="bd" style="padding-top:0">
+    <p class="sub" style="padding:2px 2px 4px">Z telefonu se nic nemaže. Vrácená fotka je zase mezi nalezenými a můžeš ji probrat.</p>
+    <div class="dh"><div><b>Z tohoto výběru</b><small>23 položek</small></div><button class="tbtn">Vrátit vše (23)</button></div>
+    <div class="grid" data-tiles="100/x,40/x,260/x,0/x/l,150/x,300/x"></div>
+    <div class="dh" style="margin-top:6px"><div><b>Dříve vyřazeno</b><small>40 položek · z minulých importů</small></div><button class="tbtn">Vrátit vše (40)</button></div>
+    <div class="grid" data-tiles="215/x,120/x,330/x"></div>
+  </div>
+  <div class="ft">
+    <div class="bar2"><span>Vyřazené se znovu nenabízejí</span><span>vrátit lze kdykoli</span></div>
+    <button class="btn p" data-go="c-confirm"><svg class="i"><use href="#i-up"/></svg>Nahrát 96 vybraných</button>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Rozhodnutí 2026-11-10:</b> Pryč = zapamatované jako vyřazené, <b>ne</b> znovu nabízené ani přes „Od posledního importu“, ani při pozdějším výběru; vždy obnovitelné (u celého dne i po jedné fotce, dlaždice se vrací stavem Nalezena). Na obrazovce B je tichý řádek „Dříve vyřazeno: 40 · Zobrazit“, který vede sem.</p>
+  <p><b>Potřebuje:</b> lokální (Dexie) záznam <code>dismissed</code> podle <code>localIdentifier</code> přežívající mezi importy. Nic nového v DB.</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">C6 · Potvrzení: zbývá probrat <code>#c-confirm</code></h3>
+<div class="frame" id="c-confirm" data-group="C · Probírání" data-title="Potvrzení: zbývá probrat (list)" data-under="c-grid">
+  <button class="scrim" data-go="c-grid" aria-label="Zavřít"></button>
+  <div class="sheet" role="dialog" aria-label="Zbývá probrat 211 fotek">
+    <i class="grab"></i>
+    <h2>Zbývá probrat 211 fotek</h2>
+    <p style="font-size:15px">Neprobrané se nenahrají samy. Zůstanou mezi nalezenými a nabídneme je znovu v záložce Třídění.</p>
+    <div class="card" style="padding:6px 12px"><div class="row"><div class="g"><b style="font-size:14px">14 vybraných je jen v iCloudu. Stáhnout přes Wi‑Fi při nahrání</b><small id="cf-note">Mobilní data zůstávají vypnutá (nastavení nahrávání).</small></div><button class="sw" id="cf-sw" role="switch" aria-checked="true" aria-label="Stáhnout z iCloudu přes Wi‑Fi při nahrání"></button></div></div>
+    <button class="btn p" id="cf-go" data-go="d-upload"><svg class="i"><use href="#i-up"/></svg>Nahrát jen vybrané (96)</button>
+    <button class="btn s sm" data-go="c-quick">Probrat zbytek</button>
+    <button class="btn t" data-go="d-upload">Nahrát i neprobrané (307, ≈ 1,2 GB)</button>
+  </div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Rozhodnutí 2026-11-10:</b> probírání nesmí způsobit tichou ztrátu ani tichý upload. Tlačítko „Nahrát N vybraných“ bere jen Ponechané a Nejlepší; zbývá-li neprobrané, otevře tento list se třemi výslovnými volbami (hlavní, vedlejší, textová s velikostí). „Probrat zbytek“ vede do mřížky na první neprobranou. Když nic nezbývá, list se přeskočí.</p>
+  <p><b>iCloud:</b> řádek se ukáže jen když jsou ponechané položky jen v iCloudu; přepínač je výchozně zapnutý. Když ho vypneš, hlavní tlačítko vede na <a href="#d-icloud">D4</a> (klikací ukázka). Řádek se ukáže i při startu nahrávání, když list odpadl.</p>
+  <p><b>Potřebuje:</b> lokální stav „nalezena“ s příznakem „nabídnout znovu“ a odznak v záložce Třídění. Nic nového v DB.</p>
+</div>
+</article>
+
+<!-- ============ D · NAHRÁVÁNÍ ============ -->
+<article class="cell">
+<h3 class="cap">D1 · Nahrávání vybraných <code>#d-upload</code></h3>
+<div class="frame" id="d-upload" data-group="D · Nahrávání" data-title="Nahrávání: probíhá">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><h2 style="padding-left:12px">Nahrávání</h2><button class="tbtn" data-go="c-grid">Skrýt</button></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Probrat</li><li class="cur"><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="big tnum">37<small>z 96 nahráno</small></div>
+    <div class="prog" style="margin-top:12px" role="progressbar" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" aria-label="Průběh nahrávání"><i style="width:38%"></i></div>
+    <div class="bar2" style="margin-top:6px"><span>Zbývá asi 7 minut</span><span>odhad z tvého tempa</span></div>
+    <div class="sec">Právě nahrané</div>
+    <div class="strip" data-strip="205,150,30,215,120,340"></div>
+    <div class="sec">Fronta</div>
+    <div class="q">
+      <div class="qi"><div class="t"><span class="ph" style="--h:180"></span></div><div class="g"><b>Fotka IMG_4821</b><small>Stahuji z iCloudu přes Wi‑Fi</small></div><div class="ring" style="--p:64"><span>64</span></div></div>
+      <div class="qi"><div class="t"><span class="ph lk" style="--h:25"></span></div><div class="g"><b>Fotka IMG_4803</b><small class="er">Spojení vypadlo</small></div><button class="rt"><svg class="i sm"><use href="#i-retry"/></svg>Zkusit znovu</button></div>
+      <div class="qi"><div class="t" style="display:grid;place-items:center;background:var(--color-sunk)"><b class="tnum" style="font-size:13px">+57</b></div><div class="g"><b>Čeká 57 dalších</b><small>Nahrají se postupně</small></div></div>
+    </div>
+    <div class="info"><svg class="i"><use href="#i-wifi"/></svg><span>Nahrává se jen přes Wi‑Fi. Mobilní data jsou vypnutá.</span></div>
+    <div class="info" style="padding-top:0"><svg class="i"><use href="#i-lock"/></svg><span>Nech aplikaci otevřenou. Když ji opustíš, dokončíme rozpracovanou fotku a po návratu naváže. Displej zůstává při nahrávání zapnutý.</span></div>
+  </div>
+  <div class="ft"><button class="btn s" data-go="d-paused"><svg class="i"><use href="#i-pause"/></svg>Pozastavit</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> <code>QueueSection</code>, <code>ProgressRing</code> a <code>use-upload-eta.ts</code> v <code>ImportPage.tsx</code>; „Právě nahrané“ a <code>progressOf</code> už v i18n jsou. Do fronty jde jen to, co je ponechané nebo nejlepší.</p>
+  <p><b>Potřebuje:</b> plné varianty (<code>exporting</code>) <b>jen pro vybrané</b>; hlavně Fáze 4d M3 (<code>beginBackgroundTask</code>, displej zůstává zapnutý). Text o opuštění aplikace odpovídá M3 (dokončení rozpracované položky); <b>žádný příslib plného nahrávání na pozadí</b> (rozhodnutí 2026-11-10), plný background <code>URLSession</code> je jen volitelný spike, <b>UNVERIFIED</b>. Displej zůstává zapnutý po dobu nahrávání. Wi‑Fi-only už platí (stav 4f-B).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">D2 · Pozastaveno <code>#d-paused</code></h3>
+<div class="frame" id="d-paused" data-group="D · Nahrávání" data-title="Nahrávání: pozastaveno">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><h2 style="padding-left:12px">Nahrávání</h2><button class="tbtn" data-go="c-grid">Skrýt</button></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Probrat</li><li class="cur"><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="banner" role="status" style="padding:12px"><svg class="i"><use href="#i-pause"/></svg><div><b>Pozastaveno</b><p>Hotové zůstává v cestě. Zbývajících 59 počká, až budeš chtít pokračovat.</p></div></div>
+    <div class="big tnum">37<small>z 96 nahráno</small></div>
+    <div class="prog hold" style="margin-top:12px" role="progressbar" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" aria-label="Průběh nahrávání"><i style="width:38%"></i></div>
+    <div class="bar2" style="margin-top:6px"><span>Zbývá 59 položek</span><span>čas se dopočítá po obnovení</span></div>
+    <div class="sec">Právě nahrané</div>
+    <div class="strip" data-strip="205,150,30,215,120,340"></div>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-wifi"/></svg><span>Po pokračování se nahrává jen přes Wi‑Fi. <b>Povolit i mobilní data</b> jde v nastavení nahrávání.</span></div>
+    <div class="info" style="padding-top:0"><svg class="i"><use href="#i-lock"/></svg><span>Nech aplikaci otevřenou. Když ji opustíš, dokončíme rozpracovanou fotku a po návratu naváže. Displej zůstává při nahrávání zapnutý.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="d-upload"><svg class="i"><use href="#i-play"/></svg>Pokračovat</button><button class="btn d" data-go="c-grid">Zrušit zbývající</button><p class="cap2">Zbylé fotky zůstanou v telefonu i ve tvém výběru.</p></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> <code>pause</code> / <code>resume</code> / <code>cancel</code> z <code>ImportPage.tsx</code> (dnes „Zastavit a smazat čekající položky“, což zní, jako by se mazaly fotky).</p>
+  <p><b>Potřebuje:</b> nic nového; stav fronty už přežívá restart (Fáze 2).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">D3 · Hotovo <code>#d-done</code></h3>
+<div class="frame" id="d-done" data-group="D · Nahrávání" data-title="Nahrávání: hotovo, další krok">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Nahrávání</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Probrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Nahrát</li></ol>
+  <div class="bd center">
+    <div class="circ ok" style="margin:0 auto 8px;width:56px;height:56px"><svg class="i lg"><use href="#i-check"/></svg></div>
+    <h1 class="t">Hotovo, 96 je v cestě</h1>
+    <p class="lead">Rozložené do 9 dní. Zastávky ti navrhneme sami, ty je jen potvrdíš.</p>
+    <div class="mos" style="text-align:left"><span class="ph w2" style="--h:205"></span><span class="ph lk" style="--h:25"></span><span class="ph" style="--h:140"></span><span class="ph ct" style="--h:340"></span><span class="ph" style="--h:95"></span><span class="ph lk" style="--h:210"></span></div>
+    <div class="sum">
+      <div class="stat"><b class="tnum">96</b><span>nahráno</span></div>
+      <div class="stat"><b class="tnum">0</b><span>selhalo</span></div>
+      <div class="stat"><b class="tnum">234</b><span>v telefonu</span></div>
+    </div>
+    <p class="note2" style="text-align:left">Nic se z knihovny nesmazalo. Neprobrané (211) zůstávají mezi nalezenými a nabídneme je znovu v záložce Třídění. Vyřazené (23) se nenabízejí, ale jdou vrátit.</p>
+    <button class="card row" data-go="c-grid" style="width:100%;margin-top:10px;text-align:left"><div class="g"><b>Dokončit probírání</b><small>Zbývá probrat 211</small></div><svg class="i" style="color:var(--color-muted)"><use href="#i-right"/></svg></button>
+  </div>
+  <div class="ft"><button class="btn p">Roztřídit do zastávek<svg class="i"><use href="#i-right"/></svg></button><button class="btn t" data-go="a-select">Zpět na cestu</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> <code>finished</code> a <code>sortOffer</code> v <code>ImportPage.tsx</code>. Další krok „Roztřídit do zastávek“ vede do <code>BatchPage</code> (stejně jako dnešní <code>sortBatch</code>) a do auto-uspořádání ZS-7.</p>
+  <p><b>Potřebuje:</b> po nahrání zapsat ★ u „Nejlepších“ stávajícím voláním (<b>UNVERIFIED</b>, že DB nic nového nepotřebuje). Pokud nějaká položka selže, zde přibude řádek „Nenahráno: N · Zkusit znovu“ (<code>failedTitle</code>).</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">D4 · Hotovo, část čeká na iCloud <code>#d-icloud</code></h3>
+<div class="frame" id="d-icloud" data-group="D · Nahrávání" data-title="Nahrávání: Bez iCloudu, 14 čeká">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Nahrávání</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Probrat</li><li class="cur"><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="banner" role="status" style="padding:12px"><svg class="i lg"><use href="#i-cloud"/></svg><div><b>Bez iCloudu: 14 čeká</b><p>Tyhle fotky jsou ponechané, jen čekají na stažení z iCloudu. Nic se neztratilo a zůstanou ve výběru.</p></div></div>
+    <div class="big tnum">82<small>z 82 nahráno</small></div>
+    <div class="prog" style="margin-top:12px" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" aria-label="Průběh nahrávání"><i style="width:100%"></i></div>
+    <div class="bar2" style="margin-top:6px"><span>Ponechaná, čeká na iCloud <b class="tnum">14</b></span><span>celkem vybráno 96</span></div>
+    <div class="sec">Právě nahrané</div>
+    <div class="strip" data-total="82" data-strip="205,150,30,215,120,340"></div>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-wifi"/></svg><span>Stažení proběhne jen přes Wi‑Fi. Mobilní data zůstávají vypnutá.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="d-upload"><svg class="i"><use href="#i-cloud"/></svg>Stáhnout z iCloudu a nahrát (14)</button><button class="btn t" data-go="a-select">Zpět na cestu</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note">
+  <p><b>Rozhodnutí 2026-11-10:</b> když v potvrzení vypneš stažení z iCloudu, položky jen v iCloudu <b>nezmizí</b> a nenahrají se potichu: zůstanou <b>ponechané, čekají na iCloud</b>. Tento stav nabídne stažení kdykoli později (a po návratu na Wi‑Fi).</p>
+  <p><b>Potřebuje:</b> stav fronty „čeká na iCloud“ (nový, lokální). Nic nového v DB.</p>
+</div>
+</article>
+
+<!-- ============ V · PROHLÍŽEČ ============ -->
+<article class="cell">
+<h3 class="cap">V1 · Prohlížeč fotky <code>#v-viewer</code></h3>
+<div class="frame dk" id="v-viewer" data-group="V · Prohlížeč" data-title="Prohlížeč: akce vždy vidět">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="vt"><button class="ib" aria-label="Zavřít prohlížeč" data-go="v-viewer"><svg class="i"><use href="#i-x"/></svg></button><div class="mid tnum">7 / 23<small>Bow Falls</small></div><button class="ib" aria-label="Nejlepší"><svg class="i vstar"><use href="#i-star"/></svg></button><button class="ib" aria-label="Další akce"><svg class="i"><use href="#i-more"/></svg></button></div>
+  <div class="vimg"><span class="ph" style="--h:205"></span></div>
+  <div class="vp">
+    <i class="grab"></i>
+    <div class="fold">
+      <button class="fh" aria-expanded="false" aria-controls="fb1"><div class="g"><b>Út 4. 8. · 14:07 · Banff</b><small>Popisek, čas a místo</small></div><svg class="i chev"><use href="#i-down"/></svg></button>
+      <div class="fb" id="fb1" hidden></div>
+    </div>
+    <div class="vact">
+      <button class="va"><svg class="i"><use href="#i-move"/></svg>Přesunout</button>
+      <button class="va"><svg class="i"><use href="#i-pinplus"/></svg>Nová zastávka</button>
+      <button class="va dng"><svg class="i"><use href="#i-trash"/></svg>Koš</button>
+      <button class="va p"><svg class="i"><use href="#i-check"/></svg>Hotovo</button>
+    </div>
+  </div>
+  <i class="hi" style="background:var(--color-foreground)"></i>
+</div>
+<div class="note">
+  <p><b>Nahrazuje:</b> spodní <code>aside</code> v <code>MediaViewer.tsx</code> (<code>max-h-[42dvh] overflow-y-auto</code>), kde jsou akce pod hranou obrazovky. Akce teď tvoří pevnou lištu pod popiskem; popisek, čas a místo jsou ve sbalitelné sekci (klepnutím se rozbalí, viz <a href="#v-details">V2</a>).</p>
+  <p><b>Potřebuje:</b> jen změnu rozvržení (<code>app-specialist</code>); stejné akce a i18n klíče <code>viewer.*</code> (Přesunout do zastávky, Vyjmout do nové zastávky, Přesunout do koše). Tady je to už Koš, protože fotka je v cestě.</p>
+</div>
+</article>
+
+<article class="cell">
+<h3 class="cap">V2 · Prohlížeč, rozbalené podrobnosti <code>#v-details</code></h3>
+<div class="frame dk" id="v-details" data-group="V · Prohlížeč" data-title="Prohlížeč: rozbalené podrobnosti">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="vt"><button class="ib" aria-label="Zavřít prohlížeč" data-go="v-viewer"><svg class="i"><use href="#i-x"/></svg></button><div class="mid tnum">7 / 23<small>Bow Falls</small></div><button class="ib" aria-label="Nejlepší"><svg class="i vstar"><use href="#i-star"/></svg></button><button class="ib" aria-label="Další akce"><svg class="i"><use href="#i-more"/></svg></button></div>
+  <div class="vimg"><span class="ph" style="--h:205"></span></div>
+  <div class="vp">
+    <i class="grab"></i>
+    <div class="fold">
+      <button class="fh" aria-expanded="true" aria-controls="fb2"><div class="g"><b>Út 4. 8. · 14:07 · Banff</b><small>Popisek, čas a místo</small></div><svg class="i chev"><use href="#i-down"/></svg></button>
+      <div class="fb" id="fb2">
+        <div class="cbox">Přehled od Bow Falls, ještě bez mraků.</div>
+        <div class="fact"><svg class="i"><use href="#i-clock"/></svg><div>14:07, úterý 4. 8. 2026<small>America/Edmonton (UTC−6)</small></div></div>
+        <div class="fact"><svg class="i"><use href="#i-pin"/></svg><div>Banff, Alberta<small>51,1784, −115,5708</small></div></div>
+        <div class="fact"><svg class="i"><use href="#i-layers"/></svg><div>Zastávka Bow Falls<small>12 fotek</small></div></div>
+      </div>
+    </div>
+    <div class="vact">
+      <button class="va"><svg class="i"><use href="#i-move"/></svg>Přesunout</button>
+      <button class="va"><svg class="i"><use href="#i-pinplus"/></svg>Nová zastávka</button>
+      <button class="va dng"><svg class="i"><use href="#i-trash"/></svg>Koš</button>
+      <button class="va p"><svg class="i"><use href="#i-check"/></svg>Hotovo</button>
+    </div>
+  </div>
+  <i class="hi" style="background:var(--color-foreground)"></i>
+</div>
+<div class="note">
+  <p>Čas je přesný okamžik s IANA pásmem (pravidlo z <code>CLAUDE.md</code>), nikdy „teď“. Panel zabírá nejvýš ~45 % výšky, fotka zůstává vidět a lišta akcí neutíká.</p>
+</div>
+</article>
+
+<!-- ============ S · STAVY ============ -->
+<article class="cell">
+<h3 class="cap">S1 · Nic nového <code>#s-empty</code></h3>
+<div class="frame" id="s-empty" data-group="S · Stavy" data-title="Prázdný stav: nic nového">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="a-select"><svg class="i"><use href="#i-back"/></svg></button><h2>Co se našlo</h2><span class="hr">Zatím nic nenahráno</span></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="cur"><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd center">
+    <div class="circ ok" style="margin-top:36px"><svg class="i lg"><use href="#i-lib"/></svg></div>
+    <h1 class="t">Nic nového</h1>
+    <p class="lead">Od posledního importu (12. 10.) v knihovně nepřibyly žádné fotky ani videa. Zkus jiný rozsah, nebo si vyber ručně.</p>
+  </div>
+  <div class="ft"><button class="btn p" data-go="a-reading"><svg class="i"><use href="#i-lib"/></svg>Vybrat z knihovny</button><button class="btn s sm" data-go="a-range">Rozsah dat</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note"><p><b>Nahrazuje:</b> <code>nothingToImport</code> („Není nic nového k importu“), které dnes nemá žádnou další akci.</p></div>
+</article>
+
+<article class="cell">
+<h3 class="cap">S2 · Chyba čtení knihovny <code>#s-error</code></h3>
+<div class="frame" id="s-error" data-group="S · Stavy" data-title="Chyba: knihovnu se nepodařilo přečíst">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zpět" data-go="a-select"><svg class="i"><use href="#i-back"/></svg></button><h2>Přidat fotky</h2></div>
+  <ol class="steps" aria-label="Postup"><li class="cur"><b>1</b>Vybrat</li><li><b>2</b>Probrat</li><li><b>3</b>Nahrát</li></ol>
+  <div class="bd center">
+    <div class="circ err" style="margin-top:36px"><svg class="i lg"><use href="#i-warn"/></svg></div>
+    <h1 class="t">Knihovnu se nepodařilo přečíst</h1>
+    <p class="lead">Nic se nenahrálo ani nesmazalo. Zkus to znovu. Když se to opakuje, zavři aplikaci a otevři ji znovu.</p>
+  </div>
+  <div class="ft"><button class="btn p" data-go="a-reading"><svg class="i"><use href="#i-retry"/></svg>Zkusit znovu</button><button class="btn t" data-go="a-select">Zpět</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note"><p><b>Nahrazuje:</b> <code>loadError</code> („Média se nepodařilo načíst“) s tlačítkem místo holé věty.</p></div>
+</article>
+
+<article class="cell">
+<h3 class="cap">S3 · Offline při nahrávání <code>#s-offline</code></h3>
+<div class="frame" id="s-offline" data-group="S · Stavy" data-title="Offline: nahrávání čeká">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><h2 style="padding-left:12px">Nahrávání</h2><button class="tbtn" data-go="c-grid">Skrýt</button></div>
+  <ol class="steps" aria-label="Postup"><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Vybrat</li><li class="done"><b><svg class="i"><use href="#i-check"/></svg></b>Probrat</li><li class="cur"><b>3</b>Nahrát</li></ol>
+  <div class="bd">
+    <div class="banner err" role="status" style="padding:12px"><svg class="i lg"><use href="#i-wifioff"/></svg><div><b>Jsi offline</b><p>Nahrávání počká a naváže samo, jakmile budeš online. Nic se neztratí.</p></div></div>
+    <div class="big tnum">37<small>z 96 nahráno</small></div>
+    <div class="prog hold" style="margin-top:12px" role="progressbar" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" aria-label="Průběh nahrávání"><i style="width:38%"></i></div>
+    <div class="bar2" style="margin-top:6px"><span>Čekám na připojení</span><span>zbývá 59</span></div>
+    <div class="card row" style="margin-top:16px"><svg class="i" style="color:var(--color-primary)"><use href="#i-check"/></svg><div class="g"><b style="font-size:14px">Probírat můžeš dál</b><small>Náhledy jsou v telefonu, internet nepotřebují.</small></div></div>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-lock"/></svg><span>Nech aplikaci otevřenou. Když ji opustíš, dokončíme rozpracovanou fotku a po návratu naváže. Displej zůstává při nahrávání zapnutý.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="c-grid">Probrat dál (211)</button><button class="btn s sm" data-go="d-paused"><svg class="i"><use href="#i-pause"/></svg>Pozastavit</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note"><p><b>Nahrazuje:</b> <code>waitingOnline</code> (jedna věta nad frontou). Triage (B, C) funguje offline, protože jede jen z údajů a náhledů v telefonu; <b>UNVERIFIED</b> u jen-iCloud náhledů, ty offline nemusí být.</p></div>
+</article>
+
+<article class="cell">
+<h3 class="cap">S4 · Pokračování po restartu aplikace <code>#s-resume</code></h3>
+<div class="frame" id="s-resume" data-group="S · Stavy" data-title="Obnovení po restartu aplikace">
+  <div class="sb"><span class="tm">9:41</span><i class="isl"></i><span class="r"><svg viewBox="0 0 17 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg><span class="bat"></span></span></div>
+  <div class="hd"><button class="ib" aria-label="Zavřít" data-go="a-select"><svg class="i"><use href="#i-x"/></svg></button><h2>Rozpracovaný import</h2></div>
+  <div class="bd">
+    <div class="banner info" role="status" style="padding:12px"><svg class="i lg"><use href="#i-info"/></svg><div><b>Aplikace se mezitím zavřela</b><p>Nic se neztratilo ani nezdvojilo. Všechno je uložené v telefonu.</p></div></div>
+    <div class="card" style="padding:4px 14px">
+      <div class="qi"><div class="g"><b>Nalezeno</b><small>3.–11. 8. 2026 · 9 dní</small></div><b class="tnum" style="font-size:18px">330</b></div>
+      <div class="qi"><div class="g"><b>Probráno</b><small>Zbývá probrat 211</small></div><b class="tnum" style="font-size:18px">119</b></div>
+      <div class="qi"><div class="g"><b>Nahráno</b><small>Z 96 vybraných, zbývá 59</small></div><b class="tnum" style="font-size:18px">37</b></div>
+    </div>
+    <div class="prog" style="margin-top:14px" role="progressbar" aria-valuenow="38" aria-valuemin="0" aria-valuemax="100" aria-label="Nahráno 37 z 96"><i style="width:38%"></i></div>
+    <div class="strip" style="margin-top:12px" data-strip="205,150,30,215,120,340"></div>
+    <div class="info" style="margin-top:8px"><svg class="i"><use href="#i-lock"/></svg><span>Nech aplikaci otevřenou. Když ji opustíš, dokončíme rozpracovanou fotku a po návratu naváže. Displej zůstává při nahrávání zapnutý.</span></div>
+  </div>
+  <div class="ft"><button class="btn p" data-go="d-upload">Pokračovat v nahrávání</button><button class="btn s sm" data-go="c-grid">Probírat dál</button><button class="btn d" data-go="a-select">Zahodit rozpracovaný import</button></div>
+  <i class="hi"></i>
+</div>
+<div class="note"><p><b>Nahrazuje:</b> dnešní chování, kdy fronta jen tiše pokračuje (<code>continue</code>, <code>resume</code>). „Zahodit“ smaže jen rozpracovaná rozhodnutí v aplikaci. Nahrané zůstane v cestě a fotky v telefonu se nedotknou.</p>
+<p><b>Potřebuje:</b> trvalé uložení rozhodnutí (Dexie) a fronty; fronta uploadu už restart přežívá (Fáze 2), rozhodnutí z probírání ne (<b>nové</b>).</p></div>
+</article>
+
+</main>
+</div>
+
+<script>
+(function(){
+  'use strict';
+  var root=document.documentElement, body=document.body;
+  var qs=new URLSearchParams(location.search);
+
+  /* ---- téma ---- */
+  function setTheme(t){
+    if(t==='light'||t==='dark'){root.setAttribute('data-theme',t)}
+    document.getElementById('t-light').setAttribute('aria-pressed',String(t==='light'));
+    document.getElementById('t-dark').setAttribute('aria-pressed',String(t==='dark'));
+  }
+  var osDark=window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').matches;
+  setTheme(qs.get('theme')||(osDark?'dark':'light'));
+  document.getElementById('t-light').onclick=function(){setTheme('light')};
+  document.getElementById('t-dark').onclick=function(){setTheme('dark')};
+
+  /* ---- dlaždice ---- */
+  var ST={n:['Nalezena',''],k:['Ponechána','st-k'],b:['Nejlepší','st-b'],x:['Pryč','st-x']};
+  var VARIANT=['','lk','ct'];
+  var ICON={k:'i-check',b:'i-star',x:'i-xc'};
+  document.querySelectorAll('[data-tiles]').forEach(function(g){
+    g.innerHTML=g.dataset.tiles.split(',').map(function(tok,idx){
+      var p=tok.split('/'), h=+p[0], s=p[1], f=p[2]||'';
+      var label=ST[s][0], cloud=f==='c', loading=f==='l', video=f.charAt(0)==='v';
+      var ph=cloud?'<span class="cld"><svg class="i"><use href="#i-cloud"/></svg>'+(14+idx)+':'+(10+idx*7)+'</span>':'<span class="ph '+VARIANT[(idx+Math.floor(h/40))%3]+(s==='x'?' gone':'')+'" style="--h:'+h+'"></span>';
+      var chip=s==='n'?'':'<span class="st '+ST[s][1]+'"><svg class="i"><use href="#'+ICON[s]+'"/></svg>'+label+'</span>';
+      var badge=cloud?'<span class="bdg r" aria-hidden="true"><svg class="i"><use href="#i-cloud"/></svg></span>':'';
+      if(video){badge='<span class="bdg l"><svg class="i"><use href="#i-play"/></svg>'+f.slice(1).replace(':',':')+'</span>'}
+      var sk=loading?'<span class="sk"></span>':'';
+      var aria=label+(cloud?', jen v iCloudu':'')+(video?', video':'')+(loading?', náhled se načítá':'');
+      return '<button class="tile'+(s==='x'?' gx':'')+'" data-go="'+(cloud?'c-icloud':'c-quick')+'" aria-label="'+aria+'">'+ph+sk+badge+chip+'</button>';
+    }).join('');
+  });
+  document.querySelectorAll('[data-strip]').forEach(function(el){
+    el.innerHTML=el.dataset.strip.split(',').slice(0,5).map(function(h,i){
+      return '<span class="t"><span class="ph '+VARIANT[i%3]+'" style="--h:'+h+'"></span><i aria-hidden="true"><svg class="i"><use href="#i-check"/></svg></i></span>';
+    }).join('')+'<span class="more tnum">+'+((+el.dataset.total||37)-5)+'</span>';
+  });
+  document.querySelectorAll('[data-bars]').forEach(function(el){
+    var spec=el.dataset.bars, vals;
+    if(spec.indexOf('seed:')===0){
+      var n=+spec.slice(5), x=7; vals=[];
+      for(var i=0;i<n;i++){x=(x*48271)%2147483647; vals.push(10+Math.round((x%1000)/1000*48))}
+    } else {vals=spec.split(',').map(Number)}
+    el.innerHTML=vals.map(function(v){return '<i style="height:'+v+'px"></i>'}).join('');
+  });
+
+  /* ---- spodní listy nad jinou obrazovkou ---- */
+  document.querySelectorAll('[data-under]').forEach(function(f){
+    var src=document.getElementById(f.dataset.under), u=document.createElement('div');
+    u.className='under'; u.setAttribute('inert',''); u.setAttribute('aria-hidden','true'); u.setAttribute('data-nocheck','');
+    u.innerHTML=src.innerHTML; f.insertBefore(u,f.firstChild);
+  });
+
+  /* ---- přepínače, sbalitelné sekce ---- */
+  body.addEventListener('click',function(e){
+    var sw=e.target.closest('.sw'); if(sw){var on=sw.getAttribute('aria-checked')!=='true';sw.setAttribute('aria-checked',String(on));
+      if(sw.id==='cf-sw'){document.getElementById('cf-go').setAttribute('data-go',on?'d-upload':'d-icloud');
+        document.getElementById('cf-note').textContent=on?'Mobilní data zůstávají vypnutá (nastavení nahrávání).':'Bez iCloudu: 14 zůstane ponechaných a bude čekat na iCloud. Nic se neztratí.'}
+      return}
+    var fh=e.target.closest('.fh');
+    if(fh){var open=fh.getAttribute('aria-expanded')!=='true';fh.setAttribute('aria-expanded',String(open));document.getElementById(fh.getAttribute('aria-controls')).hidden=!open;return}
+    var sp=e.target.closest('.sp'); if(sp){sp.parentNode.querySelectorAll('.sp').forEach(function(x){x.setAttribute('aria-pressed','false')});sp.setAttribute('aria-pressed','true');return}
+    var hd=e.target.closest('[data-hide]'); if(hd){var t=hd.closest(hd.getAttribute('data-hide')); if(t)t.hidden=true; return}
+    var go=e.target.closest('[data-go]'); if(go&&!go.closest('[inert]')){e.preventDefault();location.hash=go.getAttribute('data-go')}
+  });
+
+  /* ---- rychlé třídění: klikací ukázka ---- */
+  var hues=[205,150,30,340,95,260,180,120], qi=1, up=96, left=211, hist=[];
+  function paintQ(){
+    document.getElementById('q-i').textContent=qi;document.getElementById('q-left').textContent=left;
+    document.getElementById('q-up').textContent=up;
+    document.getElementById('q-img').style.setProperty('--h',hues[(qi-1)%hues.length]);
+  }
+  document.querySelectorAll('#c-quick [data-act]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var a=b.getAttribute('data-act'); hist.push(a);
+      if(a!=='away')up++; left=Math.max(0,left-1); qi=Math.min(qi+1,211); paintQ();
+    });
+  });
+  document.getElementById('q-undo').addEventListener('click',function(){
+    var a=hist.pop(); if(!a)return; if(a!=='away')up--; left++; qi=Math.max(1,qi-1); paintQ();
+  });
+
+  /* ---- zobrazení: jedna / všechny, navigace ---- */
+  var cells=[].slice.call(document.querySelectorAll('.cell'));
+  var frames=cells.map(function(c){return c.querySelector('.frame')});
+  var pick=document.getElementById('pick'), idx=document.getElementById('idx'), group='';
+  var html='', opts='';
+  frames.forEach(function(f){
+    if(f.dataset.group!==group){
+      group=f.dataset.group; html+='<h2>'+group+'</h2>'; opts+=(opts?'</optgroup>':'')+'<optgroup label="'+group+'">';
+    }
+    html+='<a href="#'+f.id+'" data-id="'+f.id+'">'+f.dataset.title+' <code>#'+f.id+'</code></a>';
+    opts+='<option value="'+f.id+'">'+f.dataset.title+'</option>';
+  });
+  idx.innerHTML=html; pick.innerHTML=opts+'</optgroup>';
+  pick.onchange=function(){location.hash=pick.value};
+
+  function current(){var id=location.hash.slice(1);return document.getElementById(id)&&document.getElementById(id).classList.contains('frame')?id:frames[0].id}
+  function render(){
+    var id=current(), all=body.classList.contains('all');
+    cells.forEach(function(c){c.classList.toggle('on',c.querySelector('.frame').id===id)});
+    idx.querySelectorAll('a').forEach(function(a){a.setAttribute('aria-current',String(a.dataset.id===id))});
+    pick.value=id;
+    document.getElementById('v-one').setAttribute('aria-pressed',String(!all));
+    document.getElementById('v-all').setAttribute('aria-pressed',String(all));
+    if(all){document.getElementById(id).scrollIntoView({block:'start'})}
+  }
+  document.getElementById('v-one').onclick=function(){body.classList.remove('all');render()};
+  document.getElementById('v-all').onclick=function(){body.classList.add('all');render()};
+  if(qs.get('bare')){body.classList.add('bare')}
+  if(qs.get('view')==='all'){body.classList.add('all')}
+  window.addEventListener('hashchange',render);
+  render();
+})();
+</script>
+</body>
+</html>

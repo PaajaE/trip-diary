@@ -675,6 +675,61 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 - **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
 - **`pickBestOfDay`:** hotovo v `core`, nezapojeno do UI.
 
+##### Mockupy importu na iOS: Vybrat → Probrat → Nahrát (2026-11-10, 📝 PROPOSED, rozhodnutí delegována, čeká na schválení vizuálů)
+
+Mockups for wave 4 of 4f-B (decision 1 above). **Status PROPOSED: decisions by delegation, awaiting user approval of the visuals.**
+Everything in them is **UNVERIFIED on a device**. Once approved, the HTML is the binding
+spec for the wave (project rule: an approved mockup is the spec).
+
+- **Source of truth:** `docs/design/import-triage/import-triage.html`. One self-contained
+  file (inline CSS and JS, system fonts, no CDN), works offline by double-click, clickable
+  between screens, light/dark toggle. Anchors `#a-select`, `#b-overview`, `#c-grid`, …;
+  `?theme=dark`, `?bare=1` (phone only), `?view=all`. Each screen carries its own notes
+  ("Replaces / Needs") under the phone.
+- **Snapshots:** `docs/design/import-triage/png/NN-name-{light,dark}.png`, 390×844 CSS px
+  at 2× (780×1688 px), 24 screens × 2 themes = 48 files, numbered in document order. They are renders of the HTML, not the source.
+- Tokens, radii and shadows are copied from `src/index.css`; strings are Czech, tykání,
+  with the existing vocabulary (zastávka, Třídění, Nejlepší, Koš).
+
+| Screen (anchor)                                                                 | What it covers                                                                                                                                                          | Replaces / reuses                                                                                             | New capability needed                                                                                 |
+| ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| A `#a-select`, `#a-limited`, `#a-denied`, `#a-range`, `#a-reading`              | One primary action, two shortcut chips (no global iCloud switch), limited access, denied, date range, read                                                              | Replaces picker, "Podle data", "Projít knihovnu" and `batchLimit` in `ImportPage.tsx`; reuses `range.ts`      | Native `readMetadata` (paged); `presentLimitedLibraryPicker`; open Settings                           |
+| B `#b-overview`, `#b-large`, `#b-confirm`                                       | Counts, date range, days, iCloud-only, no GPS, route/day preview, 2 700+ without limit, "Dříve vyřazeno" line, confirm sheet for "upload all" (count, size)             | New; `pickDay`, `summarizeZonedDays`, `planOrganization` from `packages/core` run on metadata only            | Size/time estimate before upload; metadata-only core run                                              |
+| C `#c-grid`, `#c-quick`, `#c-series`, `#c-icloud`, `#c-dismissed`, `#c-confirm` | Triage from local thumbnails, quick sort (Pryč / Ponechat / Nejlepší), series, iCloud cloud tile, Vyřazené list with restore, confirm sheet when untriaged items remain | Reuses `BatchPage`, `BatchTile`, `QuickSortView`, `SeriesView`, `model/cull.ts`; source is local, not `media` | Native `getThumbnail(localId, px)`; `phash`/sharpness on thumbnails; local (Dexie) store of decisions |
+| D `#d-upload`, `#d-paused`, `#d-done`, `#d-icloud`                              | Upload of kept photos only, ETA, pause, per-item retry, Wi‑Fi note, leave-the-app note, next step, "Bez iCloudu" state (kept, waiting for iCloud)                       | Replaces `QueueSection`/`ProgressRing` in `ImportPage.tsx`; reuses `use-upload-eta.ts` and queue persistence  | Full variants only for selected items; Phase 4d M3 (`beginBackgroundTask`); writing ★ after upload    |
+| V `#v-viewer`, `#v-details`                                                     | Viewer bottom panel: sticky action bar, collapsible caption/time/place                                                                                                  | Replaces the `aside` in `MediaViewer.tsx` (actions fell below the fold at 390×844)                            | None (layout only)                                                                                    |
+| S `#s-empty`, `#s-error`, `#s-offline`, `#s-resume`                             | Empty, error, offline, resume after app restart                                                                                                                         | Replaces `nothingToImport`, `loadError`, `waitingOnline`, silent queue resume                                 | Persisted triage decisions (new); the upload queue already survives restart                           |
+
+**Rozhodnutí 2026-11-10** (by delegation from the user, to decide for the best UX; **PROPOSED, decisions by
+delegation, awaiting user approval of the visuals**). They replace the five open design questions of the PR.
+
+1. **Unreviewed photos never cause silent loss or silent upload.** The primary button stays
+   "Nahrát N vybraných" (Ponechána + Nejlepší only). If untriaged items remain it opens a confirm sheet
+   (`#c-confirm`): "Zbývá probrat 211 fotek" with "Nahrát jen vybrané (96)", "Probrat zbytek" and a text
+   button "Nahrát i neprobrané (307, ≈ 1,2 GB)". Untriaged items that are not uploaded stay "nalezené",
+   remembered, and are offered again in the Třídění tab with the badge. Nothing left → no sheet. "Nahrát vše
+   bez probírání" on B shows count and size first (`#b-confirm`). _Why: the user must always see what will
+   and will not be uploaded; sizes are shown before the cost is paid._
+2. **"Pryč" = remembered as dismissed, restorable, not re-offered** by "Od posledního importu" or later picks.
+   One-line explanation the first time ("Z telefonu se nic nemaže. Jen se to nenahraje."), filter chip
+   "Vyřazené N" with "Vrátit" (`#c-dismissed`), and a quiet line "Dříve vyřazeno: 40 · Zobrazit" on B.
+   _Why: a dismissed photo must not come back as noise, and a mistake must be undoable._
+3. **No global iCloud switch.** Thumbnails never download from iCloud (cloud tile, still triageable by
+   date, time and place). The decision is contextual, in the confirm sheet or at upload start: "14 vybraných
+   je jen v iCloudu. Stáhnout přes Wi‑Fi při nahrání", switch default ON; mobile data stays opt-in via the
+   existing Wi‑Fi-only upload setting. Switch off → items stay "ponechána, čeká na iCloud" (`#d-icloud`),
+   never lost. _Why: the user can judge cost only when they know how many items are affected._
+4. **Chips only on decided states** (Ponechána ✓, Nejlepší ★, Pryč ✕ with a dimmed, hatched tile). "Nalezena"
+   tiles carry no chip; the remaining count lives in the progress bar and "Zbývá probrat N"; filter "Nalezené N"
+   stays. _Why: the default state should not shout 300 times, and states differ by more than colour._
+5. **Leave-the-app wording makes no background-upload promise:** "Nech aplikaci otevřenou. Když ji opustíš,
+   dokončíme rozpracovanou fotku a po návratu naváže." plus a note that the screen stays on. Same text on D,
+   offline and resume. _Why: it matches what Phase 4d M3 can actually deliver (UNVERIFIED on a device)._
+
+Expected DB impact: none (decisions live locally until upload; ★ goes through the existing
+call). **UNVERIFIED**; `db-specialist` confirms before wave 4 starts. Open design questions
+are listed in the PR that added the mockups.
+
 ##### Brána 4f
 
 `pnpm algo:score` existuje a běží v CI jako report (cíle ze specifikace: přiřazení dne > 98 %, F1 hranic etap > 0,9, sloučení duplicit > 99,5 %, falešný odpad < 0,5 %, vrácené auto-akce < 5 %; všechno **UNVERIFIED**, než se změří); fotka pořízená po půlnoci spadne do správného dne a `day_notes` se nezmění; posun hodin a vrácení dávky mají pgTAP; mobilní tok ze 4. vlny ověřen na iPhonu (dávka ~300 fotek bez nahrání před tříděním) a ve ~390 px; `pnpm check` a `pnpm db:test` zelené; žádné `new Date()` jako čas zážitku.
