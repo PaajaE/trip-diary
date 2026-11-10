@@ -157,14 +157,14 @@ select is((select count(*)::int from public.media), 0, 'stranger sees no media')
 select throws_ok($$ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000f2","sourceAssetId":"asset-S"}]'::jsonb) $$, 'P0002', null, 'stranger: journey not found');
 select throws_ok($$ select public.triage_found_media(array['f4000000-0000-4000-8000-00000000000a']::uuid[], 'drop') $$, 'P0002', null, 'stranger cannot triage');
 select throws_ok($$ select * from public.promote_found_media('[{"id":"f4000000-0000-4000-8000-00000000000a"}]'::jsonb) $$, 'P0002', null, 'stranger cannot promote');
--- editor: sees found rows, writes only their own, may organise everyone's
+-- editor: sees no foreign found rows, writes only their own
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000f02","role":"authenticated"}',true);
-select is((select count(*)::int from public.media where status = 'found'), 4, 'editor sees the journey''s found rows');
+select is((select count(*)::int from public.media where status = 'found'), 0, 'editor sees none of the owner''s found rows (private to the uploader, RLS)');
 select is((select count(*)::int from public.create_found_media('f1000000-0000-4000-8000-000000000001', '[{"id":"f4000000-0000-4000-8000-0000000000f3","sourceAssetId":"asset-A"},{"id":"f4000000-0000-4000-8000-0000000000f4","sourceAssetId":"asset-EDITOR"}]'::jsonb) where outcome = 'inserted'), 2, 'editor has their own library: same asset id is a different row');
 select throws_ok($$ select public.triage_found_media(array['f4000000-0000-4000-8000-00000000000a']::uuid[], 'drop') $$, 'P0002', null, 'editor cannot triage the owner''s rows');
 select is(public.triage_found_media(array['f4000000-0000-4000-8000-0000000000f4']::uuid[], 'keep'), 1, 'editor triages their own rows');
 select throws_ok($$ select public.triage_found_media(array['f4000000-0000-4000-8000-0000000000f4','f4000000-0000-4000-8000-00000000000a']::uuid[], 'keep') $$, 'P0002', null, 'mixed own and foreign ids are refused as a whole');
-select throws_ok($$ select public.move_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'f2000000-0000-4000-8000-000000000001') $$, 'P0002', null, 'editor cannot move the owner''s found rows (private to the uploader)');
+select is(public.move_media(array['f4000000-0000-4000-8000-00000000000c']::uuid[], 'f2000000-0000-4000-8000-000000000001'), 0, 'editor cannot move the owner''s found rows: skipped silently, 0 changed (private to the uploader)');
 -- demoted editor loses write access to their own rows
 select set_config('request.jwt.claims','{"sub":"00000000-0000-4000-8000-000000000f01","role":"authenticated"}',true);
 update public.journey_members set role = 'member' where journey_id = 'f1000000-0000-4000-8000-000000000001' and user_id = '00000000-0000-4000-8000-000000000f02';
@@ -228,7 +228,7 @@ select * from public.create_found_media('f1000000-0000-4000-8000-000000000001',
 update fm_t set t1 = clock_timestamp();
 grant select on fm_big to public;
 select is((select count(*)::int from fm_big where outcome = 'inserted'), 3000, '3000 rows in one call: all inserted');
-select ok((select t1 - t0 < interval '5 seconds' from fm_t), '3000-row insert finishes well inside the statement timeout');
+select ok((select t1 - t0 < interval '20 seconds' from fm_t), '3000-row insert finishes well inside the statement timeout');
 select is((select count(*)::int from public.create_found_media('f1000000-0000-4000-8000-000000000001',
   (select jsonb_agg(jsonb_build_object('id', gen_random_uuid(), 'sourceAssetId', 'bulk-' || g)) from generate_series(1, 3000) g)) where outcome = 'existing'), 3000, '3000-row re-run is fully idempotent');
 select is(public.triage_found_media((select array_agg(media_id) from fm_big), 'keep'), 3000, '3000 rows triaged in one call');

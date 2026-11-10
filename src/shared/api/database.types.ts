@@ -2055,6 +2055,7 @@ export type Database = {
         Args: { p_media_ids: string[]; p_reviewed?: boolean }
         Returns: number
       }
+      media_actionable_ids: { Args: { p_ids: string[] }; Returns: string[] }
       media_batch_journey: {
         Args: { p_fn: string; p_media_ids: string[] }
         Returns: string
