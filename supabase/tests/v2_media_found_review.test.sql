@@ -136,6 +136,64 @@ select is((select count(*)::int from fr_pr where outcome = 'promoted'), 1, 'm4: 
 select is((select count(*)::int from fr_pr where outcome = 'duplicate' and duplicate_of is not null), 4999, 'm4: the other 4999 are duplicates of the first');
 select diag('m4: promote of 5000 repeated hashes took ' || (select t1 - t0 from fr_t));
 select ok((select t1 - t0 < interval '10 seconds' from fr_t), 'm4: promote of 5000 repeated hashes stays far below the statement timeout');
+-- DIAG-BEGIN
+
+reset role;
+create function public.fr_diag(p_items jsonb, v_journey uuid, v_uid uuid) returns setof text language plpgsql as $f$
+declare r text; t0 timestamptz;
+begin
+  t0 := clock_timestamp();
+  perform public.found_media_batch_journey((select array_agg(x.id) from jsonb_to_recordset(p_items) as x(id uuid)), 'diag');
+  return next 'batch_journey ' || (clock_timestamp() - t0);
+  for r in execute $q$explain (analyze, costs off, timing off)   with items as materialized (
+    select distinct on (x.id) x.id, x."contentHash" as h
+      from jsonb_to_recordset($1) as x(id uuid, "contentHash" text)
+     order by x.id
+  ),
+  cand as materialized (
+    select m.id, m.status, coalesce(m.content_hash, i.h) as eh,
+           (m.status = 'found' and m.reviewed_at is not null
+            and m.deleted_at is null and m.purge_claimed_at is null) as eligible
+      from public.media m join items i on i.id = m.id
+     where m.journey_id = $2
+  ),
+  ranked as materialized (
+    select c.*,
+           row_number() over (partition by c.eh order by c.id) as rn,
+           first_value(c.id) over (partition by c.eh order by c.id) as first_id
+      from cand c
+     where c.eligible and c.eh is not null
+  ),
+  held as (
+    select c.id,
+           (select d.id from public.media d
+             where d.owner_id = $3 and d.content_hash = c.eh and d.id <> c.id
+             limit 1) as holder
+      from ranked c
+  ),
+  cls as (
+    select c.id,
+           case when not c.eligible then null
+                when c.eh is null then 'promote'
+                when h.holder is not null or r.rn > 1 then 'duplicate'
+                else 'promote' end as k,
+           coalesce(h.holder, case when r.rn > 1 then r.first_id end) as holder,
+           c.eh, c.status
+      from cand c
+      left join ranked r on r.id = c.id
+      left join held h on h.id = c.id
+  )
+ select count(*) from cls$q$ using p_items, v_journey, v_uid loop
+    return next r;
+  end loop;
+end $f$;
+
+select diag(l) from public.fr_diag(
+  (select jsonb_agg(jsonb_build_object('id', media_id, 'contentHash', repeat('e', 64))) from fr_big),
+  'b1000000-0000-4000-8000-000000000001', '00000000-0000-4000-8000-000000000b01') l;
+drop function public.fr_diag(jsonb, uuid, uuid);
+set local role authenticated;
+-- DIAG-END
 
 -- ---------------------------------------------------------------------------
 -- M2: deleting a journey deletes its found rows
