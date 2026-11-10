@@ -692,13 +692,13 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
 - **Invarianty:** veřejné RPC už filtrují `status = 'ready'`, nic se v nich nemění; `found` nemá
   varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` ven vede jen
   `promote_found_media` (přímý UPDATE `status` z/do `found` dá `42501`, trigger kontroluje
-  transakční příznak, který nastaví jen tato funkce); čtenář (`member`) `found` řádky nevidí (RLS), vlastník a editor ano;
+  transakční příznak, který nastaví jen tato funkce); `found` řádek vidí, mění a maže jen jeho nahrávající (`owner_id`, RLS; ne jiný editor, ne vlastník deníku, ne čtenář);
   `journey_progress` počítá dál jen `ready` (kdo chce počet k roztřídění před nahráním, čte `found`
   přímo); kvóta se v DB nepočítá, `found` nemá varianty, takže nic neváží.
 - **Opravy po review PR 69 (`20261110130000_v2_found_review_fixes.sql`):** smazání deníku smaže
   jeho `found` řádky (hlavička starší migrace tvrdila „FK cascade“, neplatí; sirotky by nikdo
-  nedosáhl); `found` řádky jsou soukromé nahrávajícímu: `move_media`, `mark_media_reviewed`,
-  `set_media_location`, … cizí `found` řádek odmítnou jako `P0002` (stejně jako `triage_found_media`);
+  nedosáhl); `found` řádky jsou soukromé nahrávajícímu (hromadné RPC cizí `found` řádek původně
+  odmítaly jako `P0002`, **od `20261110140000` ho tiše přeskakují**, viz níže);
   `trash_media`, `restore_media`, `claim_media_purge` i `purge_media` `found` řádky ignorují
   (zahozené před nahráním se mění jen přes `triage_found_media`, Koš je nezobrazuje);
   vadná položka v dávce dá `22023` s indexem položky; souběh `promote_found_media` se stejným
@@ -708,10 +708,34 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
   vynechat (`status <> 'found'`; DB je z Koše nikdy nevyřadí sama, jen je neumí smazat) nebo je ukázat s lokálním náhledem; stávající RPC (`move_media`, …) mají strop 500 id,
   klient je volá po dávkách; souřadnice `found` fotek se mohou promítnout do zveřejněné zastávky
   (`create_moment_from_media`), než je fotka zahozena.
+- **Závěrečné opravy PR 69 (`20261110140000_v2_found_privacy.sql`, aditivní):**
+  - _RLS (rozhodnutí: `found` je soukromé nahrávajícímu):_ politiky SELECT, UPDATE i DELETE na `media`
+    pro řádky `status = 'found'` vyžadují `owner_id = auth.uid()`; ostatní stavy beze změny. Jiný editor,
+    vlastník deníku, čtenář ani cizí uživatel `found` řádek nevidí, nezmění ani nesmaže (UPDATE/DELETE
+    je tichý no-op, `anon` nemá k `media` přístup vůbec). Security definer kód (úklid při smazání
+    deníku, RPC) RLS neovlivní. `known_source_assets` filtruje podle `owner_id = auth.uid()`, takže
+    volající dostane jen stav svých vlastních řádků (`found|kept|dismissed|uploaded`); spolunahrávající,
+    který importoval stejné `source_asset_id`, má vlastní řádek (unikát je per vlastník) a volající o něm
+    nic nezjistí.
+  - _Hromadná RPC přeskakují cizí `found` řádky:_ `move_media`, `create_moment_from_media`,
+    `mark_media_reviewed`, `shift_media_time`, `set_media_location`, `clear_media_location`,
+    `trash_media`, `restore_media`, `claim_media_purge`, `purge_media` místo `P0002` pro celou dávku cizí
+    `found` id tiše vynechají a vrátí počet skutečně změněných řádků (resp. id); dávka jen z cizích
+    `found` id je no-op (`0`; `create_moment_from_media` odpoví „no media given“). Neexistující id dává
+    dál `P0002`; `triage_found_media` a `promote_found_media` zůstávají u `P0002` (týkají se jen vlastních řádků).
+  - _`promote_found_media`:_ `duplicate_of` je vyplněno jen u výsledku `duplicate` (řádky bez hashe už
+    netvoří společnou skupinu okna); výsledky i `duplicate_of` odpovídají první verzi funkce. Nová položka
+    `keep: true` povýší nerozhodnutý řádek a označí ho jako ponechaný v jednom příkazu, takže řádek, který
+    skončí jako `duplicate` (i při souběhu), zůstane nerozhodnutý; klient má posílat `keep: true` místo
+    volání `triage_found_media('keep')` před `promote_found_media` (do té doby se chování řádku, který
+    skončí `duplicate`, nemění). Duplicitní id s různým hashem v jedné dávce: vyhrává nejmenší hash (deterministické).
+  - _Testy:_ časová hranice testu měřítka je 20 s (hlídací bod, starý kvadratický kód potřeboval ~9 s).
 - Stav: migrace `20261031120000_v2_media_found_enum.sql`, `20261031120100_v2_media_found.sql`,
-  `20261110120000_v2_found_dismissed.sql` a `20261110130000_v2_found_review_fixes.sql`, pgTAP
-  `v2_media_found.test.sql`, `v2_media_found_dismissed.test.sql` a `v2_media_found_review.test.sql`
-  (IMPLEMENTED; pgTAP lokálně UNVERIFIED, bez Dockeru, ověřuje CI). Do produkce **neaplikováno**.
+  `20261110120000_v2_found_dismissed.sql`, `20261110130000_v2_found_review_fixes.sql` a
+  `20261110140000_v2_found_privacy.sql`, pgTAP `v2_media_found.test.sql`,
+  `v2_media_found_dismissed.test.sql`, `v2_media_found_review.test.sql` a
+  `v2_media_found_privacy.test.sql` (IMPLEMENTED; pgTAP lokálně 🧪 TESTED na PG 16 se stub schématy
+  `auth`/`storage` a skutečným pgTAP, bez Dockeru; CI je rozhodující). Do produkce **neaplikováno**.
 - **Klient, brána (2026-11-10, 🧪 TESTED jednotkovými testy s mockovaným klientem; na zařízení ani
   proti skutečné DB **UNVERIFIED**):** `found` řádky nesmí rozbít stávající aplikaci a stávající nahrávání
   nesmí narazit na existující `found` řádek, proto se obojí dodává společně. Seznamy nahraných médií
