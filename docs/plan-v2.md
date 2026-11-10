@@ -643,7 +643,7 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 | 1    | `pnpm algo:score`: metriky nad fixture z Kanady (přesnost přiřazení dne, F1 hranic etap ±1 den, falešný odpad, přesnost sloučení duplicit); za pravdu ruční a zamčené zastávky z produkce. Kontrola tónu v překladech (zakázané formulace typu „jsi pozadu“). Čtecí pozice „Pokračovat, kde jsi skončil“ a „Co je nového“ (jen lokálně). Sbalené dny bez textu do jedné řádky. Fronta „asi odpad“ z příznaků, které iOS plugin už vrací (`screenshot`, `burstId`), bez automatiky.                                    | ne                                   | Začít tady: bez skóre jsou všechny prahy odhad.                                     |
 | 2    | V `packages/core`: dny podle noční mezery (22:00–07:00, mezera > 4 h, záloha 04:00, den 23/25 h při přechodu pásem); jistota 0–1 a kód důvodu u každého rozhodnutí (z odstupu od prahu, kalibrace podle přijatých a vrácených návrhů); výběr 3–6 nejlepších fotek dne (relevance minus podobnost, max. 2 na zastávku, pokrytí dne); typ dne (přesun, výlet, pobyt, město) pro otázky při psaní; návrh opravy hodin z dvojic fotek různých zařízení (jen návrh ke schválení); poloměr zastávky podle rychlosti pohybu. | ne                                   | Čisté, deterministické funkce s testy.                                              |
 | 3    | **Posun hodin jako vlastnost zařízení**, ne přepis `captured_at` (jedno číslo, vrací se jedním klepnutím). **Záznam dávek automatiky** (id dávky u zastávek) pro hromadné „Vrátit“.                                                                                                                                                                                                                                                                                                                                   | ano: migrace, pgTAP, `pnpm db:types` | DB se dohodne před kódem (CLAUDE.md). Migraci navrhuje `db-specialist`.             |
-| 4    | Mobilní tok metadata → náhledy → vybrané; úvodní „wow“ (sestavená cesta bez nahrání jediné fotky); stav fotky (nalezena, ponechána, nejlepší, nahrána). Obrazovka Dnes s odhadem času z vlastního tempa autora.                                                                                                                                                                                                                                                                                                       | ne                                   | Závisí na ověření výpočtu `phash` a ostrosti ve WKWebView (výkon, paměť) na iPhonu. |
+| 4    | Mobilní tok metadata → náhledy → vybrané; úvodní „wow“ (sestavená cesta bez nahrání jediné fotky); stav fotky (nalezena, ponechána, nejlepší, nahrána). Obrazovka Dnes s odhadem času z vlastního tempa autora.                                                                                                                                                                                                                                                                                                       | ano: nalezená média (níže)           | Závisí na ověření výpočtu `phash` a ostrosti ve WKWebView (výkon, paměť) na iPhonu. |
 | 5    | Čtenář: pruh „Právě jsme“ (D5), fáze etap pro dlouhé cesty, lepicí lišta „Pozdrav autorům / Sledovat novinky“ na mobilu, dlaždice „Všech N“, pohlednice dne (lehká statická stránka bez JS), režimy čtení „Rychle“ a „Příběh“, velikost písma.                                                                                                                                                                                                                                                                        | D5, D6 (už navrženo)                 | Mozaiku držet v pravidle poměrů stran z 5b (žádný nízký široký pruh).               |
 
 ##### Úpravy obrazovek podle vizuální revize
@@ -669,6 +669,34 @@ Nic z fáze není implementované ani ověřené (**UNVERIFIED**), prahy jsou v�
 - **Záměrně nehotové:** obrazovky „Dnes“ a „Aktivita“ (zatím je nahrazují karta Další krok a panel moderace), heslo a „jen s odkazem“ (enum `journey_visibility` má jen public/private), e-mailový odběr.
 - **Produkce (2026-10-29, na výslovný pokyn uživatele):** migrace `20261028120000_v2_moment_local_day` aplikována přes Supabase MCP jako jedna transakce se zápisem do `supabase_migrations.schema_migrations` (verze i název jako v souboru, aby pozdější `db push` neběžel dvakrát). Předtím čtením ověřeno: seznam migrací končil `v2_local_day`, sloupec `local_day` neexistoval. Potom čtením ověřeno: sloupec existuje (0 uložených hodnot, NULL = záložní pravidlo 04:00), `journey_progress` nové znění, `set_moment_local_days` s EXECUTE jen pro `authenticated` (a `service_role`/`postgres`), přímý UPDATE sloupce pro `authenticated` ne. Funkční test s přihlášeným uživatelem na produkci neproběhl (kryje ho pgTAP).
 - **Nahrávání:** výchozí je jen Wi‑Fi (mobilní data po zapnutí v panelu synchronizace); platí pro nativní aplikaci, web beze změny. Odhad objemu a varování při roamingu zatím chybí.
+
+##### DB kontrakt wave 4 — nalezená média, třídění před nahráním (2026-11-10, 📝 PROPOSED)
+
+Vlna 4 potřebuje řádky v `media` ještě před nahráním (sestavená cesta bez jediné nahrané
+fotky). **Rozhodnutí: varianta (a)**, nové `media_status = 'found'`; varianta (b) (metadata jen
+lokálně) zamítnuta: organizace, dny a zastávky by se musely počítat dvakrát a třídění by
+nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
+
+- **Stav třídění bez nového sloupce:** nerozhodnuto = `found`, `reviewed_at` NULL; ponecháno
+  = `found`, `reviewed_at` nastaveno; nejlepší = ponecháno + `starred`; zahozeno před nahráním
+  = `found`, `deleted_at` (Koš). Unikátní index `(owner_id, source_asset_id)` pokrývá i koš, takže se
+  zahozená fotka při dalším importu nenabídne znovu; `restore` ji vrátí. Smazání z Koše ji zapomene.
+- **RPC (vše `security definer`, jen `authenticated`, zápis smí editor a jen vlastní řádky, dávka
+  až 5000, klient posílá 1000–2000):** `create_found_media(journey, items jsonb)` (hromadně,
+  idempotentně podle `(owner, source_asset_id)`, jeden příkaz bez smyček), `triage_found_media(ids,
+  'keep'|'drop'|'restore'|'undecided')`, `promote_found_media(items jsonb)` (ponechané `found` → `pending`,
+  zapíše `content_hash`, hlásí `duplicate`). Pak platí dnešní tok `uploading → ready`.
+- **Invarianty:** veřejné RPC už filtrují `status = 'ready'`, nic se v nich nemění; `found` nemá
+  varianty (trigger), nesmí být obálkou (trigger), do `found` se nejde přes UPDATE a z `found` jen
+  do `pending`; čtenář (`member`) `found` řádky nevidí (RLS), vlastník a editor ano;
+  `journey_progress` počítá dál jen `ready` (kdo chce počet k roztřídění před nahráním, čte `found`
+  přímo); kvóta se v DB nepočítá, `found` nemá varianty, takže nic neváží.
+- **Navazující práce klienta (není součást kontraktu):** obrazovka Koše musí `found` řádky
+  vynechat nebo je ukázat s lokálním náhledem; stávající RPC (`move_media`, …) mají strop 500 id,
+  klient je volá po dávkách; souřadnice `found` fotek se mohou promítnout do zveřejněné zastávky
+  (`create_moment_from_media`), než je fotka zahozena.
+- Stav: migrace `20261031120000_v2_media_found_enum.sql` a `20261031120100_v2_media_found.sql`,
+  pgTAP `v2_media_found.test.sql`. Do produkce **neaplikováno**.
 
 ##### Stav 4f (2026-10-29, původní lokální session)
 

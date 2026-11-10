@@ -1900,6 +1900,18 @@ export type Database = {
         }
         Returns: string
       }
+      create_found_media: {
+        Args: { p_items: Json; p_journey_id: string }
+        Returns: {
+          asset_id: string
+          current_status: Database['public']['Enums']['media_status']
+          dropped: boolean
+          in_journey_id: string
+          kept: boolean
+          media_id: string
+          outcome: string
+        }[]
+      }
       create_moment_from_media: {
         Args: { p_media_ids: string[]; p_new_id: string }
         Returns: string
@@ -1915,6 +1927,10 @@ export type Database = {
       delete_moment: {
         Args: { p_mode: string; p_moment_id: string }
         Returns: undefined
+      }
+      found_media_batch_journey: {
+        Args: { p_fn: string; p_media_ids: string[] }
+        Returns: string
       }
       get_journey_invite_preview: {
         Args: { p_raw_token: string }
@@ -2121,6 +2137,14 @@ export type Database = {
         Args: { p_id: string; p_value: string }
         Returns: string
       }
+      promote_found_media: {
+        Args: { p_items: Json }
+        Returns: {
+          duplicate_of: string
+          media_id: string
+          outcome: string
+        }[]
+      }
       pick_local_day: {
         Args: {
           p_dates: string[]
@@ -2185,6 +2209,10 @@ export type Database = {
       split_moment: {
         Args: { p_at: string; p_moment: string; p_new_id: string }
         Returns: string
+      }
+      triage_found_media: {
+        Args: { p_decision: string; p_media_ids: string[] }
+        Returns: number
       }
       trash_media: { Args: { p_media_ids: string[] }; Returns: number }
       update_entry: {
@@ -2280,7 +2308,7 @@ export type Database = {
       journey_stop_status: 'planned' | 'visited'
       journey_visibility: 'public' | 'private'
       media_kind: 'photo' | 'video'
-      media_status: 'pending' | 'uploading' | 'ready' | 'failed'
+      media_status: 'pending' | 'uploading' | 'ready' | 'failed' | 'found'
       media_variant_kind:
         | 'thumb'
         | 'small'
@@ -2466,7 +2494,7 @@ export const Constants = {
       journey_stop_status: ['planned', 'visited'],
       journey_visibility: ['public', 'private'],
       media_kind: ['photo', 'video'],
-      media_status: ['pending', 'uploading', 'ready', 'failed'],
+      media_status: ['pending', 'uploading', 'ready', 'failed', 'found'],
       media_variant_kind: [
         'thumb',
         'small',
