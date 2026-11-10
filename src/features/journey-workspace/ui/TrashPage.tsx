@@ -276,7 +276,7 @@ export function TrashPage({
                       name: item.caption ?? t('trash.media'),
                     })}
                     checked={isChosen}
-                    className="absolute left-1.5 top-1.5 size-5"
+                    className="absolute left-1.5 top-1.5 ring-2 ring-surface"
                     type="checkbox"
                     onChange={() => {
                       toggle(item.id)

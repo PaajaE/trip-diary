@@ -159,7 +159,9 @@ describe('ImportPage', () => {
       },
     })
     expect(await screen.findByText('Photos: 2')).toBeTruthy()
-    fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /^(Start import|Upload \d+)$/ }),
+    )
     await waitFor(() => {
       expect(queue.enqueue).toHaveBeenCalledWith(
         'web-files',
@@ -189,7 +191,9 @@ describe('ImportPage', () => {
     expect(screen.getByText('Skipped: 1')).toBeTruthy()
     expect(screen.getByText(/HEIC\/HEIF photos are not supported/)).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: /^(Start import|Upload \d+)$/ }),
+    )
     await waitFor(() => {
       expect(queue.start).toHaveBeenCalled()
     })
@@ -386,7 +390,9 @@ describe('ImportPage', () => {
       )
       expect(alert).toHaveTextContent('Split the import by date range')
       expect(alert).not.toHaveTextContent(/anyway/i)
-      const start = screen.getByRole('button', { name: 'Start import' })
+      const start = screen.getByRole('button', {
+        name: /^(Start import|Upload \d+)$/,
+      })
       expect(start).toBeDisabled()
       fireEvent.click(start)
       expect(queue.enqueue).not.toHaveBeenCalled()
@@ -398,7 +404,9 @@ describe('ImportPage', () => {
       drop(500)
       expect(await screen.findByText('Photos: 500')).toBeTruthy()
       expect(screen.queryByRole('alert')).toBeNull()
-      fireEvent.click(screen.getByRole('button', { name: 'Start import' }))
+      fireEvent.click(
+        screen.getByRole('button', { name: /^(Start import|Upload \d+)$/ }),
+      )
       await waitFor(() => {
         expect(queue.enqueue).toHaveBeenCalled()
       })
@@ -434,26 +442,24 @@ describe('ImportPage', () => {
       })
       expect(toggle).not.toBeChecked()
       expect(
-        screen.getByText(/can take a long time and uses mobile data/),
+        screen.getByText(/Can take a long time and uses mobile data/),
       ).toBeTruthy()
 
       // "Since last import" becomes the default once a cursor exists.
       const since = await screen.findByRole('radio', {
-        name: /Everything since the last import/,
+        name: /Since the last import/,
       })
       await waitFor(() => {
         expect(since).toBeChecked()
       })
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Scan the photo library' }),
-      )
+      fireEvent.click(screen.getByRole('button', { name: 'Find in library' }))
       expect(await screen.findByText('Photos: 1')).toBeTruthy()
       expect(photoKitList).toHaveBeenCalledWith({
         from: '2026-09-11T10:00:00.001Z',
       })
     })
 
-    it('queues the assets picked in the native library picker', async () => {
+    it('shows a summary for the picked assets and uploads only on the button', async () => {
       pickAssets.mockResolvedValue({
         assets: [
           { id: 'A', mediaType: 'image' },
@@ -467,17 +473,30 @@ describe('ImportPage', () => {
       fireEvent.click(
         screen.getByRole('button', { name: 'Choose from library' }),
       )
-      expect(await screen.findByText('Selected: 2')).toBeTruthy()
+      expect(await screen.findByText('Photos: 1')).toBeTruthy()
+      expect(screen.getByText('Videos: 1')).toBeTruthy()
+      expect(screen.getByText('Skipped: 0')).toBeTruthy()
       expect(
         screen.getByText(/1 of the selected items are outside/),
       ).toBeTruthy()
-      expect(queue.enqueue).toHaveBeenCalledWith('photokit', [
-        expect.objectContaining({ mediaType: 'photo', sourceId: 'A' }),
-        expect.objectContaining({ mediaType: 'video', sourceId: 'B' }),
-      ])
+      expect(screen.queryByText(/Selected:/)).toBeNull()
+      // Nothing is uploaded silently.
+      expect(queue.enqueue).not.toHaveBeenCalled()
+      expect(queue.start).not.toHaveBeenCalled()
+      expect(screen.getByTestId('import-start-bar').className).toContain(
+        'sticky',
+      )
+
+      fireEvent.click(screen.getByRole('button', { name: 'Upload 2' }))
+      await waitFor(() => {
+        expect(queue.enqueue).toHaveBeenCalledWith('photokit', [
+          expect.objectContaining({ mediaType: 'photo', sourceId: 'A' }),
+          expect.objectContaining({ mediaType: 'video', sourceId: 'B' }),
+        ])
+      })
       expect(queue.start).toHaveBeenCalled()
       expect(
-        screen.getByRole('button', { name: 'Scan the photo library' }),
+        screen.getByRole('button', { name: 'Find in library' }),
       ).toBeTruthy()
     })
 
@@ -500,7 +519,8 @@ describe('ImportPage', () => {
       )
       expect(queue.enqueue).not.toHaveBeenCalled()
       expect(queue.start).not.toHaveBeenCalled()
-      expect(screen.queryByText(/Selected:/)).toBeNull()
+      expect(screen.queryByText('Photos: 501')).toBeNull()
+      expect(screen.queryByTestId('import-start-bar')).toBeNull()
     })
 
     it('blocks a scan above 500 items', async () => {
@@ -515,12 +535,10 @@ describe('ImportPage', () => {
         })),
       )
       render(<ImportPage journeyId="j" />)
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Scan the photo library' }),
-      )
+      fireEvent.click(screen.getByRole('button', { name: 'Find in library' }))
       expect(await screen.findByRole('alert')).toHaveTextContent('at most 500')
       expect(
-        screen.getByRole('button', { name: 'Start import' }),
+        screen.getByRole('button', { name: /^(Start import|Upload \d+)$/ }),
       ).toBeDisabled()
     })
 
@@ -540,7 +558,7 @@ describe('ImportPage', () => {
       })
       await screen.findByRole('button', { name: 'Choose from library' })
       expect(queue.enqueue).not.toHaveBeenCalled()
-      expect(screen.queryByText(/Selected:/)).toBeNull()
+      expect(screen.queryByTestId('import-start-bar')).toBeNull()
       expect(screen.queryByRole('alert')).toBeNull()
     })
 
@@ -554,9 +572,7 @@ describe('ImportPage', () => {
       fireEvent.change(screen.getByLabelText('To'), {
         target: { value: '2026-09-11' },
       })
-      fireEvent.click(
-        screen.getByRole('button', { name: 'Scan the photo library' }),
-      )
+      fireEvent.click(screen.getByRole('button', { name: 'Find in library' }))
       await waitFor(() => {
         expect(photoKitList).toHaveBeenCalled()
       })

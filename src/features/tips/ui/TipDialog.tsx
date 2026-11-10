@@ -147,7 +147,7 @@ export function TipDialog({ onClose, onSave, tip }: TipDialogProps) {
           <input
             aria-describedby={`${ids}-publish-hint`}
             checked={isPublic}
-            className="mt-1 size-4"
+            className="mt-1"
             id={`${ids}-publish`}
             type="checkbox"
             onChange={(event) => {

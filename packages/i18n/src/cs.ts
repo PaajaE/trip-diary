@@ -714,7 +714,7 @@ export const cs: TranslationResources = {
     accessDenied:
       'Přístup do knihovny fotek není povolený. Povol ho v nastavení systému a zkus to znovu.',
     back: 'Zpět na cestu',
-    byDate: 'Podle data',
+    byDate: 'Nebo najít podle data',
     cancel: 'Zastavit a smazat čekající položky',
     chooseFiles: 'Vybrat soubory',
     chooseFromLibrary: 'Vybrat z knihovny',
@@ -727,8 +727,7 @@ export const cs: TranslationResources = {
     dateFrom: 'Od',
     dateTo: 'Do',
     finished: 'Import dokončen: nahráno {{count}}.',
-    icloudHint:
-      'Stahování originálů z iCloudu může trvat dlouho a spotřebuje mobilní data. Nech vypnuté, pokud chceš importovat jen to, co je uložené v tomto zařízení.',
+    icloudHint: 'Může trvat dlouho a spotřebuje mobilní data.',
     icloudLabel: 'Stahovat originály z iCloudu',
     itemPhoto: 'Fotka {{name}}',
     itemVideo: 'Video {{name}}',
@@ -742,7 +741,6 @@ export const cs: TranslationResources = {
     sortBatch: 'Roztřídit dávku',
     sortOffer: 'Nahraná média čekají na roztřídění do zastávek.',
     pause: 'Pozastavit',
-    pickedCount: 'Vybráno: {{count}}',
     pickedLimited:
       '{{count}} vybraných položek je mimo fotky, ke kterým má aplikace přístup, a byly vynechány.',
     picking: 'Otevírám knihovnu…',
@@ -757,7 +755,7 @@ export const cs: TranslationResources = {
     rangeAll: 'Vše',
     rangeDates: 'Rozsah dat',
     rangeLabel: 'Co importovat',
-    rangeSince: 'Vše od posledního importu ({{date}})',
+    rangeSince: 'Od posledního importu ({{date}})',
     reason: {
       asset_unavailable:
         'Originál je jen v iCloudu. Zapni stahování z iCloudu a zkus to znovu.',
@@ -776,9 +774,10 @@ export const cs: TranslationResources = {
     },
     resume: 'Pokračovat',
     retryFailed: 'Zkusit znovu neúspěšné',
-    scan: 'Projít knihovnu fotek',
+    scan: 'Najít v knihovně',
     scanning: 'Procházím…',
     start: 'Spustit import',
+    startCount: 'Nahrát {{count}}',
     state: {
       done: 'Hotovo: {{count}}',
       failed: 'Neúspěšné: {{count}}',
@@ -901,6 +900,7 @@ export const cs: TranslationResources = {
     filmstrip: 'Fotky této zastávky',
     goTo: 'Zobrazit položku {{n}} z {{total}}',
     moment: 'Zastávka',
+    details: 'Popisek a čas',
     moreActions: 'Další akce',
     moveToMoment: 'Přesunout do zastávky',
     next: 'Další fotka',

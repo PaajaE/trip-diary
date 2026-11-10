@@ -131,10 +131,8 @@ function ImportView({
   const [candidates, setCandidates] = useState<ImportCandidate[] | null>(null)
   const [scanning, setScanning] = useState(false)
   const [picking, setPicking] = useState(false)
-  const [picked, setPicked] = useState<{
-    left: number
-    selected: number
-  } | null>(null)
+  // Picked items the app has no access to (limited library access).
+  const [pickedLeft, setPickedLeft] = useState(0)
   const [error, setError] = useState<'accessDenied' | 'loadError' | null>(null)
   // Size of a selection that is over the batch limit and was not queued.
   const [overLimit, setOverLimit] = useState<number | null>(null)
@@ -178,6 +176,7 @@ function ImportView({
     setScanning(true)
     setError(null)
     setOverLimit(null)
+    setPickedLeft(0)
     setCandidates(null)
     try {
       let status = await getMediaLibraryStatus()
@@ -201,7 +200,7 @@ function ImportView({
     setPicking(true)
     setError(null)
     setOverLimit(null)
-    setPicked(null)
+    setPickedLeft(0)
     try {
       const result = await pickMediaLibraryAssets()
       if (result.cancelled) return
@@ -210,15 +209,13 @@ function ImportView({
         setOverLimit(found.length)
         return
       }
-      setPicked({
-        left: Math.max(0, result.requested - result.resolved),
-        selected: found.length,
-      })
+      setPickedLeft(Math.max(0, result.requested - result.resolved))
       if (found.length === 0) return
-      setSource(createPhotoKitSource({ allowNetwork: icloud }))
-      setCandidates(null)
-      await queue.enqueue('photokit', found)
-      queue.start()
+      // Same path as a scan: show the summary first, upload on "Upload N".
+      const source = createPhotoKitSource({ allowNetwork: icloud })
+      sourceRef.current = source
+      setSource(source)
+      setCandidates(found)
     } catch (caught) {
       setError(
         caught instanceof MediaLibraryError && caught.code === 'NOT_AUTHORIZED'
@@ -273,8 +270,12 @@ function ImportView({
         <section aria-label={t('mediaImport.rangeLabel')} className="space-y-4">
           {native ? (
             <>
+              <h2 className="text-base font-semibold">
+                {t('mediaImport.rangeLabel')}
+              </h2>
               <div className="space-y-2">
                 <Button
+                  className="w-full"
                   disabled={picking || scanning || busy}
                   onClick={() => void pickFromLibrary()}
                 >
@@ -285,46 +286,47 @@ function ImportView({
                 <p className="text-sm text-muted">
                   {t('mediaImport.chooseFromLibraryHint')}
                 </p>
-                {picked === null || picked.selected === 0 ? null : (
-                  <p className="text-sm font-semibold" role="status">
-                    {t('mediaImport.pickedCount', { count: picked.selected })}
-                  </p>
-                )}
-                {picked === null || picked.left === 0 ? null : (
+                {pickedLeft === 0 ? null : (
                   <p className="text-sm text-muted" role="status">
-                    {t('mediaImport.pickedLimited', { count: picked.left })}
+                    {t('mediaImport.pickedLimited', { count: pickedLeft })}
                   </p>
                 )}
               </div>
-              <h2 className="border-t border-border pt-4 text-sm font-semibold">
-                {t('mediaImport.byDate')}
-              </h2>
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-semibold">
-                  {t('mediaImport.rangeLabel')}
+              <fieldset className="space-y-3 border-t border-border pt-4">
+                <legend className="float-left mb-3 w-full text-sm font-semibold">
+                  {t('mediaImport.byDate')}
                 </legend>
-                {cursor === null ? null : (
+                <div className="clear-both flex flex-wrap gap-1 rounded-xl border border-border bg-sunk p-1">
+                  {cursor === null ? null : (
+                    <RangeOption
+                      checked={mode === 'since'}
+                      label={t('mediaImport.rangeSince', {
+                        date: new Intl.DateTimeFormat(locale, {
+                          dateStyle: 'medium',
+                        }).format(Date.parse(cursor.lastCapturedAt)),
+                      })}
+                      onSelect={() => {
+                        setMode('since')
+                      }}
+                    />
+                  )}
                   <RangeOption
-                    checked={mode === 'since'}
-                    label={t('mediaImport.rangeSince', {
-                      date: new Intl.DateTimeFormat(locale, {
-                        dateStyle: 'medium',
-                      }).format(Date.parse(cursor.lastCapturedAt)),
-                    })}
+                    checked={mode === 'dates'}
+                    label={t('mediaImport.rangeDates')}
                     onSelect={() => {
-                      setMode('since')
+                      setMode('dates')
                     }}
                   />
-                )}
-                <RangeOption
-                  checked={mode === 'dates'}
-                  label={t('mediaImport.rangeDates')}
-                  onSelect={() => {
-                    setMode('dates')
-                  }}
-                />
+                  <RangeOption
+                    checked={mode === 'all'}
+                    label={t('mediaImport.rangeAll')}
+                    onSelect={() => {
+                      setMode('all')
+                    }}
+                  />
+                </div>
                 {mode === 'dates' ? (
-                  <div className="flex flex-wrap gap-3 pl-8">
+                  <div className="flex flex-wrap gap-3">
                     <label className="text-sm">
                       {t('mediaImport.dateFrom')}
                       <input
@@ -349,37 +351,30 @@ function ImportView({
                     </label>
                   </div>
                 ) : null}
-                <RangeOption
-                  checked={mode === 'all'}
-                  label={t('mediaImport.rangeAll')}
-                  onSelect={() => {
-                    setMode('all')
-                  }}
-                />
+                <Button
+                  className="w-full border-2 border-primary bg-transparent text-primary hover:bg-primary/10"
+                  disabled={scanning || busy}
+                  variant="secondary"
+                  onClick={() => void scan()}
+                >
+                  {scanning ? t('mediaImport.scanning') : t('mediaImport.scan')}
+                </Button>
+                <div>
+                  <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
+                    <input
+                      checked={icloud}
+                      type="checkbox"
+                      onChange={(event) => {
+                        setIcloud(event.target.checked)
+                      }}
+                    />
+                    {t('mediaImport.icloudLabel')}
+                  </label>
+                  <p className="pl-8 text-xs text-muted">
+                    {t('mediaImport.icloudHint')}
+                  </p>
+                </div>
               </fieldset>
-              <div>
-                <label className="flex min-h-11 items-center gap-3 text-sm font-semibold">
-                  <input
-                    checked={icloud}
-                    className="size-5"
-                    type="checkbox"
-                    onChange={(event) => {
-                      setIcloud(event.target.checked)
-                    }}
-                  />
-                  {t('mediaImport.icloudLabel')}
-                </label>
-                <p className="pl-8 text-sm text-muted">
-                  {t('mediaImport.icloudHint')}
-                </p>
-              </div>
-              <Button
-                disabled={scanning || busy}
-                variant="secondary"
-                onClick={() => void scan()}
-              >
-                {scanning ? t('mediaImport.scanning') : t('mediaImport.scan')}
-              </Button>
             </>
           ) : (
             <DropZone
@@ -438,17 +433,28 @@ function ImportView({
                 {t('mediaImport.nothingToImport')}
               </p>
             ) : null}
-            <Button
-              disabled={
-                tooMany !== null ||
-                (importable === 0 && summary.skippedTotal === 0)
-              }
-              onClick={() => void startImport()}
-            >
-              {t('mediaImport.start')}
-            </Button>
           </section>
         </Card>
+      )}
+
+      {summary === null ? null : (
+        <div
+          className="sticky bottom-[calc(5.75rem+env(safe-area-inset-bottom))] z-20 rounded-xl border border-border bg-background/95 p-3 shadow-soft backdrop-blur sm:bottom-2"
+          data-testid="import-start-bar"
+        >
+          <Button
+            className="w-full"
+            disabled={
+              tooMany !== null ||
+              (importable === 0 && summary.skippedTotal === 0)
+            }
+            onClick={() => void startImport()}
+          >
+            {importable > 0
+              ? t('mediaImport.startCount', { count: importable })
+              : t('mediaImport.start')}
+          </Button>
+        </div>
       )}
 
       {snapshot.jobs.length === 0 ? null : (
@@ -852,10 +858,16 @@ function RangeOption({
   onSelect: () => void
 }) {
   return (
-    <label className="flex min-h-11 items-center gap-3 text-sm">
+    <label
+      className={cn(
+        'flex min-h-11 min-w-fit flex-1 cursor-pointer items-center justify-center rounded-lg px-3 text-center text-sm font-semibold',
+        'has-[:focus-visible]:outline-3 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-primary/55',
+        checked ? 'bg-primary text-primary-foreground' : 'text-foreground',
+      )}
+    >
       <input
         checked={checked}
-        className="size-5"
+        className="sr-only"
         name="import-range"
         type="radio"
         onChange={onSelect}

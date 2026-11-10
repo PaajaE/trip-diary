@@ -271,6 +271,39 @@ describe('MediaViewer', () => {
     ).toBeTruthy()
   })
 
+  it('keeps the actions in a sticky bottom area and folds caption and time away on narrow screens', () => {
+    const original = window.matchMedia
+    window.matchMedia = ((query: string) => ({
+      addEventListener: vi.fn(),
+      matches: false,
+      media: query,
+      removeEventListener: vi.fn(),
+    })) as unknown as typeof window.matchMedia
+    try {
+      render(<Harness onDelete={vi.fn()} onFix={vi.fn()} />, { wrapper })
+      openViewer()
+      const actions = screen.getByTestId('viewer-actions')
+      expect(actions.className).toContain('sticky')
+      expect(actions.className).toContain('bottom-0')
+      for (const name of ['Move to trash', 'Time and location']) {
+        expect(within(actions).getByRole('button', { name })).toBeTruthy()
+      }
+      const toggle = screen.getByRole('button', { name: /Caption and time/ })
+      expect(toggle.getAttribute('aria-expanded')).toBe('false')
+      expect(screen.getByTestId('viewer-details').hidden).toBe(true)
+      expect(position()).toBe('1 / 3')
+      fireEvent.click(toggle)
+      expect(toggle.getAttribute('aria-expanded')).toBe('true')
+      expect(screen.getByTestId('viewer-details').hidden).toBe(false)
+      // The C shortcut opens the section again.
+      fireEvent.click(toggle)
+      fireEvent.keyDown(document, { key: 'c' })
+      expect(screen.getByTestId('viewer-details').hidden).toBe(false)
+    } finally {
+      window.matchMedia = original
+    }
+  })
+
   it('shows "Time and location" only when its callback is given', () => {
     const onFix = vi.fn()
     const { unmount } = render(<Harness />, { wrapper })

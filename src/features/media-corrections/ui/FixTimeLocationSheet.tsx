@@ -446,7 +446,7 @@ export function FixTimeLocationSheet({
               <label className="flex min-h-11 items-start gap-3 text-sm">
                 <input
                   checked={reorganize}
-                  className="mt-0.5 size-5 shrink-0"
+                  className="mt-0.5"
                   type="checkbox"
                   onChange={(event) => {
                     setReorganize(event.target.checked)

@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Star, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -49,6 +49,15 @@ export interface MediaViewerProps {
 const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), video[controls], [href], [tabindex]:not([tabindex="-1"])'
 const SWIPE_MIN_PX = 50
+const ACTION =
+  'min-h-11 rounded-xl border border-border px-2 text-center text-sm font-medium hover:bg-surface md:border-0 md:px-3 md:text-left'
+const WIDE_QUERY = '(min-width: 768px)'
+
+/** Details start collapsed on narrow screens so the actions stay in view. */
+function startsExpanded(): boolean {
+  if (typeof window.matchMedia !== 'function') return true
+  return window.matchMedia(WIDE_QUERY).matches
+}
 
 interface FlatEntry {
   group: ViewerGroup
@@ -85,6 +94,8 @@ export function MediaViewer({
   const touchStart = useRef<{ x: number; y: number } | null>(null)
   const [currentId, setCurrentId] = useState(startId)
   const [captionSignal, setCaptionSignal] = useState(0)
+  const [detailsOpen, setDetailsOpen] = useState(startsExpanded)
+  const detailsId = useId()
 
   const flat = useMemo<FlatEntry[]>(
     () =>
@@ -189,6 +200,7 @@ export function MediaViewer({
         case 'c':
         case 'C':
           event.preventDefault()
+          setDetailsOpen(true)
           setCaptionSignal((value) => value + 1)
           break
         case 'm':
@@ -372,76 +384,104 @@ export function MediaViewer({
       </div>
       <aside
         aria-label={t('viewer.panel')}
-        className="max-h-[42dvh] shrink-0 space-y-3 overflow-y-auto bg-background px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] text-foreground md:max-h-none md:w-80 md:pt-[max(1rem,env(safe-area-inset-top))]"
+        className="flex max-h-[50dvh] shrink-0 flex-col bg-background text-foreground md:max-h-none md:w-80 md:pt-[env(safe-area-inset-top)]"
       >
-        <div>
-          <p className="font-medium" data-testid="viewer-moment">
-            {group.title}
-          </p>
-          <p className="text-sm text-muted">
-            {item.capturedAt !== null
-              ? `${formatInstantDate(item.capturedAt, zone, locale)}, ${formatLocalTime(item.capturedAt, zone, locale)}`
-              : t('viewer.noDate')}
-          </p>
-          <p
-            aria-live="polite"
-            className="text-xs text-muted"
-            data-testid="viewer-position"
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pt-3 pb-2">
+          <div>
+            <p className="font-medium" data-testid="viewer-moment">
+              {group.title}
+            </p>
+            <p
+              aria-live="polite"
+              className="text-xs text-muted"
+              data-testid="viewer-position"
+            >
+              {t('viewer.position', { current: index + 1, total: flat.length })}
+            </p>
+          </div>
+          <button
+            aria-pressed={item.starred}
+            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left font-medium hover:bg-surface"
+            type="button"
+            onClick={() => {
+              void edits.toggleStar(item)
+            }}
           >
-            {t('viewer.position', { current: index + 1, total: flat.length })}
-          </p>
-        </div>
-        <button
-          aria-pressed={item.starred}
-          className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left font-medium hover:bg-surface"
-          type="button"
-          onClick={() => {
-            void edits.toggleStar(item)
-          }}
-        >
-          <Star
-            aria-hidden="true"
-            className={item.starred ? 'fill-amber-400 text-amber-400' : ''}
-            size={18}
-          />
-          {t(item.starred ? 'workspace.unstar' : 'workspace.star')}
-        </button>
-        <CaptionEditor
-          edits={edits}
-          item={item}
-          key={item.id}
-          startSignal={captionSignal}
-        />
-        {coverOf.length > 0 ? (
-          <p className="px-3 text-sm font-semibold text-primary">
-            {t('workspace.coverBadge', {
-              levels: coverOf.map(level).join(', '),
+            <Star
+              aria-hidden="true"
+              className={item.starred ? 'fill-amber-400 text-amber-400' : ''}
+              size={18}
+            />
+            {t(item.starred ? 'workspace.unstar' : 'workspace.star')}
+          </button>
+          <button
+            aria-controls={detailsId}
+            aria-expanded={detailsOpen}
+            className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm font-medium hover:bg-surface"
+            type="button"
+            onClick={() => {
+              setDetailsOpen((open) => !open)
+            }}
+          >
+            {t('viewer.details')}
+            <ChevronDown
+              aria-hidden="true"
+              className={cn(
+                'transition-transform',
+                detailsOpen && 'rotate-180',
+              )}
+              size={18}
+            />
+          </button>
+          <div
+            className="space-y-2"
+            data-testid="viewer-details"
+            hidden={!detailsOpen}
+            id={detailsId}
+          >
+            <p className="px-3 text-sm text-muted">
+              {item.capturedAt !== null
+                ? `${formatInstantDate(item.capturedAt, zone, locale)}, ${formatLocalTime(item.capturedAt, zone, locale)}`
+                : t('viewer.noDate')}
+            </p>
+            <CaptionEditor
+              edits={edits}
+              item={item}
+              key={item.id}
+              startSignal={captionSignal}
+            />
+          </div>
+          {coverOf.length > 0 ? (
+            <p className="px-3 text-sm font-semibold text-primary">
+              {t('workspace.coverBadge', {
+                levels: coverOf.map(level).join(', '),
+              })}
+            </p>
+          ) : null}
+          <div
+            aria-label={t('workspace.coverMenu')}
+            className="flex flex-col"
+            role="group"
+          >
+            {itemTargets.map((target) => {
+              const current = target.currentCoverId === item.id
+              return (
+                <button
+                  className="min-h-11 rounded-xl px-3 text-left hover:bg-surface disabled:text-muted"
+                  disabled={current}
+                  key={target.level}
+                  type="button"
+                  onClick={() => {
+                    void edits.setCover(item.id, target)
+                  }}
+                >
+                  {current
+                    ? t('workspace.coverCurrent', { level: level(target) })
+                    : t('workspace.useAsCover', { level: level(target) })}
+                </button>
+              )
             })}
-          </p>
-        ) : null}
-        <div
-          aria-label={t('workspace.coverMenu')}
-          className="flex flex-col"
-          role="group"
-        >
-          {itemTargets.map((target) => {
-            const current = target.currentCoverId === item.id
-            return (
-              <button
-                className="min-h-11 rounded-xl px-3 text-left hover:bg-surface disabled:text-muted"
-                disabled={current}
-                key={target.level}
-                type="button"
-                onClick={() => {
-                  void edits.setCover(item.id, target)
-                }}
-              >
-                {current
-                  ? t('workspace.coverCurrent', { level: level(target) })
-                  : t('workspace.useAsCover', { level: level(target) })}
-              </button>
-            )
-          })}
+          </div>
         </div>
         {onMoveToMoment !== undefined ||
         onExtractToMoment !== undefined ||
@@ -449,12 +489,13 @@ export function MediaViewer({
         onDelete !== undefined ? (
           <div
             aria-label={t('viewer.moreActions')}
-            className="flex flex-col border-t border-border pt-2"
+            className="sticky bottom-0 grid shrink-0 grid-cols-2 gap-1 border-t border-border bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:grid-cols-1"
+            data-testid="viewer-actions"
             role="group"
           >
             {onMoveToMoment !== undefined ? (
               <button
-                className="min-h-11 rounded-xl px-3 text-left hover:bg-surface"
+                className={ACTION}
                 type="button"
                 onClick={() => {
                   onMoveToMoment(item)
@@ -465,7 +506,7 @@ export function MediaViewer({
             ) : null}
             {onExtractToMoment !== undefined ? (
               <button
-                className="min-h-11 rounded-xl px-3 text-left hover:bg-surface"
+                className={ACTION}
                 type="button"
                 onClick={() => {
                   onExtractToMoment(item)
@@ -477,7 +518,7 @@ export function MediaViewer({
             {onFixTimeLocation !== undefined ? (
               <button
                 aria-haspopup="dialog"
-                className="min-h-11 rounded-xl px-3 text-left hover:bg-surface"
+                className={ACTION}
                 type="button"
                 onClick={() => {
                   onFixTimeLocation(item)
@@ -488,7 +529,7 @@ export function MediaViewer({
             ) : null}
             {onDelete !== undefined ? (
               <button
-                className="min-h-11 rounded-xl px-3 text-left text-destructive hover:bg-surface"
+                className={cn(ACTION, 'text-destructive')}
                 type="button"
                 onClick={() => {
                   onDelete(item)
