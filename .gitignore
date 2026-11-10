@@ -41,3 +41,6 @@ apps/mobile/.maestro-qa/
 *.njsproj
 *.sln
 *.sw?
+
+# PR screenshots (kept out of the repo; see PR descriptions)
+.pr-assets/

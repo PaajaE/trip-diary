@@ -36,7 +36,7 @@ export function AppearanceSection() {
           >
             <input
               checked={preference === option}
-              className="size-5 shrink-0 accent-primary"
+              className="shrink-0"
               name="theme-preference"
               type="radio"
               value={option}

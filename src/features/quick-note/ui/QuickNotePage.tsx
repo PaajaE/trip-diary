@@ -198,7 +198,7 @@ function QuickNoteView({
             <input
               aria-describedby={`${ids}-loc-hint`}
               checked={useLocation}
-              className="mt-1 size-5"
+              className="mt-1"
               id={`${ids}-loc`}
               type="checkbox"
               onChange={(event) => {

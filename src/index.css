@@ -191,6 +191,31 @@ a {
   input[type='radio']:disabled {
     opacity: 0.5;
   }
+
+  /* Forced colors drops author backgrounds, so the radio dot and the checked
+     fill would vanish; map them to system colours explicitly. */
+  @media (forced-colors: active) {
+    input[type='checkbox'],
+    input[type='radio'] {
+      forced-color-adjust: none;
+      border-color: CanvasText;
+      background: Canvas;
+    }
+
+    input[type='checkbox']:checked,
+    input[type='radio']:checked {
+      border-color: Highlight;
+      background: Highlight;
+    }
+
+    input[type='checkbox']:checked::before {
+      border-color: HighlightText;
+    }
+
+    input[type='radio']:checked::before {
+      background: HighlightText;
+    }
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
