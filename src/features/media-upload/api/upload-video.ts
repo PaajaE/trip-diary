@@ -14,12 +14,13 @@ import {
 } from '@/entities/media/api/media-upload.api'
 import {
   addVariant,
-  createMedia,
+  createOrPromoteMedia,
   deleteMedia,
   markMediaFailed,
   markMediaReady,
 } from '@/entities/media/api/media.repository'
 import {
+  type CreateMediaResult,
   MediaUploadError,
   type MultipartCompleteResponse,
   type MultipartCreateResponse,
@@ -96,7 +97,10 @@ export interface UploadVideoDeps {
     parts: { etag: string; partNumber: number }[]
     uploadId: string
   }) => Promise<MultipartCompleteResponse>
-  createMedia: (input: NewPhotoMedia | NewVideoMedia) => Promise<void>
+  /** Resolves with the row id to upload into (a reused found row keeps its id); void = input.id. */
+  createMedia: (
+    input: NewPhotoMedia | NewVideoMedia,
+  ) => Promise<CreateMediaResult> | Promise<void>
   createMultipart: (input: {
     byteSize: number
     durationMs: number
@@ -142,7 +146,7 @@ const defaultDeps: UploadVideoDeps = {
   addVariant,
   cancelUpload: cancelVideoUpload,
   completeMultipart,
-  createMedia,
+  createMedia: createOrPromoteMedia,
   createMultipart,
   deleteExportedFiles,
   deleteMedia,
@@ -301,14 +305,14 @@ async function uploadExported(
   ) => void,
 ): Promise<UploadedVideo> {
   const captureTime = resolveVideoCaptureTime(options.assetMetadata)
-  const mediaId = deps.newId()
-  await deps.createMedia({
+  const newMediaId = deps.newId()
+  const created = await deps.createMedia({
     capturedAt: captureTime.capturedAt,
     capturedTz: captureTime.capturedTz,
     contentHash: null,
     durationMs: exported.durationMs,
     height: exported.height,
-    id: mediaId,
+    id: newMediaId,
     ...(options.journeyId === undefined
       ? {}
       : { journeyId: options.journeyId }),
@@ -321,6 +325,7 @@ async function uploadExported(
       ? {}
       : { sourceAssetId: options.sourceAssetId }),
   })
+  const mediaId = created?.mediaId ?? newMediaId
 
   let uploadId: string | null = null
   let stopUpload: () => Promise<void> = () => Promise.resolve()

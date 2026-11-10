@@ -269,6 +269,7 @@ describe('UploadQueue', () => {
     ['heic_unsupported', 'skipped'],
     ['video_too_long', 'skipped'],
     ['duplicate', 'skipped'],
+    ['dismissed', 'skipped'],
     ['video_too_large', 'skipped'],
     ['processing_failed', 'failed'],
   ] as const)('does not retry %s (becomes %s)', async (code, state) => {

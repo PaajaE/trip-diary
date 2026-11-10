@@ -379,6 +379,47 @@ describe('uploadPhoto', () => {
   })
 })
 
+describe('uploadPhoto with a reused found row', () => {
+  const FOUND = '44444444-4444-4444-8444-444444444444'
+
+  it('uploads into the id createMedia returns and finalises that row', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      createMedia: vi.fn(() =>
+        Promise.resolve({ mediaId: FOUND, reusedFoundRow: true }),
+      ),
+      signPut: vi.fn((input: Parameters<UploadPhotoDeps['signPut']>[0]) =>
+        Promise.resolve({
+          headers: {},
+          key: `${OWNER}/${input.mediaId}/${input.kind}.webp`,
+          publicUrl: `https://cdn/${input.kind}`,
+          url: `https://r2/${input.kind}`,
+        }),
+      ),
+    })
+    const result = await uploadPhoto(file, { deps, ownerId: OWNER })
+    expect(result.mediaId).toBe(FOUND)
+    expect(deps.markMediaReady).toHaveBeenCalledWith(FOUND)
+    expect(deps.addVariant).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaId: FOUND }),
+    )
+  })
+
+  it('a dismissed row stops before any upload work', async () => {
+    const calls: string[] = []
+    const deps = makeDeps(calls, {
+      createMedia: vi.fn(() =>
+        Promise.reject(new MediaUploadError('dismissed')),
+      ),
+    })
+    await expect(
+      uploadPhoto(file, { deps, ownerId: OWNER }),
+    ).rejects.toMatchObject({ code: 'dismissed' })
+    expect(deps.signPut).not.toHaveBeenCalled()
+    expect(calls).toEqual([])
+  })
+})
+
 describe('toV2VariantKind', () => {
   it('maps full to large and rejects unknown kinds', () => {
     expect(toV2VariantKind('full')).toBe('large')

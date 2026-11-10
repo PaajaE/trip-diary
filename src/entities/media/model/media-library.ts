@@ -1,5 +1,6 @@
 import { mediaQualitySchema } from '@trip-diary/core/automation'
 import { z } from 'zod'
+import { mediaStatusSchema } from '@/entities/media/model/media'
 
 const instantSchema = z.iso.datetime({ offset: true })
 
@@ -54,7 +55,7 @@ export const mediaItemSchema = z.object({
   reviewedAt: instantSchema.nullable().optional(),
   segmentOverrideId: z.uuid().nullable(),
   starred: z.boolean(),
-  status: z.enum(['pending', 'uploading', 'ready', 'failed']),
+  status: mediaStatusSchema,
   updatedAt: instantSchema,
   variants: z.array(mediaVariantSchema),
   width: z.number().int().positive().nullable(),

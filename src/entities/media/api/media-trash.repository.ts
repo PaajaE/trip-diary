@@ -1,6 +1,6 @@
 import {
   MEDIA_WITH_VARIANTS,
-  toMediaItem,
+  toMediaItems,
 } from '@/entities/media/api/media-library.repository'
 import {
   MediaLibraryError,
@@ -189,6 +189,7 @@ export async function listTrashedMedia(
       .from('media')
       .select(MEDIA_WITH_VARIANTS)
       .eq('journey_id', journeyId)
+      .neq('status', 'found')
       .not('deleted_at', 'is', null)
       .order('deleted_at', { ascending: false })
       .order('id', { ascending: true })
@@ -197,11 +198,13 @@ export async function listTrashedMedia(
   if (error !== null) {
     throw new MediaLibraryError('list_failed', error.message, error)
   }
-  return data.map((row) => {
+  const byId = new Map(data.map((row) => [row.id, row]))
+  return toMediaItems(data).map((item) => {
+    const row = byId.get(item.id)
     const parsed = trashedMediaItemSchema.safeParse({
-      ...toMediaItem(row),
-      deletedAt: row.deleted_at,
-      purgeClaimedAt: row.purge_claimed_at,
+      ...item,
+      deletedAt: row?.deleted_at,
+      purgeClaimedAt: row?.purge_claimed_at,
     })
     if (!parsed.success) {
       throw new MediaLibraryError(

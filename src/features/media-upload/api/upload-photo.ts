@@ -13,12 +13,13 @@ import {
 } from '@/entities/media/api/media-upload.api'
 import {
   addVariant,
-  createMedia,
+  createOrPromoteMedia,
   deleteMedia,
   markMediaFailed,
   markMediaReady,
 } from '@/entities/media/api/media.repository'
 import {
+  type CreateMediaResult,
   MediaUploadError,
   type NewMediaVariant,
   type NewPhotoMedia,
@@ -81,7 +82,10 @@ export interface UploadPhotoDeps {
   /** Must resolve null on failure; analysis never blocks an upload. */
   analyzePhoto: (blob: Blob) => Promise<ImageAnalysis | null>
   addVariant: (input: NewMediaVariant) => Promise<void>
-  createMedia: (input: NewPhotoMedia) => Promise<void>
+  /** Resolves with the row id to upload into (a reused found row keeps its id); void = input.id. */
+  createMedia: (
+    input: NewPhotoMedia,
+  ) => Promise<CreateMediaResult> | Promise<void>
   deleteMedia: (mediaId: string) => Promise<void>
   deleteMediaObjects: (mediaId: string) => Promise<number>
   hashFile: (file: File) => Promise<string>
@@ -105,7 +109,7 @@ export interface UploadPhotoDeps {
 const defaultDeps: UploadPhotoDeps = {
   analyzePhoto: analyzeImageBlob,
   addVariant,
-  createMedia,
+  createMedia: createOrPromoteMedia,
   deleteMedia,
   deleteMediaObjects: deleteMediaObjectsRemote,
   hashFile: sha256Hex,
@@ -220,14 +224,14 @@ export async function uploadPhoto(
       ? null
       : await deps.analyzePhoto(analysisSource.blob).catch(() => null)
 
-  const mediaId = deps.newId()
-  await deps.createMedia({
+  const newMediaId = deps.newId()
+  const created = await deps.createMedia({
     capturedAt,
     capturedTz,
     contentHash,
     device,
     height: largest?.height ?? null,
-    id: mediaId,
+    id: newMediaId,
     ...(options.journeyId === undefined
       ? {}
       : { journeyId: options.journeyId }),
@@ -242,6 +246,7 @@ export async function uploadPhoto(
       ? {}
       : { sourceAssetId: options.sourceAssetId }),
   })
+  const mediaId = created?.mediaId ?? newMediaId
 
   const uploaded: UploadedPhoto['variants'] = []
   try {

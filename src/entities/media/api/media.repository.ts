@@ -3,11 +3,18 @@ import {
   type MediaQuality,
 } from '@trip-diary/core/automation'
 import {
+  promoteFoundMedia,
+  triageFoundMedia,
+} from '@/entities/media/api/media-found.repository'
+import {
+  type CreateMediaResult,
   MediaUploadError,
   type NewMediaVariant,
   type NewPhotoMedia,
   type NewVideoMedia,
 } from '@/entities/media/model/media'
+import { mediaTriageState } from '@/entities/media/model/media-triage'
+import { mediaStatusSchema } from '@/entities/media/model/media'
 import { getSupabaseClient } from '@/shared/api/supabase'
 
 const UNIQUE_VIOLATION = '23505'
@@ -56,6 +63,87 @@ export async function createMedia(
       error.code === UNIQUE_VIOLATION ? 'duplicate' : 'create_failed',
       error.message,
       error,
+    )
+  }
+}
+
+const SHA256_HEX = /^[a-f0-9]{64}$/
+
+/**
+ * Upload entry point: inserts the media row like createMedia, EXCEPT when the
+ * owner already has a row for this (journey, source asset) that came from the
+ * triage flow. Then that row is reused (promote_found_media), so the file
+ * lands on the row that holds the triage state, not on a colliding new one:
+ *   - found, undecided: the user chose to import it now -> keep, then promote
+ *   - found, kept/starred: promote
+ *   - found, dismissed: not uploaded, MediaUploadError('dismissed') (skipped)
+ *   - status 'pending' (an earlier promote whose upload did not finish, e.g.
+ *     offline): promote again, the RPC answers already_promoted -> resume
+ *   - promote says duplicate (same content hash elsewhere): 'duplicate'
+ *   - no row, a row in another journey, or an uploaded one: plain insert, which
+ *     keeps today's behaviour (a unique violation is reported as 'duplicate').
+ * Resolves with the id to upload into; a reused row keeps its own id and its
+ * own metadata (captured time, GPS, phash, moment, star).
+ */
+export async function createOrPromoteMedia(
+  input: NewPhotoMedia | NewVideoMedia,
+): Promise<CreateMediaResult> {
+  const plain = async (): Promise<CreateMediaResult> => {
+    await createMedia(input)
+    return { mediaId: input.id, reusedFoundRow: false }
+  }
+  if (input.journeyId === undefined || input.sourceAssetId === undefined) {
+    return plain()
+  }
+  const { data, error } = await getSupabaseClient()
+    .from('media')
+    .select('id, status, journey_id, reviewed_at, deleted_at, starred')
+    .eq('owner_id', input.ownerId)
+    .eq('source_asset_id', input.sourceAssetId)
+    .maybeSingle()
+  if (error !== null) {
+    throw new MediaUploadError('create_failed', error.message, error)
+  }
+  const status = mediaStatusSchema.safeParse(data?.status)
+  if (data === null || !status.success || data.journey_id !== input.journeyId) {
+    return plain()
+  }
+  const state = mediaTriageState({
+    deletedAt: data.deleted_at,
+    reviewedAt: data.reviewed_at,
+    starred: data.starred,
+    status: status.data,
+  })
+  if (state === 'dismissed') {
+    throw new MediaUploadError('dismissed', 'dismissed before upload')
+  }
+  const resumes = state === 'uploaded' && status.data === 'pending'
+  if (state === 'uploaded' && !resumes) return plain()
+  try {
+    if (state === 'found') await triageFoundMedia([data.id], 'keep')
+    const hash = input.contentHash
+    const [result] = await promoteFoundMedia([
+      {
+        id: data.id,
+        ...(hash !== null && SHA256_HEX.test(hash)
+          ? { contentHash: hash }
+          : {}),
+      },
+    ])
+    if (result?.outcome === 'duplicate') {
+      throw new MediaUploadError('duplicate', 'same content already uploaded')
+    }
+    if (result === undefined || result.outcome === 'not_kept') {
+      // Dismissed in between (another device): do not upload.
+      throw new MediaUploadError('dismissed', 'no longer kept')
+    }
+    return { mediaId: data.id, reusedFoundRow: true }
+  } catch (cause) {
+    if (cause instanceof MediaUploadError) throw cause
+    throw new MediaUploadError(
+      'create_failed',
+      cause instanceof Error ? cause.message : undefined,
+      cause,
     )
   }
 }
@@ -111,7 +199,8 @@ export async function deleteMedia(mediaId: string): Promise<void> {
 const SOURCE_ID_BATCH = 100
 
 /**
- * Which of `sourceIds` already exist as media.source_asset_id for this owner.
+ * Which of `sourceIds` already exist as an uploaded media.source_asset_id for
+ * this owner (found rows excluded, see below).
  * Batched `in` queries (ids are short strings; 100 per request keeps URLs small).
  */
 export async function listExistingSourceAssetIds(
@@ -123,13 +212,17 @@ export async function listExistingSourceAssetIds(
     const batch = sourceIds.slice(start, start + SOURCE_ID_BATCH)
     const { data, error } = await getSupabaseClient()
       .from('media')
-      .select('source_asset_id')
+      .select('source_asset_id, status')
       .eq('owner_id', ownerId)
       .in('source_asset_id', batch)
     if (error !== null) {
       throw new MediaUploadError('create_failed', error.message, error)
     }
     for (const row of data) {
+      // Found rows are NOT "already imported": a kept one still has to be
+      // uploaded (createOrPromoteMedia reuses it); a dismissed one is skipped
+      // there with the reason 'dismissed'.
+      if (row.status === 'found') continue
       if (row.source_asset_id !== null) found.add(row.source_asset_id)
     }
   }

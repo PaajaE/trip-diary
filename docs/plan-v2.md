@@ -712,6 +712,14 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
   `20261110120000_v2_found_dismissed.sql` a `20261110130000_v2_found_review_fixes.sql`, pgTAP
   `v2_media_found.test.sql`, `v2_media_found_dismissed.test.sql` a `v2_media_found_review.test.sql`
   (IMPLEMENTED; pgTAP lokálně UNVERIFIED, bez Dockeru, ověřuje CI). Do produkce **neaplikováno**.
+- **Klient, brána (2026-11-10, 🧪 TESTED jednotkovými testy s mockovaným klientem; na zařízení ani
+  proti skutečné DB **UNVERIFIED**):** `found` řádky nesmí rozbít stávající aplikaci a stávající nahrávání
+  nesmí narazit na existující `found` řádek, proto se obojí dodává společně. Seznamy nahraných médií
+  (knihovna, Koš, nezkontrolované, obálky) `found` vylučují v dotazu i v parseru (neznámý `status` se
+  zaloguje a řádek se zahodí); `createOrPromoteMedia` místo vložení nového řádku použije
+  `promote_found_media` (nerozhodnutý řádek nejdřív `keep`; zahozený = přeskočeno jako `dismissed`;
+  `duplicate` beze změny). Vrstva RPC je v `entities/media/api/media-found.repository.ts`, odvození stavu
+  třídění v `entities/media/model/media-triage.ts`. Obrazovka třídění a Koš pro `found` zůstávají otevřené.
 
 ##### Stav 4f (2026-10-29, původní lokální session)
 
