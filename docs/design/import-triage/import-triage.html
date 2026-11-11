@@ -6,7 +6,7 @@
 <title>Import na iOS: Vybrat → Probrat → Nahrát (mockup)</title>
 <!--
   Trip Diary · mockup iOS importu „Vybrat → Probrat → Nahrát“ (Fáze 4f-B, vlna 4).
-  Stav: PROPOSED, rozhodnutí delegována (2026-11-10), čeká na schválení vizuálů uživatelem; na zařízení UNVERIFIED. Zdroj pravdy je tento soubor;
+  Stav: vizuály SCHVÁLENY uživatelem (2026-11-10), rozhodnutí byla delegována a schválena; na zařízení UNVERIFIED. Zdroj pravdy je tento soubor;
   PNG v ./png jsou jen jeho snímky. Samostatný soubor: žádné CDN, fonty ani obrázky,
   funguje offline po dvojkliku. Barvy, poloměry a stíny jsou tokeny z src/index.css.
   Parametry URL: ?theme=light|dark  ?bare=1 (jen telefon, 390×844)  #id obrazovky.
@@ -378,7 +378,7 @@ i.grab{display:block;width:40px;height:5px;border-radius:3px;background:var(--co
 <header class="top">
   <div>
     <h1>Import na iOS: Vybrat → Probrat → Nahrát</h1>
-    <p>Mockup, stav <b>PROPOSED</b> (neschváleno). Na zařízení <b>UNVERIFIED</b>. Fáze 4f-B, vlna 4.</p>
+    <p>Mockup, stav <b>SCHVÁLENO</b> uživatelem 2026-11-10. Na zařízení <b>UNVERIFIED</b>. Fáze 4f-B, vlna 4.</p>
   </div>
   <div class="ctl">
     <select class="pick narrow" id="pick" aria-label="Obrazovka"></select>
@@ -423,7 +423,7 @@ i.grab{display:block;width:40px;height:5px;border-radius:3px;background:var(--co
   <p><b>Nahrazuje:</b> v <code>ImportPage.tsx</code> dnešní picker, volbu „Podle data“ a tlačítko „Projít knihovnu fotek“. Zůstává jediný vstup. Zpráva <code>batchLimit</code> a konstanta <code>MAX_IMPORT_BATCH</code> mizí.</p>
   <p><b>Rozhodnutí 2026-11-10:</b> globální přepínač iCloudu je pryč. Náhledy se z iCloudu nikdy nestahují; volba „stáhnout originály“ přijde až v potvrzení před nahráním (<a href="#c-confirm">C6</a>). „Od posledního importu“ nenabízí znovu fotky označené Pryč.</p>
   <p><b>Potřebuje:</b> existující PhotoKit zdroj (<code>photokit-source.ts</code>), kurzor posledního importu (<code>ImportCursor</code>) a seznam lokálně vyřazených položek. Nic nového v DB.</p>
-  <p><span class="tag">PROPOSED · UNVERIFIED na zařízení</span></p>
+  <p><span class="tag">SCHVÁLENO · UNVERIFIED na zařízení</span></p>
 </div>
 </article>
 

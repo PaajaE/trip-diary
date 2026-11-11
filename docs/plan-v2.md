@@ -750,11 +750,11 @@ nepřežilo změnu zařízení. Blokující důvod proti (a) jsem nenašel.
 - **Vlna 1:** hotovo a commitnuto (`algo:score`, test tónu, sbalené dny, čtecí pozice, fronta „asi odpad“). 🧪 TESTED, na zařízení a na skutečných datech **UNVERIFIED**.
 - **`pickBestOfDay`:** hotovo v `core`, nezapojeno do UI.
 
-##### Mockupy importu na iOS: Vybrat → Probrat → Nahrát (2026-11-10, vizuály a rozhodnutí 1–5 schváleny uživatelem; obrazovky 2026-11-11 🟡 IMPLEMENTED, na zařízení UNVERIFIED)
+##### Mockupy importu na iOS: Vybrat → Probrat → Nahrát (2026-11-10, vizuály a rozhodnutí 1–5 ✅ SCHVÁLENY uživatelem 2026-11-10; obrazovky 2026-11-11 🟡 IMPLEMENTED, na zařízení UNVERIFIED)
 
 **Implementace (2026-11-11):** `src/features/media-import/ui/flow/`, logika v `model/triage.ts`, lokální úložiště `entities/media/api/triage-items.store.ts` (Dexie v19). Odchylky od mockupu a seznam UNVERIFIED jsou v `docs/v2-status.md` (Fáze 4f-B, vlna 4); porovnání render × mockup v `docs/design/import-triage/compare/`.
 
-Mockups for wave 4 of 4f-B (decision 1 above). **Status PROPOSED: decisions by delegation, awaiting user approval of the visuals.**
+Mockups for wave 4 of 4f-B (decision 1 above). **Status: visuals APPROVED by the user on 2026-11-10 (decisions were made by delegation, then approved). Everything is still UNVERIFIED on a device.**
 Everything in them is **UNVERIFIED on a device**. Once approved, the HTML is the binding
 spec for the wave (project rule: an approved mockup is the spec).
 
@@ -777,8 +777,8 @@ spec for the wave (project rule: an approved mockup is the spec).
 | V `#v-viewer`, `#v-details`                                                     | Viewer bottom panel: sticky action bar, collapsible caption/time/place                                                                                                  | Replaces the `aside` in `MediaViewer.tsx` (actions fell below the fold at 390×844)                            | None (layout only)                                                                                    |
 | S `#s-empty`, `#s-error`, `#s-offline`, `#s-resume`                             | Empty, error, offline, resume after app restart                                                                                                                         | Replaces `nothingToImport`, `loadError`, `waitingOnline`, silent queue resume                                 | Persisted triage decisions (new); the upload queue already survives restart                           |
 
-**Rozhodnutí 2026-11-10** (by delegation from the user, to decide for the best UX; **PROPOSED, decisions by
-delegation, awaiting user approval of the visuals**). They replace the five open design questions of the PR.
+**Rozhodnutí 2026-11-10** (by delegation from the user, to decide for the best UX; **APPROVED by the user
+2026-11-10 together with the visuals**). They replace the five open design questions of the PR.
 
 1. **Unreviewed photos never cause silent loss or silent upload.** The primary button stays
    "Nahrát N vybraných" (Ponechána + Nejlepší only). If untriaged items remain it opens a confirm sheet
