@@ -1218,6 +1218,10 @@ export const cs: TranslationResources = {
     visibilityPublic: 'Zveřejněný',
   },
   viewer: {
+    moveShort: 'Přesunout',
+    extractShort: 'Nová zastávka',
+    deleteShort: 'Koš',
+    done: 'Hotovo',
     close: 'Zavřít prohlížeč',
     delete: 'Přesunout do koše',
     extractToMoment: 'Vyjmout do nové zastávky',

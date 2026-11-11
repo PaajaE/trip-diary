@@ -1,4 +1,14 @@
-import { ChevronDown, ChevronLeft, ChevronRight, Star, X } from 'lucide-react'
+import {
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  MapPinPlus,
+  MoveRight,
+  Star,
+  Trash2,
+  X,
+} from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
@@ -50,7 +60,7 @@ const FOCUSABLE =
   'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), video[controls], [href], [tabindex]:not([tabindex="-1"])'
 const SWIPE_MIN_PX = 50
 const ACTION =
-  'min-h-11 rounded-xl border border-border px-2 text-center text-sm font-medium hover:bg-surface md:border-0 md:px-3 md:text-left'
+  'flex min-h-[62px] flex-col items-center justify-start gap-0.5 rounded-xl px-1 pt-2 text-center text-[13px] font-semibold hover:bg-surface md:min-h-11 md:flex-row md:justify-start md:border-0 md:px-3 md:pt-0 md:text-left md:text-sm md:font-medium'
 const WIDE_QUERY = '(min-width: 768px)'
 
 /** Details start collapsed on narrow screens so the actions stay in view. */
@@ -341,6 +351,21 @@ export function MediaViewer({
             <ChevronRight aria-hidden="true" />
           </button>
           <button
+            aria-pressed={item.starred}
+            aria-label={t(item.starred ? 'workspace.unstar' : 'workspace.star')}
+            className="absolute right-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
+            type="button"
+            onClick={() => {
+              void edits.toggleStar(item)
+            }}
+          >
+            <Star
+              aria-hidden="true"
+              className={item.starred ? 'fill-amber-400 text-amber-400' : ''}
+              size={20}
+            />
+          </button>
+          <button
             aria-label={t('viewer.close')}
             className="absolute left-2 top-[max(0.5rem,env(safe-area-inset-top))] z-10 flex size-11 items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/75"
             type="button"
@@ -384,9 +409,10 @@ export function MediaViewer({
       </div>
       <aside
         aria-label={t('viewer.panel')}
-        className="flex max-h-[50dvh] shrink-0 flex-col bg-background text-foreground md:max-h-none md:w-80 md:pt-[env(safe-area-inset-top)]"
+        className="relative z-[5] flex max-h-[50dvh] shrink-0 flex-col rounded-t-[22px] bg-background text-foreground shadow-[0_-8px_24px_rgb(0_0_0/0.35)] md:max-h-none md:w-80 md:rounded-none md:pt-[env(safe-area-inset-top)] md:shadow-none"
       >
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pt-3 pb-2">
+        <i className="mx-auto mt-2 block h-[5px] w-10 rounded-sm bg-border md:hidden" />
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pt-1 pb-2 md:pt-3">
           <div>
             <p className="font-medium" data-testid="viewer-moment">
               {group.title}
@@ -400,21 +426,6 @@ export function MediaViewer({
             </p>
           </div>
           <button
-            aria-pressed={item.starred}
-            className="flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left font-medium hover:bg-surface"
-            type="button"
-            onClick={() => {
-              void edits.toggleStar(item)
-            }}
-          >
-            <Star
-              aria-hidden="true"
-              className={item.starred ? 'fill-amber-400 text-amber-400' : ''}
-              size={18}
-            />
-            {t(item.starred ? 'workspace.unstar' : 'workspace.star')}
-          </button>
-          <button
             aria-controls={detailsId}
             aria-expanded={detailsOpen}
             className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl px-3 text-left text-sm font-medium hover:bg-surface"
@@ -423,7 +434,16 @@ export function MediaViewer({
               setDetailsOpen((open) => !open)
             }}
           >
-            {t('viewer.details')}
+            <span className="min-w-0">
+              <b className="block text-[15px] font-semibold">
+                {item.capturedAt === null
+                  ? t('viewer.noDate')
+                  : `${formatInstantDate(item.capturedAt, zone, locale)} · ${formatLocalTime(item.capturedAt, zone, locale)}`}
+              </b>
+              <small className="block text-[13px] font-normal text-muted">
+                {t('viewer.details')}
+              </small>
+            </span>
             <ChevronDown
               aria-hidden="true"
               className={cn(
@@ -439,11 +459,6 @@ export function MediaViewer({
             hidden={!detailsOpen}
             id={detailsId}
           >
-            <p className="px-3 text-sm text-muted">
-              {item.capturedAt !== null
-                ? `${formatInstantDate(item.capturedAt, zone, locale)}, ${formatLocalTime(item.capturedAt, zone, locale)}`
-                : t('viewer.noDate')}
-            </p>
             <CaptionEditor
               edits={edits}
               item={item}
@@ -489,53 +504,81 @@ export function MediaViewer({
         onDelete !== undefined ? (
           <div
             aria-label={t('viewer.moreActions')}
-            className="sticky bottom-0 grid shrink-0 grid-cols-2 gap-1 border-t border-border bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:grid-cols-1"
+            className="sticky bottom-0 grid shrink-0 grid-cols-4 gap-1.5 border-t border-border bg-background px-3 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:grid-cols-1"
             data-testid="viewer-actions"
             role="group"
           >
             {onMoveToMoment !== undefined ? (
               <button
+                aria-label={t('viewer.moveToMoment')}
                 className={ACTION}
                 type="button"
                 onClick={() => {
                   onMoveToMoment(item)
                 }}
               >
-                {t('viewer.moveToMoment')}
+                <MoveRight aria-hidden="true" className="md:hidden" size={20} />
+                <span className="md:hidden">{t('viewer.moveShort')}</span>
+                <span className="hidden md:inline">
+                  {t('viewer.moveToMoment')}
+                </span>
               </button>
             ) : null}
             {onExtractToMoment !== undefined ? (
               <button
+                aria-label={t('viewer.extractToMoment')}
                 className={ACTION}
                 type="button"
                 onClick={() => {
                   onExtractToMoment(item)
                 }}
               >
-                {t('viewer.extractToMoment')}
-              </button>
-            ) : null}
-            {onFixTimeLocation !== undefined ? (
-              <button
-                aria-haspopup="dialog"
-                className={ACTION}
-                type="button"
-                onClick={() => {
-                  onFixTimeLocation(item)
-                }}
-              >
-                {t('mediaCorrections.action')}
+                <MapPinPlus
+                  aria-hidden="true"
+                  className="md:hidden"
+                  size={20}
+                />
+                <span className="md:hidden">{t('viewer.extractShort')}</span>
+                <span className="hidden md:inline">
+                  {t('viewer.extractToMoment')}
+                </span>
               </button>
             ) : null}
             {onDelete !== undefined ? (
               <button
+                aria-label={t('viewer.delete')}
                 className={cn(ACTION, 'text-destructive')}
                 type="button"
                 onClick={() => {
                   onDelete(item)
                 }}
               >
-                {t('viewer.delete')}
+                <Trash2 aria-hidden="true" className="md:hidden" size={20} />
+                <span className="md:hidden">{t('viewer.deleteShort')}</span>
+                <span className="hidden md:inline">{t('viewer.delete')}</span>
+              </button>
+            ) : null}
+            <button
+              className={cn(
+                ACTION,
+                'border-0 bg-primary text-primary-foreground hover:bg-primary/90 md:hidden',
+              )}
+              type="button"
+              onClick={onClose}
+            >
+              <Check aria-hidden="true" size={20} />
+              {t('viewer.done')}
+            </button>
+            {onFixTimeLocation !== undefined ? (
+              <button
+                aria-haspopup="dialog"
+                className={cn(ACTION, 'col-span-4 md:col-span-1')}
+                type="button"
+                onClick={() => {
+                  onFixTimeLocation(item)
+                }}
+              >
+                {t('mediaCorrections.action')}
               </button>
             ) : null}
           </div>

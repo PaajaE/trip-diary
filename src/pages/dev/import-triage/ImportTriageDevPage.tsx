@@ -9,6 +9,7 @@ import { ImportFlow } from '@/features/media-import/ui/flow/ImportFlow'
 import { DEMO_JOURNEY, DEMO_OWNER } from '@/pages/dev/import-triage/demo-data'
 import { createDemoTriageSource } from '@/pages/dev/import-triage/demo-source'
 import { createFakeQueue } from '@/pages/dev/import-triage/fake-queue'
+import { ViewerHarness } from '@/pages/dev/import-triage/ViewerHarness'
 import { buildScenario } from '@/pages/dev/import-triage/scenarios'
 
 const SAFE_AREAS = {
@@ -26,6 +27,18 @@ export function ImportTriageDevPage() {
   const params = new URLSearchParams(window.location.search)
   const name = params.get('s') ?? 'a-select'
   const theme = params.get('theme')
+  useEffect(() => {
+    if (theme === 'dark' || theme === 'light') {
+      document.documentElement.setAttribute('data-theme', theme)
+    }
+  }, [theme])
+  if (name === 'v-viewer' || name === 'v-details') {
+    return <ViewerHarness expanded={name === 'v-details'} />
+  }
+  return <FlowHarness name={name} theme={params.get('theme')} />
+}
+
+function FlowHarness({ name, theme }: { name: string; theme: string | null }) {
   const [scenario] = useState(() => buildScenario(name))
   const [store] = useState(() => createMemoryTriageItemStore(scenario.items))
   const [queue] = useState(() => createFakeQueue(scenario.snapshot))

@@ -1219,6 +1219,10 @@ export const en = {
     visibilityPublic: 'Published',
   },
   viewer: {
+    moveShort: 'Move',
+    extractShort: 'New stop',
+    deleteShort: 'Trash',
+    done: 'Done',
     close: 'Close viewer',
     delete: 'Move to trash',
     extractToMoment: 'Extract to a new stop',
