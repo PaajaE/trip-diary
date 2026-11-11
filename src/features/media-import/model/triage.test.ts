@@ -7,6 +7,7 @@ import {
 import {
   decide,
   dayKey,
+  isInScope,
   estimateBytes,
   estimateMinutes,
   filterItems,
@@ -263,5 +264,23 @@ describe('series', () => {
     expect(out.get('a')).toBe(100)
     expect(out.get('b')).toBe(50)
     expect(relativeSharpness(new Map([['a', 0]])).get('a')).toBe(0)
+  })
+})
+
+describe('isInScope', () => {
+  it('keeps open items of any read, dismissed ones only of the latest read', () => {
+    expect(isInScope(item(1, 'kept', { selectionId: 'old' }), 'new')).toBe(true)
+    expect(isInScope(item(2, 'found', { selectionId: 'old' }), 'new')).toBe(
+      true,
+    )
+    expect(isInScope(item(3, 'dismissed', { selectionId: 'old' }), 'new')).toBe(
+      false,
+    )
+    expect(isInScope(item(4, 'dismissed', { selectionId: 'new' }), 'new')).toBe(
+      true,
+    )
+    expect(isInScope(item(5, 'uploaded', { selectionId: 'new' }), 'new')).toBe(
+      false,
+    )
   })
 })

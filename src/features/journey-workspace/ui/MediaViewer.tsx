@@ -411,7 +411,10 @@ export function MediaViewer({
         aria-label={t('viewer.panel')}
         className="relative z-[5] flex max-h-[50dvh] shrink-0 flex-col rounded-t-[22px] bg-background text-foreground shadow-[0_-8px_24px_rgb(0_0_0/0.35)] md:max-h-none md:w-80 md:rounded-none md:pt-[env(safe-area-inset-top)] md:shadow-none"
       >
-        <i className="mx-auto mt-2 block h-[5px] w-10 rounded-sm bg-border md:hidden" />
+        <i
+          aria-hidden="true"
+          className="mx-auto mt-2 block h-[5px] w-10 rounded-sm bg-border md:hidden"
+        />
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pt-1 pb-2 md:pt-3">
           <div>
             <p className="font-medium" data-testid="viewer-moment">

@@ -9,6 +9,7 @@ import {
 import { dayKey } from '@/features/media-import/model/triage'
 import type { ImportRange } from '@/features/media-import/model/types'
 import { createThumbnailLoader } from '@/features/media-import/api/thumbnail-loader'
+import { uploadWaitReason } from '@/features/media-import/api/upload-network'
 import { useUploadEta } from '@/features/media-import/lib/use-upload-eta'
 import {
   DoneScreen,
@@ -164,9 +165,14 @@ export function ImportFlow(props: ImportFlowProps) {
           setDropping(false)
           const files = Array.from(event.dataTransfer.files)
           if (files.length === 0) return
-          void source.addFiles(files).then((candidates) => {
-            flow.ingestCandidates(candidates)
-          })
+          source.addFiles(files).then(
+            (candidates) => {
+              flow.ingestCandidates(candidates)
+            },
+            () => {
+              flow.showError('read')
+            },
+          )
         },
       }
     : undefined
@@ -181,7 +187,7 @@ export function ImportFlow(props: ImportFlowProps) {
   const requestUpload = () => {
     if (flow.counts.found > 0 || selectedCloud > 0) {
       flow.setSheet({ kind: 'confirmRest' })
-    } else void flow.startUpload('selected')
+    } else startUpload('selected')
   }
   const quickItem =
     flow.quick === null
@@ -228,6 +234,11 @@ export function ImportFlow(props: ImportFlowProps) {
   })
   const retryRef = useRef<() => void>(() => undefined)
   const [discarding, setDiscarding] = useState(false)
+
+  const startUpload = (mode: 'all' | 'selected', retryIcloud = false) => {
+    retryRef.current = () => void flow.startUpload(mode, retryIcloud)
+    retryRef.current()
+  }
 
   const startPick = () => {
     retryRef.current = source.hasLibrary
@@ -478,6 +489,7 @@ export function ImportFlow(props: ImportFlowProps) {
           timeZone={props.timeZone}
           uploadedItems={uploadedItems}
           variant={variant}
+          waitReason={uploadWaitReason() ?? 'offline'}
           wifiOnly={props.wifiOnly === true}
         />
       )
@@ -512,7 +524,7 @@ export function ImportFlow(props: ImportFlowProps) {
           onClose={props.onClose}
           onGo={() => {
             flow.setIcloudDownload(true)
-            void flow.startUpload('selected', true)
+            startUpload('selected', true)
           }}
           timeZone={props.timeZone}
           total={runDone + waitingIcloud}
@@ -631,7 +643,11 @@ export function ImportFlow(props: ImportFlowProps) {
               </QuietButton>
             </>
           }
-          body={t('mediaImport.flow.error.lead')}
+          body={
+            flow.errorKind === 'upload'
+              ? t('mediaImport.flow.error.uploadLead')
+              : t('mediaImport.flow.error.lead')
+          }
           done={[]}
           headerTitle={t('mediaImport.flow.title')}
           icon="warning"
@@ -639,7 +655,11 @@ export function ImportFlow(props: ImportFlowProps) {
             flow.setStep('select')
           }}
           step="pick"
-          title={t('mediaImport.flow.error.title')}
+          title={
+            flow.errorKind === 'upload'
+              ? t('mediaImport.flow.error.uploadTitle')
+              : t('mediaImport.flow.error.title')
+          }
         />
       )
       break
@@ -660,7 +680,9 @@ export function ImportFlow(props: ImportFlowProps) {
         icloudCount={selectedCloud}
         icloudDownload={flow.icloudDownload}
         locale={i18n.language}
-        onAll={() => void flow.startUpload('all')}
+        onAll={() => {
+          startUpload('all')
+        }}
         onClose={() => {
           flow.setSheet(null)
         }}
@@ -670,7 +692,9 @@ export function ImportFlow(props: ImportFlowProps) {
           flow.setFilter('found')
           flow.setStep('grid')
         }}
-        onSelected={() => void flow.startUpload('selected')}
+        onSelected={() => {
+          startUpload('selected')
+        }}
         remaining={flow.counts.found}
         selected={flow.counts.selected}
       />
@@ -697,7 +721,9 @@ export function ImportFlow(props: ImportFlowProps) {
         onClose={() => {
           flow.setSheet(null)
         }}
-        onGo={() => void flow.startUpload('all')}
+        onGo={() => {
+          startUpload('all')
+        }}
         onIcloud={flow.setIcloudDownload}
         onReview={() => {
           flow.setSheet(null)
@@ -713,7 +739,9 @@ export function ImportFlow(props: ImportFlowProps) {
       data-testid="import-flow"
     >
       <ThumbnailsContext.Provider value={loaders}>
-        {screen}
+        <div className="h-full" inert={flow.sheet !== null}>
+          {screen}
+        </div>
         {sheetNode}
       </ThumbnailsContext.Provider>
       {flow.sheet?.kind === 'range' ? (

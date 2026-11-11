@@ -16,6 +16,7 @@ import type {
 import {
   byTime,
   decide,
+  isInScope,
   latestSelectionId,
   newSelectionId,
   reconcileRead,
@@ -135,6 +136,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
   const [seriesId, setSeriesId] = useState<string | null>(
     deps.initial?.seriesId ?? null,
   )
+  const [errorKind, setErrorKind] = useState<'read' | 'upload'>('read')
   const [quick, setQuickState] = useState<QuickState | null>(null)
   // Quick sort is read synchronously by its handlers: no side effects inside
   // a state updater (React may run updaters twice).
@@ -170,10 +172,9 @@ export function useImportFlow(deps: ImportFlowDeps) {
 
   const startQuick = useCallback(
     (startId: string | null) => {
-      const scopeNow = itemsRef.current.filter(
-        (item) =>
-          item.selectionId === latestSelectionId(itemsRef.current) &&
-          item.status !== 'uploaded',
+      const latest = latestSelectionId(itemsRef.current)
+      const scopeNow = itemsRef.current.filter((item) =>
+        isInScope(item, latest),
       )
       const found = scopeNow
         .filter((item) => item.status === 'found')
@@ -216,11 +217,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
           setStep(deps.initial?.step ?? 'quick')
         }
         if (deps.initial === undefined) {
-          const selection = latestSelectionId(stored)
-          const open = stored.some(
-            (item) =>
-              item.selectionId === selection && isOpenTriageStatus(item.status),
-          )
+          const open = stored.some((item) => isOpenTriageStatus(item.status))
           setStep(open ? 'resume' : 'select')
         }
       } catch {
@@ -244,11 +241,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
 
   const selectionId = useMemo(() => latestSelectionId(items), [items])
   const scope = useMemo(
-    () =>
-      items.filter(
-        (item) =>
-          item.selectionId === selectionId && item.status !== 'uploaded',
-      ),
+    () => items.filter((item) => isInScope(item, selectionId)),
     [items, selectionId],
   )
   const previouslyDismissed = useMemo(
@@ -309,7 +302,10 @@ export function useImportFlow(deps: ImportFlowDeps) {
         if (readToken.current !== token) return
         ingest(candidates, sinceEmpty)
       } catch {
-        if (readToken.current === token) setStep('error')
+        if (readToken.current === token) {
+          setErrorKind('read')
+          setStep('error')
+        }
       }
     },
     [ingest, source],
@@ -323,6 +319,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
       setPickedLeft(result.left)
       ingest(result.candidates, false)
     } catch {
+      setErrorKind('read')
       setStep('error')
     }
   }, [ingest, source])
@@ -413,10 +410,9 @@ export function useImportFlow(deps: ImportFlowDeps) {
       items
         .filter(
           (item) =>
-            item.selectionId === selectionId &&
-            (item.status === 'kept' ||
-              item.status === 'starred' ||
-              item.status === 'uploaded'),
+            item.status === 'kept' ||
+            item.status === 'starred' ||
+            (item.status === 'uploaded' && item.selectionId === selectionId),
         )
         .map((item) => item.sourceId),
     )
@@ -433,8 +429,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
         const found = new Set(
           working
             .filter(
-              (item) =>
-                item.selectionId === selectionId && item.status === 'found',
+              (item) => isInScope(item, selectionId) && item.status === 'found',
             )
             .map((item) => item.id),
         )
@@ -443,13 +438,21 @@ export function useImportFlow(deps: ImportFlowDeps) {
         working = itemsRef.current
       }
       const chosen = working.filter(
-        (item) =>
-          item.selectionId === selectionId &&
-          (item.status === 'kept' || item.status === 'starred'),
+        (item) => item.status === 'kept' || item.status === 'starred',
       )
-      const upload = chosen.filter((item) => icloudDownload || !item.icloudOnly)
+      // Switch off: iCloud-only items stay kept ("čeká na iCloud"). The
+      // iCloud screen's own button passes retryIcloud and downloads them.
+      const allowed = icloudDownload || retryIcloud
+      const upload = chosen.filter((item) => allowed || !item.icloudOnly)
       setSheet(null)
-      await queue.enqueue(source.kind, upload.map(toCandidate))
+      try {
+        await queue.enqueue(source.kind, upload.map(toCandidate))
+      } catch {
+        // Decisions stay stored; nothing was queued.
+        setErrorKind('upload')
+        setStep('error')
+        return
+      }
       queue.start()
       setStep('upload')
     },
@@ -515,7 +518,12 @@ export function useImportFlow(deps: ImportFlowDeps) {
     cancelRead,
     counts,
     discard,
+    errorKind,
     filter,
+    showError: (kind: 'read' | 'upload') => {
+      setErrorKind(kind)
+      setStep('error')
+    },
     ingestCandidates: (candidates: readonly ImportCandidate[]) => {
       ingest(candidates, false)
     },

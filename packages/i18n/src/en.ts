@@ -957,6 +957,10 @@ export const en = {
         failed: 'Not uploaded: {{count}}',
       },
       offline: {
+        wifiTitle: 'Waiting for Wi‑Fi',
+        wifiBody:
+          'You are on mobile data and uploading over it is off. It continues on its own on Wi‑Fi. Mobile data can be allowed in the upload settings.',
+        waitingWifi: 'Waiting for Wi‑Fi',
         title: "You're offline",
         body: 'Uploading waits and continues on its own once you are online. Nothing is lost.',
         waiting: 'Waiting for a connection',
@@ -1014,6 +1018,9 @@ export const en = {
           'There are no photos or videos in this range. Try another range or choose by hand.',
       },
       error: {
+        uploadTitle: 'Uploading could not start',
+        uploadLead:
+          'Nothing was uploaded and your decisions are still saved. Try again.',
         title: 'The library could not be read',
         lead: 'Nothing was uploaded or deleted. Try again. If it keeps happening, close the app and open it again.',
         retry: 'Try again',

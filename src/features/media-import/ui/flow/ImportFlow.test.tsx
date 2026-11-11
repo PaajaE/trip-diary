@@ -30,6 +30,7 @@ function setup(
   options: {
     access?: 'authorized' | 'denied' | 'limited'
     snapshot?: QueueSnapshot
+    starMedia?: (mediaId: string) => Promise<void>
     stored?: ReturnType<typeof seedItems>
     total?: number
   } = {},
@@ -57,7 +58,7 @@ function setup(
       queue={queue}
       snapshot={queue.getSnapshot()}
       source={source}
-      starMedia={() => Promise.resolve()}
+      starMedia={options.starMedia ?? (() => Promise.resolve())}
       store={store}
       timeZone="America/Edmonton"
     />,
@@ -210,6 +211,112 @@ describe('ImportFlow', () => {
       const items = await store.listItems(DEMO_JOURNEY, DEMO_OWNER)
       expect(items.filter((i) => i.status === 'dismissed')).toHaveLength(0)
     })
+  })
+
+  it('restores a dismissed item of an earlier read into the working set', async () => {
+    const stored = seedItems({
+      dismissedBefore: 3,
+      statuses: { kept: 2 },
+      total: 30,
+    })
+    const { store } = setup({ stored })
+    fireEvent.click(await screen.findByRole('button', { name: 'Probírat dál' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Vyřazené 0/ }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Vrátit vše \(3\)/ }),
+    )
+    await waitFor(async () => {
+      const items = await store.listItems(DEMO_JOURNEY, DEMO_OWNER)
+      expect(
+        items.filter(
+          (i) => i.sourceId.startsWith('old-') && i.status === 'found',
+        ),
+      ).toHaveLength(3)
+    })
+    // Back in the grid the restored photos count as found (not lost).
+    fireEvent.click(screen.getByRole('button', { name: 'Zpět na přehled' }))
+    fireEvent.click(await screen.findByRole('button', { name: /Nalezené 31/ }))
+  })
+
+  it('keeps open items of an older read in the grid (never stranded)', async () => {
+    const stored = seedItems({ statuses: { kept: 6 }, total: 30 }).map((i) => ({
+      ...i,
+      selectionId: '2026-10-01T00:00:00.000Z-older',
+    }))
+    const base = stored[0]
+    if (base !== undefined) {
+      stored.push({
+        ...base,
+        id: 'newer',
+        selectionId: '2026-11-09T00:00:00.000Z-newer',
+        sourceId: 'newer-1',
+        status: 'dismissed',
+      })
+    }
+    setup({ stored })
+    fireEvent.click(await screen.findByRole('button', { name: 'Probírat dál' }))
+    expect(
+      await screen.findByRole('button', { name: /Ponechané 6/ }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Nalezené 24/ })).toBeTruthy()
+  })
+
+  it('writes the star after the upload finished, once, and marks the item uploaded', async () => {
+    const stored = seedItems({ statuses: { starred: 2 }, total: 30 })
+    const ids = stored
+      .filter((i) => i.status === 'starred')
+      .map((i) => i.sourceId)
+    const jobs = ids.map((id) =>
+      demoJob(id, 'done', { mediaId: `media-${id}` }),
+    )
+    const starMedia = vi.fn(() => Promise.resolve())
+    const { store } = setup({
+      snapshot: snapshotOf(jobs, 'idle'),
+      starMedia,
+      stored,
+    })
+    await waitFor(() => {
+      expect(starMedia).toHaveBeenCalledTimes(2)
+    })
+    expect(starMedia).toHaveBeenCalledWith(`media-${ids[0] ?? ''}`)
+    await waitFor(async () => {
+      const items = (await store.listItems(DEMO_JOURNEY, DEMO_OWNER)).filter(
+        (i) => ids.includes(i.sourceId),
+      )
+      expect(
+        items.every((i) => i.status === 'uploaded' && !i.bestPending),
+      ).toBe(true)
+    })
+  })
+
+  it('with the iCloud switch off, iCloud-only kept items are not enqueued and stay kept', async () => {
+    const stored = seedItems({ statuses: { kept: 4 }, total: 30 }).map(
+      (i, n) =>
+        i.status === 'kept' && n % 2 === 0 ? { ...i, icloudOnly: true } : i,
+    )
+    const cloudCount = stored.filter(
+      (i) => i.status === 'kept' && i.icloudOnly,
+    ).length
+    const keptCount = stored.filter((i) => i.status === 'kept').length
+    expect(cloudCount).toBeGreaterThan(0)
+    const { enqueue, store } = setup({ stored })
+    fireEvent.click(await screen.findByRole('button', { name: 'Probírat dál' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Nahrát \d+ vybraných/ }),
+    )
+    const sheet = await screen.findByRole('dialog')
+    fireEvent.click(within(sheet).getByRole('switch'))
+    fireEvent.click(
+      within(sheet).getByRole('button', { name: /Nahrát jen vybrané/ }),
+    )
+    await waitFor(() => {
+      expect(enqueue).toHaveBeenCalledTimes(1)
+    })
+    expect(enqueue.mock.calls[0]?.[1]).toHaveLength(keptCount - cloudCount)
+    const after = await store.listItems(DEMO_JOURNEY, DEMO_OWNER)
+    expect(
+      after.filter((i) => i.status === 'kept' && i.icloudOnly),
+    ).toHaveLength(cloudCount)
   })
 
   it('offers resume after a restart and can discard the unfinished work', async () => {

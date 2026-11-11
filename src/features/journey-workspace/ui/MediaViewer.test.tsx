@@ -304,6 +304,18 @@ describe('MediaViewer', () => {
     }
   })
 
+  it('has a Done button that closes the viewer and a star button in the top bar', async () => {
+    render(<Harness onDelete={vi.fn()} />, { wrapper })
+    openViewer()
+    const dialog = screen.getByRole('dialog')
+    const star = within(dialog).getByRole('button', { name: /Best|Unmark/ })
+    expect(star.closest('[data-testid="viewer-stage"]')).not.toBeNull()
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+    })
+  })
+
   it('shows "Time and location" only when its callback is given', () => {
     const onFix = vi.fn()
     const { unmount } = render(<Harness />, { wrapper })

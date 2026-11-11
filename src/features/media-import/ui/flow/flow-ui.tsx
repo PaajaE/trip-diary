@@ -473,7 +473,10 @@ export function Sheet({
         role="dialog"
         tabIndex={-1}
       >
-        <i className="mx-auto mb-1 block h-[5px] w-10 rounded-sm bg-border" />
+        <i
+          aria-hidden="true"
+          className="mx-auto mb-1 block h-[5px] w-10 rounded-sm bg-border"
+        />
         <h2
           className={cn(
             'text-xl leading-tight font-semibold',

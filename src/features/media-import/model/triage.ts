@@ -20,6 +20,21 @@ const DECISION_STATUS: Record<TriageDecision, TriageStatus> = {
   restore: 'found',
 }
 
+/**
+ * Items the flow works on: every open item (found, kept, starred) of any
+ * earlier read, plus the dismissed ones of the latest read. Open items are
+ * never stranded by a newer read; older dismissed ones are only listed under
+ * "Dříve vyřazeno" until restored (then they are found, hence open).
+ */
+export function isInScope(
+  item: TriageItem,
+  selectionId: string | null,
+): boolean {
+  if (item.status === 'uploaded') return false
+  if (item.status === 'dismissed') return item.selectionId === selectionId
+  return true
+}
+
 /** Items the flow shows: everything that is not uploaded yet. */
 export function visibleItems(items: readonly TriageItem[]): TriageItem[] {
   return items.filter((item) => item.status !== 'uploaded')

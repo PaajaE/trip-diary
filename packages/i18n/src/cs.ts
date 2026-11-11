@@ -954,6 +954,10 @@ export const cs: TranslationResources = {
         failed: 'Nenahráno: {{count}}',
       },
       offline: {
+        wifiTitle: 'Čekám na Wi‑Fi',
+        wifiBody:
+          'Jsi na mobilních datech a nahrávání přes ně je vypnuté. Naváže samo na Wi‑Fi. Mobilní data jde povolit v nastavení nahrávání.',
+        waitingWifi: 'Čekám na Wi‑Fi',
         title: 'Jsi offline',
         body: 'Nahrávání počká a naváže samo, jakmile budeš online. Nic se neztratí.',
         waiting: 'Čekám na připojení',
@@ -1011,6 +1015,9 @@ export const cs: TranslationResources = {
           'V tomto rozsahu nejsou žádné fotky ani videa. Zkus jiný rozsah, nebo si vyber ručně.',
       },
       error: {
+        uploadTitle: 'Nahrávání se nepodařilo spustit',
+        uploadLead:
+          'Nic se nenahrálo a tvoje rozhodnutí zůstala uložená. Zkus to znovu.',
         title: 'Knihovnu se nepodařilo přečíst',
         lead: 'Nic se nenahrálo ani nesmazalo. Zkus to znovu. Když se to opakuje, zavři aplikaci a otevři ji znovu.',
         retry: 'Zkusit znovu',

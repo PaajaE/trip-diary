@@ -155,6 +155,7 @@ export function UploadScreen({
   timeZone,
   uploadedItems,
   variant,
+  waitReason,
   wifiOnly,
   jobs,
 }: {
@@ -174,6 +175,8 @@ export function UploadScreen({
   timeZone: string
   uploadedItems: readonly TriageItem[]
   variant: UploadVariant
+  /** Why the queue waits (offline variant): no network or no Wi-Fi. */
+  waitReason: 'offline' | 'wifi'
   wifiOnly: boolean
 }) {
   const { t } = useTranslation()
@@ -229,12 +232,24 @@ export function UploadScreen({
         ) : null}
         {variant === 'offline' ? (
           <Banner
-            icon={<WifiOff aria-hidden="true" size={26} />}
-            title={t('mediaImport.flow.offline.title')}
+            icon={
+              waitReason === 'wifi' ? (
+                <Wifi aria-hidden="true" size={26} />
+              ) : (
+                <WifiOff aria-hidden="true" size={26} />
+              )
+            }
+            title={
+              waitReason === 'wifi'
+                ? t('mediaImport.flow.offline.wifiTitle')
+                : t('mediaImport.flow.offline.title')
+            }
             tone="error"
           >
             <p className="mt-0.5 text-sm">
-              {t('mediaImport.flow.offline.body')}
+              {waitReason === 'wifi'
+                ? t('mediaImport.flow.offline.wifiBody')
+                : t('mediaImport.flow.offline.body')}
             </p>
           </Banner>
         ) : null}
@@ -255,7 +270,11 @@ export function UploadScreen({
         <div className="mt-1.5 flex justify-between text-[13px] text-muted">
           {variant === 'offline' ? (
             <>
-              <span>{t('mediaImport.flow.offline.waiting')}</span>
+              <span>
+                {waitReason === 'wifi'
+                  ? t('mediaImport.flow.offline.waitingWifi')
+                  : t('mediaImport.flow.offline.waiting')}
+              </span>
               <span>{t('mediaImport.flow.offline.left', { count: left })}</span>
             </>
           ) : variant === 'paused' ? (
