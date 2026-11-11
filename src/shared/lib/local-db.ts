@@ -23,6 +23,7 @@ import type {
   RegionalSpecies,
 } from '@/entities/nature/model/observation'
 import type { LocalPhotoTagAssignment } from '@/entities/photo/model/photo-tag'
+import type { TriageItem } from '@/entities/media/model/triage-item'
 import type { ImportCursor, UploadJob } from '@/entities/media/model/upload-job'
 import type { SyncOperation } from '@/shared/sync/sync-operation'
 
@@ -101,6 +102,7 @@ class TripDiaryDatabase extends Dexie {
   photos!: EntityTable<LocalPhoto, 'id'>
   photoVariants!: EntityTable<LocalPhotoVariant, 'id'>
   syncOperations!: EntityTable<SyncOperation, 'id'>
+  triageItems!: EntityTable<TriageItem, 'id'>
   uploadJobs!: EntityTable<UploadJob, 'id'>
 
   constructor() {
@@ -341,6 +343,32 @@ class TripDiaryDatabase extends Dexie {
       photos: 'id, entryId, creatorId, syncStatus, createdAt',
       photoVariants: 'id, photoId, kind, createdAt',
       syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+      uploadJobs: 'id, journeyId, ownerId, state, updatedAt',
+    })
+    this.version(19).stores({
+      cachedUserSpaces: 'userId, cachedAt',
+      cachedProfiles: 'userId, cachedAt',
+      dashboardSnapshots: 'userId, cachedAt',
+      deletedRecords: 'id, kind, creatorId, deletedAt',
+      entries: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      journeyLinks: 'entryId, journeyId, creatorId, stageId, stopId, createdAt',
+      journeySnapshots: 'journeyId, cachedAt',
+      localChecklistItems: 'id, journeyId, creatorId, syncStatus, position',
+      importCursors: 'key, journeyId',
+      localJourneyGuides: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStages: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneyStops: 'id, journeyId, creatorId, syncStatus, updatedAt',
+      localJourneys: 'id, creatorId, spaceId, syncStatus, updatedAt',
+      localNatureObservations:
+        'id, journeyId, creatorId, syncStatus, createdAt',
+      natureGuideCache: 'id, journeyId, fetchedAt',
+      organizeSnapshots: 'journeyId',
+      localPhotoTagAssignments:
+        'key, photoId, journeyId, creatorId, tagId, syncStatus',
+      photos: 'id, entryId, creatorId, syncStatus, createdAt',
+      photoVariants: 'id, photoId, kind, createdAt',
+      syncOperations: 'id, creatorId, status, createdAt, lastAttemptAt',
+      triageItems: 'id, journeyId, ownerId, status, selectionId',
       uploadJobs: 'id, journeyId, ownerId, state, updatedAt',
     })
   }

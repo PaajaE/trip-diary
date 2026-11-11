@@ -1,3 +1,6 @@
+/** Fired on `window` when the cellular preference changes. */
+export const CELLULAR_SYNC_EVENT = 'trip-diary:cellular-sync-changed'
+
 const cellularSyncKey = 'trip-diary:sync-on-cellular'
 
 /** Wi-Fi only by default; mobile data needs the author's explicit opt-in. */
@@ -20,4 +23,5 @@ export function setCellularSyncEnabled(enabled: boolean): void {
   }
 
   localStorage.setItem(cellularSyncKey, enabled ? '1' : '0')
+  window.dispatchEvent(new Event(CELLULAR_SYNC_EVENT))
 }

@@ -102,6 +102,11 @@ export const LazyVideoUploadDevPage = lazy(() =>
   })),
 )
 
+export const LazyImportTriageDevPage = lazy(() =>
+  import('@/pages/dev/import-triage/ImportTriageDevPage').then((module) => ({
+    default: module.ImportTriageDevPage,
+  })),
+)
 export const LazyMediaUploadDevPage = lazy(() =>
   import('@/pages/dev/MediaUploadDevPage').then(({ MediaUploadDevPage }) => ({
     default: MediaUploadDevPage,
