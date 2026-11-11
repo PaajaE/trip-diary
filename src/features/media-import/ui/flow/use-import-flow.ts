@@ -419,8 +419,8 @@ export function useImportFlow(deps: ImportFlowDeps) {
   }, [items, selectionId, snapshot.jobs])
 
   const startUpload = useCallback(
-    async (mode: 'all' | 'selected') => {
-      source.setAllowNetwork(icloudDownload)
+    async (mode: 'all' | 'selected', retryIcloud = false) => {
+      source.setAllowNetwork(icloudDownload || retryIcloud)
       const now = new Date(clockRef.current()).toISOString()
       let working = itemsRef.current
       if (mode === 'all') {
@@ -488,7 +488,7 @@ export function useImportFlow(deps: ImportFlowDeps) {
       )
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snapshot.jobs])
+  }, [snapshot.jobs, items])
 
   const discard = useCallback(async () => {
     const open = itemsRef.current.filter((item) =>

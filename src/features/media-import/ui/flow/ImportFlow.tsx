@@ -1,3 +1,4 @@
+import { Images, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
@@ -8,6 +9,21 @@ import {
 import { dayKey } from '@/features/media-import/model/triage'
 import type { ImportRange } from '@/features/media-import/model/types'
 import { createThumbnailLoader } from '@/features/media-import/api/thumbnail-loader'
+import { useUploadEta } from '@/features/media-import/lib/use-upload-eta'
+import {
+  DoneScreen,
+  IcloudWaitingScreen,
+  MessageScreen,
+  ResumeScreen,
+  UploadScreen,
+} from '@/features/media-import/ui/flow/UploadScreens'
+import {
+  PrimaryButton,
+  QuietButton,
+  SecondaryButton,
+} from '@/features/media-import/ui/flow/flow-ui'
+import { formatDayRange } from '@/features/media-import/model/triage-format'
+import { summarizeOverview } from '@/features/media-import/model/triage'
 import {
   ConfirmRestSheet,
   DismissedScreen,
@@ -49,6 +65,8 @@ export interface ImportFlowProps extends ImportFlowDeps {
   /** Prefilled range of the range sheet (default: the last 30 days). */
   defaultRange?: [string, string]
   timeZone: string
+  /** Uploads wait for Wi-Fi (native, mobile data not allowed). */
+  wifiOnly?: boolean
 }
 
 function hasAddFiles(source: object): source is FilesTriageSource {
@@ -60,7 +78,7 @@ function hasAddFiles(source: object): source is FilesTriageSource {
  * screens follow docs/design/import-triage/import-triage.html.
  */
 export function ImportFlow(props: ImportFlowProps) {
-  const { i18n } = useTranslation()
+  const { i18n, t } = useTranslation()
   const flow = useImportFlow(props)
   const { source } = props
   const [dropping, setDropping] = useState(false)
@@ -173,11 +191,72 @@ export function ImportFlow(props: ImportFlowProps) {
   const seriesItems =
     flow.seriesId === null ? [] : seriesAround(flow.scope, flow.seriesId)
 
+  const itemsBySource = useMemo(
+    () => new Map(flow.items.map((item) => [item.sourceId, item])),
+    [flow.items],
+  )
+  const uploadedItems = useMemo(
+    () =>
+      flow.items
+        .filter(
+          (item) =>
+            item.status === 'uploaded' && item.selectionId === flow.selectionId,
+        )
+        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
+    [flow.items, flow.selectionId],
+  )
+  const runJobs = flow.run.jobs
+  const runActive = runJobs.some(
+    (job) =>
+      job.state === 'pending' ||
+      job.state === 'paused' ||
+      job.state === 'processing',
+  )
+  const runDone = runJobs.filter((job) => job.state === 'done').length
+  const runFailed = runJobs.filter((job) => job.state === 'failed').length
+  const jobSources = new Set(runJobs.map((job) => job.sourceId))
+  const waitingIcloud = flow.scope.filter(
+    (item) =>
+      (item.status === 'kept' || item.status === 'starred') &&
+      item.icloudOnly &&
+      !jobSources.has(item.sourceId),
+  ).length
+  const etaMinutes = useUploadEta({
+    finished: runDone,
+    remaining: runJobs.length - runDone,
+    running: props.snapshot.runtime === 'running',
+  })
+  const retryRef = useRef<() => void>(() => undefined)
+  const [discarding, setDiscarding] = useState(false)
+
+  const startPick = () => {
+    retryRef.current = source.hasLibrary
+      ? () => void flow.read(undefined, false)
+      : () => void pick()
+    retryRef.current()
+  }
+
   const sinceRangeValue: ImportRange | undefined =
     props.lastImportAt === null ? undefined : sinceRange(props.lastImportAt)
 
+  let step = flow.step
+  if (
+    step === 'upload' &&
+    runJobs.length > 0 &&
+    !runActive &&
+    props.snapshot.runtime !== 'running'
+  ) {
+    step = waitingIcloud > 0 ? 'icloudWaiting' : 'done'
+  }
+  const overviewAll = summarizeOverview(
+    flow.items.filter((item) => item.selectionId === flow.selectionId),
+    props.timeZone,
+  )
+  const uploadDays = summarizeOverview(uploadedItems, props.timeZone)
+  const locale = i18n.language
+
   let screen = null
-  switch (flow.step) {
+  switch (step) {
     case 'select':
       screen = (
         <SelectScreen
@@ -197,11 +276,11 @@ export function ImportFlow(props: ImportFlowProps) {
               ? undefined
               : () => void source.openSettings?.()
           }
-          onPick={() => {
-            if (source.hasLibrary) void flow.read(undefined, false)
-            else void pick()
+          onPick={startPick}
+          onSince={() => {
+            retryRef.current = () => void flow.read(sinceRangeValue, true)
+            retryRef.current()
           }}
-          onSince={() => void flow.read(sinceRangeValue, true)}
           pickedLeft={flow.pickedLeft}
           picking={picking}
           source={source}
@@ -364,14 +443,209 @@ export function ImportFlow(props: ImportFlowProps) {
         />
       )
       break
+    case 'upload': {
+      const variant =
+        props.snapshot.runtime === 'paused'
+          ? 'paused'
+          : props.snapshot.runtime === 'waiting_online'
+            ? 'offline'
+            : 'running'
+      screen = (
+        <UploadScreen
+          etaMinutes={etaMinutes}
+          itemsBySource={itemsBySource}
+          jobs={runJobs}
+          locale={locale}
+          onCancelRest={() => {
+            void props.queue.cancel().then(() => {
+              flow.setStep('grid')
+            })
+          }}
+          onContinue={() => {
+            props.queue.start()
+          }}
+          onHide={() => {
+            flow.setStep('grid')
+          }}
+          onPause={() => void props.queue.pause()}
+          onResume={() => void props.queue.resume()}
+          onRetry={() => void props.queue.retryFailed()}
+          onTriage={() => {
+            flow.setStep('grid')
+          }}
+          remainingToTriage={flow.counts.found}
+          snapshot={props.snapshot}
+          timeZone={props.timeZone}
+          uploadedItems={uploadedItems}
+          variant={variant}
+          wifiOnly={props.wifiOnly === true}
+        />
+      )
+      break
+    }
     case 'done':
-    case 'empty':
-    case 'error':
+      screen = (
+        <DoneScreen
+          days={uploadDays.days}
+          dismissed={flow.counts.dismissed}
+          failed={runFailed}
+          left={flow.counts.found}
+          locale={locale}
+          mosaic={uploadedItems}
+          onClose={props.onClose}
+          onContinueTriage={() => {
+            flow.setStep('grid')
+          }}
+          onPhone={flow.counts.total}
+          onRetry={() => void props.queue.retryFailed()}
+          onSort={props.onSort}
+          timeZone={props.timeZone}
+          uploaded={runDone}
+        />
+      )
+      break
     case 'icloudWaiting':
-    case 'loading':
+      screen = (
+        <IcloudWaitingScreen
+          done={runDone}
+          locale={locale}
+          onClose={props.onClose}
+          onGo={() => {
+            flow.setIcloudDownload(true)
+            void flow.startUpload('selected', true)
+          }}
+          timeZone={props.timeZone}
+          total={runDone + waitingIcloud}
+          uploadedItems={uploadedItems}
+          waiting={waitingIcloud}
+          wifiOnly={props.wifiOnly === true}
+        />
+      )
+      break
     case 'resume':
-    case 'upload':
+      screen = (
+        <ResumeScreen
+          daysLabel={
+            overviewAll.firstDay === null || overviewAll.lastDay === null
+              ? ''
+              : `${formatDayRange(overviewAll.firstDay, overviewAll.lastDay, locale)} · ${t('mediaImport.flow.overview.days', { count: overviewAll.days })}`
+          }
+          discarding={discarding}
+          found={flow.counts.total + uploadedItems.length}
+          hasUploadWork={runActive || flow.counts.selected > 0}
+          left={flow.counts.found}
+          locale={locale}
+          onClose={props.onClose}
+          onCloseSheet={() => {
+            setDiscarding(false)
+          }}
+          onContinueTriage={() => {
+            flow.setStep('grid')
+          }}
+          onContinueUpload={() => {
+            if (runActive) {
+              props.queue.start()
+              flow.setStep('upload')
+            } else requestUpload()
+          }}
+          onDiscard={() => {
+            setDiscarding(true)
+          }}
+          onDiscardConfirm={() => {
+            setDiscarding(false)
+            void flow.discard()
+          }}
+          selected={uploadedItems.length + flow.counts.selected}
+          timeZone={props.timeZone}
+          triaged={flow.counts.total + uploadedItems.length - flow.counts.found}
+          uploaded={uploadedItems.length}
+          uploadedItems={uploadedItems}
+        />
+      )
+      break
+    case 'empty':
+      screen = (
+        <MessageScreen
+          actions={
+            <>
+              <PrimaryButton onClick={startPick}>
+                <Images aria-hidden="true" size={20} />
+                {source.hasLibrary
+                  ? t('mediaImport.flow.select.primary')
+                  : t('mediaImport.flow.select.primaryWeb')}
+              </PrimaryButton>
+              {source.hasLibrary ? (
+                <SecondaryButton
+                  onClick={() => {
+                    flow.setStep('select')
+                    setRangeDays(defaultDays())
+                    flow.setSheet({ kind: 'range' })
+                  }}
+                  small
+                >
+                  {t('mediaImport.flow.select.range')}
+                </SecondaryButton>
+              ) : null}
+            </>
+          }
+          body={
+            flow.summary.sinceEmpty && props.lastImportAt !== null
+              ? t('mediaImport.flow.empty.lead', {
+                  date: new Intl.DateTimeFormat(locale, {
+                    day: 'numeric',
+                    month: 'numeric',
+                  }).format(Date.parse(props.lastImportAt)),
+                })
+              : t('mediaImport.flow.empty.leadRange')
+          }
+          done={['pick']}
+          headerTitle={t('mediaImport.flow.overview.title')}
+          icon="library"
+          onBack={() => {
+            flow.setStep('select')
+          }}
+          step="triage"
+          title={t('mediaImport.flow.empty.title')}
+        />
+      )
+      break
+    case 'error':
+      screen = (
+        <MessageScreen
+          actions={
+            <>
+              <PrimaryButton
+                onClick={() => {
+                  retryRef.current()
+                }}
+              >
+                <RotateCcw aria-hidden="true" size={20} />
+                {t('mediaImport.flow.error.retry')}
+              </PrimaryButton>
+              <QuietButton
+                onClick={() => {
+                  flow.setStep('select')
+                }}
+              >
+                {t('mediaImport.flow.error.back')}
+              </QuietButton>
+            </>
+          }
+          body={t('mediaImport.flow.error.lead')}
+          done={[]}
+          headerTitle={t('mediaImport.flow.title')}
+          icon="warning"
+          onBack={() => {
+            flow.setStep('select')
+          }}
+          step="pick"
+          title={t('mediaImport.flow.error.title')}
+        />
+      )
+      break
+    case 'loading':
       screen = null
+      break
   }
 
   const icloudItem =

@@ -32,6 +32,7 @@ export function ImportTriageDevPage() {
   const [source] = useState(() =>
     createDemoTriageSource({
       access: scenario.access,
+      extraCloud: scenario.cloud,
       ...(scenario.hold === undefined ? {} : { hold: scenario.hold }),
       ...(scenario.listFails === undefined
         ? {}
@@ -63,6 +64,7 @@ export function ImportTriageDevPage() {
         starMedia={() => Promise.resolve()}
         store={store}
         timeZone="America/Edmonton"
+        wifiOnly
       />
     </div>
   )

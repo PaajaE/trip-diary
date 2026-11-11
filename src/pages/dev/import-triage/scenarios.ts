@@ -13,6 +13,8 @@ export interface Scenario {
   items: TriageItem[]
   lastImportAt: string | null
   listFails?: boolean
+  /** Extra source ids that have no local preview (iCloud only). */
+  cloud: Set<string>
   online?: boolean
   snapshot: QueueSnapshot
   total: number
@@ -33,8 +35,9 @@ function uploadSnapshot(
   items: TriageItem[],
   runtime: QueueSnapshot['runtime'],
   done: number,
+  skipCloud = false,
 ): QueueSnapshot {
-  const ids = selectedIds(items)
+  const ids = selectedIds(items.filter((i) => !skipCloud || !i.icloudOnly))
   const jobs = ids.map((id, i) =>
     i < done
       ? demoJob(id, 'done', { mediaId: `m-${id}` })
@@ -56,11 +59,32 @@ function uploadSnapshot(
   return snapshotOf(jobs, runtime, current)
 }
 
+/** Makes exactly `count` selected items iCloud-only (as in the mockup). */
+function withSelectedCloud(
+  items: TriageItem[],
+  count: number,
+): { cloud: Set<string>; items: TriageItem[] } {
+  const cloud = new Set<string>()
+  const selected = items.filter(
+    (item) => item.status === 'kept' || item.status === 'starred',
+  )
+  // The last selected items wait for iCloud; the uploaded ones have previews.
+  for (const item of selected.slice(-count)) cloud.add(item.sourceId)
+  const next = items.map((item) =>
+    item.status === 'kept' || item.status === 'starred'
+      ? { ...item, icloudOnly: cloud.has(item.sourceId) }
+      : item,
+  )
+  return { cloud, items: next }
+}
+
 export function buildScenario(name: string): Scenario {
-  const mixed = seedItems({ dismissedBefore: 40, statuses: MIX, total: 330 })
+  const seeded = seedItems({ dismissedBefore: 40, statuses: MIX, total: 330 })
+  const { cloud: selectedCloud, items: mixed } = withSelectedCloud(seeded, 14)
   const fresh = seedItems({ dismissedBefore: 40, total: 330 })
   const base = {
     access: 'authorized' as const,
+    cloud: selectedCloud,
     items: [] as TriageItem[],
     lastImportAt: SINCE,
     snapshot: EMPTY,
@@ -168,7 +192,7 @@ export function buildScenario(name: string): Scenario {
         ...base,
         items: mixed,
         initial: { step: 'icloudWaiting' },
-        snapshot: uploadSnapshot(mixed, 'idle', 96),
+        snapshot: uploadSnapshot(mixed, 'idle', 82, true),
       }
     case 's-offline':
       return {

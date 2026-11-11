@@ -14,6 +14,7 @@ import {
 
 export interface DemoSourceOptions {
   access: LibraryAccess
+  extraCloud?: ReadonlySet<string>
   /** list() never resolves and reports this progress (the reading screen). */
   hold?: { read: number; total: number }
   listFails?: boolean
@@ -59,7 +60,7 @@ export function createDemoTriageSource(
     thumbnails(ids): Promise<ThumbnailResult[]> {
       return Promise.resolve(
         ids.map((id) =>
-          isDemoCloud(id)
+          isDemoCloud(id) || options.extraCloud?.has(id) === true
             ? { cloud: true, id, src: null }
             : {
                 cloud: false,
