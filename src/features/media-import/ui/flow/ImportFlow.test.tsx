@@ -60,7 +60,7 @@ function setup(
       source={source}
       starMedia={options.starMedia ?? (() => Promise.resolve())}
       store={store}
-      timeZone="America/Edmonton"
+      timeZone="Europe/Prague"
     />,
   )
   return { enqueue, onClose, onSort, queue, source, start, store }
@@ -317,6 +317,22 @@ describe('ImportFlow', () => {
     expect(
       after.filter((i) => i.status === 'kept' && i.icloudOnly),
     ).toHaveLength(cloudCount)
+  })
+
+  it("days follow the photo's zone and items without a position are marked", async () => {
+    // 21:30 in Banff on Aug 4 = Aug 5 in a device zone ahead of UTC.
+    const base = seedItems({ statuses: { kept: 1 }, total: 4 }).map((i, n) => ({
+      ...i,
+      capturedAt: '2026-08-05T03:30:00.000Z',
+      latitude: n === 0 ? null : 51.18,
+      longitude: n === 0 ? null : -115.57,
+    }))
+    setup({ stored: base })
+    fireEvent.click(await screen.findByRole('button', { name: 'Probírat dál' }))
+    expect(await screen.findAllByText(/4\. 8\./)).not.toHaveLength(0)
+    // Only the item without a position falls back to the device day.
+    expect(screen.getAllByText(/5\. 8\./)).toHaveLength(1)
+    expect(screen.getByText(/1 bez polohy, čas zařízení/)).toBeTruthy()
   })
 
   it('offers resume after a restart and can discard the unfinished work', async () => {

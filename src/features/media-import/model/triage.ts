@@ -4,6 +4,7 @@ import {
   type TriageItem,
   type TriageStatus,
 } from '@/entities/media/model/triage-item'
+import { localDay, resolveCaptureZone } from '@trip-diary/core/automation'
 import type { ImportCandidate } from '@/features/media-import/model/types'
 import type { ImportSourceKind } from '@/entities/media/model/upload-job'
 
@@ -80,23 +81,78 @@ export function filterItems(
   return shown.filter((item) => item.status === filter)
 }
 
-/** Day key of an instant in the device calendar: 'YYYY-MM-DD'. */
+/** What decides the zone and day of an item (a TriageItem or a candidate). */
+export interface ZonedMoment {
+  capturedAt: string | null
+  latitude: number | null
+  longitude: number | null
+}
+
+const zoneCache = new Map<string, string | null>()
+
+/**
+ * IANA zone of the photo's own position (offline lookup, as for journey days);
+ * null when the item has no position or the lookup fails. Cached per ~1 km.
+ */
+function zoneAtPosition(item: ZonedMoment): string | null {
+  if (item.latitude === null || item.longitude === null) return null
+  const key = `${item.latitude.toFixed(2)},${item.longitude.toFixed(2)}`
+  const cached = zoneCache.get(key)
+  if (cached !== undefined) return cached
+  let zone: string | null
+  try {
+    zone =
+      resolveCaptureZone({
+        capturedAt: item.capturedAt ?? '',
+        exifOffsetMinutes: null,
+        homeTimeZone: null,
+        latitude: item.latitude,
+        longitude: item.longitude,
+      })?.timeZone ?? null
+  } catch {
+    zone = null
+  }
+  zoneCache.set(key, zone)
+  return zone
+}
+
+/**
+ * Zone an item is shown in: the photo's own zone (from its position, the same
+ * source the map and the journey days use). Only an item with no position
+ * falls back to the device zone; `fallback` marks that case for the UI.
+ */
+export function itemZone(
+  item: ZonedMoment,
+  deviceZone: string,
+): { fallback: boolean; timeZone: string } {
+  const own = zoneAtPosition(item)
+  return own === null
+    ? { fallback: true, timeZone: deviceZone }
+    : { fallback: false, timeZone: own }
+}
+
+/**
+ * Journey day of an instant in a zone, with the day starting at 04:00 local
+ * time (core `localDay`, the one definition shared with the SQL local_day):
+ * 'YYYY-MM-DD', or 'unknown' without a capture time.
+ */
 export function dayKey(capturedAt: string | null, timeZone: string): string {
   if (capturedAt === null) return 'unknown'
   const ms = Date.parse(capturedAt)
   if (Number.isNaN(ms)) return 'unknown'
-  // en-CA formats as YYYY-MM-DD.
-  return new Intl.DateTimeFormat('en-CA', {
-    day: '2-digit',
-    month: '2-digit',
-    timeZone,
-    year: 'numeric',
-  }).format(ms)
+  return localDay(ms, timeZone)
+}
+
+/** Day of an item in its own zone (device zone only without a position). */
+export function itemDayKey(item: ZonedMoment, deviceZone: string): string {
+  return dayKey(item.capturedAt, itemZone(item, deviceZone).timeZone)
 }
 
 export interface TriageDay {
   /** 'YYYY-MM-DD' or 'unknown' (no capture time). */
   key: string
+  /** Items without a position: their day follows the device zone. */
+  deviceZoneCount: number
   items: TriageItem[]
   /** Undecided items of the day. */
   remaining: number
@@ -116,7 +172,7 @@ export function groupByDay(
 ): TriageDay[] {
   const days = new Map<string, TriageItem[]>()
   for (const item of [...items].sort(byTime)) {
-    const key = dayKey(item.capturedAt, timeZone)
+    const key = itemDayKey(item, timeZone)
     const list = days.get(key)
     if (list === undefined) days.set(key, [item])
     else list.push(item)
@@ -129,6 +185,8 @@ export function groupByDay(
       return a < b ? -1 : 1
     })
     .map(([key, list]) => ({
+      deviceZoneCount: list.filter((item) => itemZone(item, timeZone).fallback)
+        .length,
       items: list,
       key,
       remaining: list.filter((item) => item.status === 'found').length,
@@ -310,7 +368,7 @@ export function summarizeOverview(
     if (item.icloudOnly) icloudOnly += 1
     const located = item.latitude !== null && item.longitude !== null
     if (!located) noLocation += 1
-    const key = dayKey(item.capturedAt, timeZone)
+    const key = itemDayKey(item, timeZone)
     if (key === 'unknown') continue
     perDay.set(key, (perDay.get(key) ?? 0) + 1)
     if (

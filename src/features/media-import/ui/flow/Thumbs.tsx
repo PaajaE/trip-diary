@@ -18,6 +18,7 @@ import {
   useThumbnail,
   useThumbnailLoaders,
 } from '@/features/media-import/ui/flow/thumbnail-context'
+import { itemZone } from '@/features/media-import/model/triage'
 import { cn } from '@/shared/lib/cn'
 
 const SHEEN =
@@ -71,7 +72,11 @@ export function Thumb({
         <Cloud aria-hidden="true" size={26} strokeWidth={1.75} />
         {item.capturedAt === null
           ? null
-          : formatTime(item.capturedAt, locale, timeZone)}
+          : formatTime(
+              item.capturedAt,
+              locale,
+              itemZone(item, timeZone).timeZone,
+            )}
       </span>
     )
   }
@@ -165,7 +170,7 @@ export function TriageTile({
     item.mediaType === 'video' ? t('mediaImport.flow.triage.videoLabel') : null,
     item.capturedAt === null
       ? null
-      : formatTime(item.capturedAt, locale, timeZone),
+      : formatTime(item.capturedAt, locale, itemZone(item, timeZone).timeZone),
   ]
     .filter((part): part is string => part !== null)
     .join(', ')

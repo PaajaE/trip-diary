@@ -38,6 +38,7 @@ import {
   TextButton,
 } from '@/features/media-import/ui/flow/flow-ui'
 import { Thumb, TriageTile } from '@/features/media-import/ui/flow/Thumbs'
+import { itemDayKey, itemZone } from '@/features/media-import/model/triage'
 import { cn } from '@/shared/lib/cn'
 
 const TIP_KEY = 'trip-diary:triage-tip-seen'
@@ -335,10 +336,19 @@ export function GridScreen({
                 )
               }}
               onOpen={onOpen}
-              subtitle={t('mediaImport.flow.triage.dayMeta', {
-                count: day.items.length,
-                left: day.remaining,
-              })}
+              subtitle={[
+                t('mediaImport.flow.triage.dayMeta', {
+                  count: day.items.length,
+                  left: day.remaining,
+                }),
+                day.deviceZoneCount > 0
+                  ? t('mediaImport.flow.triage.deviceZone', {
+                      count: day.deviceZoneCount,
+                    })
+                  : null,
+              ]
+                .filter((part): part is string => part !== null)
+                .join(' · ')}
               timeZone={timeZone}
             />
           )
@@ -571,7 +581,11 @@ export function IcloudSheet({
   const when =
     item.capturedAt === null
       ? null
-      : `${formatDayHeading(item.capturedAt.slice(0, 10), locale)} · ${formatTime(item.capturedAt, locale, timeZone)}`
+      : `${formatDayHeading(itemDayKey(item, timeZone), locale)} · ${formatTime(
+          item.capturedAt,
+          locale,
+          itemZone(item, timeZone).timeZone,
+        )}`
   const meta = [when, item.place]
     .filter((part): part is string => part !== null)
     .join(' · ')

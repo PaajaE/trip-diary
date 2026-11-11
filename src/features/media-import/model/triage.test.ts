@@ -14,6 +14,8 @@ import {
   formatBytes,
   formatMinutes,
   groupByDay,
+  itemDayKey,
+  itemZone,
   latestSelectionId,
   nextUndecided,
   reconcileRead,
@@ -23,6 +25,7 @@ import {
   toCandidate,
   triageCounts,
 } from '@/features/media-import/model/triage'
+import { localDay, timeZoneAt } from '@trip-diary/core/automation'
 import type { ImportCandidate } from '@/features/media-import/model/types'
 
 const TZ = 'America/Edmonton'
@@ -83,12 +86,59 @@ describe('counts and filters', () => {
 })
 
 describe('days', () => {
-  it('uses the device calendar day, not UTC', () => {
-    // 2026-08-05T03:30Z is still Aug 4 in Edmonton (UTC-6).
-    expect(dayKey('2026-08-05T03:30:00.000Z', TZ)).toBe('2026-08-04')
-    expect(dayKey('2026-08-05T03:30:00.000Z', 'UTC')).toBe('2026-08-05')
+  it('uses core localDay (04:00 start) in the given zone', () => {
+    // 2026-08-05T03:30Z is 21:30 on Aug 4 in Edmonton, 05:30 on Aug 5 in Prague.
+    expect(dayKey('2026-08-05T03:30:00.000Z', 'America/Edmonton')).toBe(
+      '2026-08-04',
+    )
+    expect(dayKey('2026-08-05T03:30:00.000Z', 'Europe/Prague')).toBe(
+      '2026-08-05',
+    )
+    // 02:00 local still belongs to the previous journey day.
+    expect(dayKey('2026-08-05T08:00:00.000Z', 'America/Edmonton')).toBe(
+      '2026-08-04',
+    )
     expect(dayKey(null, TZ)).toBe('unknown')
   })
+
+  it("groups by the photo's own zone, not the device zone", () => {
+    // Late evening in Banff (GPS): Aug 4 21:30 local. A device in Prague would
+    // put it on Aug 5; the map and the journey put it on Aug 4.
+    const banff = item(1, 'found', {
+      capturedAt: '2026-08-05T03:30:00.000Z',
+      latitude: 51.18,
+      longitude: -115.57,
+    })
+    const [day] = groupByDay([banff], 'Europe/Prague')
+    expect(day?.key).toBe('2026-08-04')
+    expect(day?.deviceZoneCount).toBe(0)
+    expect(itemDayKey(banff, 'Europe/Prague')).toBe(
+      localDay(
+        Date.parse('2026-08-05T03:30:00.000Z'),
+        timeZoneAt(51.18, -115.57),
+      ),
+    )
+    expect(itemZone(banff, 'Europe/Prague')).toEqual({
+      fallback: false,
+      timeZone: 'America/Edmonton',
+    })
+  })
+
+  it('falls back to the device zone only without a position and marks it', () => {
+    const nowhere = item(2, 'found', {
+      capturedAt: '2026-08-05T03:30:00.000Z',
+      latitude: null,
+      longitude: null,
+    })
+    expect(itemZone(nowhere, 'Europe/Prague')).toEqual({
+      fallback: true,
+      timeZone: 'Europe/Prague',
+    })
+    const [day] = groupByDay([nowhere], 'Europe/Prague')
+    expect(day?.key).toBe('2026-08-05')
+    expect(day?.deviceZoneCount).toBe(1)
+  })
+
   it('groups oldest day first, unknown last, counts what remains', () => {
     const days = groupByDay(
       [

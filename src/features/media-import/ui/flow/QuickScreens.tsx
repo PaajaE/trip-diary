@@ -37,6 +37,7 @@ import { StatusChip, Thumb } from '@/features/media-import/ui/flow/Thumbs'
 import { useThumbnailLoaders } from '@/features/media-import/ui/flow/thumbnail-context'
 import { haptic } from '@/shared/lib/haptics'
 import { useSwipe } from '@/features/media-batch/ui/use-swipe'
+import { itemDayKey, itemZone } from '@/features/media-import/model/triage'
 import { cn } from '@/shared/lib/cn'
 
 const ACTION =
@@ -90,7 +91,11 @@ export function QuickScreen({
   const when =
     item?.capturedAt == null
       ? null
-      : `${formatDayHeading(item.capturedAt.slice(0, 10), locale)} · ${formatTime(item.capturedAt, locale, timeZone)}`
+      : `${formatDayHeading(itemDayKey(item, timeZone), locale)} · ${formatTime(
+          item.capturedAt,
+          locale,
+          itemZone(item, timeZone).timeZone,
+        )}`
   return (
     <FlowScreen>
       <FlowHeader
@@ -334,7 +339,7 @@ export function SeriesScreen({
   const time = (item: TriageItem | undefined) =>
     item?.capturedAt == null
       ? ''
-      : formatTime(item.capturedAt, locale, timeZone)
+      : formatTime(item.capturedAt, locale, itemZone(item, timeZone).timeZone)
   const label = (id: string): string => {
     const score = scores?.get(id)
     if (score === undefined) return ''

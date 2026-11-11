@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 import type { TriageItem } from '@/entities/media/model/triage-item'
 import type { UploadJob } from '@/entities/media/model/upload-job'
 import type { QueueSnapshot } from '@/features/media-import/api/upload-queue'
+import { itemZone } from '@/features/media-import/model/triage'
 import { Thumb } from '@/features/media-import/ui/flow/Thumbs'
 import {
   Banner,
@@ -111,7 +112,7 @@ function jobTitle(
       : new Intl.DateTimeFormat(locale, {
           dateStyle: 'medium',
           timeStyle: 'short',
-          timeZone,
+          timeZone: itemZone(job, timeZone).timeZone,
         }).format(Date.parse(job.capturedAt))
   return t(
     job.mediaType === 'video'

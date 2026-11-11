@@ -834,6 +834,7 @@ export const en = {
         dismissed: 'Set aside {{count}}',
         tip: 'Nothing is deleted from your phone. It just is not uploaded.',
         tipOk: 'Got it',
+        deviceZone: '{{count}} without location, device time',
         unknownDay: 'No date',
         dayMeta_one: '{{count}} item · {{left}} left',
         dayMeta_few: '{{count}} items · {{left}} left',

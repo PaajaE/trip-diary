@@ -6,7 +6,7 @@ import {
   isoDay,
   sinceRange,
 } from '@/features/media-import/model/range'
-import { dayKey } from '@/features/media-import/model/triage'
+import { itemDayKey } from '@/features/media-import/model/triage'
 import type { ImportRange } from '@/features/media-import/model/types'
 import { createThumbnailLoader } from '@/features/media-import/api/thumbnail-loader'
 import { uploadWaitReason } from '@/features/media-import/api/upload-network'
@@ -119,9 +119,7 @@ export function ImportFlow(props: ImportFlowProps) {
           if (countToken.current !== token) return
           const days = new Set(
             candidates.flatMap((c) =>
-              c.capturedAt === null
-                ? []
-                : [dayKey(c.capturedAt, props.timeZone)],
+              c.capturedAt === null ? [] : [itemDayKey(c, props.timeZone)],
             ),
           )
           setRangeCount({

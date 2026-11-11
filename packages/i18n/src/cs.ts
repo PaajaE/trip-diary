@@ -832,6 +832,7 @@ export const cs: TranslationResources = {
         dismissed: 'Vyřazené {{count}}',
         tip: 'Z telefonu se nic nemaže. Jen se to nenahraje.',
         tipOk: 'Rozumím',
+        deviceZone: '{{count}} bez polohy, čas zařízení',
         unknownDay: 'Bez data',
         dayMeta_one: '{{count}} položka · zbývá {{left}}',
         dayMeta_few: '{{count}} položky · zbývá {{left}}',
