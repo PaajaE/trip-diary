@@ -7,6 +7,7 @@ import {
 import { createMemoryTriageItemStore } from '@/entities/media/api/triage-items.store'
 import { ImportFlow } from '@/features/media-import/ui/flow/ImportFlow'
 import { DEMO_JOURNEY, DEMO_OWNER } from '@/pages/dev/import-triage/demo-data'
+import { createFilesTriageSource } from '@/features/media-import/api/files-triage-source'
 import { createDemoTriageSource } from '@/pages/dev/import-triage/demo-source'
 import { createFakeQueue } from '@/pages/dev/import-triage/fake-queue'
 import { ViewerHarness } from '@/pages/dev/import-triage/ViewerHarness'
@@ -43,15 +44,17 @@ function FlowHarness({ name, theme }: { name: string; theme: string | null }) {
   const [store] = useState(() => createMemoryTriageItemStore(scenario.items))
   const [queue] = useState(() => createFakeQueue(scenario.snapshot))
   const [source] = useState(() =>
-    createDemoTriageSource({
-      access: scenario.access,
-      extraCloud: scenario.cloud,
-      ...(scenario.hold === undefined ? {} : { hold: scenario.hold }),
-      ...(scenario.listFails === undefined
-        ? {}
-        : { listFails: scenario.listFails }),
-      total: scenario.total,
-    }),
+    name === 'w-web'
+      ? createFilesTriageSource()
+      : createDemoTriageSource({
+          access: scenario.access,
+          extraCloud: scenario.cloud,
+          ...(scenario.hold === undefined ? {} : { hold: scenario.hold }),
+          ...(scenario.listFails === undefined
+            ? {}
+            : { listFails: scenario.listFails }),
+          total: scenario.total,
+        }),
   )
   const snapshot = useSyncExternalStore(queue.subscribe, queue.getSnapshot)
   useEffect(() => {
