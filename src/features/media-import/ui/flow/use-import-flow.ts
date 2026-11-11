@@ -135,7 +135,14 @@ export function useImportFlow(deps: ImportFlowDeps) {
   const [seriesId, setSeriesId] = useState<string | null>(
     deps.initial?.seriesId ?? null,
   )
-  const [quick, setQuick] = useState<QuickState | null>(null)
+  const [quick, setQuickState] = useState<QuickState | null>(null)
+  // Quick sort is read synchronously by its handlers: no side effects inside
+  // a state updater (React may run updaters twice).
+  const quickRef = useRef<QuickState | null>(null)
+  const setQuick = useCallback((next: QuickState | null) => {
+    quickRef.current = next
+    setQuickState(next)
+  }, [])
   const readToken = useRef(0)
 
   const commit = useCallback((next: TriageItem[]) => {
@@ -161,27 +168,30 @@ export function useImportFlow(deps: ImportFlowDeps) {
     [commit, store],
   )
 
-  const startQuick = useCallback((startId: string | null) => {
-    const scopeNow = itemsRef.current.filter(
-      (item) =>
-        item.selectionId === latestSelectionId(itemsRef.current) &&
-        item.status !== 'uploaded',
-    )
-    const found = scopeNow
-      .filter((item) => item.status === 'found')
-      .sort(byTime)
-      .map((item) => item.id)
-    let queue = found
-    if (startId !== null) {
-      const at = found.indexOf(startId)
-      queue =
-        at >= 0
-          ? [...found.slice(at), ...found.slice(0, at)]
-          : [startId, ...found]
-    }
-    setQuick({ history: [], pos: 0, queue })
-    setStep('quick')
-  }, [])
+  const startQuick = useCallback(
+    (startId: string | null) => {
+      const scopeNow = itemsRef.current.filter(
+        (item) =>
+          item.selectionId === latestSelectionId(itemsRef.current) &&
+          item.status !== 'uploaded',
+      )
+      const found = scopeNow
+        .filter((item) => item.status === 'found')
+        .sort(byTime)
+        .map((item) => item.id)
+      let queue = found
+      if (startId !== null) {
+        const at = found.indexOf(startId)
+        queue =
+          at >= 0
+            ? [...found.slice(at), ...found.slice(0, at)]
+            : [startId, ...found]
+      }
+      setQuick({ history: [], pos: 0, queue })
+      setStep('quick')
+    },
+    [setQuick],
+  )
 
   // Load what is remembered; decide between resume and a fresh start.
   useEffect(() => {
@@ -339,56 +349,52 @@ export function useImportFlow(deps: ImportFlowDeps) {
   /** Applies decisions to quick-sort items and moves on (undoable). */
   const quickApply = useCallback(
     (decisions: { decision: TriageDecision; id: string }[], skip: string[]) => {
-      setQuick((state) => {
-        if (state === null) return state
-        const now = new Date(clockRef.current()).toISOString()
-        const changes: QuickHistoryEntry['changes'] = []
-        const changed: TriageItem[] = []
-        for (const { decision, id } of decisions) {
-          const item = itemsRef.current.find((candidate) => candidate.id === id)
-          if (item === undefined) continue
-          const [next] = decide(itemsRef.current, new Set([id]), decision, now)
-          changes.push({ id, prev: item.status })
-          if (next !== undefined) changed.push(next)
-        }
-        persist(changed)
-        const skipSet = new Set(skip)
-        let pos = state.pos + 1
-        while (
-          pos < state.queue.length &&
-          skipSet.has(state.queue[pos] ?? '')
-        ) {
-          pos += 1
-        }
-        return {
-          history: [...state.history, { changes, posBefore: state.pos }],
-          pos,
-          queue: state.queue,
-        }
+      const state = quickRef.current
+      if (state === null) return
+      const now = new Date(clockRef.current()).toISOString()
+      const changes: QuickHistoryEntry['changes'] = []
+      const changed: TriageItem[] = []
+      for (const { decision, id } of decisions) {
+        const item = itemsRef.current.find((candidate) => candidate.id === id)
+        if (item === undefined) continue
+        const [next] = decide(itemsRef.current, new Set([id]), decision, now)
+        changes.push({ id, prev: item.status })
+        if (next !== undefined) changed.push(next)
+      }
+      persist(changed)
+      const skipSet = new Set(skip)
+      let pos = state.pos + 1
+      while (pos < state.queue.length && skipSet.has(state.queue[pos] ?? '')) {
+        pos += 1
+      }
+      setQuick({
+        history: [...state.history, { changes, posBefore: state.pos }],
+        pos,
+        queue: state.queue,
       })
     },
-    [persist],
+    [persist, setQuick],
   )
 
   const quickUndo = useCallback(() => {
-    setQuick((state) => {
-      const last = state?.history.at(-1)
-      if (state === null || last === undefined) return state
-      const now = new Date(clockRef.current()).toISOString()
-      const restored: TriageItem[] = []
-      for (const { id, prev } of last.changes) {
-        const item = itemsRef.current.find((candidate) => candidate.id === id)
-        if (item !== undefined)
-          restored.push({ ...item, status: prev, updatedAt: now })
+    const state = quickRef.current
+    const last = state?.history.at(-1)
+    if (state === null || last === undefined) return
+    const now = new Date(clockRef.current()).toISOString()
+    const restored: TriageItem[] = []
+    for (const { id, prev } of last.changes) {
+      const item = itemsRef.current.find((candidate) => candidate.id === id)
+      if (item !== undefined) {
+        restored.push({ ...item, status: prev, updatedAt: now })
       }
-      persist(restored)
-      return {
-        history: state.history.slice(0, -1),
-        pos: last.posBefore,
-        queue: state.queue,
-      }
+    }
+    persist(restored)
+    setQuick({
+      history: state.history.slice(0, -1),
+      pos: last.posBefore,
+      queue: state.queue,
     })
-  }, [persist])
+  }, [persist, setQuick])
 
   const markCloud = useCallback(
     (sourceIds: readonly string[]) => {

@@ -149,6 +149,29 @@ describe('ImportFlow', () => {
     expect(firstCall?.[1]).toHaveLength(1)
   })
 
+  it('quick sort undo restores the previous state exactly once per decision', async () => {
+    const { store } = setup()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Vybrat z knihovny' }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Probrat' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Rychlé třídění' }),
+    )
+    fireEvent.click(await screen.findByRole('button', { name: 'Ponechat' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Pryč' }))
+    expect(screen.getByText('3 z 30')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Zpět' }))
+    expect(screen.getByText('2 z 30')).toBeTruthy()
+    await waitFor(async () => {
+      const statuses = (await store.listItems(DEMO_JOURNEY, DEMO_OWNER)).map(
+        (i) => i.status,
+      )
+      expect(statuses.filter((x) => x === 'kept')).toHaveLength(1)
+      expect(statuses.filter((x) => x === 'dismissed')).toHaveLength(0)
+    })
+  })
+
   it('"upload all" confirms with count and size before enqueueing everything', async () => {
     const { enqueue } = setup()
     fireEvent.click(
