@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type DragEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   dayRange,
@@ -7,6 +7,22 @@ import {
 } from '@/features/media-import/model/range'
 import { dayKey } from '@/features/media-import/model/triage'
 import type { ImportRange } from '@/features/media-import/model/types'
+import { createThumbnailLoader } from '@/features/media-import/api/thumbnail-loader'
+import {
+  ConfirmRestSheet,
+  DismissedScreen,
+  GridScreen,
+  IcloudSheet,
+} from '@/features/media-import/ui/flow/GridScreens'
+import {
+  QuickScreen,
+  SeriesScreen,
+} from '@/features/media-import/ui/flow/QuickScreens'
+import { ThumbnailsContext } from '@/features/media-import/ui/flow/thumbnail-context'
+import {
+  estimateBytes,
+  seriesAround,
+} from '@/features/media-import/model/triage'
 import {
   ConfirmAllSheet,
   OverviewScreen,
@@ -59,7 +75,14 @@ export function ImportFlow(props: ImportFlowProps) {
     return [isoDay(new Date(end.getTime() - 30 * 86_400_000)), isoDay(end)]
   }
   const countToken = useRef(0)
-
+  const { markCloud } = flow
+  const loaders = useMemo(
+    () => ({
+      grid: createThumbnailLoader(source, { onCloud: markCloud, size: 256 }),
+      large: createThumbnailLoader(source, { onCloud: markCloud, size: 1024 }),
+    }),
+    [markCloud, source],
+  )
   // Live count behind the range sheet (metadata query only), debounced.
   const countTimer = useRef<number | null>(null)
   function requestCount(fromDay: string, toDay: string) {
@@ -132,6 +155,23 @@ export function ImportFlow(props: ImportFlowProps) {
 
   const uploadable = flow.scope.filter((item) => item.status !== 'dismissed')
   const uploadableCloud = uploadable.filter((item) => item.icloudOnly).length
+
+  const selectedCloud = flow.scope.filter(
+    (item) =>
+      (item.status === 'kept' || item.status === 'starred') && item.icloudOnly,
+  ).length
+  const requestUpload = () => {
+    if (flow.counts.found > 0 || selectedCloud > 0) {
+      flow.setSheet({ kind: 'confirmRest' })
+    } else void flow.startUpload('selected')
+  }
+  const quickItem =
+    flow.quick === null
+      ? null
+      : (flow.items.find((i) => i.id === flow.quick?.queue[flow.quick.pos]) ??
+        null)
+  const seriesItems =
+    flow.seriesId === null ? [] : seriesAround(flow.scope, flow.seriesId)
 
   const sinceRangeValue: ImportRange | undefined =
     props.lastImportAt === null ? undefined : sinceRange(props.lastImportAt)
@@ -215,21 +255,165 @@ export function ImportFlow(props: ImportFlowProps) {
       )
       break
     case 'dismissed':
+      screen = (
+        <DismissedScreen
+          counts={flow.counts}
+          current={flow.scope.filter((item) => item.status === 'dismissed')}
+          earlier={flow.previouslyDismissed}
+          locale={i18n.language}
+          onBack={() => {
+            flow.setStep(flow.counts.total > 0 ? 'grid' : 'select')
+          }}
+          onFilter={(next) => {
+            flow.setFilter(next)
+            flow.setStep('grid')
+          }}
+          onRestore={(ids) => {
+            flow.apply(new Set(ids), 'restore')
+          }}
+          onUpload={requestUpload}
+          timeZone={props.timeZone}
+        />
+      )
+      break
+    case 'grid':
+      screen = (
+        <GridScreen
+          counts={flow.counts}
+          filter={flow.filter}
+          items={flow.scope}
+          locale={i18n.language}
+          onBack={() => {
+            flow.setStep('overview')
+          }}
+          onFilter={flow.setFilter}
+          onKeepRest={(ids) => {
+            flow.apply(new Set(ids), 'keep')
+          }}
+          onOpen={(item) => {
+            if (item.icloudOnly) flow.setSheet({ id: item.id, kind: 'icloud' })
+            else flow.startQuick(item.id)
+          }}
+          onQuick={() => {
+            flow.startQuick(null)
+          }}
+          onShowDismissed={() => {
+            flow.setStep('dismissed')
+          }}
+          onUpload={requestUpload}
+          timeZone={props.timeZone}
+        />
+      )
+      break
+    case 'quick':
+      screen = (
+        <QuickScreen
+          canUndo={(flow.quick?.history.length ?? 0) > 0}
+          done={
+            flow.quick === null || flow.quick.pos >= flow.quick.queue.length
+          }
+          index={flow.quick?.pos ?? 0}
+          item={quickItem}
+          left={flow.counts.found}
+          locale={i18n.language}
+          onClose={() => {
+            flow.setStep('grid')
+          }}
+          onDecide={(decision) => {
+            if (quickItem !== null) {
+              flow.quickApply([{ decision, id: quickItem.id }], [])
+            }
+          }}
+          onSeries={() => {
+            if (quickItem !== null) {
+              flow.setSeriesId(quickItem.id)
+              flow.setStep('series')
+            }
+          }}
+          onUndo={flow.quickUndo}
+          seriesCount={
+            quickItem === null
+              ? 0
+              : seriesAround(flow.scope, quickItem.id).length
+          }
+          timeZone={props.timeZone}
+          total={flow.quick?.queue.length ?? 0}
+          up={flow.counts.selected}
+        />
+      )
+      break
+    case 'series':
+      screen = (
+        <SeriesScreen
+          locale={i18n.language}
+          members={seriesItems}
+          onBack={() => {
+            flow.setStep('quick')
+          }}
+          onConfirm={(keep) => {
+            flow.quickApply(
+              seriesItems.map((member) => ({
+                decision: keep.has(member.id) ? 'keep' : 'away',
+                id: member.id,
+              })),
+              seriesItems.map((member) => member.id),
+            )
+            flow.setStep('quick')
+          }}
+          timeZone={props.timeZone}
+        />
+      )
+      break
     case 'done':
     case 'empty':
     case 'error':
-    case 'grid':
     case 'icloudWaiting':
     case 'loading':
-    case 'quick':
     case 'resume':
-    case 'series':
     case 'upload':
       screen = null
   }
 
+  const icloudItem =
+    flow.sheet?.kind === 'icloud'
+      ? flow.items.find((i) => i.id === (flow.sheet as { id: string }).id)
+      : undefined
   const sheetNode =
-    flow.sheet?.kind === 'confirmAll' ? (
+    flow.sheet?.kind === 'confirmRest' ? (
+      <ConfirmRestSheet
+        allBytes={estimateBytes(uploadable)}
+        allCount={uploadable.length}
+        icloudCount={selectedCloud}
+        icloudDownload={flow.icloudDownload}
+        locale={i18n.language}
+        onAll={() => void flow.startUpload('all')}
+        onClose={() => {
+          flow.setSheet(null)
+        }}
+        onIcloud={flow.setIcloudDownload}
+        onReviewRest={() => {
+          flow.setSheet(null)
+          flow.setFilter('found')
+          flow.setStep('grid')
+        }}
+        onSelected={() => void flow.startUpload('selected')}
+        remaining={flow.counts.found}
+        selected={flow.counts.selected}
+      />
+    ) : icloudItem !== undefined ? (
+      <IcloudSheet
+        item={icloudItem}
+        locale={i18n.language}
+        onClose={() => {
+          flow.setSheet(null)
+        }}
+        onDecide={(decision) => {
+          flow.apply(new Set([icloudItem.id]), decision)
+          flow.setSheet(null)
+        }}
+        timeZone={props.timeZone}
+      />
+    ) : flow.sheet?.kind === 'confirmAll' ? (
       <ConfirmAllSheet
         count={uploadable.length}
         icloudCount={uploadableCloud}
@@ -254,8 +438,10 @@ export function ImportFlow(props: ImportFlowProps) {
       data-step={flow.step}
       data-testid="import-flow"
     >
-      {screen}
-      {sheetNode}
+      <ThumbnailsContext.Provider value={loaders}>
+        {screen}
+        {sheetNode}
+      </ThumbnailsContext.Provider>
       {flow.sheet?.kind === 'range' ? (
         <RangeSheet
           count={rangeCount}

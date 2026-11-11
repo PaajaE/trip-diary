@@ -908,6 +908,7 @@ export const cs: TranslationResources = {
         empty: 'Nic vyřazeného.',
       },
       confirmRest: {
+        startTitle: 'Nahrát {{count}} vybraných?',
         title_one: 'Zbývá probrat {{count}} fotku',
         title_few: 'Zbývá probrat {{count}} fotky',
         title_many: 'Zbývá probrat {{count}} fotky',

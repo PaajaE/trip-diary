@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   isOpenTriageStatus,
   type TriageItem,
+  type TriageStatus,
 } from '@/entities/media/model/triage-item'
 import type { TriageItemStore } from '@/entities/media/api/triage-items.store'
 import type {
@@ -13,6 +14,7 @@ import type {
   TriageSource,
 } from '@/features/media-import/api/triage-source'
 import {
+  byTime,
   decide,
   latestSelectionId,
   newSelectionId,
@@ -74,6 +76,17 @@ export interface ImportFlowDeps {
   store: TriageItemStore
 }
 
+interface QuickHistoryEntry {
+  changes: { id: string; prev: TriageStatus }[]
+  posBefore: number
+}
+
+export interface QuickState {
+  history: QuickHistoryEntry[]
+  pos: number
+  queue: string[]
+}
+
 export interface ReadProgress {
   read: number
   total: number | null
@@ -119,12 +132,10 @@ export function useImportFlow(deps: ImportFlowDeps) {
   })
   const [icloudDownload, setIcloudDownload] = useState(true)
   const [storeFailed, setStoreFailed] = useState(false)
-  const [quickId, setQuickId] = useState<string | null>(
-    deps.initial?.quickId ?? null,
-  )
   const [seriesId, setSeriesId] = useState<string | null>(
     deps.initial?.seriesId ?? null,
   )
+  const [quick, setQuick] = useState<QuickState | null>(null)
   const readToken = useRef(0)
 
   const commit = useCallback((next: TriageItem[]) => {
@@ -150,6 +161,28 @@ export function useImportFlow(deps: ImportFlowDeps) {
     [commit, store],
   )
 
+  const startQuick = useCallback((startId: string | null) => {
+    const scopeNow = itemsRef.current.filter(
+      (item) =>
+        item.selectionId === latestSelectionId(itemsRef.current) &&
+        item.status !== 'uploaded',
+    )
+    const found = scopeNow
+      .filter((item) => item.status === 'found')
+      .sort(byTime)
+      .map((item) => item.id)
+    let queue = found
+    if (startId !== null) {
+      const at = found.indexOf(startId)
+      queue =
+        at >= 0
+          ? [...found.slice(at), ...found.slice(0, at)]
+          : [startId, ...found]
+    }
+    setQuick({ history: [], pos: 0, queue })
+    setStep('quick')
+  }, [])
+
   // Load what is remembered; decide between resume and a fresh start.
   useEffect(() => {
     const life = { cancelled: false }
@@ -167,6 +200,11 @@ export function useImportFlow(deps: ImportFlowDeps) {
         }
         if (life.cancelled) return
         commit(stored)
+        const quickStart = deps.initial?.quickId
+        if (quickStart !== undefined) {
+          startQuick(quickStart)
+          setStep(deps.initial?.step ?? 'quick')
+        }
         if (deps.initial === undefined) {
           const selection = latestSelectionId(stored)
           const open = stored.some(
@@ -298,6 +336,60 @@ export function useImportFlow(deps: ImportFlowDeps) {
     [persist],
   )
 
+  /** Applies decisions to quick-sort items and moves on (undoable). */
+  const quickApply = useCallback(
+    (decisions: { decision: TriageDecision; id: string }[], skip: string[]) => {
+      setQuick((state) => {
+        if (state === null) return state
+        const now = new Date(clockRef.current()).toISOString()
+        const changes: QuickHistoryEntry['changes'] = []
+        const changed: TriageItem[] = []
+        for (const { decision, id } of decisions) {
+          const item = itemsRef.current.find((candidate) => candidate.id === id)
+          if (item === undefined) continue
+          const [next] = decide(itemsRef.current, new Set([id]), decision, now)
+          changes.push({ id, prev: item.status })
+          if (next !== undefined) changed.push(next)
+        }
+        persist(changed)
+        const skipSet = new Set(skip)
+        let pos = state.pos + 1
+        while (
+          pos < state.queue.length &&
+          skipSet.has(state.queue[pos] ?? '')
+        ) {
+          pos += 1
+        }
+        return {
+          history: [...state.history, { changes, posBefore: state.pos }],
+          pos,
+          queue: state.queue,
+        }
+      })
+    },
+    [persist],
+  )
+
+  const quickUndo = useCallback(() => {
+    setQuick((state) => {
+      const last = state?.history.at(-1)
+      if (state === null || last === undefined) return state
+      const now = new Date(clockRef.current()).toISOString()
+      const restored: TriageItem[] = []
+      for (const { id, prev } of last.changes) {
+        const item = itemsRef.current.find((candidate) => candidate.id === id)
+        if (item !== undefined)
+          restored.push({ ...item, status: prev, updatedAt: now })
+      }
+      persist(restored)
+      return {
+        history: state.history.slice(0, -1),
+        pos: last.posBefore,
+        queue: state.queue,
+      }
+    })
+  }, [persist])
+
   const markCloud = useCallback(
     (sourceIds: readonly string[]) => {
       const wanted = new Set(sourceIds)
@@ -428,15 +520,17 @@ export function useImportFlow(deps: ImportFlowDeps) {
     pickedLeft,
     previouslyDismissed,
     progress,
-    quickId,
+    quick,
+    quickApply,
+    quickUndo,
     read,
     run,
     scope,
     selectionId,
     seriesId,
     setFilter,
+    startQuick,
     setIcloudDownload,
-    setQuickId,
     setSeriesId,
     setSheet,
     setStep,

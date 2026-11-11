@@ -433,10 +433,13 @@ export function Switch({
 /** Bottom sheet over the current screen; Esc and the scrim close it. */
 export function Sheet({
   children,
+  hideTitle,
   onClose,
   title,
 }: {
   children: ReactNode
+  /** The sheet draws its own heading; the title stays for assistive tech. */
+  hideTitle?: boolean
   onClose: () => void
   title: string
 }) {
@@ -471,7 +474,13 @@ export function Sheet({
         tabIndex={-1}
       >
         <i className="mx-auto mb-1 block h-[5px] w-10 rounded-sm bg-border" />
-        <h2 className="text-xl leading-tight font-semibold" id={titleId}>
+        <h2
+          className={cn(
+            'text-xl leading-tight font-semibold',
+            hideTitle === true && 'sr-only',
+          )}
+          id={titleId}
+        >
           {title}
         </h2>
         {children}

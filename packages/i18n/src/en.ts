@@ -910,6 +910,7 @@ export const en = {
         empty: 'Nothing set aside.',
       },
       confirmRest: {
+        startTitle: 'Upload {{count}} selected?',
         title_one: '{{count}} photo left to review',
         title_few: '{{count}} photos left to review',
         title_many: '{{count}} photos left to review',

@@ -87,7 +87,7 @@ export interface TriageDay {
   remaining: number
 }
 
-function byTime(a: TriageItem, b: TriageItem): number {
+export function byTime(a: TriageItem, b: TriageItem): number {
   const left = a.capturedAt === null ? Infinity : Date.parse(a.capturedAt)
   const right = b.capturedAt === null ? Infinity : Date.parse(b.capturedAt)
   if (left !== right) return left < right ? -1 : 1

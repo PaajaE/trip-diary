@@ -26,12 +26,13 @@ export function formatDayRange(
 
 /** "Út 4. 8." for a day key. */
 export function formatDayHeading(key: string, locale: string): string {
-  return new Intl.DateTimeFormat(locale, {
+  const text = new Intl.DateTimeFormat(locale, {
     day: 'numeric',
     month: 'numeric',
     timeZone: 'UTC',
     weekday: 'short',
   }).format(dayDate(key))
+  return text.charAt(0).toLocaleUpperCase(locale) + text.slice(1)
 }
 
 /** "3. 8." for a day key. */
